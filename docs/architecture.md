@@ -273,7 +273,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── auth.module.ts
 │   │   │   ├── twofactor.service.ts  # Email one-time-code 2FA (idempotent)
 │   │   │   ├── session.service.ts    # Session/refresh concerns
-│   │   │   ├── mail.service.ts       # SMTP mailer (nodemailer)
+│   │   │   ├── mail.service.ts       # Email sending via Mailgun HTTP API
 │   │   │   ├── jwt.strategy.ts       # Reads token from httpOnly cookie
 │   │   │   ├── jwt-auth.guard.ts     # Route guard
 │   │   │   ├── jwt-payload.ts        # Type definitions

@@ -58,13 +58,13 @@ export class SocketServer {
   private userIdMap: Map<string, Map<PlayerColor, string>> = new Map();
 
   constructor() {
-    this.store = new RedisGameStore();
+    this.store = new RedisGameStore(process.env.REDIS_URL);
     this.publisher = new EventPublisher(this.store);
     this.clashManager = new ClashManager(this.store, this.publisher);
     this.engine = new LudoEngine(this.store, this.clashManager);
     const lobbyManager = new LobbyManager(this.store, this.publisher);
     this.engine.setLobbyManager(lobbyManager);
-    this.broadcaster = new RedisBroadcaster();
+    this.broadcaster = new RedisBroadcaster(process.env.REDIS_URL);
     this.resultSubmitter = new ResultSubmitter(
       this.engine, this.store, this.userIdMap,
       (gameId) => this.cleanupGame(gameId),

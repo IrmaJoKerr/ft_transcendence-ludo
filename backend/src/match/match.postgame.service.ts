@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
+import { createRedis } from '../redis';
 import { LeaderboardRedisService } from '../leaderboard/leaderboard-redis.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { NotificationService } from '../notification/notification.service';
@@ -27,10 +28,7 @@ export class MatchPostgameService {
 		private readonly achievements: AchievementsService,
 		private readonly notifications: NotificationService,
 	) {
-		const host = process.env.REDIS_HOST || 'redis';
-		const port = parseInt(process.env.REDIS_PORT || '6479', 10);
-		const password = secret('REDIS_PASSWORD');
-		this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
+		this.redis = createRedis();
 		this.redis.on('error', (error) => console.error('Redis error:', (error as Error).message));
 	}
 

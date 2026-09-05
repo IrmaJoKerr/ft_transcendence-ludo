@@ -45,7 +45,7 @@ The module also provides the `JwtAuthGuard` used by other modules to protect the
 | `ngrok_github_strategy.ts` | GitHub OAuth variant used in tunnel mode |
 | `ngrok_fortytwo_strategy.ts` | 42 OAuth variant used in tunnel mode |
 | `oauth.guards.ts` | Guard classes: `GoogleAuthGuard`, `GithubAuthGuard`, `FortyTwoAuthGuard` — pick strategy per request host |
-| `mail.service.ts` | SMTP email sending — verification links, 2FA codes, password-reset links (degrades to console logging without SMTP config) |
+| `mail.service.ts` | Email sending via Mailgun HTTP API — verification links, 2FA codes, password-reset links (degrades to console logging without Mailgun config) |
 | `session.service.ts` | Redis-backed refresh-token management with rotation and revocation |
 | `twofactor.service.ts` | Redis-backed 2FA challenge management: signup verification tokens, password-reset tokens, login codes. Idempotent — a live challenge is reused (no duplicate email) |
 | `dto/register.dto.ts` | Validation schema for `POST /api/auth/register` |
@@ -489,10 +489,9 @@ GET /api/auth/me (or any @UseGuards(JwtAuthGuard) route)
 | `passport-42` | 42 School OAuth |
 | `bcrypt` | Password hashing |
 | `class-validator` | DTO validation |
-| `nodemailer` | SMTP email delivery (verification, 2FA, password reset) |
 | `ioredis` | Redis client (SessionService, TwoFactorService) |
 | `PrismaService` | Database access (User, Account models) |
-| `secrets.ts` | Reads JWT_SECRET, OAuth client IDs/secrets/callback URLs, SMTP credentials from `/secrets/` files |
+| `secrets.ts` | Reads config/secrets from env (JWT_SECRET, OAuth ids/secrets/callbacks, Mailgun) |
 
 ---
 
@@ -513,7 +512,10 @@ Secrets are loaded from `/secrets/*.txt` files at runtime via `secrets.ts` (with
 | `FORTYTWO_CLIENT_SECRET` | FortyTwoStrategy |
 | `FORTYTWO_CALLBACK_URL` | FortyTwoStrategy |
 | `FRONTEND_URL` | AuthController (OAuth redirect target, defaults to `https://localhost:8443`) |
-| `SMTP_CREDENTIALS` | MailService (format: `[smtp.gmail.com]:587 address@gmail.com:app-password`) |
+| `MAILGUN_API_KEY` | MailService (Mailgun HTTP API) |
+| `MAILGUN_DOMAIN` | MailService (Mailgun sending domain) |
+| `MAILGUN_FROM` | MailService (Mailgun sender address) |
+| `MAILGUN_BASE_URL` | MailService (optional, default `https://api.mailgun.net`) |
 | `REDIS_PASSWORD` | SessionService, TwoFactorService |
 
 ### Environment Variables

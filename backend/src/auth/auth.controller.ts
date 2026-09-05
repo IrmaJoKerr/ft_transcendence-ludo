@@ -54,7 +54,7 @@ export class AuthController {
 
   // No cookie here anymore: the account must be email-verified before its
   // first login, and every login must pass the 2FA code step.
-  // Tight: each call sends a real email (SMTP is live), so an open register
+  // Tight: each call sends a real email (via Mailgun when configured), so an open register
   // route is both an account-spam vector and a way to use us as a mail bomb.
   @Throttle({ default: { limit: 3, ttl: HOUR_MS } })
   @Post('register')

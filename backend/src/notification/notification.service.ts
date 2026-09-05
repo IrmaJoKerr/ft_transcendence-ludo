@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Subject, Observable, finalize } from 'rxjs';
 import Redis from 'ioredis';
+import { createRedis } from '../redis';
 import { PrismaService } from '../prisma.service';
 
 import { randomUUID } from 'crypto';
@@ -54,13 +55,8 @@ export class NotificationService implements OnModuleDestroy {
   private broadcastClients = new Set<Subject<NotificationPayload>>();
 
   constructor(private readonly prisma: PrismaService) {
-    const host = process.env.REDIS_HOST || 'redis';
-    const port = parseInt(process.env.REDIS_PORT || '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    const opts = { host, port, password, retryStrategy: (t: number) => Math.min(t * 50, 2000) };
-
-    this.pub = new Redis(opts);
-    this.sub = new Redis(opts);
+    this.pub = createRedis();
+    this.sub = createRedis();
 
     this.pub.on('error', (e) => console.error('Notification pub Redis error:', (e as Error).message));
     this.sub.on('error', (e) => console.error('Notification sub Redis error:', (e as Error).message));

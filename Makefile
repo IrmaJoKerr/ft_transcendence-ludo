@@ -24,7 +24,7 @@ TUNNEL_VARS    = NGROK_AUTHTOKEN NGROK_DOMAIN NGROK_FRONTEND_URL \
                  NGROK_FORTYTWO_CLIENT_ID NGROK_FORTYTWO_CLIENT_SECRET NGROK_FORTYTWO_CALLBACK_URL
 # Everything the stack hard-requires: core secrets/DB/URLs + OAuth apps. These
 # are validated (and never auto-generated — a real .env is copied from a
-# teammate). LAN_IP and SMTP_CREDENTIALS are deliberately not in the list.
+# teammate). LAN_IP is deliberately not in the list.
 CORE_VARS      = JWT_SECRET POSTGRES_PASSWORD REDIS_PASSWORD ENGINE_API_KEY \
                  POSTGRES_USER POSTGRES_DB DATABASE_URL CONTAINER_DATABASE_URL \
                  FRONTEND_URL NGROK_PORT HTTPS_PORT
@@ -121,6 +121,24 @@ fclean: prune clean
 re: fclean all
 
 
+# ── DB RESET ─────────────────────────────────────────────────────────────────
+# Wipes the Postgres container + its db_data volume, rebuilds the db image, and
+# relinks the services that depend on it (backend/studio reconnect). The
+# backend's entrypoint re-runs `prisma db push` on boot, so the (empty) schema
+# is recreated automatically. Redis and the SPA build volume are untouched.
+dbreset: env
+	@echo "🗑️  Destroying the database (container + data volume)…"
+	@docker compose -f $(COMPOSE_FILE) rm -sfv db 2>/dev/null || true
+	@docker volume rm -f $$(docker volume ls --format '{{.Name}}' | grep '_db_data$$' || true) 2>/dev/null || true
+	@echo "🏗️  Rebuilding the db image…"
+	@docker compose -f $(COMPOSE_FILE) build db
+	@echo "🔗 Relinking db + dependents (backend, studio)…"
+	@docker compose -f $(COMPOSE_FILE) up -d --force-recreate db backend studio
+	@echo ""
+	@echo "✅ Database reset — empty schema recreated via 'prisma db push'."
+	@echo "   Want sample data?  →  cd backend && npm run db:seed"
+
+
 # ── LAN MODE ────────────────────────────────────────────────────────────────
 # Same WiFi. No OAuth env changes needed: nginx single-origins /api, so relative
 # paths resolve against whatever host the client typed. LAN_IP is auto-detected
@@ -168,5 +186,5 @@ stop-tunnel:
 	@echo "Stopped."
 
 .PHONY: all build start env \
-        dev stop down logs clean fclean prune re \
+        dev stop down logs clean fclean prune re dbreset \
         lan ngrok-auth tunnel tunnel-url dev-tunnel stop-tunnel

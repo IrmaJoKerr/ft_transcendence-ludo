@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import Redis from 'ioredis';
+import { createRedis } from '../redis';
 import { PrismaService } from '../prisma.service';
 import { PresenceService } from '../presence/presence.service';
 import { MatchService } from '../match/match.service';
@@ -16,11 +17,7 @@ export class FriendsService {
     private readonly matchService: MatchService,
     private readonly notificationService: NotificationService,
   ) {
-    const host = process.env.REDIS_HOST || 'redis';
-    const port = parseInt(process.env.REDIS_PORT || '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
+    this.redis = createRedis();
     this.redis.on('error', (error) => console.error('Redis error:', (error as Error).message));
   }
 

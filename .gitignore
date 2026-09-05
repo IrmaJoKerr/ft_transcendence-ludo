@@ -1,6 +1,4 @@
 # secrets & prisma generated client
-.env
-.env.example
 backend/generated/
 backend/dist/
 
@@ -33,7 +31,8 @@ dist-ssr
 # planning
 
 # generated documentation
-browser-patches.md
+online-deployment.md
+mailgun.md
 
 # dependencies
 /node_modules
@@ -70,7 +69,7 @@ yarn-error.log*
 
 # env files
 .env*
-!.env.example
+.env.example
 
 # vercel
 .vercel
@@ -78,6 +77,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-package-lock.json
 *.sh
 .markdownlint.json

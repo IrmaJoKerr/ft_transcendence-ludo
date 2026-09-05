@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { createRedis } from '../redis';
 import { secret } from '../secrets';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -29,11 +30,7 @@ export class PresenceService implements OnModuleDestroy {
     private readonly notifications: NotificationService,
   ) {
     // Host/port stay plain env — they're topology, not secrets.
-    const host = process.env.REDIS_HOST || 'redis';
-    const port = parseInt(process.env.REDIS_PORT || '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
+    this.redis = createRedis();
     this.redis.on('error', (error) => console.error('Redis error:', (error as Error).message));
   }
 

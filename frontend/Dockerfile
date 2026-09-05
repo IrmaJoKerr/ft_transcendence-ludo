@@ -10,7 +10,7 @@ FROM node:22-alpine
 RUN apk add --no-cache inotify-tools
 WORKDIR /app
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY . .
 RUN chmod +x publish.sh
 

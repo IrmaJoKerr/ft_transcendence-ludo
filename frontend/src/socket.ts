@@ -40,8 +40,9 @@ export type ClientEvents = {
 }
 
 // Always connects to the page's own origin — nginx (or, in dev, the Vite
-// proxy) forwards /socket.io/ to the engine, so the browser never needs to
-// know its real hostname/port. See nginx/conf/app.inc and vite.config.ts.
+// proxy) forwards /socket.io/ to the engine; in the deployed (no-nginx)
+// topology the backend proxies /socket.io to the engine too, so the browser
+// keeps a single origin end to end. See nginx/conf/app.inc and vite.config.ts.
 export function connectSocket(token: string): Socket<ServerEvents, ClientEvents> {
   return io(window.location.origin, {
     auth: { token },

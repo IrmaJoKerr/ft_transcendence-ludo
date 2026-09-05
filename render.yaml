@@ -1,0 +1,92 @@
+# render.yaml — Render blueprint for the Retro Ludo stack (free tier).
+#
+# Topology: the browser talks to ONE origin end to end.
+#   - ludo-backend  serves the built SPA + /api + /socket.io (proxied to the
+#                   engine) — auth cookies are sameSite: lax, so the SPA and API
+#                   must share an origin.
+#   - ludo-engine   the Socket.IO game server; only the backend talks to it.
+#   - Postgres      Supabase (DATABASE_URL)
+#   - Redis         Upstash  (REDIS_URL, rediss://…)
+#
+# Free-plan notes: both services sleep after ~15 min idle (Render free web
+# services) and take ~30–60 s to wake on the next request; active games keep
+# them awake. Render free also blocks outbound SMTP on ports 25/465/587, so
+# email goes out via the Mailgun HTTP API (MAILGUN_* env vars, see
+# backend/src/auth/mail.service.ts) instead of SMTP. If Mailgun is not
+# configured, MailService falls back to console-logging the mail body.
+#
+# Env vars marked `sync: false` must be filled in the Render dashboard:
+#   backend: DATABASE_URL, REDIS_URL, JWT_SECRET, ENGINE_API_KEY,
+#            FRONTEND_URL (the backend's own URL), ENGINE_URL (the engine's URL),
+#            GOOGLE/GITHUB/FORTYTWO client ids+secrets+callbacks
+#            (callbacks → https://<backend-url>/api/auth/<provider>/callback),
+#            MAILGUN_API_KEY/DOMAIN/FROM (+MAILGUN_BASE_URL if EU), CORS_ORIGIN (optional)
+#   engine:  REDIS_URL, ENGINE_API_KEY, BACKEND_URL (the backend's URL)
+
+services:
+  - type: web
+    name: ludo-backend
+    runtime: docker
+    dockerfilePath: deploy/backend.Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ENGINE_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: ENGINE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: MAILGUN_API_KEY
+        sync: false
+      - key: MAILGUN_DOMAIN
+        sync: false
+      - key: MAILGUN_FROM
+        sync: false
+      - key: MAILGUN_BASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CALLBACK_URL
+        sync: false
+      - key: FORTYTWO_CLIENT_ID
+        sync: false
+      - key: FORTYTWO_CLIENT_SECRET
+        sync: false
+      - key: FORTYTWO_CALLBACK_URL
+        sync: false
+
+  - type: web
+    name: ludo-engine
+    runtime: node
+    rootDir: backend/app/ludo-engine
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: REDIS_URL
+        sync: false
+      - key: ENGINE_API_KEY
+        sync: false
+      - key: BACKEND_URL
+        sync: false

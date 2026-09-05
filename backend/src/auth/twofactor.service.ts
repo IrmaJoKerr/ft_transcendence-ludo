@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
+import { createRedis } from '../redis';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { secret } from '../secrets';
 
@@ -22,12 +23,9 @@ export class TwoFactorService implements OnModuleDestroy {
   private redis: Redis;
 
   constructor() {
-    // Host/port stay plain env — they're topology, not secrets.
-    const host = process.env.REDIS_HOST || 'redis';
-    const port = parseInt(process.env.REDIS_PORT || '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
+    // Connection comes from REDIS_URL (managed Redis, e.g. Upstash) or the
+    // classic host/port/password env — see ../redis.ts.
+    this.redis = createRedis();
     this.redis.on('error', (error) => console.error('Redis error:', (error as Error).message));
   }
 
