@@ -14,7 +14,7 @@ import { MailService } from './mail.service';
 import { TwoFactorService } from './twofactor.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '../prisma.service';
-import { requireSecret } from '../secrets';
+import { requireSecret, secret } from '../secrets';
 import { NotificationModule } from '../notification/notification.module';
 
 // Both the localhost and ngrok OAuth apps are registered at once, under
@@ -44,10 +44,17 @@ import { NotificationModule } from '../notification/notification.module';
     GoogleStrategy,
     GithubStrategy,
     FortyTwoStrategy,
-    NgrokGoogleStrategy,
-    NgrokGithubStrategy,
-    NgrokFortyTwoStrategy,
     PrismaService,
+    // The ngrok-tunnel OAuth strategies are only registered while a tunnel is
+    // actually active (`make tunnel` sets TUNNEL_MODE=true). They call
+    // requireSecret('NGROK_*') in their constructors and would otherwise throw
+    // at boot on a TUNNEL_MODE-unset instance (e.g. the Render/`supabase-modded`
+    // deploy, which deliberately has no ngrok vars). Registration is disabled
+    // here because the per-request tunnel routing in oauth.guards.ts already
+    // never selects the '-tunnel' strategies unless the Host header is ngrok.
+    ...(secret('TUNNEL_MODE') === 'true'
+      ? [NgrokGoogleStrategy, NgrokGithubStrategy, NgrokFortyTwoStrategy]
+      : []),
   ],
   // Re-exported so feature modules (e.g. MatchModule) get the *configured*
   // JwtModule rather than registering a second, secret-less instance.
