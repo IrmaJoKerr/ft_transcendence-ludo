@@ -16,7 +16,7 @@
 
 The ludo-engine exposes a Socket.IO server on port 3001. All game communication happens through events. The engine requires JWT authentication in the handshake `auth` object.
 
-The server is started by `index.ts` which calls `SocketServer.start(3001)`. The `SocketServer` class in `socket/server.ts` is the orchestration root / composition root: it constructs and wires **all** of the engine's split services — `RedisGameStore` (persistence), `EventPublisher` (Redis pub/sub), `RedisBroadcaster` (room state broadcasts), `ClashManager` (clash QTE), `LudoEngine` (game state machine), `LobbyManager` (colors + ready check), `ResultSubmitter` (POST /api/game/end callback), `SocketHandlers` (which delegates `join_game` to `JoinManager`), `BotTurnScheduler` (bot turn timers), and `PostGameManager` (post-game timeout / rematch) — then routes engine events and socket events to those modules.
+The server is started by `index.ts` which calls `SocketServer.start(3001)`. The `SocketServer` class in `socket/server.ts` is the orchestration root / composition root: it constructs and wires **all** of the engine's split services — `RedisGameStore` (persistence), `EventPublisher` (Redis pub/sub), `RedisBroadcaster` (room state broadcasts), `ClashManager` (clash QTE), `LudoEngine` (game state machine), `LobbyManager` (colors + ready check), `ResultSubmitter` (POST /api/game/end callback), `SocketHandlers` (which delegates `join_game` to `JoinManager`), `BotTurnScheduler` (bot turn timers), and `PostGameManager` (post-game timeout, `end_game`) — then routes engine events and socket events to those modules.
 
 ---
 
@@ -30,7 +30,7 @@ The server is started by `index.ts` which calls `SocketServer.start(3001)`. The 
 | `socket/socket-handlers.ts` | `SocketHandlers` — client→server gameplay/lobby/lifecycle handlers; delegates `join_game` to `JoinManager` |
 | `socket/join-manager.ts` | `JoinManager` — the `join_game` flow (seat resolution, game creation, reconnects, auto-start, resume) |
 | `socket/bot-scheduler.ts` | `BotTurnScheduler` — bot turn timers + clash-freeze gating |
-| `socket/post-game.ts` | `PostGameManager` — post-game timeout, rematch voting, `end_game` |
+| `socket/post-game.ts` | `PostGameManager` — post-game timeout, `end_game` |
 | `socket/event-publisher.ts` | Redis pub/sub → Socket.IO bridge for multi-instance scaling |
 | `socket/redis-broadcaster.ts` | Room-based state broadcasts via Redis |
 | `socket/result-submitter.ts` | POST /api/game/end callback to backend |
@@ -213,30 +213,6 @@ socket.emit('resign');
 
 ---
 
-### `rematch`
-
-Vote for a rematch after the game has ended. At least 2 votes required.
-
-```js
-socket.emit('rematch');
-```
-
-**Response:** `game_created` event with new `gameId` (when quorum reached), or `game_timeout`.
-
----
-
-### `exit_post_game`
-
-Acknowledge the end of a game and leave the post-game lobby.
-
-```js
-socket.emit('exit_post_game');
-```
-
-**Response:** None. May trigger `game_timeout` if quorum is broken.
-
----
-
 ### `disconnect`
 
 Automatically handled by Socket.IO on connection drop.
@@ -258,8 +234,7 @@ Automatically handled by Socket.IO on connection drop.
 | `piece_moved` | `MoveResult` | After piece moved |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
-| `game_timeout` | none | Post-game lobby expired (60s) or rematch quorum broken |
-| `game_created` | `newGameId` (string) | Rematch quorum reached — broadcast to new game room |
+| `game_timeout` | none | Post-game lobby expired (60s) — finished room torn down |
 | `game_expired` | none | Idle lobby expired (5 min, < 2 seated) |
 | `player_exited` | `{ color }` | Player disconnected/resigned |
 | `player_aborted` | `{ color, username }` | A player aborted the game |
@@ -383,11 +358,11 @@ Module-level constants in the socket layer — edit the value at the top of the 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
 | `IDLE_LOBBY_TIMEOUT_MS` | `socket/server.ts` | 5 min | A WAITING room (< 2 seated) is aborted after this long idle |
-| `POST_GAME_TIMEOUT_MS` | `socket/server.ts` | 60 s | Post-game lobby auto-times-out if no rematch quorum |
+| `POST_GAME_TIMEOUT_MS` | `socket/server.ts` | 60 s | Post-game room auto-times-out after a game ends |
 | `BOT_STEP_ANIM_MS` | `socket/server.ts` | 220 ms | Per-step piece-move animation pacing used to time bot turns |
 | `BOT_THINK_MS` | `socket/server.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
 | `DICE_ANIM_MS` | `socket/server.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
 | `LOBBY_SWEEP_INTERVAL_MS` | `socket/server.ts` | 60 s | How often the lobby-expiry sweep runs |
-| `SLOT_COLORS` | `socket/socket-handlers.ts` | blue, red, green, yellow | Seat order used when creating games / rematches |
+| `SLOT_COLORS` | `socket/socket-handlers.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |
 | `BOT_PREFIX` | `socket/auth.ts` | `bot-` | Prefix that marks a user id as a bot |
 | `BACKEND_URL` | `socket/auth.ts` | `http://backend:3000` | Base URL the engine POSTs results to (env `BACKEND_URL`) |

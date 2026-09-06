@@ -1,5 +1,4 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
@@ -22,7 +21,6 @@ export class MatchPostgameService {
 
 	constructor(
 		private readonly prisma: PrismaService,
-		private readonly jwt: JwtService,
 		private readonly leaderboardRedis: LeaderboardRedisService,
 		private readonly achievements: AchievementsService,
 		private readonly notifications: NotificationService,
@@ -199,53 +197,7 @@ export class MatchPostgameService {
 		}
 	}
 
-	// Create a rematch from a completed game if at least 2 original players confirm.
-	// Copies the original match's players into a new WAITING room with a fresh invite code.
-	async rematch(gameId: string, userId: string) {
-		const data = await this.redis.hgetall(`match:${gameId}`);
-		if (!data || !data.id) throw new BadRequestException('Game not found');
-
-		const isPlayer = data.player1_id === userId || data.player2_id === userId ||
-			data.player3_id === userId || data.player4_id === userId;
-		if (!isPlayer) throw new BadRequestException('You are not a player in this game');
-
-		const pendingKey = `rematch:${gameId}`;
-		const pending = new Set<string>(JSON.parse(await this.redis.get(pendingKey) || '[]'));
-		pending.add(userId);
-		await this.redis.set(pendingKey, JSON.stringify(Array.from(pending)), 'EX', 86400);
-
-		const originalPlayers = [data.player1_id, data.player2_id, data.player3_id, data.player4_id].filter(Boolean);
-		const confirmedCount = originalPlayers.filter(p => pending.has(p)).length;
-
-		if (confirmedCount < 2) {
-			return { message: 'Waiting for more players', confirmed: confirmedCount, required: 2 };
-		}
-
-		const newGameId = crypto.randomUUID();
-		await this.redis.hset(`match:${newGameId}`, {
-			id: newGameId,
-			status: 'WAITING',
-			gameType: data.gameType || 'PVP',
-			inviteCode: data.inviteCode || '',
-			player1_id: data.player1_id,
-			player2_id: data.player2_id || '',
-			player3_id: data.player3_id || '',
-			player4_id: data.player4_id || '',
-			createdAt: Date.now().toString(),
-		});
-		await this.redis.expire(`match:${newGameId}`, 86400);
-		await this.redis.del(pendingKey);
-
-		const username = await this.prisma.db.user.findUnique({ where: { id: userId }, select: { username: true, displayName: true } });
-		const token = this.jwt.sign(
-			{ gameId: newGameId, playerId: userId, username: username?.username || undefined, displayName: username?.displayName ?? undefined, role: 'player1' },
-			{ expiresIn: '24h' },
-		);
-
-		return { gameId: newGameId, token, engineUrl: 'ws://localhost:3001' };
-	}
-
-	// Remove stale match/rematch keys older than 24h from Redis.
+	// Remove stale match keys older than 24h from Redis.
 	async cleanupStaleGames() {
 		const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
 		let cleaned = 0;
@@ -264,17 +216,6 @@ export class MatchPostgameService {
 			}
 		} while (cursor !== '0');
 
-		let rematchCursor = '0';
-		let rematchCleaned = 0;
-		do {
-			const [nextCursor, keys] = await this.redis.scan(rematchCursor, 'MATCH', 'rematch:*', 'COUNT', 100);
-			rematchCursor = nextCursor;
-			for (const key of keys) {
-				await this.redis.del(key);
-				rematchCleaned++;
-			}
-		} while (rematchCursor !== '0');
-
-		return { matchesCleaned: cleaned, rematchKeysCleaned: rematchCleaned };
+		return { matchesCleaned: cleaned };
 	}
 }

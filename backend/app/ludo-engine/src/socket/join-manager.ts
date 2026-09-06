@@ -44,7 +44,7 @@ export class JoinManager {
    * player's PREVIOUS seat and leaves their avatar on two slots at once. The
    * match hash is the authoritative source — handleSelectColor updates the
    * user's slot color there before any re-join happens — so prefer it.
-   * Spectators and guests have no hash slot and fall back to the token claim
+   * Guests have no hash slot and fall back to the token claim
    * (then the requested color).
    */
   private async resolveEffectiveColor(
@@ -143,8 +143,7 @@ export class JoinManager {
           // they're already seated in it (or reconnecting). The seat check uses
           // the Redis match record — disconnectedPlayers alone is in-memory and
           // would wrongly reject a refresh/reconnect after an engine restart.
-          // Spectators were removed from the app; hotseat is always the same
-          // physical device, so its seat (re)joins are allowed.
+          // hotseat is always the same physical device, so its seat (re)joins are allowed.
           const match = await this.store.getMatchData(effectiveGameId);
           const seatIds = match
             ? [match.player1_id, match.player2_id, match.player3_id, match.player4_id].filter(Boolean)

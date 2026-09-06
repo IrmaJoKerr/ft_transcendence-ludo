@@ -62,8 +62,7 @@ Complete reference of all HTTP and WebSocket APIs in the project. Updated 29 Aug
    - [`POST /api/match/pve`](#post-apimatchpve) — Start a single-player game against bots
    - [`POST /api/match/create`](#post-apimatchcreate) — Create any game (PvP / PvE / hotseat) with full options
 
-7. **[Match — Rematch & Cleanup](#7-match--rematch--cleanup)** — Rematch votes and stale-game cleanup
-   - [`POST /api/match/rematch/:gameId`](#post-apimatchrematchgameid) — Vote for a rematch after a game ends
+7. **[Match — Cleanup](#7-match--cleanup)** — Stale-game cleanup
    - [`POST /api/match/cleanup`](#post-apimatchcleanup) — Remove stale/abandoned match data
 
 8. **[Game Actions — Room](#8-game-actions--room)** — Ready, resign, exit, abort, rejoin, invite
@@ -127,7 +126,7 @@ Complete reference of all HTTP and WebSocket APIs in the project. Updated 29 Aug
 ### WebSocket APIs — Ludo Engine
 
 20. **[Connection](#20-connection)** — Connect to the game engine with a match token
-21. **[Client → Server Events](#21-client--server-events-emit)** — What the client sends: join, roll dice, move pieces, ready, rematch
+21. **[Client → Server Events](#21-client--server-events-emit)** — What the client sends: join, roll dice, move pieces, ready, end game
 22. **[Server → Client Events](#22-server--client-events-on)** — What the client receives: state updates, dice/move results, game end
 23. **[End-to-End Flow](#23-end-to-end-flow)** — A complete walkthrough from login to a finished game
 
@@ -933,45 +932,7 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
 
 ---
 
----
-
-### 7. Match — Rematch & Cleanup
-
-#### `POST /api/match/rematch/:gameId`
-
-**Source:** `backend/src/match/match.controller.ts` — MatchModule
-
-Request a rematch after game ends.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Path:** `:gameId` = original game ID  
-**Response:**
-
-```json
-{
-  "gameId": "uuid (new game ID)",
-  "token": "jwt-string",
-  "engineUrl": "ws://localhost:8443"
-}
-
-```
-
-**or (waiting for more players):**
-
-```json
-{
-  "message": "Waiting for more players",
-  "confirmed": 1,
-  "required": 2
-}
-
-```
-
-**Notes:**
-- Minimum 2 confirmations required to start rematch.
-- Uses Redis set `rematch:{gameId}` with 24h TTL.
-
----
+### 7. Match — Cleanup
 
 #### `POST /api/match/cleanup`
 
@@ -1953,36 +1914,6 @@ socket.emit('resign');
 
 ---
 
-#### `rematch`
-
-**Source:** `backend/app/ludo-engine/src/socket/post-game.ts` (`PostGameManager.handleRematch`)
-
-Vote for a rematch after the game has ended. At least 2 player votes are required to trigger a rematch.
-
-```js
-socket.emit('rematch');
-
-```
-
-**Response:** `game_created` event with new `gameId` (broadcast when quorum reached), or `game_timeout` if insufficient votes.
-
----
-
-#### `exit_post_game`
-
-**Source:** `backend/app/ludo-engine/src/socket/post-game.ts` (`PostGameManager.handleExitPostGame`)
-
-Acknowledge the end of a game and leave the post-game lobby. Removes rematch vote if present.
-
-```js
-socket.emit('exit_post_game');
-
-```
-
-**Response:** None — socket leaves the post-game state. May trigger `game_timeout` if quorum is broken.
-
----
-
 #### `disconnect`
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleDisconnect`)
@@ -2007,8 +1938,7 @@ Automatically handled when the WebSocket connection drops. Marks player as disco
 | `piece_moved` | `MoveResult` | After piece moved |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
-| `game_timeout` | none | Post-game lobby expired (60s) or rematch quorum broken |
-| `game_created` | `newGameId` (string) | Rematch quorum reached — broadcast to new game room |
+| `game_timeout` | none | Post-game lobby expired (60s) — room torn down |
 | `game_expired` | none | Idle lobby expired (5 min, < 2 seated) |
 | `player_exited` | `{ color }` | Player disconnected/resigned |
 | `player_aborted` | `{ color, username }` | A player aborted the game |
@@ -2049,10 +1979,8 @@ Automatically handled when the WebSocket connection drops. Marks player as disco
    (engine calls POST /api/game/end automatically)
 
 7. Post-game:
-   socket.emit('rematch')          // vote for rematch
-   socket.emit('exit_post_game')   // leave lobby (no rematch)
-   ← socket.on('game_timeout')     // lobby expired
-   ← socket.on('game_created')     // rematch started
+   ← socket.on('game_timeout')     // finished room expired after 60s
+   (or emit 'end_game' to abandon early)
 
 ```
 

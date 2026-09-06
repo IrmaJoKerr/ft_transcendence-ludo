@@ -53,7 +53,7 @@ type LastResult = {
     isBot: boolean  // Whether it is a bot
     piecesInGoal: number  // Pieces finished (0-4)
   }>
-  abandoned?: boolean   // abandoned/expired match → no podium/rematch
+  abandoned?: boolean   // abandoned/expired match → no winner/podium
 } | null
 ```
 

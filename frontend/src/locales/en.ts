@@ -716,7 +716,6 @@ export const en = {
     ratingLabel: 'Rating',
     xpLabel: 'XP',
     coinsLabel: 'Coins',
-    rematchBtn: 'Rematch',
     abandoned: 'Game Abandoned',
     abandonedDesc: 'No rating change — the match was abandoned.',
     noRecentResult: 'No recent match result',

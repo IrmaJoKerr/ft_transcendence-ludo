@@ -92,9 +92,6 @@ export class MatchService {
 	async processGameEnd(data: any) {
 		return this.postgame.processGameEnd(data);
 	}
-	async rematch(gameId: string, userId: string) {
-		return this.postgame.rematch(gameId, userId);
-	}
 	async cleanupStaleGames() {
 		return this.postgame.cleanupStaleGames();
 	}

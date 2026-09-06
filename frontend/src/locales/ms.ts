@@ -715,7 +715,6 @@ export const ms = {
     ratingLabel: 'Penilaian',
     xpLabel: 'XP',
     coinsLabel: 'Syiling',
-    rematchBtn: 'Perlawanan Semula',
     abandoned: 'Permainan Ditinggalkan',
     abandonedDesc: 'Tiada perubahan penarafan — perlawanan ditinggalkan.',
     noRecentResult: 'Tiada keputusan perlawanan terkini',

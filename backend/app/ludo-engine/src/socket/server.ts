@@ -7,7 +7,7 @@ import { getOrCreateBot } from '../bot';
 import { EventPublisher } from './event-publisher';
 import { RedisBroadcaster } from './redis-broadcaster';
 import { ResultSubmitter } from './result-submitter';
-import { SocketHandlers, SLOT_COLORS } from './socket-handlers';
+import { SocketHandlers } from './socket-handlers';
 import { BotTurnScheduler } from './bot-scheduler';
 import { PostGameManager } from './post-game';
 import { verifyToken, GameSocket } from './auth';
@@ -74,8 +74,7 @@ export class SocketServer {
     );
     this.postGame = new PostGameManager(
       () => this.io,
-      this.store, this.engine, this.publisher, this.userIdMap,
-      SLOT_COLORS, POST_GAME_TIMEOUT_MS,
+      this.store, this.engine, this.publisher, POST_GAME_TIMEOUT_MS,
       (gameId) => this.cleanupGame(gameId),
     );
     this.handlers = new SocketHandlers(
@@ -168,12 +167,11 @@ export class SocketServer {
 
   /**
    * Tear down a game's in-memory state. Called whenever a game finishes,
-   * is aborted, expires, or is rematched. The per-concern state lives in
-   * the sub-managers, so each is cleared here too.
+   * is aborted, or expires. The per-concern state lives in the sub-managers,
+   * so each is cleared here too.
    */
   private cleanupGame(gameId: string): void {
     this.userIdMap.delete(gameId);
-    this.postGame.clear(gameId);
     this.botScheduler.clear(gameId);
   }
 
@@ -268,12 +266,6 @@ export class SocketServer {
 
       socket.on('disconnect', () =>
         this.handlers.handleDisconnect(socket));
-
-      socket.on('rematch', () =>
-        this.postGame.handleRematch(socket));
-
-      socket.on('exit_post_game', () =>
-        this.postGame.handleExitPostGame(socket));
     });
   }
 }

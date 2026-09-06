@@ -85,7 +85,7 @@ export type LastResult = {
   mode: 'pvp' | 'pve' | 'hotseat'
   playerCount: number
   players: Array<{ color: PlayerColor; username: string; isBot: boolean; piecesInGoal: number }>
-  /** True when the match was abandoned/expired — a different Results card (no podium/rematch). */
+  /** True when the match was abandoned/expired — a different Results card (no winner/podium). */
   abandoned?: boolean
 } | null
 

@@ -275,7 +275,7 @@ All project documentation lives under `docs/`, grouped by category. Each file is
 | [docs/frontend/frontend-dashboard-module.md](docs/frontend/frontend-dashboard-module.md) | Dashboard (superseded by Home) |
 | [docs/frontend/frontend-lobby-module.md](docs/frontend/frontend-lobby-module.md) | Game lobby — mode/seat setup, match creation |
 | [docs/frontend/frontend-game-module.md](docs/frontend/frontend-game-module.md) | Real-time gameplay page (Socket.IO) |
-| [docs/frontend/frontend-results-module.md](docs/frontend/frontend-results-module.md) | Post-game results and rematch |
+| [docs/frontend/frontend-results-module.md](docs/frontend/frontend-results-module.md) | Post-game results card |
 | [docs/frontend/frontend-friends-module.md](docs/frontend/frontend-friends-module.md) | Friends page — list, requests, blocked, invites |
 | [docs/frontend/frontend-leaderboard-module.md](docs/frontend/frontend-leaderboard-module.md) | Leaderboard page |
 | [docs/frontend/frontend-settings-module.md](docs/frontend/frontend-settings-module.md) | Settings (AccountMenu, game preferences) |

@@ -164,7 +164,7 @@ The two are not interchangeable.
 Several distinct uses:
 
 - **Leaderboard cache** — `LeaderboardRedisService`, sorted sets keyed `leaderboard:{mode}`, with a PostgreSQL fallback on read failure.
-- **Live game state** — `MatchService` (matchmaking, rematch, active games) and the engine's `RedisGameStore`.
+- **Live game state** — `MatchService` (matchmaking, active games) and the engine's `RedisGameStore`.
 - **Presence** — heartbeat keys per user for online/offline/playing status (`PresenceService`).
 - **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
 
@@ -295,7 +295,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   └── friends.module.ts
 │   │   │
 │   │   ├── match/                # Matchmaking & game lifecycle
-│   │   │   ├── match.controller.ts   # PvP/PvE/hotseat, rematch, game end
+│   │   │   ├── match.controller.ts   # PvP/PvE/hotseat, game end
 │   │   │   ├── match.service.ts      # Redis matchmaking, rating updates
 │   │   │   ├── match.creator.service.ts  # game creation/join
 │   │   │   ├── match.player.service.ts    # in-game actions
@@ -354,7 +354,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │           ├── socket-handlers.ts    # roll_dice, move_piece, clash_input, …
 │   │   │           ├── join-manager.ts       # JoinManager — join_game flow
 │   │   │           ├── bot-scheduler.ts      # BotTurnScheduler — bot turn timers
-│   │   │           ├── post-game.ts          # PostGameManager — rematch / end_game
+│   │   │           ├── post-game.ts          # PostGameManager — post-game timeout / end_game
 │   │   │           ├── auth.ts               # JWT middleware, GameSocket type
 │   │   │           ├── event-publisher.ts    # Redis pub/sub → Socket.IO bridge
 │   │   │           ├── redis-broadcaster.ts  # Room-based state broadcasts

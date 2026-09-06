@@ -38,7 +38,7 @@ export function applyMoveOutcome(
     }
   }
 
-  // Increment the game-wide ply counter: every move gets a unique number that
+  // Increment the game-wide play counter: every move gets a unique number that
   // appears in the recorded move history and in the move result (`result.ply`).
   state.moveCounter++;
 

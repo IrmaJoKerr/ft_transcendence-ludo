@@ -18,11 +18,11 @@
 The Match module is the bridge between the REST API and the real-time ludo-engine. It handles:
 
 1. **Matchmaking** — creates or joins PvP, PvE, or invite games.
-2. **Game lifecycle** — transitions games from `waiting` → `active` → `completed`, handles rematch votes.
+2. **Game lifecycle** — transitions games from `waiting` → `active` → `completed`.
 3. **Active-game tracking** — `GET /api/games/active` lists currently running games.
 4. **Cleanup** — periodic cleanup of stale Redis match data.
 
-The module uses Redis for short-lived match data (queues, active games, rematch votes) and lets the ludo-engine own the actual game logic over Socket.IO.
+The module uses Redis for short-lived match data (queues, active games) and lets the ludo-engine own the actual game logic over Socket.IO.
 
 ---
 
@@ -35,7 +35,7 @@ The module uses Redis for short-lived match data (queues, active games, rematch 
 | `match.creator.service.ts` | Match creation: PvP/PvE/hotseat, invite codes, random match, bot seeding |
 | `match.player.service.ts` | In-game actions: join, rejoin, invite friend, ready, exit, cancel, resign |
 | `match.query.service.ts` | Browse queries: active games, open rooms, my rooms |
-| `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, achievements), rematch votes, stale-game cleanup |
+| `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, achievements), stale-game cleanup |
 | `match.module.ts` | NestJS module — registers all services, PrismaService |
 
 ---
@@ -87,7 +87,6 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
 | `POST` | `/api/match/join/:code` | JWT | Join PvP match by invite code |
 | `POST` | `/api/match/pve` | JWT | Start PvE (vs bot) game |
 | `POST` | `/api/match/create` | JWT | Unified match creation (mode required: pvp/pve/hotseat; body supports `clashEnabled`, `safeZones`, `botColors`, `seatColors`) |
-| `POST` | `/api/match/rematch/:gameId` | JWT | Vote for rematch after game ends |
 | `POST` | `/api/match/cleanup` | JWT | Clean up stale match data |
 | `POST` | `/api/game/:id/ready` | JWT | Signal player is ready |
 | `POST` | `/api/game/:id/resign` | JWT | Forfeit the game |
@@ -177,27 +176,6 @@ sequenceDiagram
     Site-->>User: Take you into the game
 ```
 
-### 5. Rematch Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Site as Your App
-    participant Server as Backend
-
-    User->>Site: Click "Play again" after a match
-    Site->>Server: POST /api/match/rematch/{gameId}
-    Server->>Server: Count the "yes" votes from both players
-    alt Both players voted yes (>= 2)
-        Server->>Server: Create the rematch game
-        Server-->>Site: { gameId, token, engineUrl }
-        Site-->>User: Take you into the new game
-    else Still waiting for the other player
-        Server-->>Site: "Waiting..." (votes: 1/2)
-        Site-->>User: Show "waiting for the other player"
-    end
-```
-
 ---
 
 ## Logic Paths Summary
@@ -235,15 +213,6 @@ POST /api/match/pve
   └── Return { gameId, token, engineUrl }
 ```
 
-### Rematch Path
-```
-POST /api/match/rematch/:gameId
-  ├── Redis: SADD rematch:{gameId}, userId
-  ├── SCARD rematch:{gameId}
-  │   ├── >= 2 → create new game, issue tokens, DEL rematch key → return { gameId, token, engineUrl }
-  │   └── < 2 → return { message, confirmed, required }
-```
-
 ### In-Game Actions Path
 ```
 POST /api/game/:id/ready
@@ -273,7 +242,7 @@ GET /api/games/active
 |-----------|---------|
 | `LeaderboardRedisService` | Reads/writes Redis sorted sets for rating updates |
 | `PresenceService` | Updates player presence when entering/leaving games |
-| `Redis` (ioredis) | Match state, invite codes, rematch votes |
+| `Redis` (ioredis) | Match state, invite codes |
 | `PrismaService` | Game history, rating updates, achievement evaluation |
 | `JwtService` | Issue JWTs for Socket.IO engine handshake |
 | `secrets.ts` | `ENGINE_API_KEY` for validating engine callbacks |

@@ -715,7 +715,6 @@ export const fr = {
     ratingLabel: 'Points',
     xpLabel: 'XP',
     coinsLabel: 'Pièces',
-    rematchBtn: 'Revanche',
     abandoned: 'Partie abandonnée',
     abandonedDesc: 'Aucun changement de score — la partie a été abandonnée.',
     noRecentResult: 'Aucun résultat récent',
