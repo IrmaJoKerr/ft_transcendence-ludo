@@ -6,12 +6,6 @@ NGROK_DOMAIN  := $(call env_get,NGROK_DOMAIN)
 HTTPS_PORT    := $(or $(call env_get,HTTPS_PORT),8443)
 NGROK_AUTHTOKEN := $(call env_get,NGROK_AUTHTOKEN)
 NGROK_FLAGS    = $(if $(NGROK_DOMAIN),--url=https://$(NGROK_DOMAIN),)
-# LAN IP is AUTO-DETECTED first — the stored .env value can go stale when DHCP
-# hands the machine a new address (which silently breaks the "Other devices on
-# this WiFi" URL). Detection falls back to the .env value only when the machine
-# has no LAN address (e.g. not on WiFi). The env target re-writes the detected
-# value back into .env so the config never drifts.
-LAN_IP        := $(or $(shell ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p'),$(shell ipconfig getifaddr en0 2>/dev/null),$(shell ipconfig getifaddr en1 2>/dev/null),$(call env_get,LAN_IP))
 OAUTH_VARS     = GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GOOGLE_CALLBACK_URL \
                  GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET GITHUB_CALLBACK_URL \
                  FORTYTWO_CLIENT_ID FORTYTWO_CLIENT_SECRET FORTYTWO_CALLBACK_URL
@@ -24,7 +18,7 @@ TUNNEL_VARS    = NGROK_AUTHTOKEN NGROK_DOMAIN NGROK_FRONTEND_URL \
                  NGROK_FORTYTWO_CLIENT_ID NGROK_FORTYTWO_CLIENT_SECRET NGROK_FORTYTWO_CALLBACK_URL
 # Everything the stack hard-requires: core secrets/DB/URLs + OAuth apps. These
 # are validated (and never auto-generated — a real .env is copied from a
-# teammate). LAN_IP and SMTP_CREDENTIALS are deliberately not in the list.
+# teammate). SMTP_CREDENTIALS is deliberately not in the list.
 CORE_VARS      = JWT_SECRET POSTGRES_PASSWORD REDIS_PASSWORD ENGINE_API_KEY \
                  POSTGRES_USER POSTGRES_DB DATABASE_URL CONTAINER_DATABASE_URL \
                  FRONTEND_URL NGROK_PORT HTTPS_PORT
@@ -32,13 +26,11 @@ CORE_VARS      = JWT_SECRET POSTGRES_PASSWORD REDIS_PASSWORD ENGINE_API_KEY \
 all: build start
 	@ echo "Frontend: https://localhost:$(HTTPS_PORT)"
 
-# Config validation + LAN_IP refresh: fails hard if .env is missing or any
+# Config validation: fails hard if .env is missing or any
 # required value is absent/empty (core secrets/DB/URLs, OAuth apps, ngrok
 # tunnel credentials — the backend's requireSecret() fails fast on boot
 # without them). Nothing is auto-generated: a real .env is copied from a
-# teammate. LAN_IP is best-effort — empty is allowed, but if the current
-# machine address can be detected it is written back so `make lan`'s URL
-# never goes stale. Used by every build/start path exactly once. Values live
+# teammate. Used by every build/start path exactly once. Values live
 # in .env now, one KEY=VALUE per line, read directly by compose's env_file:
 # and by dotenv on the host side.
 env:
@@ -48,13 +40,6 @@ env:
 	fi; \
 	set -e; \
 	get() { grep -m1 "^$$1=" .env 2>/dev/null | cut -d= -f2-; }; \
-	set_kv() { \
-	  if grep -q "^$$1=" .env 2>/dev/null; then \
-	    tmp=$$(mktemp); awk -F= -v k="$$1" -v v="$$2" 'BEGIN{OFS="="} $$1==k{$$0=k"="v} {print}' .env > "$$tmp" && mv "$$tmp" .env; \
-	  else \
-	    printf '%s=%s\n' "$$1" "$$2" >> .env; \
-	  fi; \
-	}; \
 	missing=""; \
 	for v in $(CORE_VARS) $(OAUTH_VARS) $(TUNNEL_VARS); do [ -n "$$(get $$v)" ] || missing="$$missing $$v"; done; \
 	if [ -n "$$missing" ]; then \
@@ -63,10 +48,6 @@ env:
 	  echo "   Fill them in (see .env.example), or ask a teammate for the values."; \
 	  exit 1; \
 	fi; \
-	lan_ip=$$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p'); \
-	[ -n "$$lan_ip" ] || lan_ip=$$(ipconfig getifaddr en0 2>/dev/null); \
-	[ -n "$$lan_ip" ] || lan_ip=$$(ipconfig getifaddr en1 2>/dev/null); \
-	if [ -n "$$lan_ip" ]; then set_kv LAN_IP "$$lan_ip"; fi; \
 	chmod 600 .env; \
 	echo "✅ .env ready — all required values present"
 
@@ -120,22 +101,6 @@ fclean: prune clean
 # from a clean slate (env preflight re-runs against .env).
 re: fclean all
 
-
-# ── LAN MODE ────────────────────────────────────────────────────────────────
-# Same WiFi. No OAuth env changes needed: nginx single-origins /api, so relative
-# paths resolve against whatever host the client typed. LAN_IP is auto-detected
-# and written back into .env on every build (see the env target), so the URL
-# printed below always matches the machine's current address.
-lan: all
-	@if [ -z "$(LAN_IP)" ]; then echo "❌  No LAN IP on en0/en1 — are you on WiFi?"; exit 1; fi
-	@echo ""
-	@echo "🌐  LAN mode up.  Other devices on this WiFi:"
-	@echo "      https://$(LAN_IP):$(HTTPS_PORT)"
-	@echo ""
-	@echo "    Self-signed cert → tap through the browser warning once."
-	@echo "    Nothing shows up? Campus/corporate WiFi client isolation blocks"
-	@echo "    device-to-device traffic — use a phone hotspot to test."
-
 # ── NGROK MODE ──────────────────────────────────────────────────────────────
 ngrok-auth:
 	@if [ -z "$(NGROK_AUTHTOKEN)" ]; then echo "❌  ngrok authtoken missing — set NGROK_AUTHTOKEN in .env"; exit 1; fi; \
@@ -169,4 +134,4 @@ stop-tunnel:
 
 .PHONY: all build start env \
         dev stop down logs clean fclean prune re \
-        lan ngrok-auth tunnel tunnel-url dev-tunnel stop-tunnel
+        ngrok-auth tunnel tunnel-url dev-tunnel stop-tunnel

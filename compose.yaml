@@ -17,7 +17,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
-      # Loopback-only: in LAN mode a bare "5432:5432" would expose Postgres
+      # Loopback-only: a bare "5432:5432" would expose Postgres
       # to every device on the WiFi. Still reachable from the host for psql.
       - 127.0.0.1:5432:5432
     healthcheck:
@@ -43,7 +43,7 @@ services:
       - "6479"
     ports:
       # Loopback-only: lets `npm run db:seed` and other scripts reach Redis
-      # from the host. Not for LAN/production exposure.
+      # from the host. Not for direct exposure.
       - 127.0.0.1:6479:6479
 
     healthcheck:

@@ -39,7 +39,7 @@ cd ft_transcendence
 make
 ```
 
-`make` builds the images and starts the stack (the `make env` step it runs first validates the `.env` values and refreshes `LAN_IP`). Then open https://localhost:8443 in your browser — accept the self-signed certificate warning on first visit.
+`make` builds the images and starts the stack (the `make env` step it runs first validates the `.env` values). Then open https://localhost:8443 in your browser — accept the self-signed certificate warning on first visit.
 
 ### Development mode (hot reload)
 
@@ -53,7 +53,7 @@ make dev
 
 | Command | Effect |
 |---|---|
-| `make env` | Validate required `.env` values, refresh `LAN_IP` |
+| `make env` | Validate required `.env` values |
 | `make` or `make all` | Build images and start the stack |
 | `make build` | Build images only (runs `make env` first) |
 | `make start` | Start the stack (detached) |
@@ -62,7 +62,6 @@ make dev
 | `make logs` | Tail service logs |
 | `make clean` / `make prune` | Remove all Docker data / `docker system prune` |
 | `make fclean` / `make re` | `prune` + `clean` / full rebuild from scratch |
-| `make lan` | Print the LAN URL for other devices on the same WiFi |
 | `make tunnel` / `make tunnel-url` | Start the ngrok tunnel / print its public URL |
 | `make stop-tunnel` | Kill ngrok and stop the dev containers |
 
@@ -78,7 +77,7 @@ make dev
 
 ### Configuration (.env)
 
-All config lives in the root `.env` (`KEY=VALUE` per line), loaded into containers via compose's `env_file:`. It is gitignored and shared between the team only (via Discord). `make` validates it and **fails early** if `.env` is missing or any required field is empty, and refreshes `LAN_IP`. OAuth credentials are added manually from the provider consoles (Google, GitHub, 42).
+All config lives in the root `.env` (`KEY=VALUE` per line), loaded into containers via compose's `env_file:`. It is gitignored and shared between the team only (via Discord). `make` validates it and **fails early** if `.env` is missing or any required field is empty. OAuth credentials are added manually from the provider consoles (Google, GitHub, 42).
 
 ## Team Information
 
@@ -240,8 +239,7 @@ All project documentation lives under `docs/`, grouped by category. Each file is
 
 | Document | Responsibility |
 |---|---|
-| [docs/deploy/nginx.md](docs/deploy/nginx.md) | How nginx fronts every mode (local, LAN, tunnel) without the frontend or backend knowing which one is active |
-| [docs/deploy/lan.md](docs/deploy/lan.md) | Reaching the app from another device on the same WiFi |
+| [docs/deploy/nginx.md](docs/deploy/nginx.md) | How nginx fronts every mode (local, tunnel) without the frontend or backend knowing which one is active |
 | [docs/deploy/tunnel.md](docs/deploy/tunnel.md) | Reaching the app from the internet via an ngrok tunnel |
 
 #### Backend (NestJS API)
@@ -320,7 +318,6 @@ material was reviewed and adapted by the team member responsible for that area.
 
 - The self-signed certificate triggers a browser warning on first visit (expected — it is a local development setup).
 - Ngrok's free tier shows an interstitial page for new visitors.
-- Campus/corporate WiFi may block device-to-device traffic in LAN mode (use a phone hotspot to test).
 
 ## License
 

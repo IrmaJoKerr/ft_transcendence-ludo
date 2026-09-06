@@ -394,7 +394,7 @@ export class AuthService implements OnModuleDestroy {
     if (dto.oauthToAdd !== undefined) {
       const state = this.createOAuthLinkToken(userId, dto.oauthToAdd);
       // Relative path (same as the login page's OAuthButtons) so it resolves on
-      // whatever host the user is actually connected through (LAN IP, tunnel, etc.).
+      // whatever host the user is actually connected through (localhost, tunnel, etc.).
       oauthRedirectUrl = `/api/auth/${encodeURIComponent(dto.oauthToAdd)}?state=${encodeURIComponent(state)}`;
     }
 
