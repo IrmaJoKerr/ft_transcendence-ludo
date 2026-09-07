@@ -7,7 +7,7 @@ export class AchievementsController {
   constructor(private readonly achievements: AchievementsService) {}
 
   /**
-   * GET /api/achievements — registry-driven report.
+   * GET /api/achievements : registry-driven report.
    * Optional query ?username=... returns the target user's achievements.
    * Returns { [achKey]: { unlocked, progress, target } } for all 13 keys.
    */
@@ -22,7 +22,7 @@ export class AchievementsController {
   }
 
   /**
-   * POST /api/achievements/check — force re-evaluate achievements for current user.
+   * POST /api/achievements/check : force re-evaluate achievements for current user.
    * Silent backfill: announce=false so no notification burst fires.
    * Returns { unlocked: string[] } (keys).
    */

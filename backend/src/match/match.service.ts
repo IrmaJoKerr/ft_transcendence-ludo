@@ -10,6 +10,8 @@ import { MatchQueryService } from './match.query.service';
 export { ENGINE_WS_URL } from './match.creator.service';
 
 @Injectable()
+// Facade over the four match sub-services (creator, player, query,
+// postgame). Every match route in match.controller.ts goes through here.
 export class MatchService {
 	constructor(
 		private readonly creator: MatchCreatorService,
@@ -18,7 +20,7 @@ export class MatchService {
 		private readonly postgame: MatchPostgameService,
 	) {}
 
-	// ─── Creation ───────────────────────────────────────────────────────────
+	// Creation
 	async createMatch(
 		userId: string,
 		mode: 'pvp' | 'pve' | 'hotseat',
@@ -44,7 +46,7 @@ export class MatchService {
 		return this.creator.joinByInvite(inviteCode, userId, (gameId: string, uid: string) => this.player.joinMatch(gameId, uid));
 	}
 
-	// ─── Joining ───────────────────────────────────────────────────────────
+	// Joining
 	async joinMatch(gameId: string, userId: string) {
 		return this.player.joinMatch(gameId, userId);
 	}
@@ -55,12 +57,12 @@ export class MatchService {
 		return this.player.inviteFriendToGame(gameId, userId, friendId);
 	}
 
-	// ─── Mark Started (called by ludo-engine once a PvP game actually starts) ─
+	// Mark Started (called by ludo-engine once a PvP game actually starts)
 	async markStarted(gameId: string) {
 		return this.player.markStarted(gameId);
 	}
 
-	// ─── State transitions ─────────────────────────────────────────────────
+	// State transitions
 	async readyGame(gameId: string, userId: string) {
 		return this.player.readyGame(gameId, userId);
 	}
@@ -77,7 +79,7 @@ export class MatchService {
 		return this.player.resign(gameId, userId);
 	}
 
-	// ─── Queries ───────────────────────────────────────────────────────────
+	// Queries
 	async listActiveGames() {
 		return this.query.listActiveGames();
 	}
@@ -88,7 +90,7 @@ export class MatchService {
 		return this.query.listMyRooms(userId);
 	}
 
-	// ─── Post-game ─────────────────────────────────────────────────────────
+	// Post-game
 	async processGameEnd(data: any) {
 		return this.postgame.processGameEnd(data);
 	}

@@ -9,6 +9,9 @@ loadEnv({ path: join(__dirname, '..', '..', '.env') });
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
 const prisma = new PrismaClient({ adapter });
 
+// Friendship seed script: clears all friendships, then links every user to
+// up to 8 others (accepted) and guarantees the two target accounts 10+
+// friends. Run manually with ts-node.
 async function main() {
   console.log('♟ Seeding rich allied friendships roster...');
 

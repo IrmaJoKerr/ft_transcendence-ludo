@@ -28,7 +28,7 @@ The App Bootstrap module is the root of the NestJS application. It does three th
    - `MatchModule` — matchmaking, rooms, ludo-engine callbacks
    - `PresenceModule` — online/offline presence
    - `NotificationModule` — notifications
-3. **Handles secrets** via `secrets.ts` — reads config values from small text files (one value per file) with an environment-variable fallback.
+3. **Reads configuration** via `secrets.ts` — every value is read straight from environment variables. Containers get the root `.env` through `compose.yaml`'s `env_file`; host-side scripts load it with `dotenv` (no mounted secret files anymore).
 
 ---
 
@@ -39,7 +39,7 @@ The App Bootstrap module is the root of the NestJS application. It does three th
 | `main.ts` | Application entry point — creates NestJS app, configures middleware, starts HTTP server on port 3000 |
 | `app.module.ts` | Root module — imports all feature modules, registers PrismaService |
 | `prisma.service.ts` | Injectable PrismaClient wrapper with `onModuleInit`/`onModuleDestroy` lifecycle hooks |
-| `secrets.ts` | Utility functions `secret()` and `requireSecret()` for reading secrets from files or env vars |
+| `secrets.ts` | Utility functions `secret()`, `requireSecret()` and `isTunnelRequest()` for reading configuration from environment variables |
 
 ---
 
@@ -109,27 +109,22 @@ sequenceDiagram
     end
 ```
 
-### 3. Secret Resolution Flow
+### 3. Configuration Resolution Flow
 
-Sequence of steps when any module requests a secret — tries file system first, falls back to environment variables.
+Sequence of steps when any module asks `secrets.ts` for a value — it is a single lookup against the process environment (the root `.env`, injected by `compose.yaml`'s `env_file` in containers and by `dotenv` for host-side scripts).
 ```mermaid
 sequenceDiagram
     participant App as App.ts
     participant Secrets as secrets.ts
-    participant Files as Secret files (docker)
+    participant Env as process.env (.env)
 
-    App->>Secrets: Ask for a secret, e.g. JWT_SECRET
-    Secrets->>Files: Read the secret from the file
-    alt File has the secret
-        Files-->>Secrets: the value
+    App->>Secrets: Ask for a value, e.g. JWT_SECRET
+    Secrets->>Env: Read process.env[name]
+    alt Var is set
+        Env-->>Secrets: the value
         Secrets-->>App: the value
-    else File missing
-        Secrets->>Secrets: Fall back to an environment variable
-        alt Env var has it
-            Secrets-->>App: the value
-        else Both missing
-            Secrets-->>App: Throw an error: "Missing secret"
-        end
+    else Var missing
+        Secrets-->>App: secret() -> undefined / requireSecret() throws
     end
 ```
 
@@ -179,14 +174,8 @@ GET /health
 
 ### Secret Resolution Path
 ```
-requireSecret(key) / secret(key)
-  ├── Read /secrets/{key}.txt
-  │   ├── File exists → return value
-  │   └── File missing → fallback to process.env[key]
-  │       ├── Env var exists → return value
-  │       └── Env var missing
-  │           ├── requireSecret() → throw Error
-  │           └── secret() → return undefined
+secret(name)        → process.env[name]  // undefined when unset
+requireSecret(name) → process.env[name]  // throws when unset
 ```
 
 ---
@@ -211,6 +200,6 @@ requireSecret(key) / secret(key)
 | Variable | Default | Used By |
 |----------|---------|---------|
 | `NODE_ENV` | `development` | CORS origin selection, cookie `secure` flag |
-| `DATABASE_URL` | (from secrets) | PrismaService database connection |
-| `SECRETS_DIR` | `/secrets` → `../secrets` → `./secrets` | secrets.ts file lookup path |
+| `DATABASE_URL` | (from `.env`) | PrismaService database connection |
+| *(no secret files)* | — | Config values come from environment variables only (root `.env`); there is no `SECRETS_DIR` or mounted secret file anymore |
 | `PORT` | 3000 | HTTP server listen port (hardcoded in main.ts) |

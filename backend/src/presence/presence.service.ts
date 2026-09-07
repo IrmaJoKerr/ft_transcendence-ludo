@@ -10,16 +10,9 @@ export type PresenceStatus = 'online' | 'playing' | 'offline';
 // two missed beats before a stale/closed tab reads back as offline.
 const PRESENCE_TTL_S = 45;
 
-/**
- * Presence state in Redis, same idiom as LeaderboardRedisService/MatchService:
- *  - `presence:{userId}` -> "online" | "playing", expiring after PRESENCE_TTL_S
- *
- * A missing key IS the offline state — nothing to clean up, TTL does it.
- *
- * Presence changes are also broadcast to the user's friends as transient
- * toasts: the offline→online edge (first heartbeat of a fresh session) is
- * treated as "logged in", and clear() (explicit logout) as "logged out".
- */
+// Presence state in Redis: `presence:{userId}` = "online" | "playing",
+// expiring after PRESENCE_TTL_S. A missing key IS the offline state : the
+// TTL does the cleanup.
 @Injectable()
 export class PresenceService implements OnModuleDestroy {
   private redis: Redis;
@@ -28,7 +21,7 @@ export class PresenceService implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
   ) {
-    // Host/port stay plain env — they're topology, not secrets.
+    // Host/port stay plain env.They're topology, not secrets.
     const host = process.env.REDIS_HOST || 'redis';
     const port = parseInt(process.env.REDIS_PORT || '6479', 10);
     const password = secret('REDIS_PASSWORD');
@@ -47,7 +40,7 @@ export class PresenceService implements OnModuleDestroy {
 
   async heartbeat(userId: string, playing: boolean): Promise<void> {
     // First heartbeat after the key lapsed = a fresh online session. Broadcast
-    // "friend online" to the user's friends on this edge (not on every beat —
+    // "friend online" to the user's friends on this edge (not on every beat :
     // the key stays alive for the full session).
     const wasOffline = (await this.redis.exists(this.key(userId))) === 0;
     await this.redis.set(this.key(userId), playing ? 'playing' : 'online', 'EX', PRESENCE_TTL_S);
@@ -58,7 +51,7 @@ export class PresenceService implements OnModuleDestroy {
     }
   }
 
-  /** Immediate offline on logout, rather than waiting out the TTL. */
+  // Immediate offline on logout, rather than waiting out the TTL.
   async clear(userId: string): Promise<void> {
     await this.redis.del(this.key(userId));
     this.notifyFriendsPresence(userId, 'offline').catch((error) =>
@@ -66,13 +59,13 @@ export class PresenceService implements OnModuleDestroy {
     );
   }
 
-  /** Single-user lookup — e.g. a profile page for one specific account. */
+  // Single-user lookup : e.g. a profile page for one specific account.
   async getStatus(userId: string): Promise<PresenceStatus> {
     const value = await this.redis.get(this.key(userId));
     return (value as PresenceStatus) ?? 'offline';
   }
 
-  /** Batched lookup for a friends list — a missing key means the TTL lapsed. */
+  // Batched lookup for a friends list : a missing key means the TTL lapsed.
   async getStatuses(userIds: string[]): Promise<Record<string, PresenceStatus>> {
     if (userIds.length === 0) return {};
     const values = await this.redis.mget(userIds.map((id) => this.key(id)));
@@ -83,7 +76,7 @@ export class PresenceService implements OnModuleDestroy {
     return statuses;
   }
 
-  /** Site-wide online count for the homepage badge — same SCAN idiom as MatchQueryService. */
+  // Site-wide online count for the homepage badge : same SCAN idiom as MatchQueryService.
   async getOnlineCount(): Promise<number> {
     let cursor = '0';
     let count = 0;
@@ -95,12 +88,8 @@ export class PresenceService implements OnModuleDestroy {
     return count;
   }
 
-  /**
-   * Broadcast a transient presence toast to every accepted friend of `userId`
-   * when they come online (fresh session heartbeat) or log out (explicit
-   * logout). Fire-and-forget — a lookup failure must never block the
-   * heartbeat/logout response.
-   */
+  // Transient presence toast to all accepted friends on coming online or
+  // logging out. Fire-and-forget : must never block heartbeat/logout.
   private async notifyFriendsPresence(userId: string, status: 'online' | 'offline'): Promise<void> {
     try {
       const friends = await this.prisma.db.friendship.findMany({

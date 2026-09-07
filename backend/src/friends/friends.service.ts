@@ -7,7 +7,10 @@ import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
 
 @Injectable()
+// Friend system: friend requests/accept/decline, friend list with online
+// status, blocking, and game invitations. Called by friends.controller.ts.
 export class FriendsService {
+  // Redis client (used for pending-invite records, invite:<userId> keys).
   private redis: Redis;
 
   constructor(
@@ -24,10 +27,11 @@ export class FriendsService {
     this.redis.on('error', (error) => console.error('Redis error:', (error as Error).message));
   }
 
-  // ─── Game Invitations ───────────────────────────────────────────────────
-  // Presence is poll-based (no push transport in this backend), so invites are
-  // a short-lived Redis record the invitee's client picks up on its next poll —
-  // same idiom as presence:{userId}, just keyed for invites instead of status.
+  // Game Invitations
+  // Invite = a short-lived Redis record the invitee's client picks up on its
+  // next poll (same idiom as presence:{userId}), plus a real-time notify.
+  // Create a match room, seat both players, and notify the friend with the
+  // join credentials. Used by POST /api/friends/:friendId/invite.
   async inviteToGame(userId: string, friendId: string) {
     if (userId === friendId) throw new BadRequestException('Cannot invite yourself');
 
@@ -45,7 +49,7 @@ export class FriendsService {
     const inviter = await this.prisma.db.user.findUnique({ where: { id: userId }, select: { username: true, displayName: true } });
 
     // Seat the friend into the room now, the same way online mode's joinMatch
-    // seats a player synchronously the moment they join — the friend doesn't
+    // seats a player synchronously the moment they join : the friend doesn't
     // have to "accept" before they're actually placed in the room, they just
     // have to confirm before entering it.
     const friendSeat = await this.matchService.joinMatch(match.gameId, friendId);
@@ -61,7 +65,7 @@ export class FriendsService {
     });
 
     // Return the host's own match credentials so the caller can join its own
-    // room immediately — the host must be seated before the friend can accept,
+    // room immediately : the host must be seated before the friend can accept,
     // otherwise the friend's accept could create/join the room alone.
     return {
       message: 'Invite sent',
@@ -75,16 +79,22 @@ export class FriendsService {
     };
   }
 
+  // Read and delete the pending invite for a user (single consume). Used by
+  // GET /api/friends/invite/pending.
   async getPendingInvite(userId: string) {
     const raw = await this.redis.get(`invite:${userId}`);
     return raw ? JSON.parse(raw) : null;
   }
 
+  // Delete a pending invite without acting on it. Used by
+  // DELETE /api/friends/invite/pending.
   async dismissInvite(userId: string) {
     await this.redis.del(`invite:${userId}`);
     return { message: 'Dismissed' };
   }
 
+  // Create a pending friend request. Used by
+  // POST /api/friends/request/:friendId.
   async sendFriendRequest(userId: string, targetUserId: string) {
     if (userId === targetUserId) {
       throw new BadRequestException('Cannot send friend request to yourself');
@@ -141,6 +151,8 @@ export class FriendsService {
     return friendship;
   }
 
+  // Accept a pending friend request. Used by
+  // POST /api/friends/request/:requestId/accept.
   async acceptFriendRequest(requestId: string, userId: string) {
     const request = await this.prisma.db.friendship.findFirst({
       where: {
@@ -174,6 +186,8 @@ export class FriendsService {
     });
 
     return updated;
+  // Decline a pending friend request. Used by
+  // POST /api/friends/request/:requestId/decline.
   }
 
   async declineFriendRequest(requestId: string, userId: string) {
@@ -199,6 +213,8 @@ export class FriendsService {
       fromUserId: userId,
       fromUsername: decliner?.username || 'A pilot',
     });
+  // Remove an existing friend. Used by
+  // DELETE /api/friends/:friendId.
 
     return { message: 'Friend request declined' };
   }
@@ -226,6 +242,8 @@ export class FriendsService {
     const remover = await this.prisma.db.user.findUnique({ where: { id: userId }, select: { username: true } });
     await this.notificationService.notify(friendId, 'friend_removed', {
       fromUserId: userId,
+  // All friends of a user with online status. Used by
+  // GET /api/friends.
       fromUsername: remover?.username || 'A pilot',
     });
 
@@ -266,6 +284,8 @@ export class FriendsService {
         avatarStyle: friend.avatarStyle,
         hasAvatarPhoto: friend.avatarPhotoContentType !== null,
         rating: friend.rating,
+  // All pending friend requests (sent + received). Used by
+  // GET /api/friends/requests.
         friendsSince: f.createdAt,
       };
     });
@@ -306,6 +326,8 @@ export class FriendsService {
         createdAt: r.createdAt,
       })),
       received: received.map((r) => ({
+  // Block a user: create or flip the friendship row to blocked. Used by
+  // POST /api/friends/block/:userId.
         id: r.id,
         userId: r.user.id,
         username: r.user.username,
@@ -349,6 +371,8 @@ export class FriendsService {
         data: {
           id: `${userId}-${targetUserId}-blocked`,
           userId,
+  // Remove a blocked friendship row, restoring normal relations. Used by
+  // POST /api/friends/unblock/:userId.
           friendId: targetUserId,
           status: 'blocked',
         },
@@ -367,6 +391,7 @@ export class FriendsService {
         userId,
         friendId: targetUserId,
         status: 'blocked',
+  // All users the caller has blocked. Used by GET /api/friends/blocked.
       },
     });
 

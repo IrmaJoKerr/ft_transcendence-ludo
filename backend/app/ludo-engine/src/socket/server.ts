@@ -19,14 +19,14 @@ import type { PlayerColor } from '../types';
 const IDLE_LOBBY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 const POST_GAME_TIMEOUT_MS = 60 * 1000; // 60 seconds
 
-// Mirrors the frontend's STEP_ANIM_MS (Game.tsx) — how long the box-by-box
+// Mirrors the frontend's STEP_ANIM_MS (Game.tsx) : how long the box-by-box
 // piece-move animation takes per step. Bot turns are paced against this so a
 // bot's move finishes animating on screen before the bot's next action (roll,
 // bonus move, capture chain) fires and cuts it off.
 const BOT_STEP_ANIM_MS = 220;
 // Flat "thinking" pause before a bot rolls, so bot turns don't feel instant.
 const BOT_THINK_MS = 500;
-// How long the frontend dice-roll animation takes — bot turns wait for it so
+// How long the frontend dice-roll animation takes : bot turns wait for it so
 // the rolled number is visible before the bot acts.
 const DICE_ANIM_MS = 750;
 // How often the lobby-expiry sweep runs.
@@ -90,7 +90,7 @@ export class SocketServer {
       },
     );
 
-    // Wire up engine events — single source of truth for game lifecycle
+    // Wire up engine events : single source of truth for game lifecycle
     this.engine.onEvent((event) => {
       this.publisher.publish(event);
 
@@ -105,7 +105,7 @@ export class SocketServer {
         // (path.length steps) plus a short thinking pause before acting again.
         const animMs = event.result.path.length * BOT_STEP_ANIM_MS;
         // A clash-resolved move keeps the game frozen for the 3s result
-        // card (CLASH_RESULT_FREEZE_MS) — extend the bot delay so the bot
+        // card (CLASH_RESULT_FREEZE_MS) : extend the bot delay so the bot
         // doesn't fire while the victory card is still visible.
         const clashCardMs = event.result.clashOutcome ? CLASH_RESULT_FREEZE_MS : 0;
         this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS + clashCardMs);
@@ -186,13 +186,13 @@ export class SocketServer {
         .filter(Boolean).length;
 
       if (seatedCount >= 2) {
-        // Two or more seated players — the idle timer is inactive.
+        // Two or more seated players : the idle timer is inactive.
         await this.store.clearIdleSince(match.id);
         continue;
       }
 
       // Idle room (< 2 seated). Stamp the idle start on first encounter
-      // (hsetnx — a pre-existing stamp is kept), then abort once the
+      // (hsetnx : a pre-existing stamp is kept), then abort once the
       // room has been idle for the full timeout.
       await this.store.setIdleSince(match.id, now);
       const idleSinceMs = match.idleSince ? parseInt(match.idleSince, 10) : now;
@@ -205,13 +205,12 @@ export class SocketServer {
     }
   }
 
-  // ─── Socket wiring (orchestration only) ────────────────────────────────────
-
+  // Socket wiring (orchestration only)
   private setupSocketHandlers(): void {
     this.io.use((socket: GameSocket, next) => {
       const token = socket.handshake.auth?.token;
       // A token is mandatory. This used to fall through to next() for
-      // "bots, dev" — but bots are driven server-side (BotTurnScheduler),
+      // "bots, dev" : but bots are driven server-side (BotTurnScheduler),
       // never over a socket, and the SPA always supplies a token
       // (frontend/src/socket.ts). Allowing tokenless connections would
       // make signature verification pointless: an attacker could simply

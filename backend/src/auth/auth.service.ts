@@ -43,7 +43,12 @@ type LoginResult =
     };
 
 @Injectable()
+// All account logic: register/login with email verification + 2FA, session
+// tokens, OAuth linking, profile/password changes, account deletion. Called
+// by auth.controller.ts and the OAuth strategies.
 export class AuthService implements OnModuleDestroy {
+  // Redis client used only for account-deletion cleanup (matches, presence,
+  // invites, leaderboard entries).
   private readonly redis: Redis;
 
   constructor(
@@ -99,7 +104,7 @@ export class AuthService implements OnModuleDestroy {
       user.email!,
       `${baseUrl}/api/auth/verify-email?token=${token}`,
     );
-    return { message: 'Account created — check your email to verify your address.' };
+    return { message: 'Account created : check your email to verify your address.' };
   }
 
   /* Redeems a signup verification link. Returns false for unknown/expired tokens. */
@@ -134,7 +139,7 @@ export class AuthService implements OnModuleDestroy {
     }
 
     if (!user.emailVerified) {
-      throw new ForbiddenException('Email not verified — open the link we sent you first');
+      throw new ForbiddenException('Email not verified : open the link we sent you first');
     }
 
     // 2FA off → password alone is enough; issue the session immediately.
@@ -149,7 +154,7 @@ export class AuthService implements OnModuleDestroy {
   /*
    * Step one of reset: email a one-time link if the address belongs to a local
    * (password) account. The return value is intentionally the same in every
-   * case — unknown email, OAuth-only account, or success — so a caller can't
+   * case : unknown email, OAuth-only account, or success : so a caller can't
    * use this endpoint to discover which emails are registered.
    */
   async forgotPassword(rawEmail: string, baseUrl: string = BASE_URL) {
@@ -175,8 +180,8 @@ export class AuthService implements OnModuleDestroy {
       where: { id: userId },
       data: {
         password_hash: passwordHash,
-        // Redeeming an emailed link proves inbox control — the same guarantee
-        // signup verification gives — so confirm the address if it wasn't yet.
+        // Redeeming an emailed link proves inbox control : the same guarantee
+        // signup verification gives : so confirm the address if it wasn't yet.
         // Without this, an unverified user could reset yet still be login-blocked.
         emailVerified: new Date(),
       },
@@ -184,13 +189,13 @@ export class AuthService implements OnModuleDestroy {
     // drop every existing session after a password reset
     await this.session.revokeAll(userId);
 
-    // Announce the password reset to the user (persisted — lands in the bell
+    // Announce the password reset to the user (persisted : lands in the bell
     // on their next sign-in, since this flow revokes all open sessions).
     await this.notifications
       .notify(userId, 'profile_updated', { items: ['password'] })
       .catch(() => {});
 
-    return { message: 'Password updated — you can log in with it now.' };
+    return { message: 'Password updated : you can log in with it now.' };
   }
 
   /* Factor two: email a one-time code, hand back the challenge reference. */
@@ -239,15 +244,15 @@ export class AuthService implements OnModuleDestroy {
 
   /**
    * Trade a valid refresh token for a new access token, rotating the refresh
-   * token in the same step. Throws 401 when it's missing/expired/revoked — the
+   * token in the same step. Throws 401 when it's missing/expired/revoked : the
    * frontend reads that as "session over, log in again".
    */
   async refresh(refreshToken?: string) {
     if (!refreshToken) throw new UnauthorizedException('Not authenticated');
     const rotated = await this.session.rotate(refreshToken);
-    if (!rotated) throw new UnauthorizedException('Session expired — please log in again');
+    if (!rotated) throw new UnauthorizedException('Session expired : please log in again');
     const user = await this.prisma.db.user.findUnique({ where: { id: rotated.userId } });
-    if (!user) throw new UnauthorizedException('Session expired — please log in again');
+    if (!user) throw new UnauthorizedException('Session expired : please log in again');
     return {
       accessToken: this.signAccess(user.id, user.username),
       refreshToken: rotated.newToken,
@@ -255,7 +260,7 @@ export class AuthService implements OnModuleDestroy {
     };
   }
 
-  /** Revoke the given refresh token — logout on this device. */
+  /** Revoke the given refresh token : logout on this device. */
   async logout(refreshToken?: string) {
     if (refreshToken) await this.session.revoke(refreshToken);
   }
@@ -315,7 +320,7 @@ export class AuthService implements OnModuleDestroy {
   }
 
   /**
-   * Complete profile update — edit display name, email, and/or the email-code
+   * Complete profile update : edit display name, email, and/or the email-code
    * 2FA method in one call. Only provided fields change.
    *
    * The username is auto-generated and cannot be changed; only the display
@@ -342,7 +347,7 @@ export class AuthService implements OnModuleDestroy {
     const data: Record<string, unknown> = {};
     let emailChanged = false;
     let newEmail: string | undefined;
-    // Items actually changed in this request — feeds the profile_updated toast.
+    // Items actually changed in this request : feeds the profile_updated toast.
     const changedItems: string[] = [];
 
     if (dto.displayName !== undefined && dto.displayName !== user.displayName) {
@@ -387,7 +392,7 @@ export class AuthService implements OnModuleDestroy {
       changedItems.push('oauthRemove');
     }
 
-    // OAuth: adding a method needs the browser round-trip — mint a 10m
+    // OAuth: adding a method needs the browser round-trip : mint a 10m
     // oauth-link token and hand back the provider authorize URL with it in
     // `state`; the callback then links the provider to this user.
     let oauthRedirectUrl: string | undefined;
@@ -417,7 +422,7 @@ export class AuthService implements OnModuleDestroy {
       await this.mail.sendVerification(newEmail, `${BASE_URL}/api/auth/verify-email?token=${token}`);
     }
 
-    // ── Profile-change notifications ─────────────────────────────────────────
+    // Profile-change notifications
     // 1) Self-confirmation (persisted): "You have updated your profile: …"
     if (data.displayName !== undefined) changedItems.push('displayName');
     if (emailChanged) changedItems.push('email');
@@ -465,7 +470,7 @@ export class AuthService implements OnModuleDestroy {
   /**
    * Logged-in password change: verify the current password, then set the new
    * one and keep the CURRENT device signed in while revoking every other session.
-   * OAuth-only accounts have no password_hash — they set their FIRST password
+   * OAuth-only accounts have no password_hash : they set their FIRST password
    * here, so `currentPassword` is only checked when one already exists.
    */
   async changePassword(userId: string, currentPassword: string | undefined, newPassword: string, currentRefreshToken?: string) {
@@ -483,14 +488,14 @@ export class AuthService implements OnModuleDestroy {
       data: { password_hash: passwordHash },
     });
 
-    // Log the user out everywhere — other devices must re-auth with the new password.
+    // Log the user out everywhere : other devices must re-auth with the new password.
     await this.session.revokeAllExcept(userId, currentRefreshToken);
 
     await this.notifications
       .notify(userId, 'profile_updated', { items: ['password'] })
       .catch(() => {});
 
-    return { message: 'Password updated — other devices were signed out.' };
+    return { message: 'Password updated : other devices were signed out.' };
   }
 
   /**
@@ -499,10 +504,10 @@ export class AuthService implements OnModuleDestroy {
    * Guard rails:
    *  - `confirm` must be true.
    *  - A password is ALWAYS required at deletion time. Accounts without one
-   *    (OAuth-only) must set a first password via changePassword first — that
+   *    (OAuth-only) must set a first password via changePassword first : that
    *    gives the deletion a real credential to verify against.
    *
-   * Order matters — DB delete is LAST: everything before it is best-effort
+   * Order matters : DB delete is LAST: everything before it is best-effort
    * cleanup, so if any step fails the account is untouched. The DB delete is
    * the single point of no return.
    */
@@ -525,7 +530,7 @@ export class AuthService implements OnModuleDestroy {
     // 2. Drop ephemeral Redis state (presence, invites, leaderboard entries).
     await this.clearUserRedisState(userId);
 
-    // 3. Revoke every refresh session — all devices are logged out.
+    // 3. Revoke every refresh session : all devices are logged out.
     await this.session.revokeAll(userId);
 
     // 4. DB: user.delete() cascades Account/Achievement/GameParticipant/Friendship/
@@ -585,7 +590,7 @@ export class AuthService implements OnModuleDestroy {
     // EMAIL OWNERSHIP RULE: a provider's email may only set the account's
     // `email` + `emailVerified` during the FIRST sign-in (new account, or an
     // OAuth login matched by email). The "add sign-in method" flow below
-    // (linkUserId) deliberately ignores the provider's email entirely — e.g.
+    // (linkUserId) deliberately ignores the provider's email entirely : e.g.
     // an account created with Google (123@gmail.com) that links 42
     // (4321@42.com) keeps 123@gmail.com and its verification state.
 
@@ -628,28 +633,28 @@ export class AuthService implements OnModuleDestroy {
 
         return linked;
       }
-      // The "add method" user no longer exists — e.g. this browser's session
+      // The "add method" user no longer exists : e.g. this browser's session
       // survived a DB reset/wipe (db push --accept-data-loss). Don't try to
       // link a provider to a ghost userId (that would throw an FK violation);
       // fall through and treat this OAuth callback as a normal first-time login.
     }
 
     //  If first time with this provider, and the email matches an existing
-    //  user, REJECT the OAuth login — the email already belongs to another
+    //  user, REJECT the OAuth login : the email already belongs to another
     //  account. (The "add sign-in method" flow above is exempt: it never
     //  claims the provider's email for the account.)
     const email = input.email ? normalizeEmail(input.email) : undefined;
     if (email) {
       const emailOwner = await this.prisma.db.user.findUnique({ where: { email } });
       if (emailOwner) {
-        // Don't leak the exact owner — same generic message as register().
+        // Don't leak the exact owner : same generic message as register().
         throw new ConflictException(
           'This email is already being used. Use a different email or log in using the same method you used to create this account.',
         );
       }
     }
 
-    // Create new — the provider-verified email populates the email field; if
+    // Create new : the provider-verified email populates the email field; if
     // the provider returned no email (GitHub/42 with no verified address), the
     // account is still created with an empty email and the user can add one
     // later via Edit Profile.
@@ -705,7 +710,7 @@ export class AuthService implements OnModuleDestroy {
 
   /**
    * Unlink a provider sign-in method. Lockout guard: the user must keep at
-   * least one other way to sign in — a password OR another linked provider.
+   * least one other way to sign in : a password OR another linked provider.
    */
   async removeOAuthMethod(userId: string, provider: string) {
     const account = await this.prisma.db.account.findFirst({ where: { userId, provider } });

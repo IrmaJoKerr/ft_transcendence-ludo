@@ -52,7 +52,7 @@ export class BotTurnScheduler {
 
         const bot = this.getOrCreateBot(gameId, state.currentTurn, this.engine, this.store);
         // takeTurn() already catches its own engine-call failures, but this
-        // is fire-and-forget (never awaited) — a rejection here would be an
+        // is fire-and-forget (never awaited) : a rejection here would be an
         // unhandled promise rejection that crashes the whole engine process,
         // not just this one game. Belt-and-suspenders against future
         // refactors reintroducing that.

@@ -9,7 +9,7 @@ const DISCONNECT_PRUNE_BUFFER_MS = 1000;
 
 /**
  * First active seat in color order. currentTurn defaults to 'blue' but a
- * pre-game seat swap can leave blue empty — pick a color that's actually
+ * pre-game seat swap can leave blue empty : pick a color that's actually
  * seated so the game doesn't soft-lock on an inactive seat.
  */
 export function firstActiveColor(state: GameState): PlayerColor | undefined {
@@ -29,7 +29,7 @@ export function advanceTurnInState(state: GameState): void {
     // state.players only holds seats actually in the match (may be < 4), so
     // match by color, not by position into COLORS.
     const p = state.players.find(pl => pl.color === COLORS[nextIndex]);
-    // Only *active* seats hold the turn — an inactive seat was never joined
+    // Only *active* seats hold the turn : an inactive seat was never joined
     // and would stall the game.
     if (p?.status === 'active') {
       break;
@@ -84,7 +84,7 @@ export async function handlePlayerDisconnect(
     reconnectDeadline: deadline,
   });
 
-  // Mark player as disconnected (not exited — they can still reconnect)
+  // Mark player as disconnected (not exited : they can still reconnect)
   const player = state.players.find(p => p.color === color);
   if (player && player.status === 'active') {
     player.status = 'disconnected';
@@ -100,7 +100,7 @@ export async function handlePlayerDisconnect(
   }
 
   // Mid-clash disconnects are settled instantly by the caller
-  // (engine.resolveClashOnDisconnect — longest bar wins).
+  // (engine.resolveClashOnDisconnect : longest bar wins).
 
   await store.saveGameState(gameId, state);
   // Broadcast a temporary disconnect (not exit) so the room sees
@@ -125,7 +125,7 @@ export async function handlePlayerDisconnect(
         await store.deleteGame(gameId);
         notifyAbort?.(gameId);
       } else {
-        // Re-count humans from the fresh state — the stale match hash still
+        // Re-count humans from the fresh state : the stale match hash still
         // lists the pruned user and would mask a <2 human room.
         const after = await store.loadGameState(gameId);
         const humansLeft = (after?.players ?? [])
@@ -156,7 +156,7 @@ export async function handlePlayerReconnect(
 
   const disc = state.disconnectedPlayers[discIndex];
   if (Date.now() > disc.reconnectDeadline) {
-    // Too late — player is already forfeited
+    // Too late : player is already forfeited
     return;
   }
 

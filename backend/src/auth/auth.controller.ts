@@ -32,7 +32,7 @@ const LOCAL_FRONTEND_URL = secret('FRONTEND_URL') ?? 'https://localhost:8443';
 const NGROK_FRONTEND_URL = secret('NGROK_FRONTEND_URL') ?? 'https://polka-bless-wing.ngrok-free.dev';
 
 // Picked per request from the Host header the browser actually connected
-// with — a tunnel and a local client can both be live against the same
+// with : a tunnel and a local client can both be live against the same
 // backend at once (see oauth.guards.ts, which picks the matching OAuth
 // strategy the same way).
 function frontendUrlFor(req: Request): string {
@@ -62,7 +62,7 @@ export class AuthController {
     return this.authService.register(dto, originFromRequest(req));
   }
 
-  // Target of the emailed verification link — lands in a browser tab, so it
+  // Target of the emailed verification link : lands in a browser tab, so it
   // answers with a redirect to the SPA rather than JSON.
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Req() req: Request, @Res() res: Response) {
@@ -85,7 +85,7 @@ export class AuthController {
       return { twoFactorRequired: true, pendingToken: result.pendingToken };
     }
     // strictNullChecks is off in this project, so the implicit-else branch of a
-    // discriminated union doesn't auto-narrow — pin it to the session variant.
+    // discriminated union doesn't auto-narrow : pin it to the session variant.
     const session = result as {
       accessToken: string;
       refreshToken: string;
@@ -98,7 +98,7 @@ export class AuthController {
   // Factor two: emailed code + pendingToken buy the actual session cookies.
   // twofactor.service.ts caps guesses at 5 *per challenge*, which an attacker
   // sidesteps by starting a new challenge each time. This caps the rate at
-  // which they can do that — a 6-digit code needs far more than 5 tries/min.
+  // which they can do that : a 6-digit code needs far more than 5 tries/min.
   @Throttle({ default: { limit: 5, ttl: MINUTE_MS } })
   @Post('2fa/verify')
   @HttpCode(200)
@@ -128,7 +128,7 @@ export class AuthController {
 
   // Password reset, step one: always answers with the same generic message,
   // whether or not the email is registered (no account enumeration).
-  // Also sends a real email, and here the victim is whoever owns the address —
+  // Also sends a real email, and here the victim is whoever owns the address :
   // without a cap this is a free inbox-flooding tool aimed at someone else.
   @Throttle({ default: { limit: 3, ttl: HOUR_MS } })
   @Post('forgot-password')
@@ -139,7 +139,7 @@ export class AuthController {
 
   // Password reset, step two: the emailed token + a new password.
   // The reset token is a 32-byte random value, so guessing it is hopeless
-  // anyway — this just removes the option of trying at speed.
+  // anyway : this just removes the option of trying at speed.
   @Throttle({ default: { limit: 5, ttl: 15 * MINUTE_MS } })
   @Post('reset-password')
   @HttpCode(200)
@@ -169,7 +169,7 @@ export class AuthController {
     //   - token stale, refresh   → rotate + fresh cookies + { user } (200)
     //   - genuinely no session   → clear cookies + { user: null }   (200)
     // A 5xx is thrown straight through so a transient backend/Redis blip isn't
-    // mistaken for "signed out" — mirroring how apiFetch distinguishes blocked
+    // mistaken for "signed out" : mirroring how apiFetch distinguishes blocked
     // vs expired.
 
     // 1) Access token valid → return the live profile.
@@ -180,7 +180,7 @@ export class AuthController {
       const profile = await this.authService.getProfile(payload.sub);
       return { user: profile.user };
     } catch {
-      // Token missing/expired/invalid (or the account is gone) — fall through
+      // Token missing/expired/invalid (or the account is gone) : fall through
       // to the silent re-auth path below.
     }
 
@@ -204,7 +204,7 @@ export class AuthController {
         res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
         return { user: null };
       }
-      throw e; // transient backend failure — surface it, don't call it a logout.
+      throw e; // transient backend failure : surface it, don't call it a logout.
     }
   }
 
@@ -322,7 +322,7 @@ export class AuthController {
 
     // "Add a sign-in method" flow: the OAuth `state` carried a signed oauth-link
     // token (signed by the guard from the user's access-token cookie). The
-    // strategy already linked the provider to that user — just send them back to
+    // strategy already linked the provider to that user : just send them back to
     // /profile. No new session is issued, no login/2FA redirect happens, so the
     // user is neither signed out nor logged into a different account.
     const anyReq = req as any;
@@ -332,7 +332,7 @@ export class AuthController {
       : undefined;
     // A link round-trip only counts when the BROWSER that opened the provider
     // login is still authenticated and matches the linked user. On a fresh
-    // login (no valid token cookie) — even if GitHub echoes a stale state —
+    // login (no valid token cookie) : even if GitHub echoes a stale state :
     // fall through to the normal login session flow below. The final
     // `user.id === linkUserId` guard also catches a stale session whose user
     // was wiped by a DB reset: validateOAuthLogin then creates a brand-new
@@ -385,7 +385,7 @@ export class AuthController {
     res.cookie(REFRESH_COOKIE, refreshToken, { ...base, path: REFRESH_PATH, maxAge: REFRESH_MAX_AGE_MS });
     // (The lr_session presence-marker cookie was removed: the frontend now
     // restores via /me on every load, and /me's inline session check answers
-    // 401 + X-Auth-Session: none when signed out — so a JS-readable marker
+    // 401 + X-Auth-Session: none when signed out : so a JS-readable marker
     // would only be a second source of truth about the session, for nothing.)
   }
 }

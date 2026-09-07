@@ -8,7 +8,7 @@ import { requireSecret } from '../secrets';
 export class MatchController {
 	constructor(private readonly match: MatchService, private readonly jwt: JwtService) { }
 
-	// ─── PvP: Create invite game (share code via chat) ────────────────────────
+	// PvP: Create invite game (share code via chat)
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/pvp/invite')
 	pvpInvite(
@@ -19,7 +19,7 @@ export class MatchController {
 		return this.match.createInvite(req.user.id, clashEnabled, safeZones);
 	}
 
-	// ─── PvP: Join by invite code ────────────────────────────────────────────
+	// PvP: Join by invite code
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/join/:code')
 	joinInvite(
@@ -29,7 +29,7 @@ export class MatchController {
 		return this.match.joinByInvite(code, req.user.id);
 	}
 
-	// ─── PvP: Quick match (findRandomMatch) — join first open room or create ──
+	// PvP: Quick match (findRandomMatch) : join first open room or create
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/pvp/random')
 	quickMatch(
@@ -40,7 +40,7 @@ export class MatchController {
 		return this.match.findRandomMatch(req.user.id, clashEnabled, safeZones);
 	}
 
-	// ─── PvE: Human vs Bot (1 - 3 bots) ────────────────────────────────────────
+	// PvE: Human vs Bot (1 - 3 bots)
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/pve')
 	pve(
@@ -52,7 +52,7 @@ export class MatchController {
 		return this.match.playBot(req.user.id, playerCount || 2, clashEnabled, safeZones);
 	}
 
-	// ─── Unified Match Creation ────────────────────────────────────────────────
+	// Unified Match Creation
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/create')
 	create(
@@ -88,7 +88,7 @@ export class MatchController {
 		);
 	}
 
-	// ─── Game Actions ───────────────────────────────────────────────────────
+	// Game Actions
 	@UseGuards(JwtAuthGuard)
 	@Post('api/game/:id/ready')
 	ready(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
@@ -101,28 +101,28 @@ export class MatchController {
 		return this.match.resign(gameId, req.user.id);
 	}
 
-	// ─── Browse Games ───────────────────────────────────────────────────────
+	// Browse Games
 	@UseGuards(JwtAuthGuard)
 	@Get('api/games/active')
 	listActive() {
 		return this.match.listActiveGames();
 	}
 
-	// ─── Browse Open Rooms (WAITING PvP games — joinable) ──────────────────
+	// Browse Open Rooms (WAITING PvP games : joinable)
 	@UseGuards(JwtAuthGuard)
 	@Get('api/games/rooms')
 	listRooms() {
 		return this.match.listOpenRooms();
 	}
 
-	// ─── My Rooms (WAITING/ACTIVE games I'm seated in — rejoin after refresh) ─
+	// My Rooms (WAITING/ACTIVE games I'm seated in : rejoin after refresh)
 	@UseGuards(JwtAuthGuard)
 	@Get('api/games/mine')
 	listMine(@Request() req: { user: { id: string } }) {
 		return this.match.listMyRooms(req.user.id);
 	}
 
-	// ─── Invite a friend into this WAITING PvP room ──────────────────────────
+	// Invite a friend into this WAITING PvP room
 	@UseGuards(JwtAuthGuard)
 	@Post('api/game/:id/invite')
 	inviteFriend(
@@ -139,7 +139,7 @@ export class MatchController {
 		return this.match.rejoin(gameId, req.user.id);
 	}
 
-	// ─── Game End (called by ludo-engine) ──────────────────────────────────
+	// Game End (called by ludo-engine)
 	@Post('api/game/end')
 	gameEnd(@Headers('x-engine-key') key: string, @Body() body: any) {
 		if (key !== requireSecret('ENGINE_API_KEY')) {
@@ -148,7 +148,7 @@ export class MatchController {
 		return this.match.processGameEnd(body);
 	}
 
-	// ─── Game Started (called by ludo-engine once the ready-check passes) ───
+	// Game Started (called by ludo-engine once the ready-check passes)
 	@Post('api/game/:id/started')
 	gameStarted(@Headers('x-engine-key') key: string, @Param('id') gameId: string) {
 		if (key !== requireSecret('ENGINE_API_KEY')) {
@@ -157,21 +157,21 @@ export class MatchController {
 		return this.match.markStarted(gameId);
 	}
 
-	// ─── Exit Game (player acknowledges leaving) ────────────────────────────
+	// Exit Game (player acknowledges leaving)
 	@UseGuards(JwtAuthGuard)
 	@Post('api/game/:id/exit')
 	exitGame(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
 		return this.match.exitGame(gameId, req.user.id);
 	}
 
-	// ─── Cleanup ─────────────────────────────────────────────────────────────
+	// Cleanup
 	@UseGuards(JwtAuthGuard)
 	@Post('api/match/cleanup')
 	cleanup() {
 		return this.match.cleanupStaleGames();
 	}
 
-	// ─── Abort Game ──────────────────────────────────────────────────────────
+	// Abort Game
 	@UseGuards(JwtAuthGuard)
 	@Post('api/game/:id/abort')
 	abort(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {

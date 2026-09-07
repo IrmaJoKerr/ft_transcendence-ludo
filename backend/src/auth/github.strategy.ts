@@ -5,6 +5,8 @@ import { AuthService } from './auth.service';
 import { requireSecret } from '../secrets';
 
 @Injectable()
+// Passport strategy for GitHub OAuth login on localhost. Used by
+// GithubAuthGuard on the /api/auth/github routes.
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
   constructor(private readonly authService: AuthService) {
     super({
@@ -19,6 +21,8 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     });
   }
 
+  // Runs after GitHub redirects back: pick a verified email, then log the
+  // user in (or link the provider account) via validateOAuthLogin.
   async validate(req: any, _accessToken: string, _refreshToken: string, profile: Profile) {
     const emails = (profile.emails ?? []) as Array<{
       value: string;

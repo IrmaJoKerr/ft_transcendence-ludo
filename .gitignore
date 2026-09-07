@@ -1,9 +1,6 @@
 # secrets & prisma generated client
-.env
-.env.example
 backend/generated/
 backend/dist/
-
 
 # Logs
 logs
@@ -33,7 +30,6 @@ dist-ssr
 # planning
 
 # generated documentation
-browser-patches.md
 
 # dependencies
 /node_modules
@@ -59,8 +55,11 @@ browser-patches.md
 /build
 
 # misc
-.DS_Store
 *.pem
+
+# env files
+.env*
+!.env.example
 
 # debug
 npm-debug.log*
@@ -68,22 +67,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
-.env*
-!.env.example
-
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 package-lock.json
-docs
-*.png
 !frontend/public/*.png
-*.md
 *.sh
 .markdownlint.json
 

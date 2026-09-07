@@ -12,6 +12,9 @@ import {
 import { isBotUserId } from '../common/bot';
 
 @Injectable()
+// Achievement unlock engine: evaluates the registry rules for a user or a
+// finished game, flips Achievement flags, and notifies on unlocks. Used by
+// achievements.controller.ts and match.postgame.service.ts.
 export class AchievementsService {
   private readonly logger = new Logger(AchievementsService.name);
 
@@ -20,10 +23,7 @@ export class AchievementsService {
     private readonly notifications: NotificationService,
   ) {}
 
-  /**
-   * Post-game auto-hook. Called by processGameEnd AFTER the transaction.
-   * MUST never throw — a failure only logs (see Phase 3 failure contract).
-   */
+  // Post-game auto-hook from processGameEnd. Never throws : failures log.
   async evaluateAfterGame(gameId: string): Promise<void> {
     try {
       const game = await this.prisma.db.game.findUnique({
@@ -35,7 +35,7 @@ export class AchievementsService {
       for (const p of game.participants) {
         // Bots ("bot-<color>") are never real players: processGameEnd skips
         // them for ratings/counters, so they must not be evaluated for
-        // achievements either — otherwise bot rows could accumulate wins and
+        // achievements either : otherwise bot rows could accumulate wins and
         // fire phantom notifications for bot user IDs.
         if (isBotUserId(p.user_id)) continue;
         await this.evaluateForUser(p.user_id, game, true);
@@ -45,15 +45,9 @@ export class AchievementsService {
     }
   }
 
-  /**
-   * Full evaluation for a user. Walks the registry:
-   *  - lifetime rules use LifecycleCounts (PVP/PVE only)
-   *  - per-game rules evaluate the passed-in game (or the latest game)
-   *  - unlock() returns boolean → only newly-true flags notify
-   *
-   * @param announce  when true, newly-unlocked achievements fire a notification.
-   *                  POST /check uses announce:false (silent backfill).
-   */
+  // Full evaluation for a user: lifetime rules from LifecycleCounts, per-game
+  // rules from the passed-in game (or a retroactive loop over past games).
+  // announce=false = silent backfill (POST /check).
   async evaluateForUser(
     userId: string,
     game?: any,
@@ -64,7 +58,7 @@ export class AchievementsService {
 
     const unlocked: string[] = [];
 
-    // LifecycleCounts — computed once per evaluation (PVP/PVE only).
+    // LifecycleCounts : computed once per evaluation (PVP/PVE only).
     const counts = await this.computeLifecycleCounts(userId, user);
 
     // Evaluate lifetime rules (registry-driven), then per-game rules.
@@ -77,7 +71,7 @@ export class AchievementsService {
     // Per-game rules: when a game is passed in (post-game hook), evaluate that
     // specific game. Otherwise (POST /check silent backfill) run a RETROACTIVE
     // loop over the user's games so historical games can unlock per-game
-    // achievements — not just the latest one.
+    // achievements : not just the latest one.
     const perGameRules = ACHIEVEMENT_RULES.filter((r) => r.type === 'per-game');
     if (game) {
       for (const rule of perGameRules) {
@@ -145,7 +139,7 @@ export class AchievementsService {
   }
 
   /**
-   * GET /api/achievements — registry-driven report.
+   * GET /api/achievements : registry-driven report.
    * Returns { [achKey]: { unlocked, progress, target } } for all 13 keys.
    */
   async getUserAchievements(userId: string, targetUsername?: string) {
@@ -199,17 +193,14 @@ export class AchievementsService {
     return result;
   }
 
-  /**
-   * Compute LifecycleCounts once per evaluation. Only PVP/PVE participations
-   * count — hotseat is demo-and-forget and never reaches the backend.
-   */
+  // Compute lifetime counters once per evaluation (PVP/PVE games only).
   private async computeLifecycleCounts(userId: string, user: any): Promise<LifecycleCounts> {
     const participations = await this.prisma.db.gameParticipant.findMany({
       where: { user_id: userId },
       include: { game: { select: { gameType: true, status: true } } },
     });
 
-    // Only COMPLETED PVP/PVE participations count — ABANDONED games have no
+    // Only COMPLETED PVP/PVE participations count : ABANDONED games have no
     // definitive result, and hotseat is demo-and-forget (never reaches the DB).
     const pvpPve = participations.filter(
       (p: any) =>
@@ -235,15 +226,12 @@ export class AchievementsService {
     };
   }
 
-  /**
-   * Set an achievement flag to true. Returns true only when the flag was
-   * previously false (fire-once) — callers use this to decide whether to notify.
-   */
+  // Set an achievement flag. Returns true only on first unlock (fire-once).
   private async unlock(userId: string, field: AchKey): Promise<boolean> {
     try {
       const user = await this.prisma.db.user.findUnique({ where: { id: userId }, include: { achievement: true } });
       if (!user) return false;
-      if ((user.achievement as any)[field]) return false; // already unlocked — no re-notify
+      if ((user.achievement as any)[field]) return false; // already unlocked : no re-notify
 
       await this.prisma.db.achievement.update({
         where: { userId },

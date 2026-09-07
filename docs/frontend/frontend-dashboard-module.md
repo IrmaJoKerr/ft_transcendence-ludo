@@ -39,7 +39,7 @@ flowchart LR
 | File | Role |
 |------|------|
 | `src/pages/Home.tsx` | Home page — the former dashboard widgets, now API-driven |
-| `src/hooks/useNotifications.ts` | Notification bell + toasts (SSE) |
+| `src/hooks/useNotifications.tsx` | Notification bell + toasts (SSE) |
 | `src/api.ts` | Typed `getApi`/`postApi` fetchers |
 
 ---
@@ -50,6 +50,6 @@ flowchart LR
 |-----------|---------|
 | `api.ts` | `getApi` for `/api/stats`, `/api/leaderboard`, `/api/friends` |
 | `store.tsx` | `useApp` for user, settings, presence |
-| `hooks/useNotifications.ts` | Real-time notifications |
+| `hooks/useNotifications.tsx` | Real-time notifications |
 | `router.tsx` | `navigate` for quick actions |
 | `utils/ranks.ts` | `getRankTier` rank badges |

@@ -42,7 +42,7 @@ export class BoardMapper {
   }
 
   /**
-   * Check whether a shared board track position (1-52) is occupied by a blockade —
+   * Check whether a shared board track position (1-52) is occupied by a blockade :
    * i.e. two or more pieces of the same opponent color on one square.
    * Only the main track (steps 1-51) participates; prison/goal/done (<=0, >=52)
    * and safe zones never form/block via this helper.

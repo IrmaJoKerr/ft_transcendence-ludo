@@ -2,19 +2,16 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import * as nodemailer from 'nodemailer';
 import { secret } from '../secrets';
 
-/**
- * Sends transactional email (verification links, 2FA codes).
- *
- * SMTP config comes from secrets/smtp_credentials.txt in the form
- *   [smtp.gmail.com]:587 address@gmail.com:app-password
- * When the file is missing or still holds the template placeholder, the
- * service degrades to logging the mail body to the console — every flow
- * stays testable in dev by reading `docker compose logs backend`.
- */
+// Sends transactional email (verification links, 2FA codes) via SMTP from
+// SMTP_CREDENTIALS. Without credentials, mail is logged to the console so
+// every flow stays testable in dev.
 @Injectable()
 export class MailService {
+  // Nest logger for connection warnings and dev-mode mail output.
   private readonly logger = new Logger(MailService.name);
+  // SMTP transport from SMTP_CREDENTIALS; null in dev → mail is only logged.
   private transporter: nodemailer.Transporter | null = null;
+  // "From" address, taken from the SMTP credentials.
   private from = '';
 
   constructor() {
@@ -31,7 +28,7 @@ export class MailService {
       });
     } else {
       this.logger.warn(
-        'SMTP credentials missing or placeholder — emails will be LOGGED to this console instead of sent.',
+        'SMTP credentials missing or placeholder : emails will be LOGGED to this console instead of sent.',
       );
     }
   }
@@ -45,7 +42,7 @@ export class MailService {
       await this.transporter.sendMail({ from: this.from, to, subject, text });
     } catch (err) {
       this.logger.error(`sendMail to ${to} failed: ${(err as Error).message}`);
-      throw new ServiceUnavailableException('Could not send email — try again later');
+      throw new ServiceUnavailableException('Could not send email : try again later');
     }
   }
 
@@ -61,7 +58,7 @@ export class MailService {
     return this.send(
       to,
       'Reset your Retro Ludo password',
-      `We received a request to reset your password.\n\nChoose a new one here:\n\n${link}\n\nThe link expires in 1 hour and can be used once. If you did not request this, ignore this mail — your password stays unchanged.`,
+      `We received a request to reset your password.\n\nChoose a new one here:\n\n${link}\n\nThe link expires in 1 hour and can be used once. If you did not request this, ignore this mail : your password stays unchanged.`,
     );
   }
 
@@ -69,7 +66,7 @@ export class MailService {
     return this.send(
       to,
       `${code} is your Retro Ludo login code`,
-      `Your login code is: ${code}\n\nIt expires in 5 minutes. If you did not try to log in, someone knows your password — change it.`,
+      `Your login code is: ${code}\n\nIt expires in 5 minutes. If you did not try to log in, someone knows your password : change it.`,
     );
   }
 }

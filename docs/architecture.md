@@ -412,7 +412,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       │                         # JoinByCode, OAuthButtons, ProfileEditModal,
 │       │                         # RankBadge, RulesModal, UserAvatar
 │       ├── game/                 # reducer.ts, types.ts
-│       ├── hooks/                # useNotifications.ts
+│       ├── hooks/                # useNotifications.tsx
 │       ├── locales/              # en.ts, fr.ts, ms.ts
 │       ├── utils/                # audio.ts, ranks.ts
 │       └── assets/               # images/svg

@@ -1,16 +1,8 @@
 import { IsString, IsEmail, IsBoolean, IsOptional, Length, Matches } from 'class-validator';
 
-/**
- * Complete profile-update DTO — every field is optional, only provided fields
- * are changed. Mirrors the register-time validation rules:
- *  - displayName: 1-30 chars, letters/numbers/spaces and _ - ' only. The
- *    username itself is auto-generated and immutable — it is NOT editable.
- *  - email: must be a valid email (normalized to lowercase on write)
- *  - twoFactorEnabled: true = email-code 2FA required at login (add method),
- *    false = not required (remove method)
- *  - oauthToAdd / oauthToRemove: one of `google | github | 42`
- *  - currentPassword + newPassword: both required together to change password
- */
+// Profile-update DTO : every field optional; only provided fields change.
+// displayName: 1-30 chars; email: valid email; twoFactorEnabled toggles 2FA;
+// oauthAdd/Remove: google|github|42; password change needs current + new.
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()

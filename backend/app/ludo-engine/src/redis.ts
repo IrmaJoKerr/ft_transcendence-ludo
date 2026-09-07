@@ -41,11 +41,11 @@ export class RedisGameStore {
   }
 
   /** Create a new game with all 16 pieces in prison. `activeColors` are the
-   * seats actually in play for this match size — colors outside that set get
+   * seats actually in play for this match size : colors outside that set get
    * no PlayerMeta entry at all, so unused seats never appear anywhere
    * downstream (sidebar, color picker, turn order). */
   async createGame(gameId: string, clashMode: boolean = true, activeColors: PlayerColor[] = COLORS, safeZones: boolean = true): Promise<void> {
-    // All 16 pieces start in prison (step 0) — 4 per color.
+    // All 16 pieces start in prison (step 0) : 4 per color.
     const pieces: Piece[] = [];
     for (const color of COLORS) {
       for (let i = 0; i < 4; i++) {
@@ -201,7 +201,7 @@ export class RedisGameStore {
 
    /**
     * Remove a non-host player's seat from a waiting room's match hash.
-    * The host (player1) seat is never cleared — the room stays rejoinable.
+    * The host (player1) seat is never cleared : the room stays rejoinable.
     * After clearing, the idle stamp is (re)written so the 5-minute idle
     * countdown restarts from the moment the room dropped back below 2 seats.
     */

@@ -127,7 +127,7 @@ export interface MovePieceOutput {
 }
 
 /**
- * Events emitted by the engine — one source of truth for game lifecycle.
+ * Events emitted by the engine : one source of truth for game lifecycle.
  */
 export type GameEvent =
 	| { type: 'dice_rolled'; gameId: string; value: number; legalMoves: LegalMove[]; bonusRoll: boolean; currentTurn: PlayerColor; forfeited?: boolean }

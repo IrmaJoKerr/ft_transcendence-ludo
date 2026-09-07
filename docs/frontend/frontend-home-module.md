@@ -31,7 +31,7 @@ The Home page is the main landing page after login (`/home`, full-bleed). It dou
 | File | Role |
 |------|------|
 | `src/pages/Home.tsx` | Home page — stats, leaderboard rank, friends, notifications, quick actions |
-| `src/hooks/useNotifications.ts` | Notification bell + toasts (SSE) |
+| `src/hooks/useNotifications.tsx` | Notification bell + toasts (SSE) |
 | `src/components/UserAvatar.tsx` | Avatar rendering |
 | `src/components/RankBadge.tsx` | Rank tier badge |
 | `src/components/RetroNavbar.tsx` | Top navigation bar |
@@ -116,7 +116,7 @@ sequenceDiagram
 |-----------|---------|
 | `api.ts` | `getApi` for `/api/stats`, `/api/leaderboard`, `/api/friends` |
 | `store.tsx` | `useApp` for user, settings, presence |
-| `hooks/useNotifications.ts` | Real-time notification bell + toasts |
+| `hooks/useNotifications.tsx` | Real-time notification bell + toasts |
 | `router.tsx` | `navigate` for quick actions |
 | `utils/ranks.ts` | `getRankTier` rank badges |
 | `utils/audio.ts` | `retroAudio` sound effects |

@@ -1,9 +1,9 @@
 /**
- * Achievement registry — single source of truth for all 15 achievements.
+ * Achievement registry : single source of truth for all 15 achievements.
  * Adding a future achievement = one registry row; no new endpoints, no
  * duplicated unlock/notify logic.
  *
- * LifecycleCounts is computed once per evaluation (PVP/PVE only — hotseat is
+ * LifecycleCounts is computed once per evaluation (PVP/PVE only : hotseat is
  * demo-and-forget and never reaches the backend).
  *
  * NOTE: The generated Prisma client is built at container start, so we use

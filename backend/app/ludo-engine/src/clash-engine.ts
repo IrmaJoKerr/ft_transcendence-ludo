@@ -24,7 +24,7 @@ const CLASH_SWEEP_INTERVAL_MS = 5000;
  * event stream stay single-owned.
  */
 export class ClashEngine {
-  // One timeout per live clash — resolves by most-presses once the window ends.
+  // One timeout per live clash : resolves by most-presses once the window ends.
   private clashTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
@@ -65,7 +65,7 @@ export class ClashEngine {
         if (delay > 0) this.clashTimers.set(gameId, setTimeout(() => { void this.withGameLock(gameId, async () => { try { await fn(); } catch (err) { console.error('[clash] phase error', gameId, err); } }); }, delay));
         else void fn();
       };
-      // No lock wrapper — resolveClashOutcome already locks; wrapping would deadlock.
+      // No lock wrapper : resolveClashOutcome already locks; wrapping would deadlock.
       const scheduleUnlocked = (delay: number, fn: () => void) => {
         if (delay > 0) this.clashTimers.set(gameId, setTimeout(() => { void (async () => { try { await fn(); } catch (err) { console.error('[clash] resolve error', gameId, err); } })(); }, delay));
         else void fn();
@@ -103,7 +103,7 @@ export class ClashEngine {
           this.armClashPhaseTimers(gameId);
         }
       }
-    } catch { /* transient — boot re-arm is best-effort; the sweep covers it */ }
+    } catch { /* transient : boot re-arm is best-effort; the sweep covers it */ }
   }
 
   /** Boot-time clash recovery: re-arm phase timers for any persisted clashes
@@ -136,9 +136,9 @@ export class ClashEngine {
                 // Orphaned (timers lost to crash/restart): force-resolve by meters.
                 await this.resolveClashOnTimeout(gameId);
               }
-            } catch { /* transient — continue */ }
+            } catch { /* transient : continue */ }
           }
-        } catch { /* scan errors are transient — retry next tick */ }
+        } catch { /* scan errors are transient : retry next tick */ }
       })();
     };
     setInterval(tick, CLASH_SWEEP_INTERVAL_MS);
@@ -169,7 +169,7 @@ export class ClashEngine {
 
   /**
    * Locked press recorder (humans and bots). On reaching CLASH_TARGET the
-   * resolve is scheduled outside the lock — a re-entrant self-lock would deadlock.
+   * resolve is scheduled outside the lock : a re-entrant self-lock would deadlock.
    */
   async recordClashPress(gameId: string, color: PlayerColor, key?: string, isBot = false): Promise<number> {
     return this.withGameLock(gameId, async () => {
@@ -279,19 +279,19 @@ export class ClashEngine {
             if (!cur || cur.status !== 'active' || !cur.clash) return; // clash already resolved
             if (Date.now() >= cur.clash.pressDeadline) return; // timeout handles it
 
-            // No lock here — armed from inside the lock chain; recordClashPress would
+            // No lock here : armed from inside the lock chain; recordClashPress would
             // re-enter it and deadlock. Single-chain + press-cap make races idempotent.
             const count = await this.store.recordClashPress(gameId, botColor);
             // Broadcast so every client's bars advance live (store doesn't publish; humans get it via ClashManager).
             this.emit({ type: 'clash_press', gameId, color: botColor, presses: count });
             if (count >= CLASH_TARGET) {
-              // Early win — schedule outside any lock (resolveClashOutcome self-locks).
+              // Early win : schedule outside any lock (resolveClashOutcome self-locks).
               setTimeout(() => void this.resolveClashOutcome(gameId, botColor), 0);
               return;
             }
           } catch (err) {
             console.error(`[clash] bot press ERROR ${gameId}/${botColor}:`, err);
-            return; // do NOT re-arm on persistent failure — recovery sweep cleans up
+            return; // do NOT re-arm on persistent failure : recovery sweep cleans up
           }
           schedulePress();
         })();

@@ -6,7 +6,7 @@ import { GameSocket, isBotUserId, BOT_PREFIX } from './auth';
 import type { PlayerColor } from '../types';
 
 /**
- * JoinManager owns the join_game flow — historically the largest single
+ * JoinManager owns the join_game flow : historically the largest single
  * handler in the socket layer. It serializes each game's join critical
  * section against Redis, resolves the seat a socket should bind to, creates
  * the game if it doesn't exist yet, handles reconnects, auto-starts
@@ -42,8 +42,8 @@ export class JoinManager {
    * signed once at join time (24h expiry) and are never re-issued on a lobby
    * seat swap, so `tokenColor` can be stale. Rebinding to it re-populates the
    * player's PREVIOUS seat and leaves their avatar on two slots at once. The
-   * match hash is the authoritative source — handleSelectColor updates the
-   * user's slot color there before any re-join happens — so prefer it.
+   * match hash is the authoritative source : handleSelectColor updates the
+   * user's slot color there before any re-join happens : so prefer it.
    * Guests have no hash slot and fall back to the token claim
    * (then the requested color).
    */
@@ -73,7 +73,7 @@ export class JoinManager {
     // Prefer the AUTHENTICATED token's username over the client-supplied
     // displayName: `username` is the immutable identity (used for login/avatar/
     // URLs) and the token is backend-signed, while `displayName` is a label.
-    // (Hotseat/local joins have no token — displayName is the fallback.)
+    // (Hotseat/local joins have no token : displayName is the fallback.)
     const effectiveUsername = socket.data.username || displayName;
     const isHotseat = socket.data.mode === 'hotseat';
 
@@ -98,7 +98,7 @@ export class JoinManager {
           if (!this.userIdMap.has(effectiveGameId)) {
             this.userIdMap.set(effectiveGameId, new Map());
           }
-          // Vacate this socket's previous binding — but ONLY if that seat still
+          // Vacate this socket's previous binding : but ONLY if that seat still
           // maps to THIS user. In a color swap the vacating player's old color
           // may now belong to the other player (whose re-join happens on their
           // own lobby_update), and deleting it would wipe the other player's
@@ -124,7 +124,7 @@ export class JoinManager {
             ? (creationMatchData.seatColors.split(',') as PlayerColor[])
             : this.seatColors.slice(0, playerCount);
           // Clash mode follows the match's clashEnabled flag (set by the host's
-          // lobby toggle) rather than being hardcoded on — the engine gate in
+          // lobby toggle) rather than being hardcoded on : the engine gate in
           // movePiece checks state.clashMode.
           await this.store.createGame(
             effectiveGameId,
@@ -141,7 +141,7 @@ export class JoinManager {
 
           // Socket locking: a player may (re)join an in-progress match only if
           // they're already seated in it (or reconnecting). The seat check uses
-          // the Redis match record — disconnectedPlayers alone is in-memory and
+          // the Redis match record : disconnectedPlayers alone is in-memory and
           // would wrongly reject a refresh/reconnect after an engine restart.
           // hotseat is always the same physical device, so its seat (re)joins are allowed.
           const match = await this.store.getMatchData(effectiveGameId);
@@ -158,7 +158,7 @@ export class JoinManager {
           if (isReconnectingPlayer) {
             await this.engine.handlePlayerReconnect(effectiveGameId, effectiveColor);
             state = await this.store.loadGameState(effectiveGameId);
-            // The player is back on their old seat — tell the room so everyone
+            // The player is back on their old seat : tell the room so everyone
             // sees them flip from "Reconnecting…" back to active.
             if (state && !state.disconnectedPlayers.some((d) => d.color === effectiveColor)) {
               this.engine.emitEvent({ type: 'player_reconnected', gameId: effectiveGameId, color: playerColor });
@@ -184,7 +184,7 @@ export class JoinManager {
           if (state.status === 'waiting') {
             await this.store.saveGameState(effectiveGameId, state);
             // Already-connected clients (e.g. the room host) otherwise never
-            // learn a new seat joined — nothing else broadcasts on join, so
+            // learn a new seat joined : nothing else broadcasts on join, so
             // their local view stays stuck at solo-room state forever and
             // their Ready button never enables. See emitLobbyUpdate in engine.ts.
             await this.engine.emitLobbyUpdate(effectiveGameId);
@@ -201,14 +201,14 @@ export class JoinManager {
         const matchData = await this.store.getMatchData(effectiveGameId);
         if (matchData && (matchData.gameType === 'PVE' || matchData.gameType === 'HOTSEAT')) {
           await this.autoStartIfReady(effectiveGameId, matchData);
-          // Reload state — autoStartIfReady may have transitioned it to 'active'
+          // Reload state : autoStartIfReady may have transitioned it to 'active'
           state = await this.store.loadGameState(effectiveGameId);
         }
 
         // Resume re-arm: any reconnect/join into an ACTIVE game clears the
         // pause flag, and if it's a bot's turn the bot trigger is re-scheduled.
         // This is what un-freezes a bot-mode game the player left mid-game
-        // (or refreshed the browser on) — the turn state persisted in Redis,
+        // (or refreshed the browser on) : the turn state persisted in Redis,
         // the human just needs a fresh bot kick.
         if (state?.status === 'active' && state.paused) {
           delete state.paused;
@@ -231,17 +231,17 @@ export class JoinManager {
   }
 
   /**
-   * Auto-start PvE and hotseat matches — neither has a genuine second remote
+   * Auto-start PvE and hotseat matches : neither has a genuine second remote
    * player to run a ready-check quorum against, so skip it. PvE registers its
    * bot seats here; hotseat just waits for every local seat (playerCount,
-   * since hotseat never populates player2_id../player4_id — one real account
+   * since hotseat never populates player2_id../player4_id : one real account
    * plays every seat) to have joined before flipping the game active.
    */
   private async autoStartIfReady(gameId: string, matchData: Record<string, string>): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state) return;
 
-    // Only auto-fill once — if game already active, seats are already registered
+    // Only auto-fill once : if game already active, seats are already registered
     if (state.status === 'active') return;
 
     if (matchData.gameType === 'PVE') {
@@ -273,7 +273,7 @@ export class JoinManager {
     }
 
     // Every seat that has actually joined (human, local hotseat seat, or bot
-    // just registered above) is auto-ready — there's nobody real left to wait on.
+    // just registered above) is auto-ready : there's nobody real left to wait on.
     for (const p of state.players) {
       if (p.status === 'active' && !state.readyPlayers.includes(p.color)) {
         state.readyPlayers.push(p.color);
@@ -284,7 +284,7 @@ export class JoinManager {
 
     // Hotseat must wait for every local seat to have joined (they join one at
     // a time, via separate join_game calls on the same socket) before
-    // starting — otherwise it'd fire after just the first seat.
+    // starting : otherwise it'd fire after just the first seat.
     const expectedSeats = matchData.gameType === 'HOTSEAT' ? parseInt(matchData.playerCount || '2', 10) : 0;
     const activePlayers = state.players.filter(p => p.status === 'active');
     const allJoined = activePlayers.length >= expectedSeats;

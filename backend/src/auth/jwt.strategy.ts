@@ -10,6 +10,8 @@ function extractFromCookie(req: Request): string | null {
 }
 
 @Injectable()
+// Passport strategy that authenticates users from the `token` JWT cookie.
+// Used by JwtAuthGuard, which protects every auth-required route.
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     super({

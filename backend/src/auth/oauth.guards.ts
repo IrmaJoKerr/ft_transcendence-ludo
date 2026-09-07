@@ -5,20 +5,19 @@ import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { secret, isTunnelRequest } from '../secrets';
 
-// Both the localhost and ngrok OAuth apps are registered at once (under
-// distinct passport strategy names, see auth.module.ts), so a single guard
-// per provider has to pick the right one per request rather than at boot.
-// This mirrors the Host-header check AuthController uses to pick the
-// post-login redirect target — same signal, same reason: ngrok forwards the
-// original Host header, so it tells us which OAuth app's client/callback the
-// browser is actually going to complete the round trip with.
+// Builds one passport guard class per OAuth provider. Each picks between the
+// localhost and ngrok-tunnel strategies per request via the Host header
+// (ngrok forwards the original Host), mirroring the redirect-target logic in
+// auth.controller.ts. Used on the /api/auth/<provider> login routes.
 function tunnelAwareGuard(localStrategy: string, tunnelStrategy: string, provider: string) {
   const LocalGuard = AuthGuard(localStrategy);
   const TunnelGuard = AuthGuard(tunnelStrategy);
 
   @Injectable()
+  // Guard that runs the right provider strategy and redirects OAuth failures
+  // back to the frontend login page with an `error` query param.
   class TunnelAwareAuthGuard implements CanActivate {
-    // This class is returned from a factory and used as an exported base —
+    // This class is returned from a factory and used as an exported base :
     // EVERY member must be public or `nest build` fails. (#-private fields and
     // private constructor params both trip the rule.)
     readonly local = new LocalGuard();
@@ -26,6 +25,8 @@ function tunnelAwareGuard(localStrategy: string, tunnelStrategy: string, provide
 
     constructor(public readonly jwt: JwtService) {}
 
+    // Entry point called by Nest on the /api/auth/<provider> route: picks the
+    // strategy, injects oauth-link state when needed, and handles rejections.
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
       const req = context.switchToHttp().getRequest<Request>();
       const guard = isTunnelRequest(req.get('host')) ? this.tunnel : this.local;
@@ -41,11 +42,9 @@ function tunnelAwareGuard(localStrategy: string, tunnelStrategy: string, provide
         return false;
       }
 
-      // "Add a sign-in method" intent: when the browser already holds a valid
-      // access-token cookie, treat this OAuth startup as a LINK — sign a
-      // short-lived oauth-link token into the provider `state` so the callback
-      // links the provider account to the logged-in user instead of logging
-      // them in (or creating a new account). No cookie = normal login (no state).
+      // "Add a sign-in method" intent: with a valid access-token cookie, sign
+      // a short-lived oauth-link token into the provider `state` so the
+      // callback links the provider to the logged-in user. No cookie = login.
       let state: string | undefined;
       const accessToken = req.cookies?.['token'];
       if (typeof accessToken === 'string') {
@@ -58,7 +57,7 @@ function tunnelAwareGuard(localStrategy: string, tunnelStrategy: string, provide
             );
           }
         } catch {
-          /* invalid/expired access token -> normal login */
+          // invalid/expired access token -> normal login
         }
       }
 
@@ -70,7 +69,7 @@ function tunnelAwareGuard(localStrategy: string, tunnelStrategy: string, provide
       try {
         const result = guard.canActivate(context);
 
-        // Fast paths — a boolean can't carry the strategy rejection; observables
+        // Fast paths : a boolean can't carry the strategy rejection; observables
         // are passed through untouched.
         if (typeof result === 'boolean') {
           if (!result) {

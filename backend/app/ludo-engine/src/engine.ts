@@ -42,7 +42,7 @@ export class LudoEngine {
     this.lobbyManager = lobbyManager;
   }
 
-  /** Register the single source of truth for lifecycle events — the socket layer must not detect them itself. */
+  /** Register the single source of truth for lifecycle events : the socket layer must not detect them itself. */
   onEvent(handler: (event: GameEvent) => void): void {
     this.eventHandler = handler;
   }
@@ -68,19 +68,9 @@ export class LudoEngine {
     return await this.store.loadGameState(gameId);
   }
 
-  /**
-   * Seeded random number generator (mulberry32).
-   *
-   * Math.random() cannot be seeded directly. The dice roll uses it anyway:
-   * each roll creates a new generator, seeded with a Math.random() value
-   * stretched to a very large number. Every roll therefore gets its own
-   * random stream, so the dice are not affected by other Math.random()
-   * calls that other parts of the program make.
-   *
-   * For the full math breakdown, see
-   * docs/ludo-engine/ludo-engine-core-system.md →
-   * "How the roll's randomness works (seeded PRNG math)".
-   */
+  // Seeded PRNG (mulberry32). Math.random() can't be seeded directly, so every
+  // roll re-seeds a fresh generator from a large Math.random() value — giving
+  // each die roll its own isolated, uniform 1..6 stream.
   private static seededRand(seed: number): () => number {
     let s = seed >>> 0;
     return () => {
@@ -102,7 +92,7 @@ export class LudoEngine {
     // Result-card freeze: no input while the 3s clash card is up.
     if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
       console.log(`[clash] ROLL BLOCKED ${gameId} (until ${state.resultCardUntil})`);
-      throw new Error('Clash result in progress — wait for the card to clear');
+      throw new Error('Clash result in progress : wait for the card to clear');
     }
 
     // Only allow roll during WAITING_FOR_ROLL phase
@@ -188,7 +178,7 @@ export class LudoEngine {
     // Result-card freeze: no input while the 3s clash card is up.
     if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
       console.log(`[clash] MOVE BLOCKED ${gameId} (until ${state.resultCardUntil})`);
-      throw new Error('Clash result in progress — wait for the card to clear');
+      throw new Error('Clash result in progress : wait for the card to clear');
     }
 
     // Validate: must be in WAITING_FOR_MOVE phase
@@ -196,7 +186,7 @@ export class LudoEngine {
       throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
     }
 
-    // The legal-move snapshot from roll time is the contract — no re-deriving at
+    // The legal-move snapshot from roll time is the contract : no re-deriving at
     // execution time; a player who disconnected/forfeited since is rejected here.
     const pendingMove = state.pendingLegalMoves.find(m => m.pieceId === pieceId);
     if (!pendingMove) {
@@ -206,14 +196,14 @@ export class LudoEngine {
     // Use the server-authoritative dice value
     const diceValue = state.pendingDiceValue;
     if (diceValue === undefined) {
-      throw new Error('No pending dice value — roll first');
+      throw new Error('No pending dice value : roll first');
     }
 
     const moverColor = (state.pieces.find(p => p.id === pieceId)?.color) as PlayerColor;
 
-    // Clash gate: capture moves are deferred to the QTE — applied only after it resolves.
+    // Clash gate: capture moves are deferred to the QTE : applied only after it resolves.
     if (state.clashMode && pendingMove.isCapture) {
-      // Find the defender via the SHARED track position — per-color step equality is wrong across colors.
+      // Find the defender via the SHARED track position : per-color step equality is wrong across colors.
       const capturedPieceIds = MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to);
       // No defender on the square → fall through to a normal capture move.
       const defenderPiece = state.pieces.find(p => p.id === capturedPieceIds[0]);
@@ -240,7 +230,7 @@ export class LudoEngine {
 
         await this.clashEngine.startClash(gameId, moverColor, defenderColor, attackerIsBot, defenderIsBot);
 
-        // Deferred — no piece_moved yet; the clash outcome emits it afterwards.
+        // Deferred : no piece_moved yet; the clash outcome emits it afterwards.
         return {
           result: {
             ply: state.moveCounter + 1,
@@ -290,8 +280,7 @@ export class LudoEngine {
     });
   }
 
-  // ─── Clash orchestration facades (logic lives in ClashEngine) ───────────────
-
+  // Clash orchestration facades (logic lives in ClashEngine)
   /** Boot-time clash recovery sweep (see clash-engine.ts). */
   startClashRecoverySweep(): void {
     this.clashEngine.startRecoverySweep();
@@ -302,13 +291,12 @@ export class LudoEngine {
     return this.clashEngine.recordClashPress(gameId, color, key, isBot);
   }
 
-  // ─── Player lifecycle handlers (delegated to player-handler.ts) ─────────────
-
+  // Player lifecycle handlers (delegated to player-handler.ts)
   async handlePlayerDisconnect(gameId: string, color: PlayerColor, notifyAbort?: (gameId: string) => void): Promise<void> {
     return this.withGameLock(gameId, () => handlePlayerDisconnect(this.store, (e) => this.emit(e), gameId, color, notifyAbort));
   }
 
-  /** Settle a mid-clash disconnect immediately by meters — called after the disconnect lock releases to avoid deadlock. */
+  /** Settle a mid-clash disconnect immediately by meters : called after the disconnect lock releases to avoid deadlock. */
   async resolveClashOnDisconnect(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state?.clash) return;
@@ -360,7 +348,7 @@ export class LudoEngine {
     if (!state) return;
     const matchData = await this.store.getMatchData(gameId);
     const players = state.players
-      // Exclude exited seats — including them would make clients resurrect their cleared pieces.
+      // Exclude exited seats : including them would make clients resurrect their cleared pieces.
       .filter(p => p.status === 'active' || p.status === 'disconnected')
       .map(p => ({
         userId: '',

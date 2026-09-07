@@ -3,11 +3,15 @@ import Redis from 'ioredis';
 import { secret } from '../secrets';
 
 @Injectable()
+// Redis sorted-set storage for leaderboards (one set per mode). Used by
+// leaderboard.service.ts and match.postgame.service.ts (rating updates).
 export class LeaderboardRedisService implements OnModuleDestroy {
   private redis: Redis;
+  // Redis client; keys are leaderboard:<mode> sorted sets (member = userId,
+  // score = rating).
 
   constructor() {
-    // Host/port stay plain env — they're topology, not secrets.
+    // Host/port stay plain env : they're topology, not secrets.
     const host = process.env.REDIS_HOST || 'redis';
     const port = parseInt(process.env.REDIS_PORT || '6479', 10);
     const password = secret('REDIS_PASSWORD');

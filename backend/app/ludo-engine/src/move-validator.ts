@@ -1,10 +1,11 @@
 import { GameState, PlayerColor, LegalMove, PieceId, MoveResult } from './types';
 import { BoardMapper } from './board-mapper';
 
-/**
- * MoveValidator - determines legal moves, resolves captures, checks wins, and executes moves.
- */
+// MoveValidator - determines legal moves, resolves captures, checks wins, and executes moves.
 export class MoveValidator {
+  // All legal moves for `color` given the dice roll: prison exits (6 only),
+  // normal track moves with blockade checks, home entries. Used by
+  // LudoEngine.rollDice to build pendingLegalMoves.
   static getLegalMoves(state: GameState, color: PlayerColor, diceValue: number): LegalMove[] {
     const moves: LegalMove[] = [];
     
@@ -18,7 +19,7 @@ export class MoveValidator {
       if (from === 57) continue;
       
       // Prison exit rule: can only leave prison on a roll of 6.
-      // Exiting places the piece on the starting track square (step 1) — the 6
+      // Exiting places the piece on the starting track square (step 1) : the 6
       // is consumed to exit; the remaining 5 steps are NOT applied. The next
       // roll then moves the piece 1-6 steps.
       if (from === 0) {
@@ -54,12 +55,9 @@ export class MoveValidator {
     return moves;
   }
 
-  /**
-   * True if an opponent blockade (2+ same-color pieces on one non-safe track square)
-   * lies on the path a piece would cross between `from` (exclusive) and `to` (inclusive).
-   * Safe zones never form a blockade, and a blockade only blocks landing/passing on
-   * the 52-loop — home stretch (52-56) and goal (57) are immune.
-   */
+  // True if an opponent blockade (2+ same-color pieces on a non-safe square)
+  // lies on the path between `from` (exclusive) and `to` (inclusive). Safe
+  // zones never block; the home stretch and goal are immune.
   static blockadeBlocksPath(
     state: GameState,
     moverColor: PlayerColor,
@@ -80,7 +78,7 @@ export class MoveValidator {
     for (let step = from + 1; step <= lastTrackStep; step++) {
       const moverPos = BoardMapper.toTrackPosition(pieceId, step);
       if (moverPos === -1) continue;
-      // Safe zones never form a blockade — skip them so a stack there doesn't
+      // Safe zones never form a blockade : skip them so a stack there doesn't
       // block (unless the safe-zones mod is OFF, then a stack on a former star
       // can block like any other square).
       if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, step)) continue;
@@ -106,7 +104,7 @@ export class MoveValidator {
   static isCapturableTarget(state: GameState, moverColor: PlayerColor, pieceId: PieceId, targetStep: number): boolean {
     if (targetStep <= 0 || targetStep >= 52) return false;
 
-    // Safe zones (start squares + shared safe loop) never allow captures —
+    // Safe zones (start squares + shared safe loop) never allow captures :
     // unless the safe-zones mod is OFF (hardcore: stars are fair game).
     if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, targetStep)) return false;
 
@@ -114,7 +112,7 @@ export class MoveValidator {
     if (targetPos === -1) return false;
 
     // Blockade rule: a 2+ same-color opponent stack on the landing square is
-    // uncapturable — sharing is fine, capturing is not. The blocker pieces are
+    // uncapturable : sharing is fine, capturing is not. The blocker pieces are
     // compared on the shared track loop via the mover's target track position.
     const opponentColors: PlayerColor[] = ['blue', 'red', 'green', 'yellow'].filter(c => c !== moverColor) as PlayerColor[];
     for (const blockerColor of opponentColors) {
@@ -134,7 +132,7 @@ export class MoveValidator {
   }
 
   /**
-   * Every opponent piece occupying the landing square — a stacked block is
+   * Every opponent piece occupying the landing square : a stacked block is
    * captured as a whole. Defensive: under legal serialized play, cross-color
    * sharing is impossible outside safe zones and same-color blockades (a move
    * onto an occupied non-safe square always captures), so this normally finds
@@ -180,7 +178,7 @@ export class MoveValidator {
     // Move piece
     piece.step = pendingMove.to;
     
-    // Resolve capture — every opponent piece stacked on the landing square goes home
+    // Resolve capture : every opponent piece stacked on the landing square goes home
     let capturedPieceIds: PieceId[] = [];
     if (pendingMove.isCapture) {
       capturedPieceIds = this.resolveCapture(state, capturerColor, pendingMove.to);
@@ -199,7 +197,7 @@ export class MoveValidator {
     player.stats.turns++;
     
     // Build result. path is every intermediate square the piece actually
-    // crosses (from+1 .. to) — server-authoritative so the frontend animates
+    // crosses (from+1 .. to) : server-authoritative so the frontend animates
     // the real route instead of re-deriving it (and can't skip captures).
     const captured = capturedPieceIds.length > 0;
     const path: number[] = [];

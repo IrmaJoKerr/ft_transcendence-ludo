@@ -6,7 +6,7 @@ import { GameSocket } from './auth';
 import { JoinManager } from './join-manager';
 import type { PlayerColor, PieceId } from '../types';
 
-// Shared seat order — used by the join flow to map slots to colors and to
+// Shared seat order : used by the join flow to map slots to colors and to
 // auto-fill bot seats (the seat order must match the original match).
 export const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -99,8 +99,8 @@ export class SocketHandlers {
 
         // The pressed KEY decides which side it belongs to (attacker vs
         // defender), then we verify the socket's user owns that seat. In PvP
-        // each user owns one seat — only their key works. In hotseat one user
-        // owns both seats — the same socket can mash BOTH keys simultaneously.
+        // each user owns one seat : only their key works. In hotseat one user
+        // owns both seats : the same socket can mash BOTH keys simultaneously.
         const userId = socket.data.userId;
         const attackerUser = this.userIdMap.get(gameId)?.get(clash.attacker);
         const defenderUser = this.userIdMap.get(gameId)?.get(clash.defender);

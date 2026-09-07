@@ -9,7 +9,7 @@ import { advanceTurnInState } from './player-handler';
  *
  * Shared by movePiece and clash resolution (attackerWon=false → repulse:
  * the attacker forfeits the round, no bonus, turn always advances). Pure
- * mutation — recordMove / saveGameState / emit stay with the caller.
+ * mutation : recordMove / saveGameState / emit stay with the caller.
  * Returns the winner if the game just finished.
  */
 export function applyMoveOutcome(
@@ -27,7 +27,7 @@ export function applyMoveOutcome(
     movedPiece.isInBase = result.to <= 0;   // prison: back in the starting area
   }
   if (result.captured && result.capturedPieceIds) {
-    // Captured pieces were sent home (step 0) by executeMove — mirror that on
+    // Captured pieces were sent home (step 0) by executeMove : mirror that on
     // the frontend fields too.
     for (const id of result.capturedPieceIds) {
       const capturedPiece = state.pieces.find(p => p.id === id);
@@ -42,7 +42,7 @@ export function applyMoveOutcome(
   // appears in the recorded move history and in the move result (`result.ply`).
   state.moveCounter++;
 
-  // Win check — the first player with all 4 pieces at step 57 wins.
+  // Win check : the first player with all 4 pieces at step 57 wins.
   const winner = MoveValidator.checkWinner(state);
   if (winner) {
     // Seal the final state: mark the game finished, stamp the winner's
@@ -71,7 +71,7 @@ export function applyMoveOutcome(
       if (attackerWon) {
         mover.bonusRoll = sixBonus || result.captured;
       } else {
-        // Repulse: the attacker lost the clash — no bonus even on a 6.
+        // Repulse: the attacker lost the clash : no bonus even on a 6.
         mover.bonusRoll = false;
       }
     }

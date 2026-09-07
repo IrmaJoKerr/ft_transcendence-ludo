@@ -9,6 +9,9 @@ loadEnv({ path: join(__dirname, '..', '..', '.env') });
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
 const prisma = new PrismaClient({ adapter });
 
+// One-off maintenance script: rebuilds the Redis leaderboard sorted sets
+// (global/ranked/casual) from the ratings of every user in Postgres.
+// Run manually with ts-node after a Redis wipe or fresh deploy.
 async function main() {
   console.log('🔄 Synchronizing database users to Redis leaderboards...');
 

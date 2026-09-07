@@ -12,10 +12,10 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' 
 const prisma = new PrismaClient({ adapter });
 
 const SEED_PLAYERS = [
-  // ── MAMEE MONSTER (Top 3 Contenders) ──────────────────────────────
+  // MAMEE MONSTER (Top 3 Contenders)
   { username: 'Viper_X', rating: 1650, wins: 34, losses: 6, avatar: 'bottts' },
 
-  // ── MILO DINOSAUR (Rating >= 1350) ──────────────────────────────
+  // MILO DINOSAUR (Rating >= 1350)
   { username: 'NeonKnight', rating: 1540, wins: 28, losses: 9, avatar: 'avataaars' },
   { username: 'Alice', rating: 1480, wins: 25, losses: 10, avatar: 'identicon' },
   { username: 'ShadowFox', rating: 1440, wins: 22, losses: 11, avatar: 'bottts' },
@@ -24,7 +24,7 @@ const SEED_PLAYERS = [
   { username: 'GhostRunner', rating: 1370, wins: 18, losses: 13, avatar: 'avataaars' },
   { username: 'AeroBlade', rating: 1355, wins: 17, losses: 12, avatar: 'identicon' },
 
-  // ── PADDLE POP (Rating 1200 - 1349) ─────────────────────────────
+  // PADDLE POP (Rating 1200 - 1349)
   { username: 'StarLord', rating: 1340, wins: 16, losses: 14, avatar: 'bottts' },
   { username: 'PixelMage', rating: 1320, wins: 15, losses: 13, avatar: 'shapes' },
   { username: 'QuantumVolt', rating: 1290, wins: 14, losses: 12, avatar: 'avataaars' },
@@ -33,7 +33,7 @@ const SEED_PLAYERS = [
   { username: 'SolarFlare', rating: 1220, wins: 11, losses: 15, avatar: 'shapes' },
   { username: 'LaserFang', rating: 1205, wins: 10, losses: 14, avatar: 'bottts' },
 
-  // ── HONEY STARS (Rating 1000 - 1199) ────────────────────────────
+  // HONEY STARS (Rating 1000 - 1199)
   { username: 'CheeseRing', rating: 1180, wins: 10, losses: 16, avatar: 'avataaars' },
   { username: 'NightOwl', rating: 1150, wins: 9, losses: 16, avatar: 'identicon' },
   { username: 'Carol', rating: 1120, wins: 8, losses: 15, avatar: 'shapes' },
@@ -42,7 +42,7 @@ const SEED_PLAYERS = [
   { username: 'VortexRogue', rating: 1030, wins: 5, losses: 16, avatar: 'identicon' },
   { username: 'MechaPawn', rating: 1005, wins: 5, losses: 18, avatar: 'shapes' },
 
-  // ── CHOKI CHOKI (Rating < 1000) ─────────────────────────────────
+  // CHOKI CHOKI (Rating < 1000)
   { username: 'ChocoRookie', rating: 980, wins: 4, losses: 18, avatar: 'bottts' },
   { username: 'Dave', rating: 920, wins: 3, losses: 19, avatar: 'identicon' },
   { username: 'BitDrifter', rating: 860, wins: 2, losses: 20, avatar: 'shapes' },
@@ -59,18 +59,22 @@ const HOUR = 3600_000;
 const MINUTE = 60_000;
 const now = Date.now();
 
+// Database seed script: wipes and repopulates Users, Achievements,
+// Friendships and a sample Game with 28 demo players across rating tiers,
+// plus Redis leaderboard entries. Run via `prisma db seed` (see
+// prisma.config.ts).
 async function main() {
   console.log('🌱 Seeding Ludo database with expanded 28-player Cyber Roster...');
 
   const seedUsernames = SEED_PLAYERS.map((p) => p.username);
 
-  // ── Reset previous seed data ──────────────────────────────────────────────
+  // Reset previous seed data
   await prisma.user.deleteMany({ where: { username: { in: seedUsernames } } });
   await prisma.game.deleteMany({ where: { participants: { none: {} } } });
 
   const pwd = await hashPassword();
 
-  // ── Create All Seed Players ───────────────────────────────────────────────
+  // Create All Seed Players
   const createdUsers: any[] = [];
   for (let i = 0; i < SEED_PLAYERS.length; i++) {
     const p = SEED_PLAYERS[i];
@@ -103,7 +107,7 @@ async function main() {
             achOnFire: Math.floor(p.wins / 4) >= 2, // seeded winStreak = floor(wins/4) >= 2 → wins >= 8
             achDiceMaster: p.wins >= 3,
             achBabySteps: Math.min(2, p.wins) >= 1, // botWins >= 1
-            // achTheDiceLoveMe needs botWins >= 3 — seed botWins caps at 2, so no
+            // achTheDiceLoveMe needs botWins >= 3 : seed botWins caps at 2, so no
             // seed player legitimately holds it; real PvE play + POST /check backfill unlock it.
             achTactician: p.wins >= 5,
             achMaster: p.wins >= 8,
@@ -111,7 +115,7 @@ async function main() {
             achWorldChampion: p.wins >= 15,
             achft_Transcendence: Math.max(0, p.wins - 2) >= 10, // humanWins >= 10
             // achLoveTheMachine needs pveGameStreak (not reliably derivable from
-            // lifetime counters) — leave to real gameplay + POST /check backfill.
+            // lifetime counters) : leave to real gameplay + POST /check backfill.
           },
         },
       },
@@ -121,9 +125,9 @@ async function main() {
 
   console.log(`  ✅ Created ${createdUsers.length} seed operatives!`);
 
-  // ── Viper_X: give the top player every achievement, including the ones
+  // Viper_X: give the top player every achievement, including the ones
   // the wins-based formulas above can't reach (achTheDiceLoveMe needs
-  // botWins >= 3, achLoveTheMachine needs pveGameStreak, etc.) ───────────────
+  // botWins >= 3, achLoveTheMachine needs pveGameStreak, etc.)
   await prisma.achievement.update({
     where: { userId: createdUsers.find((u) => u.username === 'Viper_X').id },
     data: {
@@ -144,11 +148,9 @@ async function main() {
   });
   console.log('  ✅ Viper_X now has every achievement unlocked!');
 
-  // ── Brand-new empty test account (bossku / password) ───────────────────────
-  // No achievement flags, no rating/wins/losses history, no games, no friends —
-  // everything left at schema defaults. Excluded from every seed-player-specific
-  // loop below (game creation, friendship blocks) since it's created outside
-  // SEED_PLAYERS/createdUsers.
+  // Brand-new empty test account (bossku / password)
+  // No achievements, no stats, no games, no friends : schema defaults only,
+  // and excluded from the seed-player-specific loops below.
   await prisma.user.deleteMany({ where: { username: 'bossku' } });
   await prisma.user.create({
     data: {
@@ -164,7 +166,7 @@ async function main() {
   });
   console.log('  ✅ Created blank test account: bossku (password: password)');
 
-  // ── Sync All Pilots directly to Redis Leaderboard ──────────────────────────
+  // Sync All Pilots directly to Redis Leaderboard
   const allPilots = await prisma.user.findMany({
     orderBy: { rating: 'desc' },
   });
@@ -190,11 +192,11 @@ async function main() {
     console.warn('  ⚠️ Redis sync during seed skipped/failed:', redisErr);
   }
 
-  // ── Seed Friendships & Incoming Friend Requests ──────────────────────────
+  // Seed Friendships & Incoming Friend Requests
   await prisma.friendship.deleteMany({});
 
   // Find all non-seed users (e.g. harleyng, admin, or any registered user).
-  // 'bossku' is excluded too — it's meant to stay a friendless blank account.
+  // 'bossku' is excluded too : it's meant to stay a friendless blank account.
   const nonSeedUsers = await prisma.user.findMany({
     where: {
       username: { notIn: [...SEED_PLAYERS.map((p) => p.username), 'bossku'] },
@@ -269,7 +271,7 @@ async function main() {
 
   console.log(`  ✅ Seeded incoming friend requests, active friendships, and restricted lists!`);
 
-  // ── Sample Matches ────────────────────────────────────────────────────────
+  // Sample Matches
   if (createdUsers.length >= 4) {
     await prisma.game.create({
       data: {

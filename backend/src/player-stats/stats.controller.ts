@@ -3,6 +3,8 @@ import { StatsService } from './stats.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('api/stats')
+// HTTP route for the logged-in user's aggregate stats. Delegates to
+// StatsService.
 export class StatsController {
   constructor(private readonly stats: StatsService) {}
 

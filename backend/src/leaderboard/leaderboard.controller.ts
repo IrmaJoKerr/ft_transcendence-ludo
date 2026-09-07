@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-// Require a logged-in session (JWT cookie) for every leaderboard request —
+// Require a logged-in session (JWT cookie) for every leaderboard request :
 // the same guard /api/stats and /api/achievements use. The leaderboard
 // returns account-scoped ratings/profiles, so it must not be world-readable.
 @Controller('api/leaderboard')
@@ -18,7 +18,7 @@ export class LeaderboardController {
     @Query('limit') limit?: string,
   ) {
     // JwtStrategy.validate returns { id, username }, so the user id lives on
-    // req.user.id (not req.user.sub) — this is also what makes `myRank` work.
+    // req.user.id (not req.user.sub) : this is also what makes `myRank` work.
     const userId = req.user?.id || null;
     return this.leaderboard.getLeaderboard({
       mode: mode || 'global',

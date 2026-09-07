@@ -102,17 +102,16 @@ sequenceDiagram
 
 ### Scenario 1 — First startup with seeded data
 
-When the stack first starts with `make` (which runs `db:seed`), the seed script
-fills the Redis leaderboards at the same time as it fills the database:
+Seeding is a **manual** step — `make all` only builds/starts the stack (see `backend-seeding-system.md`). Running `npm run db:seed` after the stack is up fills the Redis leaderboards at the same time as it fills the database:
 
 ```mermaid
 sequenceDiagram
-    participant Make as make (db:seed)
+    participant Op as npm run db:seed (manual)
     participant Seed as seed.ts
     participant DB as PostgreSQL
     participant R as Redis
 
-    Make->>Seed: npm run db:seed
+    Op->>Seed: prisma db seed -> seed.ts
     Seed->>DB: Create 28 roster users (+ blank bossku test account) with ratings
     Seed->>R: DEL leaderboard:global, leaderboard:ranked, leaderboard:casual
     loop For every user in the database
@@ -129,7 +128,7 @@ sequenceDiagram
 >
 > 1. `seed.ts` connects straight to Redis with `ioredis`, using the same
 >    `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` values the backend uses
->    (from env or the secrets files).
+>    (from the root `.env` — no secret files are used).
 > 2. It clears the old sorted sets first: `DEL leaderboard:global`,
 >    `leaderboard:ranked`, `leaderboard:casual`.
 > 3. It reads every user + rating from PostgreSQL (`allPilots`, sorted by rating
@@ -364,7 +363,7 @@ GET /api/leaderboard?mode=global&page=1&limit=20
 ### Population Paths (summary)
 
 ```
-SEED (make → db:seed)
+SEED (manual: `npm run db:seed`)
   ├── Create seed users with ratings
   ├── DEL leaderboard:global / ranked / casual
   └── ZADD every user into each sorted set

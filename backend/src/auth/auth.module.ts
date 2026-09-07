@@ -17,11 +17,9 @@ import { PrismaService } from '../prisma.service';
 import { requireSecret } from '../secrets';
 import { NotificationModule } from '../notification/notification.module';
 
-// Both the localhost and ngrok OAuth apps are registered at once, under
-// distinct passport strategy names ('google'/'github'/'42' vs their
-// '-tunnel' counterparts). oauth.guards.ts picks which one a given request
-// uses based on the Host header it actually arrived on, so a local client and
-// a tunnelled one can both complete login against the same running backend.
+// Both the localhost and ngrok OAuth apps are registered at once under
+// distinct passport strategy names. oauth.guards.ts picks per request via
+// the Host header, so local and tunnelled clients can log in concurrently.
 
 @Module({
   imports: [

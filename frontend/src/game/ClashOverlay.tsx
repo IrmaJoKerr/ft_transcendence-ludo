@@ -85,7 +85,8 @@ function Bar({ color, presses, target }: { color: PlayerColor; presses: number; 
 }
 
 /** Name-plate — Defender sits LEFT (QWESAZXDC), Attacker RIGHT (UIOHJKNBM). */
-function Plate({ role, color, isMe }: { role: 'Defender' | 'Attacker'; color: PlayerColor; isMe: boolean }) {
+function Plate({ role, color, isMe }: { role: 'defender' | 'attacker'; color: PlayerColor; isMe: boolean }) {
+  const { t } = useTranslation()
   return (
     <div className="text-center">
       <div
@@ -94,9 +95,9 @@ function Plate({ role, color, isMe }: { role: 'Defender' | 'Attacker'; color: Pl
       >
         {(color ?? '').slice(0, 2).toUpperCase() || '?'}
       </div>
-      <div className="text-[15px] font-extrabold text-(--text-main)">{role}</div>
+      <div className="text-[15px] font-extrabold text-(--text-main)">{role === 'defender' ? t('game.clashDefenderRole') : t('game.clashAttackerRole')}</div>
       <div className="text-xs font-bold" style={{ color: isMe ? 'var(--accent-yellow)' : 'var(--text-muted)' }}>
-        {isMe ? 'YOU' : color.toUpperCase()}
+        {isMe ? t('game.clashYou') : color.toUpperCase()}
       </div>
     </div>
   )
@@ -179,9 +180,9 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
   // Persistent "who's fighting" header — Defender LEFT / Attacker RIGHT (keyboard mirror).
   const plates = (
     <div className="flex items-center justify-center gap-7">
-      <Plate role="Defender" color={clash.defender} isMe={defenderIsMe} />
-      <div className="text-2xl font-black text-(--text-muted)">VS</div>
-      <Plate role="Attacker" color={clash.attacker} isMe={attackerIsMe} />
+      <Plate role="defender" color={clash.defender} isMe={defenderIsMe} />
+      <div className="text-2xl font-black text-(--text-muted)">{t('game.clashVersus')}</div>
+      <Plate role="attacker" color={clash.attacker} isMe={attackerIsMe} />
     </div>
   )
 
@@ -201,7 +202,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
         {result ? (
           <>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 13, letterSpacing: '.3em', color: 'var(--accent-yellow)', marginBottom: 10 }}>
-              CLASH OVER
+              {t('game.clashOver')}
             </div>
             <div
               style={{
@@ -209,16 +210,16 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                 color: COLORS[result.winner], marginBottom: 14,
               }}
             >
-              {result.winner === myColor ? '⚔️ You won!' : `${result.winner.toUpperCase()} wins`}
+              {result.winner === myColor ? t('game.clashYouWon') : t('game.clashWins', { color: result.winner.toUpperCase() })}
             </div>
             <div className="flex items-center justify-center gap-7">
               <div style={{ textAlign: 'center' }}>
-                <div className="text-[13px] font-bold text-(--text-main)">Defender</div>
+                <div className="text-[13px] font-bold text-(--text-main)">{t('game.clashDefenderRole')}</div>
                 <Bar color={clash.defender} presses={result.winner === clash.defender ? result.winnerPresses : result.loserPresses} target={clash.target ?? CLASH_TARGET} />
               </div>
-              <div className="text-2xl font-black text-(--text-muted)">VS</div>
+              <div className="text-2xl font-black text-(--text-muted)">{t('game.clashVersus')}</div>
               <div style={{ textAlign: 'center' }}>
-                <div className="text-[13px] font-bold text-(--text-main)">Attacker</div>
+                <div className="text-[13px] font-bold text-(--text-main)">{t('game.clashAttackerRole')}</div>
                 <Bar color={clash.attacker} presses={result.winner === clash.attacker ? result.winnerPresses : result.loserPresses} target={clash.target ?? CLASH_TARGET} />
               </div>
             </div>
@@ -226,11 +227,11 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
         ) : phase === 'announce' ? (
           <>
             <div className="[font-family:var(--font-heading)] text-[66px] tracking-[.14em] leading-[1.1] text-(--accent-yellow)">
-              ⚔️ CLASH!
+              {t('game.clashAnnounceTitle')}
             </div>
-            <div className="mt-2.5 text-sm text-(--text-muted)">A collision is about to happen!</div>
+            <div className="mt-2.5 text-sm text-(--text-muted)">{t('game.clashAnnounceBody')}</div>
             <div className="mt-1 text-xs text-(--text-muted)">
-              {CLASH_ANNOUNCE_MS / 1000}s reveal · {CLASH_COUNTDOWN_MS / 1000}s countdown · {CLASH_PRESS_MS / 1000}s clash
+              {t('game.clashAnnounceTiming', { reveal: CLASH_ANNOUNCE_MS / 1000, countdown: CLASH_COUNTDOWN_MS / 1000, clash: CLASH_PRESS_MS / 1000 })}
             </div>
             <div className="mt-[22px]">{plates}</div>
           </>
@@ -243,20 +244,20 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
               {phase === 'countdown' ? (
                 <>
                   <div className="[font-family:var(--font-heading)] text-lg tracking-[.18em] text-(--accent-yellow)">
-                    GET READY…
+                    {t('game.clashGetReady')}
                   </div>
                   <div className="[font-family:var(--font-display)] text-[96px] font-bold leading-none text-(--accent-yellow)">
-                    {countdownSecs > 0 ? Math.min(countdownSecs, Math.ceil(CLASH_COUNTDOWN_MS / 1000)) : 'GO'}
+                    {countdownSecs > 0 ? Math.min(countdownSecs, Math.ceil(CLASH_COUNTDOWN_MS / 1000)) : t('game.clashGo')}
                   </div>
                   <div className="mt-2 text-[13px] text-(--text-muted)">
-                    Your key will appear when the fight starts!
+                    {t('game.clashKeyHint')}
                   </div>
                 </>
               ) : (
                 <>
                   {fightFlash && (
                     <div className="[font-family:var(--font-heading)] text-[42px] tracking-[.3em] text-(--accent-yellow)">
-                      ⚔️ FIGHT!
+                      {t('game.clashFight')}
                     </div>
                   )}
                   <div className="mt-2.5 flex items-start justify-center gap-7">
@@ -264,13 +265,13 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                       <KeyBadge label={clash.defenderKey} emphasized={defenderIsMe} />
                       <Bar color={clash.defender} presses={clash.defenderPresses} target={clash.target ?? CLASH_TARGET} />
                     </div>
-                    <div className="mt-2 self-center text-[26px] font-black text-(--text-muted)">VS</div>
+                    <div className="mt-2 self-center text-[26px] font-black text-(--text-muted)">{t('game.clashVersus')}</div>
                     <div className="text-center">
                       <KeyBadge label={clash.attackerKey} emphasized={attackerIsMe} />
                       <Bar color={clash.attacker} presses={clash.attackerPresses} target={clash.target ?? CLASH_TARGET} />
                     </div>
                   </div>
-                  {!iAmInClash && <div className="mt-2.5 text-[13px] text-(--text-muted)">Watching…</div>}
+                  {!iAmInClash && <div className="mt-2.5 text-[13px] text-(--text-muted)">{t('game.clashWatching')}</div>}
                   <div className="mt-2.5 text-xs text-(--text-muted)">
                     {t('game.clashPressHint', { seconds: CLASH_PRESS_MS / 1000 })}
                   </div>

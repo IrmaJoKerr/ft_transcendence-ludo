@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('api/presence')
+// HTTP routes for the presence system (heartbeat, online count, logout
+// clear). All JWT-protected; delegates to PresenceService.
 export class PresenceController {
   constructor(private readonly presence: PresenceService) {}
 

@@ -8,21 +8,16 @@ const RESET_TOKEN_TTL_S = 60 * 60; //      password-reset links: 1 hour
 const CODE_TTL_S = 5 * 60; //              login codes: 5 minutes
 const MAX_ATTEMPTS = 5;
 
-/**
- * Short-lived auth state in Redis (same client idiom as MatchService):
- *  - `verify:{sha256(token)}` -> userId       — email-verification links
- *  - `reset:{sha256(token)}`  -> userId       — password-reset links
- *  - `2fa:{sha256(pending)}`  -> {userId, codeHash, attempts} — login codes
- *
- * Only hashes are stored, so a Redis dump can't be replayed as live tokens.
- * TTLs make expiry automatic — nothing to clean up.
- */
+// Short-lived auth state in Redis (hashed tokens + auto-expiry, so a Redis
+// dump can't be replayed): `verify:`/`reset:` -> userId (links), and
+// `2fa:` -> {userId, codeHash, attempts} (login-code challenges).
 @Injectable()
 export class TwoFactorService implements OnModuleDestroy {
+  // Redis client for all short-lived auth state (verify/reset/2FA keys).
   private redis: Redis;
 
   constructor() {
-    // Host/port stay plain env — they're topology, not secrets.
+    // Host/port stay plain env : they're topology, not secrets.
     const host = process.env.REDIS_HOST || 'redis';
     const port = parseInt(process.env.REDIS_PORT || '6479', 10);
     const password = secret('REDIS_PASSWORD');
@@ -39,15 +34,14 @@ export class TwoFactorService implements OnModuleDestroy {
     return createHash('sha256').update(value).digest('hex');
   }
 
-  // ── Email-verification tokens ─────────────────────────────────────────────
-
+  // Email-verification tokens
   async createVerifyToken(userId: string): Promise<string> {
     const token = randomBytes(32).toString('hex');
     await this.redis.set(`verify:${this.hash(token)}`, userId, 'EX', VERIFY_TOKEN_TTL_S);
     return token;
   }
 
-  /** Returns the userId and deletes the token (single use), or null. */
+  // Returns the userId and deletes the token (single use), or null.
   async consumeVerifyToken(token: string): Promise<string | null> {
     const key = `verify:${this.hash(token)}`;
     const userId = await this.redis.get(key);
@@ -55,15 +49,14 @@ export class TwoFactorService implements OnModuleDestroy {
     return userId;
   }
 
-  // ── Password-reset tokens ─────────────────────────────────────────────────
-
+  // Password-reset tokens
   async createResetToken(userId: string): Promise<string> {
     const token = randomBytes(32).toString('hex');
     await this.redis.set(`reset:${this.hash(token)}`, userId, 'EX', RESET_TOKEN_TTL_S);
     return token;
   }
 
-  /** Returns the userId and deletes the token (single use), or null. */
+  // Returns the userId and deletes the token (single use), or null.
   async consumeResetToken(token: string): Promise<string | null> {
     const key = `reset:${this.hash(token)}`;
     const userId = await this.redis.get(key);
@@ -71,8 +64,7 @@ export class TwoFactorService implements OnModuleDestroy {
     return userId;
   }
 
-  // ── Login (2FA) challenges ────────────────────────────────────────────────
-
+  // Login (2FA) challenges
   async startChallenge(userId: string): Promise<{ pendingToken: string; code: string }> {
     const pendingToken = randomBytes(32).toString('hex');
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -82,14 +74,14 @@ export class TwoFactorService implements OnModuleDestroy {
     return { pendingToken, code };
   }
 
-  /** Returns the userId when the code matches (challenge consumed), else null. */
+  // Returns the userId when the code matches (challenge consumed), else null.
   async verifyChallenge(pendingToken: string, code: string): Promise<string | null> {
     const key = `2fa:${this.hash(pendingToken)}`;
     const data = await this.redis.hgetall(key);
     if (!data?.userId) return null; // unknown or expired
 
     if (parseInt(data.attempts ?? '0', 10) >= MAX_ATTEMPTS) {
-      await this.redis.del(key); // burn the challenge — brute-force cap
+      await this.redis.del(key); // burn the challenge : brute-force cap
       return null;
     }
     if (this.hash(code) !== data.codeHash) {

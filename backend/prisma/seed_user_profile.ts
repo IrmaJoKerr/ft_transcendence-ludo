@@ -13,6 +13,10 @@ const HOUR = 3600_000;
 const MINUTE = 60_000;
 const now = Date.now();
 
+// Demo-data script for two specific accounts (harleyhxng, harleynghxedu):
+// sets their stats/achievements, replays their match history, and wires
+// their friendships. Run manually with ts-node; ignores accounts that
+// don't exist.
 async function main() {
   console.log('🚀 Injecting distinct pilot profiles for harleyhxng & harleynghxedu...');
 
@@ -25,9 +29,9 @@ async function main() {
   const dave = await prisma.user.findUnique({ where: { username: 'Dave' } });
   const eve = await prisma.user.findUnique({ where: { username: 'Eve' } });
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ACCOUNT 1: harleyhxng (CYBER GRAND MASTER — #1 Top Apex Predator)
-  // ───────────────────────────────────────────────────────────────────────────
+  // 
+  // ACCOUNT 1: harleyhxng (CYBER GRAND MASTER : #1 Top Apex Predator)
+  // 
   if (harleyhxng) {
     console.log(`\n👑 Seeding Account 1: harleyhxng (Top Apex Rank 1450 ELO)`);
 
@@ -132,9 +136,9 @@ async function main() {
     await prisma.friendship.createMany({ data: f1 });
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // ACCOUNT 2: harleynghxedu (CYBER VETERAN — #3 Tactical Operative)
-  // ───────────────────────────────────────────────────────────────────────────
+  // 
+  // ACCOUNT 2: harleynghxedu (CYBER VETERAN : #3 Tactical Operative)
+  // 
   if (harleynghxedu) {
     console.log(`\n🛡️ Seeding Account 2: harleynghxedu (Tactical Ace 1190 ELO)`);
 

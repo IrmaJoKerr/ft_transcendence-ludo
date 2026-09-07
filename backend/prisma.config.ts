@@ -10,12 +10,12 @@ loadEnv({ path: join(__dirname, "..", ".env") });
 export default defineConfig({
   schema: "./prisma/schema.prisma",
   datasource: {
-    // DATABASE_URL here is always the host-reachable (localhost) form —
+    // DATABASE_URL here is always the host-reachable (localhost) form :
     // compose overrides it to the container form (host "db") for the
     // backend/studio containers via an explicit environment: entry.
     url: process.env.DATABASE_URL ?? "",
   },
-  // Prisma 7 reads seed/migration settings from this file only — a `prisma`
+  // Prisma 7 reads seed/migration settings from this file only : a `prisma`
   // block in package.json is ignored, which is why `prisma db seed` needs the
   // command declared here rather than alongside the npm scripts.
   migrations: {

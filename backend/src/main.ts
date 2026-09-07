@@ -5,6 +5,9 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma.service';
 
+// App entry point: builds the NestJS app, sets up cookies/validation/CORS,
+// exposes a /health DB check, and starts listening on port 3000.
+// Called once at startup from the line below.
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
