@@ -67,7 +67,6 @@ async function main() {
   // ── Reset previous seed data ──────────────────────────────────────────────
   await prisma.user.deleteMany({ where: { username: { in: seedUsernames } } });
   await prisma.game.deleteMany({ where: { participants: { none: {} } } });
-  await prisma.leaderboardSnapshot.deleteMany({ where: { username: { in: seedUsernames } } });
 
   const pwd = await hashPassword();
 
@@ -165,25 +164,11 @@ async function main() {
   });
   console.log('  ✅ Created blank test account: bossku (password: password)');
 
-  // ── Refresh Leaderboard Snapshot for ALL Database Users ────────────────────
-  await prisma.leaderboardSnapshot.deleteMany({});
+  // ── Sync All Pilots directly to Redis Leaderboard ──────────────────────────
   const allPilots = await prisma.user.findMany({
     orderBy: { rating: 'desc' },
   });
-  await prisma.leaderboardSnapshot.createMany({
-    data: allPilots.map((u, i) => ({
-      id: randomUUID(),
-      mode: 'global',
-      userId: u.id,
-      username: u.username,
-      rating: u.rating,
-      rank: i + 1,
-    })),
-  });
 
-  console.log(`  ✅ Created global leaderboard snapshot covering ${allPilots.length} total database pilots!`);
-
-  // ── Sync All Pilots directly to Redis Leaderboard ──────────────────────────
   try {
     const redisHost = process.env.REDIS_HOST || 'localhost';
     const redisPort = parseInt(process.env.REDIS_PORT || '6479', 10);

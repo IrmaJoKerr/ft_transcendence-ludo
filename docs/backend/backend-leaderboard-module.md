@@ -22,9 +22,7 @@ The Leaderboard module shows a **ranked list of players**, sorted by rating
 1. **Leaderboard querying** — get the list, split into pages, for global, ranked, casual, or bot modes.
 2. **Redis sorted sets** — the ranking is stored in Redis as a sorted set
    (`leaderboard:{mode}`), so it is always sorted by rating and fast to read.
-3. **PostgreSQL backup table** — a copy of the ranking (`LeaderboardSnapshot`)
-   is written after every game, so the leaderboard still works if Redis is down.
-4. **Your own rank** — the request can also return the logged-in user's position via `myRank`.
+3. **Your own rank** — the request can also return the logged-in user's position via `myRank`.
 
 ---
 
@@ -34,9 +32,8 @@ The Leaderboard module shows a **ranked list of players**, sorted by rating
 
 | Store | What it holds | Role |
 |-------|---------------|------|
-| **Redis sorted set** `leaderboard:{mode}` | each player = `userId`, each rating = `rating` | The normal, fast way to read the leaderboard; always sorted by rating |
-| **PostgreSQL `LeaderboardSnapshot`** | one row per player per mode: `{ mode, userId, username, rating, rank }` | Backup copy — only used if Redis is empty or down |
-| **PostgreSQL `User`** | the real ratings (`User.rating`) | Where the real ratings live — Redis and the snapshot are built from this |
+| **Redis sorted set** `leaderboard:{mode}` | each player = `userId`, each rating = `rating` | The only leaderboard store; always sorted by rating and fast to read |
+| **PostgreSQL `User`** | the real ratings (`User.rating`) | Where the real ratings live — Redis is (re)built from this when empty |
 
 ### How Redis sorted sets rank players
 
@@ -106,7 +103,7 @@ sequenceDiagram
 ### Scenario 1 — First startup with seeded data
 
 When the stack first starts with `make` (which runs `db:seed`), the seed script
-fills **both** Redis and the PostgreSQL backup table at the same time:
+fills the Redis leaderboards at the same time as it fills the database:
 
 ```mermaid
 sequenceDiagram
@@ -117,7 +114,6 @@ sequenceDiagram
 
     Make->>Seed: npm run db:seed
     Seed->>DB: Create 28 roster users (+ blank bossku test account) with ratings
-    Seed->>DB: Rebuild LeaderboardSnapshot from all users (sorted by rating desc)
     Seed->>R: DEL leaderboard:global, leaderboard:ranked, leaderboard:casual
     loop For every user in the database
         Seed->>R: ZADD leaderboard:{mode} rating userId
@@ -166,7 +162,7 @@ sequenceDiagram
     R-->>API: (empty)
     API->>DB: Try to fill: read all users + ratings
     DB-->>API: (no users)
-    API-->>Client: Empty leaderboard (source: postgres)
+    API-->>Client: Empty leaderboard (source: redis)
     Note over API: The first finished game will ZADD the first entry
 ```
 
@@ -180,8 +176,7 @@ game-end scoring.
 
 Redis keeps its data in the `redis_data` Docker volume, so a container restart
 **keeps the sorted sets**. After a restart the leaderboard is served straight
-from Redis — nothing needs to be filled again. The PostgreSQL backup table is
-left alone.
+from Redis — nothing needs to be filled again.
 
 #### 3b. Redis is empty (volume wiped / flushed) but PostgreSQL has users
 
@@ -216,9 +211,10 @@ background.
 
 #### 3c. Redis is completely down
 
-The Redis read is wrapped in `try/catch`. If it fails, the service falls back
-to the `LeaderboardSnapshot` table in PostgreSQL (`source: 'postgres'`), so the
-page still shows the last saved ranking from the most recent game end.
+The Redis read is wrapped in `try/catch`. With no PostgreSQL snapshot to fall
+back on, a Redis outage surfaces as an error instead of serving a stale board.
+The board rebuilds itself automatically (fill-on-demand from `User.rating`)
+once Redis is back up.
 
 ### Scenario 4 — Live updates after every game
 
@@ -237,9 +233,6 @@ sequenceDiagram
     loop For each human player who just played
         PostGame->>R: ZADD leaderboard:global <newRating> <userId>
     end
-    PostGame->>PostGame: pushSnapshotToPostgres('global')
-    Note over PostGame,DB: Reads the full Redis set, deletes the old snapshot, writes all rows with ranks
-    PostGame->>DB: Replace LeaderboardSnapshot for mode 'global'
 ```
 
 > Note: game-end scoring only writes the **`global`** mode. The `ranked` and
@@ -253,8 +246,8 @@ sequenceDiagram
 | File | Role |
 |------|------|
 | `leaderboard.controller.ts` | HTTP route: GET with mode, page, limit query params (needs login) |
-| `leaderboard.service.ts` | Business logic: reads Redis, fills it from PostgreSQL when empty, falls back to the backup table |
-| `leaderboard-redis.service.ts` | Redis layer: ZADD / ZREVRANGE / ZREVRANK / ZCARD, snapshot push, full rebuild helper |
+| `leaderboard.service.ts` | Business logic: reads Redis, fills it from PostgreSQL (`User.rating`) when empty |
+| `leaderboard-redis.service.ts` | Redis layer: ZADD / ZREVRANGE / ZREVRANK / ZCARD + full rebuild helper |
 | `leaderboard.module.ts` | NestJS module — registers controller, services, and PrismaService |
 
 ---
@@ -298,7 +291,7 @@ interface LeaderboardResponse {
     username: string;  // Player's username
     rating: number;  // Player's rating (score)
   } | null;
-  source: 'redis' | 'postgres';  // Where the data came from
+  source: 'redis';  // Redis is the leaderboard's only source now
 }
 ```
 
@@ -341,9 +334,7 @@ sequenceDiagram
         Server->>FastCache: ZREVRANGE page (now filled)
         Server-->>Site: Sorted score list + page info (source: redis)
     else Redis down / throws
-        Server->>DB: Read LeaderboardSnapshot (mode = global)
-        Server->>Server: Map snapshot rows to entries
-        Server-->>Site: Sorted score list + page info (source: postgres)
+        Server-->>Site: Error — no snapshot fallback; board rebuilds when Redis returns
     end
     Site-->>User: Show the leaderboard table
 ```
@@ -363,14 +354,11 @@ GET /api/leaderboard?mode=global&page=1&limit=20
   │   ├── If entries empty OR total < 5:
   │   │   └── Fill on demand: read all users (id + User.rating) from PostgreSQL
   │   │       └── ZADD each into leaderboard:{mode}, then read again
+  │   ├── If Redis still has no entries: return an empty board
   │   ├── Fetch user details from PostgreSQL, work out gamesPlayed/winRate/ranks
   │   ├── myRank = ZREVRANK(userId) + 1 (if userId given)
   │   └── Return { entries, source: 'redis', myRank? }
-  └── If Redis fails (catch):
-      ├── Query the LeaderboardSnapshot table (mode)
-      ├── Map rows to entries (stats from snapshot + user table)
-      ├── myRank from the snapshot row
-      └── Return { entries, source: 'postgres', myRank? }
+  └── If Redis fails (catch): rethrow — no snapshot fallback anymore
 ```
 
 ### Population Paths (summary)
@@ -378,13 +366,11 @@ GET /api/leaderboard?mode=global&page=1&limit=20
 ```
 SEED (make → db:seed)
   ├── Create seed users with ratings
-  ├── Rebuild LeaderboardSnapshot for all users
   ├── DEL leaderboard:global / ranked / casual
   └── ZADD every user into each sorted set
 
 GAME END (MatchPostgameService.processGameEnd)
-  ├── For each human player: ZADD leaderboard:global <newRating> <userId>
-  └── pushSnapshotToPostgres('global'): delete + recreate LeaderboardSnapshot
+  └── For each human player: ZADD leaderboard:global <newRating> <userId>
 
 FILL ON DEMAND (first read after Redis is empty)
   ├── GET /api/leaderboard finds Redis empty or < 5 entries
@@ -397,8 +383,8 @@ FILL ON DEMAND (first read after Redis is empty)
 
 | Dependency | Purpose |
 |-----------|---------|
-| `PrismaService` | Database access (User, LeaderboardSnapshot models) |
-| `LeaderboardRedisService` | Redis layer: sorted-set reads/writes, snapshot push, rebuild helper |
+| `PrismaService` | Database access (User model — ratings, profile info) |
+| `LeaderboardRedisService` | Redis layer: sorted-set reads/writes + rebuild helper |
 | `ioredis` | Redis client |
 
 ---

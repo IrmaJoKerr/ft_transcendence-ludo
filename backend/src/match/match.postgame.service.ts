@@ -2,7 +2,6 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
-import { LeaderboardRedisService } from '../leaderboard/leaderboard-redis.service';
 import { AchievementsService } from '../achievements/achievements.service';
 import { NotificationService } from '../notification/notification.service';
 import { isBotUserId } from '../common/bot';
@@ -21,7 +20,6 @@ export class MatchPostgameService {
 
 	constructor(
 		private readonly prisma: PrismaService,
-		private readonly leaderboardRedis: LeaderboardRedisService,
 		private readonly achievements: AchievementsService,
 		private readonly notifications: NotificationService,
 	) {
@@ -35,7 +33,8 @@ export class MatchPostgameService {
 	// Write final game results to Postgres and update player ratings.
 	// Called by the game engine when a match ends. Creates game + participant rows,
 	// then awards rating based on piecesInGoal (2 pts per piece in PvP, 1 pt per
-	// piece in PvE, +1 bonus piece for the winner) and pushes a leaderboard snapshot.
+	// piece in PvE, +1 bonus piece for the winner) and refreshes the Redis
+	// leaderboard for every human player.
 	async processGameEnd(data: { gameId: string; participants: Array<{ userId: string; color: string; rank: number; piecesCaptured?: number; piecesInGoal?: number; clashDefends?: number; clashAttacksWon?: number }> }) {
 		const { gameId, participants } = data;
 		if (!gameId) throw new BadRequestException('gameId is required');
@@ -148,13 +147,6 @@ export class MatchPostgameService {
 				}
 			}
 		});
-
-		// Push leaderboard snapshot to PostgreSQL after successful game end
-		try {
-			await this.leaderboardRedis.pushSnapshotToPostgres(this.prisma, 'global');
-		} catch (err) {
-			console.warn('Failed to push leaderboard snapshot:', err);
-		}
 
 		// Post-game achievements hook — MUST never fail the game-end request.
 		// A failure only logs (see achievement-revamp.md Phase 3 failure contract).

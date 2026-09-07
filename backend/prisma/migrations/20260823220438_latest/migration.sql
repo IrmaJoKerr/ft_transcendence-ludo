@@ -110,19 +110,6 @@ CREATE TABLE "Friendship" (
 );
 
 -- CreateTable
-CREATE TABLE "LeaderboardSnapshot" (
-    "id" TEXT NOT NULL,
-    "mode" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "username" TEXT NOT NULL,
-    "rating" INTEGER NOT NULL,
-    "rank" INTEGER NOT NULL,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "LeaderboardSnapshot_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Notification" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -160,12 +147,6 @@ CREATE UNIQUE INDEX "GameParticipant_game_id_color_key" ON "GameParticipant"("ga
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Friendship_userId_friendId_key" ON "Friendship"("userId", "friendId");
-
--- CreateIndex
-CREATE INDEX "LeaderboardSnapshot_mode_rank_idx" ON "LeaderboardSnapshot"("mode", "rank");
-
--- CreateIndex
-CREATE UNIQUE INDEX "LeaderboardSnapshot_mode_userId_key" ON "LeaderboardSnapshot"("mode", "userId");
 
 -- CreateIndex
 CREATE INDEX "Notification_userId_read_idx" ON "Notification"("userId", "read");

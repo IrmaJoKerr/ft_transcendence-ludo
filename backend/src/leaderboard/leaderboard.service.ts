@@ -23,7 +23,7 @@ export interface LeaderboardResponse {
   page: number;
   limit: number;
   myRank?: { rank: number; username: string; displayName: string; rating: number } | null;
-  source?: 'redis' | 'postgres';
+  source: 'redis';
 }
 
 @Injectable()
@@ -85,8 +85,7 @@ export class LeaderboardService {
         const entries: LeaderboardEntry[] = redisEntries
           // Belt and braces: the query above keeps bots out of the sorted set
           // from here on, but entries written before this fix (or by any future
-          // path) are already in Redis and in LeaderboardSnapshot. Never render
-          // one regardless of how it got in.
+          // path) are already in Redis. Never render one regardless of how it got in.
           .filter(e => userMap.has(e.userId) && !isBotUserId(e.userId))
           .map((entry, i) => {
             const user = userMap.get(entry.userId)!;
@@ -139,94 +138,21 @@ export class LeaderboardService {
         return response;
       }
     } catch (err) {
-      console.warn('Redis leaderboard read failed, falling back to PostgreSQL snapshot:', err);
+      // Redis is the leaderboard's only store now (it is rebuilt from
+      // User.rating whenever it comes up empty), so there is no PostgreSQL
+      // snapshot to fall back on — surface the failure instead of hiding it.
+      console.warn('Redis leaderboard read failed:', err);
+      throw err;
     }
 
-    // Fallback to PostgreSQL snapshot (mirror of Redis, written on every game end)
-    const modeFilter = mode || 'global';
-    // Same bot exclusion as the Redis path — snapshot rows were written from a
-    // sorted set that may still hold bots from before the fix, and this table
-    // outlives any Redis flush.
-    const snapshotWhere = {
-      mode: modeFilter,
-      NOT: { userId: { startsWith: BOT_PREFIX } },
-    };
-    const snapshotEntries = await this.prisma.db.leaderboardSnapshot.findMany({
-      where: snapshotWhere,
-      select: {
-        rank: true,
-        username: true,
-        rating: true,
-        userId: true,
-      },
-      orderBy: { rank: 'asc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-
-    const total = await this.prisma.db.leaderboardSnapshot.count({
-      where: snapshotWhere,
-    });
-
-    const userUsernames = snapshotEntries.map(e => e.username);
-    const users = await this.prisma.db.user.findMany({
-      where: { username: { in: userUsernames } },
-      select: {
-        username: true,
-        displayName: true,
-        wins: true, losses: true, avatarStyle: true, avatarPhotoContentType: true,
-      },
-    });
-    const userMap = new Map(users.map(u => [u.username, u]));
-
-    const entries: LeaderboardEntry[] = snapshotEntries.map(entry => {
-      const u = userMap.get(entry.username);
-      const wins = u?.wins ?? 0;
-      const losses = u?.losses ?? 0;
-      const gamesPlayed = wins + losses;
-      const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
-
-      return {
-        rank: entry.rank,
-        username: entry.username,
-        displayName: u?.displayName ?? entry.username,
-        rating: entry.rating,
-        gamesPlayed,
-        wins,
-        losses,
-        draws: 0,
-        winRate,
-        avatarStyle: u?.avatarStyle ?? null,
-        hasAvatarPhoto: u?.avatarPhotoContentType != null,
-      };
-    });
-
-    const response: LeaderboardResponse = {
-      entries,
-      total,
+    // Nothing to serve from Redis (fresh database with no users yet) — return
+    // an empty board rather than the removed LeaderboardSnapshot fallback.
+    return {
+      entries: [],
+      total: 0,
       page,
       limit,
-      source: 'postgres',
+      source: 'redis',
     };
-
-    if (userId) {
-      const mySnapshot = await this.prisma.db.leaderboardSnapshot.findUnique({
-        where: { mode_userId: { mode: modeFilter, userId } },
-      });
-      if (mySnapshot) {
-        const myUser = await this.prisma.db.user.findUnique({
-          where: { id: userId },
-          select: { displayName: true },
-        });
-        response.myRank = {
-          rank: mySnapshot.rank,
-          username: mySnapshot.username,
-          displayName: myUser?.displayName ?? mySnapshot.username,
-          rating: mySnapshot.rating,
-        };
-      }
-    }
-
-    return response;
   }
 }

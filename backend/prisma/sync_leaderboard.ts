@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import { config as loadEnv } from 'dotenv';
-import { randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -11,7 +10,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' 
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('🔄 Synchronizing database users to Redis & Leaderboard Snapshot...');
+  console.log('🔄 Synchronizing database users to Redis leaderboards...');
 
   const users = await prisma.user.findMany({
     orderBy: { rating: 'desc' },
@@ -42,21 +41,6 @@ async function main() {
 
   const count = await redis.zcard('leaderboard:global');
   console.log(`✅ Successfully added ${count} users to Redis leaderboard:global!`);
-
-  // Also refresh snapshot
-  await prisma.leaderboardSnapshot.deleteMany({});
-  await prisma.leaderboardSnapshot.createMany({
-    data: users.map((u, i) => ({
-      id: randomUUID(),
-      mode: 'global',
-      userId: u.id,
-      username: u.username,
-      rating: u.rating,
-      rank: i + 1,
-    })),
-  });
-
-  console.log(`✅ Refreshed PostgreSQL LeaderboardSnapshot table with ${users.length} rows.`);
 
   await redis.quit();
   await prisma.$disconnect();

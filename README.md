@@ -161,7 +161,7 @@ consistently on any machine.
 
 ## Database Schema
 
-![Database schema](frontend/public/schema.png)
+![Database schema](frontend/public/Schema_Running-Version.png)
 
 ## Modules
 

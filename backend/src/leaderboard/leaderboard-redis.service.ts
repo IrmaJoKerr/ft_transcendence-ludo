@@ -1,7 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { secret } from '../secrets';
-import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class LeaderboardRedisService implements OnModuleDestroy {
@@ -83,52 +82,9 @@ export class LeaderboardRedisService implements OnModuleDestroy {
   }
 
   /**
-   * Push a full snapshot of the Redis leaderboard to PostgreSQL.
-   * Called after every game end to keep PG mirror in sync.
-   * This snapshot serves as a fast fallback when Redis is unavailable.
-   */
-  async pushSnapshotToPostgres(prisma: PrismaService, mode: string): Promise<void> {
-    // 1. Get full sorted set from Redis
-    const results = await this.redis.zrevrange(`leaderboard:${mode}`, 0, -1, 'WITHSCORES');
-
-    // 2. Parse into entries
-    const entries: { userId: string; rating: number }[] = [];
-    for (let i = 0; i < results.length; i += 2) {
-      entries.push({ userId: results[i], rating: parseInt(results[i + 1], 10) });
-    }
-
-    if (entries.length === 0) return;
-
-    // 3. Enrich with usernames
-    const userIds = entries.map(e => e.userId);
-    const users = await prisma.db.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true },
-    });
-    const userMap = new Map(users.map(u => [u.id, u.username]));
-
-    // 4. Delete old snapshot for this mode, insert new one in a transaction
-    const now = new Date();
-    const snapshotData = entries.map((e, i) => ({
-      id: crypto.randomUUID(),
-      mode,
-      userId: e.userId,
-      username: userMap.get(e.userId) || 'unknown',
-      rating: e.rating,
-      rank: i + 1,
-      updatedAt: now,
-    }));
-
-    await prisma.db.$transaction([
-      prisma.db.leaderboardSnapshot.deleteMany({ where: { mode } }),
-      prisma.db.leaderboardSnapshot.createMany({ data: snapshotData }),
-    ]);
-  }
-
-  /**
    * Rebuild leaderboard from PostgreSQL data.
-   * Use for fresh deployments or catastrophic recovery when both Redis
-   * and the PG snapshot are lost.
+   * Use for fresh deployments or catastrophic recovery when the Redis
+   * leaderboard sorted set was wiped or lost.
    */
   async rebuildLeaderboard(
     users: { userId: string; rating: number }[],

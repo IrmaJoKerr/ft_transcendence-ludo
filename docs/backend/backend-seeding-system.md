@@ -17,7 +17,7 @@ The seed pipeline populates the database with a full test roster for development
 
 1. **28 seed players** (a "Cyber Roster") — themed usernames spanning the rating ladder (Viper_X 1650 down to NeonSprout 650), each with rating/win/loss counters on `User`, an `avatarStyle`, and achievement flags on the nested `Achievement` row consistent with the current thresholds.
 2. **1 blank test account** — `bossku` / `password`, deliberately empty (no flags, no history) for testing brand-new accounts.
-3. **Global leaderboard snapshots** — one `LeaderboardSnapshot` row per user, ranked by rating, plus a Redis sorted-set sync (`leaderboard:global|ranked|casual`).
+3. **Redis leaderboards** — the whole roster synced into Redis sorted sets (`leaderboard:global|ranked|casual`).
 4. **Friendships and friend requests** — a rich social graph seeded by `seed_friends.ts`.
 5. **User profiles** — avatar-style/profile tweaks from `seed_user_profile.ts`.
 
@@ -29,10 +29,10 @@ The seed pipeline populates the database with a full test roster for development
 
 | File | Role |
 |------|------|
-| `prisma/seed.ts` | Main seed — 28-player roster, blank `bossku` account, leaderboard snapshot, Redis sync, game history |
+| `prisma/seed.ts` | Main seed — 28-player roster, blank `bossku` account, Redis leaderboard sync, game history |
 | `prisma/seed_friends.ts` | Friendship graph + incoming friend requests |
 | `prisma/seed_user_profile.ts` | Per-user profile extras (avatar styles, display names) |
-| `prisma/sync_leaderboard.ts` | Standalone leaderboard snapshot + Redis sync script |
+| `prisma/sync_leaderboard.ts` | Standalone Redis leaderboard sync script |
 | `prisma/drop-all.sql` | SQL script to drop all tables (clean reset) |
 | `prisma/truncate-all.sql` | SQL script to truncate all tables (clean reseed) |
 | `prisma.config.ts` | Prisma 7 config — declares the seed command (`ts-node ... prisma/seed.ts`) |
@@ -102,12 +102,14 @@ Sequence of steps when the main seed runs.
 sequenceDiagram
     participant Command as seed command
     participant DB as Database
+    participant Redis as Redis
 
     Command->>DB: Connect
     Command->>DB: Remove old test users (so rerunning is safe)
     Command->>DB: Create 28 roster players + their stats rows
     Command->>DB: Create a blank test account
-    Command->>DB: Rebuild the leaderboard snapshots from ratings
+    Command->>DB: Read every pilot's rating (id + rating)
+    Command->>Redis: DEL + ZADD leaderboard:{mode} for all pilots
     Command->>DB: Add a little fake match history
     Command-->>Console: "Seed complete"
 ```
@@ -116,7 +118,7 @@ sequenceDiagram
 
 - `seed_friends.ts` — deletes existing friendships for seed users, then creates the friend graph + requests.
 - `seed_user_profile.ts` — applies per-user profile extras.
-- `sync_leaderboard.ts` — standalone re-sync of snapshots + Redis (idempotent).
+- `sync_leaderboard.ts` — standalone re-sync of the Redis leaderboards (idempotent).
 
 ---
 
@@ -127,7 +129,6 @@ The seed scripts are safe to re-run. The main script:
 ```
 user.deleteMany({ where: { username: { in: SEED_PLAYERS.map(p => p.username) } } })
 game.deleteMany({ where: { participants: { none: {} } } })
-leaderboardSnapshot.deleteMany({})
 friendShip.deleteMany({})
 ```
 

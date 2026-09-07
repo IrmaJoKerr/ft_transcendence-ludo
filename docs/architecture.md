@@ -146,7 +146,7 @@ Prisma-managed, schema at `backend/prisma/schema.prisma`.
 
 ![Database schema](../frontend/public/schema.png)
 
-**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (15 achievement flags), `Game`, `GameParticipant`, `Friendship`, `LeaderboardSnapshot`, `Notification`
+**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (15 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
 **Enums:** `FriendshipStatus`, `PlayerColor`, `GameStatus`, `GameType`
 
 Schema is applied with `npx prisma db push --accept-data-loss` from

@@ -159,23 +159,6 @@ model Friendship {
   @@unique([userId, friendId])
 }
 
-// ─── Leaderboard Snapshot (mirror of Redis sorted sets) ─────────────────────
-// Written on every game end to serve as a fast fallback when Redis is down.
-// Mirrors the Redis leaderboard:${mode} sorted set structure 1-to-1.
-
-model LeaderboardSnapshot {
-  id        String   @id
-  mode      String // "global" | "ranked" | "casual" | "bot"
-  userId    String
-  username  String
-  rating    Int
-  rank      Int
-  updatedAt DateTime @default(now())
-
-  @@unique([mode, userId])
-  @@index([mode, rank])
-}
-
 // ─── Notification ────────────────────────────────────────────────────────────
 // Persisted so the bell icon can show missed notifications from when the user
 // was offline. The SSE stream pushes new ones in real time; this table is the

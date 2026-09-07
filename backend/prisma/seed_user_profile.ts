@@ -225,25 +225,6 @@ async function main() {
     await prisma.friendship.createMany({ data: f2 });
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Update Global Leaderboard Snapshot
-  // ───────────────────────────────────────────────────────────────────────────
-  await prisma.leaderboardSnapshot.deleteMany({ where: { mode: 'global' } });
-  const allPilots = await prisma.user.findMany({
-    orderBy: { rating: 'desc' },
-    take: 10,
-  });
-  await prisma.leaderboardSnapshot.createMany({
-    data: allPilots.map((p, idx) => ({
-      id: randomUUID(),
-      mode: 'global',
-      userId: p.id,
-      username: p.username,
-      rating: p.rating,
-      rank: idx + 1,
-    })),
-  });
-
   console.log('\n✅ Successfully injected unique differentiated seed data for both accounts!');
 }
 

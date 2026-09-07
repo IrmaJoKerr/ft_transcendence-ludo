@@ -528,13 +528,10 @@ export class AuthService implements OnModuleDestroy {
     // 3. Revoke every refresh session — all devices are logged out.
     await this.session.revokeAll(userId);
 
-    // 4. DB: LeaderboardSnapshot has no FK to User, so delete it explicitly;
-    //    user.delete() cascades Account/Achievement/GameParticipant/Friendship/
-    //    Notification (all onDelete: Cascade in the schema).
-    await this.prisma.db.$transaction([
-      this.prisma.db.leaderboardSnapshot.deleteMany({ where: { userId } }),
-      this.prisma.db.user.delete({ where: { id: userId } }),
-    ]);
+    // 4. DB: user.delete() cascades Account/Achievement/GameParticipant/Friendship/
+    //    Notification (all onDelete: Cascade in the schema). The user's Redis
+    //    leaderboard entry is already removed by clearUserRedisState above.
+    await this.prisma.db.user.delete({ where: { id: userId } });
 
     return { message: 'Account permanently deleted' };
   }

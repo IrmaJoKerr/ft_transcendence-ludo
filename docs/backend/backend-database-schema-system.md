@@ -4,7 +4,7 @@
 
 - [Overview](#overview) — Prisma ORM schema for PostgreSQL
 - [Enums](#enums) — All enum types used in the database
-- [Models](#models) — All 8 models with fields, types, and relations
+- [Models](#models) — All 7 models with fields, types, and relations
 - [Entity Relationships](#entity-relationships) — ER diagram showing model relations
 - [Indexes](#indexes) — Database indexes for query performance
 
@@ -12,7 +12,7 @@
 
 ## Overview
 
-The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **8 models** and **4 enums** covering users, achievements, OAuth accounts, games, friendships, leaderboard snapshots, and notifications. The Prisma client is generated into `backend/generated` (gitignored).
+The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **7 models** and **4 enums** covering users, achievements, OAuth accounts, games, friendships, and notifications. The Prisma client is generated into `backend/generated` (gitignored).
 
 > **Notable shift:** The `Achievement` model now holds **only the achievement
 > flags**. All per-user stats (rating, wins, streaks), avatar data, and
@@ -183,24 +183,6 @@ One row per player per game.
 
 ---
 
-### LeaderboardSnapshot
-
-Denormalized mirror of Redis leaderboard sorted sets, written on game end as a fallback for when Redis is down.
-
-| Field | Type | Attributes | Description |
-|-------|------|------------|-------------|
-| `id` | String | UUID, PK | Unique identifier |
-| `mode` | String | | `global` \| `ranked` \| `casual` \| `bot` |
-| `userId` | String | | Player id |
-| `username` | String | | Player username |
-| `rating` | Int | | Rating at snapshot time |
-| `rank` | Int | | Rank at snapshot time |
-| `updatedAt` | DateTime | Auto | When written |
-
-**Relations:** None (denormalized snapshot, no FK)
-
----
-
 ### Notification
 
 Persisted notifications backing the SSE stream and the bell dropdown.
@@ -306,15 +288,6 @@ erDiagram
         FriendshipStatus status "pending / accepted / blocked"
         datetime createdAt "When it was made"
     }
-    LeaderboardSnapshot {
-        string id PK "Unique ID"
-        string mode "global / ranked / casual"
-        string userId "Which player"
-        string username "Player name"
-        int rating "Score"
-        int rank "Position"
-        datetime updatedAt "Last update"
-    }
     Notification {
         string id PK "Unique ID"
         string userId FK "Who it is for"
@@ -341,6 +314,4 @@ erDiagram
 | GameParticipant | `(game_id, user_id)` | Unique | Prevent duplicate entries |
 | GameParticipant | `(game_id, color)` | Unique | Prevent duplicate colors |
 | Friendship | `(userId, friendId)` | Unique | Prevent duplicate friendships |
-| LeaderboardSnapshot | `(mode, userId)` | Unique | One snapshot per user per mode |
-| LeaderboardSnapshot | `(mode, rank)` | Index | Fast leaderboard query by mode+rank |
 | Notification | `(userId, read)` | Index | Fast unread-lookup per user |
