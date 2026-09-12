@@ -178,6 +178,62 @@ export class SocketHandlers {
     })();
   }
 
+  // Clash QTE key press: decide which side (attacker/defender) the pressed
+  // key belongs to, verify the socket's user owns that seat, then record the
+  // press. In PvP each user owns one seat : only their key works. In hotseat
+  // one user owns both seats : the same socket can mash BOTH keys.
+  handleClashInput(socket: GameSocket, key: string): void {
+    const gameId = socket.data.gameId;
+    const color = socket.data.playerColor;
+    if (!gameId || !color) return;
+
+    (async () => {
+      try {
+        const clash = await this.store.loadClashState(gameId);
+        if (!clash) return;
+
+        const userId = socket.data.userId;
+        const attackerUser = this.userIdMap.get(gameId)?.get(clash.attacker);
+        const defenderUser = this.userIdMap.get(gameId)?.get(clash.defender);
+        const ownsAttacker = userId ? attackerUser === userId : clash.attacker === color;
+        const ownsDefender = userId ? defenderUser === userId : clash.defender === color;
+
+        let pressColor: PlayerColor | null = null;
+        if (key === clash.attackerKey && ownsAttacker) {
+          pressColor = clash.attacker;
+        } else if (key === clash.defenderKey && ownsDefender) {
+          pressColor = clash.defender;
+        }
+        if (!pressColor) return;
+
+        await this.engine.recordClashPress(gameId, pressColor, key);
+        // Live meter updates flow via the engine's clash_press publish; the
+        // per-player ack is no longer needed (clash_press broadcasts to all).
+      } catch (error) {
+        console.error('Clash input error:', error);
+      }
+    })();
+  }
+
+  // Room rule toggles (clash QTE + safe zones). Host-only, waiting-room-only;
+  // validation lives in LobbyManager.updateModifiers.
+  handleUpdateModifiers(socket: GameSocket, clashEnabled: boolean, safeZones: boolean): void {
+    const gameId = socket.data.gameId;
+    const userId = socket.data.userId;
+    if (!gameId || !userId) {
+      socket.emit('error', 'Not in a game');
+      return;
+    }
+
+    (async () => {
+      try {
+        await this.engine.handleUpdateModifiers(gameId, userId, clashEnabled, safeZones);
+      } catch (error) {
+        socket.emit('error', `Modifiers update failed: ${error}`);
+      }
+    })();
+  }
+
   // Socket disconnect: start (or ignore, if already running) the reconnect
   // grace period for the player's seat.
   handleDisconnect(socket: GameSocket): void {
@@ -188,6 +244,10 @@ export class SocketHandlers {
     (async () => {
       try {
         await this.engine.handlePlayerDisconnect(gameId, color, this.notifyAbort);
+        // Instant disconnect resolve: settle a mid-clash disconnect IMMEDIATELY
+        // by meters (A>=D → attacker; A<D → defender) instead of freezing the
+        // QTE for a reconnect window.
+        await this.engine.resolveClashOnDisconnect(gameId);
       } catch (error) {
         console.error('Disconnect handler error:', error);
       }

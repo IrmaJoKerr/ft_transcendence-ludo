@@ -15,6 +15,12 @@ timeout 0
 save 900 1
 save 300 10
 save 60 10000
+# Session persistence: append every write to disk within ~1s so a restart
+# (compose recreate, docker daemon hiccup) cannot silently log users out —
+# the RDB policy above only snapshots after 15 min, so a fresh login would
+# otherwise be lost if Redis restarts shortly after.
+appendonly yes
+appendfsync everysec
 rdbcompression yes
 dbfilename dump.rdb
 dir /data

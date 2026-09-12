@@ -3,6 +3,7 @@
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
+export type ClashPhase = 'announce' | 'countdown' | 'pressing';
 export type PieceId = string;
 
 export interface Piece {
@@ -55,6 +56,27 @@ export interface MoveResult {
   capturedPieceIds?: PieceId[];
   enteredHome: boolean;
   bonusRoll: boolean;
+  clashOutcome?: 'attacker_won' | 'defender_won';
+}
+
+// Mirror of the engine's ClashState: one clash QTE round (pressing duel).
+export interface ClashState {
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  attackerKey: string;
+  defenderKey: string;
+  target: number;
+  duration: number;
+  startedAt: number;
+  announceDeadline: number;
+  countdownDeadline: number;
+  pressDeadline: number;
+  phase: ClashPhase;
+  attackerPresses: number;
+  defenderPresses: number;
+  disconnectTimestamp?: number;
+  reconnectDeadline?: number;
+  waitingForReconnect?: PlayerColor;
 }
 
 export interface DisconnectState {
@@ -79,5 +101,9 @@ export interface GameState {
   resultDetail?: string;
   resultSubmitted?: boolean;
   botBusy?: boolean;
+  clash?: ClashState;
+  clashMode: boolean;
   readyPlayers: PlayerColor[];
+  resultCardUntil?: number;
+  safeZones?: boolean;
 }

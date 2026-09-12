@@ -11,6 +11,8 @@ import {
   handlePlayerResign,
 } from './player-handler';
 import { LobbyManager } from './lobby';
+import { ClashManager } from './clash';
+import { ClashEngine } from './clash-engine';
 
 // The game engine core: roll/move handling, per-game operation locking,
 // player lifecycle (disconnect/ready/exit/resign), and event emission to the
@@ -20,13 +22,24 @@ export class LudoEngine {
   private store: RedisGameStore;
   private eventHandler?: (event: GameEvent) => void;
   private lobbyManager?: LobbyManager;
+  private clashManager?: ClashManager;
+  private clashEngine?: ClashEngine;
   // Serializes one game's operations so roll/move/etc. never run on top of
   // each other (a bot acting at the same time as a human would otherwise
   // both load the same state and one move gets lost).
   private gameLocks = new Map<string, Promise<unknown>>();
 
-  constructor(store: RedisGameStore) {
+  constructor(store: RedisGameStore, clashManager?: ClashManager) {
     this.store = store;
+    this.clashManager = clashManager;
+    if (this.clashManager) {
+      this.clashEngine = new ClashEngine(
+        this.store,
+        this.clashManager,
+        (event) => this.emit(event),
+        this.withGameLock.bind(this),
+      );
+    }
   }
 
   setLobbyManager(lobbyManager: LobbyManager): void {
@@ -92,6 +105,12 @@ export class LudoEngine {
       const state = await this.store.loadGameState(gameId);
       if (!state || state.status !== 'active') {
         throw new Error('Game not active');
+      }
+
+      // Result-card freeze: no input while the 3s clash card is up.
+      if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
+        console.log(`[clash] ROLL BLOCKED ${gameId} (until ${state.resultCardUntil})`);
+        throw new Error('Clash result in progress : wait for the card to clear');
       }
 
       // Only allow roll during WAITING_FOR_ROLL phase
@@ -195,6 +214,12 @@ export class LudoEngine {
         throw new Error('Game not active');
       }
 
+      // Result-card freeze: no input while the 3s clash card is up.
+      if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
+        console.log(`[clash] MOVE BLOCKED ${gameId} (until ${state.resultCardUntil})`);
+        throw new Error('Clash result in progress : wait for the card to clear');
+      }
+
       // Validate: must be in WAITING_FOR_MOVE phase
       if (state.turnPhase !== 'WAITING_FOR_MOVE') {
         throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
@@ -212,6 +237,56 @@ export class LudoEngine {
       const diceValue = state.pendingDiceValue;
       if (diceValue === undefined) {
         throw new Error('No pending dice value : roll first');
+      }
+
+      // Clash gate: capture moves are deferred to the QTE : applied only after it resolves.
+      if (state.clashMode && pendingMove.isCapture && this.clashEngine) {
+        // Find the defender via the SHARED track position : per-color step equality is wrong across colors.
+        const capturedPieceIds = MoveValidator.findPiecesAtPosition(state, state.currentTurn, pendingMove.to);
+        // No defender on the square → fall through to a normal capture move.
+        const defenderPiece = state.pieces.find((p) => p.id === capturedPieceIds[0]);
+        if (defenderPiece) {
+          const moverColor = state.pieces.find((p) => p.id === pieceId)?.color as PlayerColor;
+          const defenderColor = defenderPiece.color as PlayerColor;
+
+          state.pendingCapture = {
+            pieceId,
+            from: pendingMove.from,
+            to: pendingMove.to,
+            diceValue,
+            attacker: moverColor,
+            defender: defenderColor,
+            capturedPieceIds,
+            enteredHome: pendingMove.isHomeEntry,
+          };
+          state.pendingLegalMoves = [];
+          state.pendingDiceValue = undefined;
+          state.pendingIsFirstRoll = undefined;
+          await this.store.saveGameState(gameId, state);
+
+          const attackerIsBot = state.players.find((p) => p.color === moverColor)?.isBot ?? false;
+          const defenderIsBot = state.players.find((p) => p.color === defenderColor)?.isBot ?? false;
+
+          await this.clashEngine.startClash(gameId, moverColor, defenderColor, attackerIsBot, defenderIsBot);
+
+          // Deferred : no piece_moved yet; the clash outcome emits it afterwards.
+          return {
+            result: {
+              ply: state.moveCounter + 1,
+              color: moverColor,
+              diceValue,
+              pieceId,
+              from: pendingMove.from,
+              path: [],
+              to: pendingMove.to,
+              captured: true,
+              capturedPieceIds: [],
+              enteredHome: pendingMove.isHomeEntry,
+              bonusRoll: false,
+            },
+            state,
+          };
+        }
       }
 
       // Execute move via MoveValidator (pure game logic)
@@ -260,6 +335,42 @@ export class LudoEngine {
 
       return { result, state };
     });
+  }
+
+  // ── Clash orchestration facades (logic lives in clash-engine.ts) ──────────
+  // Boot-time clash recovery sweep (re-arms stale phase timers).
+  startClashRecoverySweep(): void {
+    this.clashEngine?.startRecoverySweep();
+  }
+
+  // Locked clash press recorder.
+  async recordClashPress(gameId: string, color: PlayerColor, key?: string, isBot = false): Promise<number> {
+    if (!this.clashEngine) throw new Error('Clash mode not available');
+    return this.clashEngine.recordClashPress(gameId, color, key, isBot);
+  }
+
+  // Settle a mid-clash disconnect immediately by meters : called after the
+  // disconnect lock releases to avoid deadlock.
+  async resolveClashOnDisconnect(gameId: string): Promise<void> {
+    if (!this.clashEngine) return;
+    const state = await this.store.loadGameState(gameId);
+    if (!state?.clash) return;
+    const clash = state.clash;
+    const winner = clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
+    await this.clashEngine.resolveClashOutcome(gameId, winner);
+  }
+
+  // Update the room rule toggles (clash mode + safe zones).
+  async handleUpdateModifiers(gameId: string, userId: string, clashEnabled: boolean, safeZones: boolean): Promise<void> {
+    if (!this.lobbyManager || !this.clashEngine) throw new Error('Clash mode not available');
+    await this.withGameLock(gameId, () => this.lobbyManager!.updateModifiers(gameId, userId, clashEnabled, safeZones));
+  }
+
+  // Broadcast the current rule toggles (clash mode + safe zones) to the room.
+  async broadcastModifiers(gameId: string): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    if (!state) return;
+    this.emit({ type: 'modifiers_updated', gameId, clashEnabled: state.clashMode, safeZones: state.safeZones });
   }
 
   // Player lifecycle handlers (delegated to player-handler.ts)

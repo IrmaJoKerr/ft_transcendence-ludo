@@ -83,6 +83,58 @@ therefore guarantees:
 
 ---
 
+## SSE & Redis Pub/Sub transport
+
+Notifications move over two linked transports:
+
+- **Redis Pub/Sub** is the message bus. `notify()` publishes the event to the
+  recipient's per-user channel (`notify:<userId>`); `broadcast()` publishes to
+  the global channel (`notify:all`). Redis decouples the emitter from the SSE
+  layer — any backend service can publish without knowing who is connected.
+- **SSE** is the last mile to the browser. Each open tab holds one
+  `GET /api/notifications/stream` connection, backed by an rxjs `Subject` in
+  the service's in-memory `clients` map (one user, multiple tabs ⇒ multiple
+  Subjects) plus `broadcastClients` (every Subject, for `notify:all`).
+
+A subscriber handler on the Redis client bridges the two: a message on
+`notify:<userId>` is pushed into every Subject for that user, and a message on
+`notify:all` into every broadcast Subject; NestJS then writes each emission as
+an SSE `data:` frame. Teardown is symmetric: when the HTTP stream closes, NestJS
+unsubscribes, the service's `finalize(() => subject.complete())` completes the
+Subject, and `removeClient()` drops it from the maps and unsubscribes from the
+per-user Redis channel when the last tab for that user closes.
+
+---
+
+## Failure contract
+
+Notifications are a **non-critical side effect** of the actions that trigger them
+(friend request/accept/decline/remove, game invite, game end, achievement unlock,
+avatar update, …). A notification failure must never make a successful action look
+failed, and must never partially fail the action it accompanies. The service
+therefore guarantees:
+
+- **`notify()`, `broadcast()` and `notifyTransient()` never throw.** No caller
+  needs a try/catch around them; any existing `.catch()` is defensive only.
+- **`notify()` persists to Postgres first.** If the persist fails, the
+  notification is dropped and logged (`[notifications] persist failed …`) — the
+  caller's action is unaffected. If only the live Redis publish fails, the
+  persisted row is kept: the recipient still sees it in the bell on their next
+  page load, just without a real-time toast (`[notifications] live push
+  failed …`).
+- **`broadcast()` / `notifyTransient()` are purely ephemeral** (SSE toast only,
+  nothing persisted). A failed publish logs a warning and nothing is lost —
+  there was nothing to persist in the first place.
+- **SSE connection teardown is wired for real.** `subscribe()` returns the
+  per-tab Subject wrapped in `finalize(() => subject.complete())`. When NestJS
+  unsubscribes on a closed connection (tab close, navigation, network drop) —
+  it does *not* complete the observable — the finalize completes the Subject,
+  which fires the service's `complete` handler → `removeClient()` removes the
+  Subject from the in-memory maps and unsubscribes from Redis when the last tab
+  for a user closes. No dead Subjects accumulate.
+
+---
+
 ## Files
 
 | File | Role |

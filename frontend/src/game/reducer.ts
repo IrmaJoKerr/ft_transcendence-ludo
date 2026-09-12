@@ -2,7 +2,14 @@
 // The reducer is a renderer — it never decides outcomes.
 // The engine is authoritative; the reducer just keeps the UI in sync.
 
-import type { GameState, LegalMove, MoveResult, PlayerColor } from './types';
+import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
+
+export type ClashResult = {
+  winner: PlayerColor;
+  loser: PlayerColor;
+  winnerPresses: number;
+  loserPresses: number;
+};
 
 export type GameViewState = {
   pieces: GameState['pieces'];
@@ -13,8 +20,14 @@ export type GameViewState = {
   legalMoves: LegalMove[];
   winner: PlayerColor | null;
   status: GameState['status'];
+  clash: ClashState | null;
+  clashResult: ClashResult | null;
   myColor: PlayerColor;
   readyPlayers: PlayerColor[];
+  safeZones: boolean;
+  clashMode: boolean;
+  /** userId of the room host — only they can change game rules pre-launch. */
+  hostId?: string;
   /** Last dice value rolled by each color (populated from dice_rolled events). */
   lastRolls: Partial<Record<PlayerColor, number>>;
 };
@@ -29,8 +42,12 @@ export function initialView(myColor: PlayerColor): GameViewState {
     legalMoves: [],
     winner: null,
     status: 'waiting',
+    clash: null,
+    clashResult: null,
     myColor,
     readyPlayers: [],
+    safeZones: true,
+    clashMode: true,
     lastRolls: {},
   };
 }
@@ -70,7 +87,11 @@ export function applyEvent(
         status: s.status ?? state.status,
         legalMoves: s.pendingLegalMoves ?? state.legalMoves,
         diceValue: s.pendingDiceValue ?? state.diceValue,
+        clash: s.clash ?? state.clash,
         readyPlayers: s.readyPlayers ?? state.readyPlayers,
+        safeZones: s.safeZones ?? state.safeZones,
+        clashMode: s.clashMode ?? state.clashMode,
+        hostId: (s as GameState & { hostId?: string }).hostId ?? state.hostId,
       };
     }
     case 'lobby_update': {
@@ -120,6 +141,8 @@ export function applyEvent(
     }
     case 'my_color_changed':
       return { ...state, myColor: event.color as PlayerColor };
+    case 'modifiers_updated':
+      return { ...state, clashMode: Boolean(event.clashEnabled), safeZones: Boolean(event.safeZones) };
     case 'game_started':
       return { ...state, status: 'active', lastRolls: {} };
     case 'dice_rolled': {
@@ -140,6 +163,52 @@ export function applyEvent(
       return applyMove(state, event as unknown as MoveResult);
     case 'game_ended':
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
+    case 'clash_start': {
+      const c = event as unknown as ClashState;
+      // Server may send clash_start without press counts (older payloads);
+      // default to 0 so the bars render black/empty until real clash_press events.
+      // target defaults to CLASH_TARGET (42) so the bar still calibrates if the
+      // payload omits it — the overlay otherwise falls back to its own constant.
+      return {
+        ...state,
+        clash: {
+          ...c,
+          target: c.target ?? 42,
+          attackerPresses: c.attackerPresses ?? 0,
+          defenderPresses: c.defenderPresses ?? 0,
+        },
+        clashResult: null,
+      };
+    }
+    case 'clash_phase': {
+      const e = event as unknown as {
+        phase: ClashState['phase'];
+        countdownDeadline: number;
+        pressDeadline: number;
+      };
+      if (!state.clash) return state;
+      return {
+        ...state,
+        clash: { ...state.clash, phase: e.phase, countdownDeadline: e.countdownDeadline, pressDeadline: e.pressDeadline },
+      };
+    }
+    case 'clash_result':
+      // KEEP the clash object through the 3s result card — the overlay is
+      // rendered only while `view.clash` is truthy. If we null it here, the
+      // overlay (and its onComplete timer) unmounts instantly, `clash_clear`
+      // never fires, and `clashResult` stays set forever => canRoll is locked
+      // until a refresh. clash_clear() (onComplete after the card) clears both.
+      return { ...state, clashResult: event as unknown as ClashResult };
+    case 'clash_press': {
+      const e = event as unknown as { color: PlayerColor; presses: number };
+      if (!state.clash) return state;
+      const clash = { ...state.clash };
+      if (e.color === clash.attacker) clash.attackerPresses = e.presses;
+      else if (e.color === clash.defender) clash.defenderPresses = e.presses;
+      return { ...state, clash };
+    }
+    case 'clash_clear':
+      return { ...state, clash: null, clashResult: null };
     case 'player_exited':
       return {
         ...state,
@@ -169,10 +238,12 @@ export function applyEvent(
 
 function applyMove(state: GameViewState, move: MoveResult): GameViewState {
   const pieces = state.pieces.map((p) => {
-    if (p.id === move.pieceId)
-      return { ...p, step: move.to, isInGoal: move.to === 57, isInBase: false };
+    // CAPTURED-FIRST precedence: a clash REPULSE sends the MOVER (also in
+    // capturedPieceIds) to prison instead of the landing square. Normal moves
+    // never place the mover in capturedPieceIds, so non-clash behavior is unchanged.
     if (move.captured && move.capturedPieceIds?.includes(p.id))
       return { ...p, step: 0, isInGoal: false, isInBase: true };
+    if (p.id === move.pieceId) return { ...p, step: move.to, isInGoal: move.to === 57, isInBase: false };
     return p;
   });
 

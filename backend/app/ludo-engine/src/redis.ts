@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta } from './types';
+import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } from './types';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -68,7 +68,7 @@ export class RedisGameStore {
       consecutiveSixes: 0,
       bonusRoll: false,
       isFinished: false,
-      stats: { turns: 0, captures: 0, piecesInGoal: 0 },
+      stats: { turns: 0, captures: 0, piecesInGoal: 0, clashDefends: 0, clashAttacksWon: 0 },
     }));
 
     const state: GameState = {
@@ -83,6 +83,8 @@ export class RedisGameStore {
       pendingLegalMoves: [],
       disconnectedPlayers: [],
       status: 'waiting',
+      clashMode: true, // clash QTE on by default (standard capture when disabled)
+      safeZones: true, // safe/star squares capture-immune by default
       readyPlayers: [],
     };
 
@@ -124,6 +126,59 @@ export class RedisGameStore {
   // Publish state change to all subscribers
   async publish(gameId: string, message: string): Promise<void> {
     await this.client.publish(`game:${gameId}`, message);
+  }
+
+  // Get the live clash (if any) embedded in the game state.
+  async loadClashState(gameId: string): Promise<ClashState | null> {
+    const state = await this.loadGameState(gameId);
+    return state?.clash ?? null;
+  }
+
+  // Persist an active clash (phase deadlines) into the game state.
+  async saveClashState(gameId: string, clash: ClashState): Promise<void> {
+    const state = await this.loadGameState(gameId);
+    if (!state) return;
+
+    state.clash = clash;
+    await this.saveGameState(gameId, state);
+  }
+
+  // Remove the clash from the game state (resolved or aborted).
+  async clearClashState(gameId: string): Promise<void> {
+    const state = await this.loadGameState(gameId);
+    if (!state) return;
+
+    delete state.clash;
+    await this.saveGameState(gameId, state);
+  }
+
+  // Count a press for the attacker/defender side; returns the side's new total.
+  async recordClashPress(gameId: string, color: PlayerColor): Promise<number> {
+    const state = await this.loadGameState(gameId);
+    if (!state?.clash) return 0;
+
+    const isAttacker = state.clash.attacker === color;
+    if (isAttacker) {
+      state.clash.attackerPresses++;
+    } else {
+      state.clash.defenderPresses++;
+    }
+    state.clash.lastPressAt = state.clash.lastPressAt || {};
+    state.clash.lastPressAt[color] = Date.now();
+    await this.saveGameState(gameId, state);
+    return isAttacker ? state.clash.attackerPresses : state.clash.defenderPresses;
+  }
+
+  // SCAN all engine game-state keys (used by the clash recovery sweep).
+  async scanGameKeys(): Promise<string[]> {
+    const keys: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, batch] = await this.client.scan(cursor, 'MATCH', 'game:*', 'COUNT', 100);
+      cursor = nextCursor;
+      keys.push(...batch);
+    } while (cursor !== '0');
+    return keys;
   }
 
   // Get the match metadata hash (for lobby/color selection)

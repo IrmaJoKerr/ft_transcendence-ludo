@@ -93,6 +93,8 @@ model Achievement {
   achft_Transcendence  Boolean @default(false)
   achSpeedDemon        Boolean @default(false)
   achUnstoppable       Boolean @default(false)
+  achSteadyDefender    Boolean @default(false)
+  achMercilessAttacker Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -132,6 +134,8 @@ model GameParticipant {
   rank            Int // 1st, 2nd, 3rd, 4th place
   piecesCaptured  Int         @default(0)
   piecesInGoal    Int         @default(0) // 0-4
+  clashDefends    Int         @default(0)  // clash-mode: times defended a clash
+  clashAttacksWon Int         @default(0)  // clash-mode: times won a clash as attacker
 
   game Game @relation(fields: [game_id], references: [id], onDelete: Cascade)
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)

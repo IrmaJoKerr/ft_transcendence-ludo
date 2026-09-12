@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════
-# Shared server body, included by the :443 TLS listener (local / LAN /
+# Shared server body, included by the :443 TLS listener (local and
 # ngrok — `make tunnel` points ngrok straight at this same HTTPS port,
 # there is no separate plain :80 hop).
 # ═══════════════════════════════════════════════════════════
@@ -44,7 +44,7 @@ location = /index.html {
 # ═══════════════════════════════════════════════════════
 # API PROXY — forwards /api/* requests to the NestJS backend.
 # Carries the WebSocket upgrade so wss:// works on the same
-# origin as the page, in every mode (local / LAN / ngrok).
+# origin as the page, in every mode (local / ngrok).
 # ═══════════════════════════════════════════════════════
 location /api/ {
     proxy_pass http://backend:3000;
@@ -70,7 +70,7 @@ location /api/ {
 # Mounted at socket.io's own default handshake path (/socket.io/) so
 # the frontend needs no custom `path` option: it just connects to the
 # page's own origin, same as it already does for /api/. This is what
-# makes the connection work identically under nginx (local/LAN/ngrok)
+# makes the connection work identically under nginx (local/ngrok)
 # and under the Vite dev proxy (see frontend/vite.config.ts) — the
 # browser never needs to know ludo-engine's real hostname or port.
 # ═══════════════════════════════════════════════════════

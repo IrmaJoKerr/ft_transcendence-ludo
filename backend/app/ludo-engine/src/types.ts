@@ -1,6 +1,7 @@
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'resigned' | 'inactive' | 'disconnected';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
+export type ClashPhase = 'announce' | 'countdown' | 'pressing';
 
 export type PieceId = string; // Format: "{color}-{index}" e.g., "red-0", "blue-3"
 
@@ -40,7 +41,39 @@ export interface PlayerMeta {
     turns: number;
     captures: number;
     piecesInGoal: number;
+    clashDefends: number;
+    clashAttacksWon: number;
   };
+}
+
+// Server-side state of one clash QTE round (the pressing minigame).
+export interface ClashState {
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  attackerKey: string;
+  defenderKey: string;
+  target: number;
+  duration: number; // press window seconds (CLASH_PRESS_MS / 1000)
+  startedAt: number;
+  announceDeadline: number;
+  countdownDeadline: number;
+  pressDeadline: number;
+  phase: ClashPhase;
+  attackerPresses: number;
+  defenderPresses: number;
+  lastPressAt?: Partial<Record<PlayerColor, number>>;
+}
+
+// A deferred capture awaiting the clash QTE outcome.
+export interface PendingCapture {
+  pieceId: PieceId;
+  from: number;
+  to: number;
+  diceValue: number;
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  capturedPieceIds: PieceId[];
+  enteredHome: boolean;
 }
 
 export interface DisconnectState {
@@ -68,7 +101,12 @@ export interface GameState {
   resultDetail?: string; // why the game ended (e.g. four_pieces, resign)
   resultSubmitted?: boolean; // Prevents duplicate backend submissions
   botBusy?: boolean; // Prevents overlapping bot turns
+  clash?: ClashState; // Active clash QTE round, if any
+  clashMode: boolean; // Whether clash minigame is enabled (false = standard capture)
+  safeZones: boolean; // Whether safe/star squares are capture-immune (false = hardcore mod)
   readyPlayers: PlayerColor[]; // Players who have clicked "ready"
+  pendingCapture?: PendingCapture; // Move deferred until the clash QTE resolves
+  resultCardUntil?: number; // Server-side input freeze after a clash result card
   paused?: boolean; // game paused (e.g. disconnect grace period)
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
 }
@@ -86,6 +124,7 @@ export interface MoveResult {
   capturedPieceIds?: PieceId[]; // Every opponent piece sent home from the landing square (a stacked block sends all of them back)
   enteredHome: boolean; // moved into the home stretch
   bonusRoll: boolean; // mover rolls again
+  clashOutcome?: 'attacker_won' | 'defender_won';
 }
 
 // A move the current player is allowed to make after a roll.
@@ -122,6 +161,11 @@ export type GameEvent =
   | { type: 'player_disconnected'; gameId: string; color: PlayerColor }
   | { type: 'player_reconnected'; gameId: string; color: PlayerColor }
   | { type: 'color_selected'; gameId: string; userId: string; color: PlayerColor }
+  | { type: 'clash_start'; gameId: string; attackerKey: string; defenderKey: string; target: number; duration: number; attacker: PlayerColor; defender: PlayerColor; phase: ClashPhase; startAt: number; announceDeadline: number; countdownDeadline: number; pressDeadline: number; attackerPresses: number; defenderPresses: number }
+  | { type: 'clash_phase'; gameId: string; phase: ClashPhase; countdownDeadline: number; pressDeadline: number }
+  | { type: 'clash_press'; gameId: string; color: PlayerColor; presses: number }
+  | { type: 'clash_result'; gameId: string; winner: PlayerColor; loser: PlayerColor; winnerPresses: number; loserPresses: number }
+  | { type: 'modifiers_updated'; gameId: string; clashEnabled: boolean; safeZones: boolean }
   | {
       type: 'lobby_update';
       gameId: string;

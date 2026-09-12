@@ -7,6 +7,10 @@ import type { PlayerColor } from '../types';
 // called only by SocketServer from engine events and bot-slot joins.
 export class BotTurnScheduler {
   private botTurnTimers = new Map<string, NodeJS.Timeout>();
+  // Hard freeze: while now < clashFreezeUntil[gameId], NO bot turns fire
+  // (the clash QTE or its 3s result card is showing). Human turns are
+  // unaffected — they are rejected server-side by the engine's guards.
+  private clashFreezeUntil = new Map<string, number>();
 
   constructor(
     private store: RedisGameStore,
@@ -28,6 +32,7 @@ export class BotTurnScheduler {
     if (this.botTurnTimers.has(gameId)) {
       clearTimeout(this.botTurnTimers.get(gameId)!);
     }
+    // Clash freeze: while the QTE or its result card is up, bots stand down.
     const timer = setTimeout(() => {
       this.botTurnTimers.delete(gameId);
       this.store
@@ -38,6 +43,9 @@ export class BotTurnScheduler {
           // may finish its chain, but no further triggers run once the turn
           // moves past pauseTurnOwner.
           if (state.paused && state.currentTurn !== state.pauseTurnOwner) return;
+          // Clash freeze: while the QTE or its result card is up, bots stand down.
+          const freezeUntil = this.clashFreezeUntil.get(gameId);
+          if (freezeUntil && Date.now() < freezeUntil) return;
           if (!isBotPlayer(this.userIdMap, gameId, state.currentTurn)) return;
 
           const bot = this.getOrCreateBot(gameId, state.currentTurn, this.engine, this.store);
@@ -62,10 +70,16 @@ export class BotTurnScheduler {
     this.botTurnTimers.set(gameId, timer);
   }
 
-  // Drop this game's bot-turn state (pending timers).
+  // Freeze bots for a game until `untilMs` (clash QTE announce / result card).
+  setClashFreeze(gameId: string, untilMs: number): void {
+    this.clashFreezeUntil.set(gameId, untilMs);
+  }
+
+  // Drop this game's bot-turn state (pending timers + clash freeze).
   clear(gameId: string): void {
     const timer = this.botTurnTimers.get(gameId);
     if (timer) clearTimeout(timer);
     this.botTurnTimers.delete(gameId);
+    this.clashFreezeUntil.delete(gameId);
   }
 }

@@ -11,6 +11,7 @@ import { BotTurnScheduler } from './bot-scheduler';
 import { PostGameManager } from './post-game';
 import { verifyToken, GameSocket } from './auth';
 import { LobbyManager } from '../lobby';
+import { ClashManager, CLASH_RESULT_FREEZE_MS } from '../clash';
 import type { PlayerColor } from '../types';
 
 // A WAITING PvP room with fewer than 2 seated players is idle; once it has
@@ -37,12 +38,14 @@ export class SocketServer {
   private resultSubmitter: ResultSubmitter;
   private handlers: SocketHandlers;
   private botScheduler: BotTurnScheduler;
+  private clashManager: ClashManager;
   private postGame: PostGameManager;
   private userIdMap: Map<string, Map<PlayerColor, string>> = new Map();
   constructor() {
     this.store = new RedisGameStore();
     this.publisher = new EventPublisher(this.store);
-    this.engine = new LudoEngine(this.store);
+    this.clashManager = new ClashManager(this.store, this.publisher);
+    this.engine = new LudoEngine(this.store, this.clashManager);
     const lobbyManager = new LobbyManager(this.store, this.publisher);
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();
@@ -90,20 +93,33 @@ export class SocketServer {
       } else if (event.type === 'piece_moved') {
         // Wait for the move's box-by-box animation to finish on screen
         // (path.length steps) plus a short thinking pause before acting again.
+        // A clash-resolved move keeps the game frozen for the 3s result
+        // card, so the bot must stand down for that too.
         const animMs = event.result.path.length * BOT_STEP_ANIM_MS;
-        this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS);
+        const clashCardMs = event.result.clashOutcome ? CLASH_RESULT_FREEZE_MS : 0;
+        this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS + clashCardMs);
       } else if (event.type === 'dice_rolled') {
         // Only trigger bot turn if no legal moves (turn auto-advanced)
         // Wait for the 750ms frontend dice-roll animation plus thinking pause
         if (event.legalMoves.length === 0) {
           this.botScheduler.schedule(event.gameId, 750 + BOT_THINK_MS);
         }
+      } else if (event.type === 'clash_start') {
+        // Bots stand down during the whole QTE (presses are driven by clash_engine).
+        this.botScheduler.setClashFreeze(event.gameId, event.announceDeadline);
+      } else if (event.type === 'clash_result') {
+        // Stand down through the client's result card before resuming turns.
+        this.botScheduler.setClashFreeze(event.gameId, Date.now() + CLASH_RESULT_FREEZE_MS);
       }
     });
   }
 
   async start(port: number): Promise<void> {
     await this.store.connect();
+
+    // Boot-time clash recovery: re-arm phase timers for any persisted
+    // clashes and sweep every 5s for orphaned/stalled QTE states.
+    this.engine.startClashRecoverySweep();
 
     this.httpServer = http.createServer((req, res) => {
       if (req.url === '/health' && req.method === 'GET') {
@@ -223,6 +239,11 @@ export class SocketServer {
       socket.on('resign', () => this.handlers.handleResign(socket));
 
       socket.on('end_game', () => this.postGame.handleEndGame(socket));
+
+      socket.on('clash_input', (key: string) => this.handlers.handleClashInput(socket, key));
+
+      socket.on('update_modifiers', (clashEnabled: boolean, safeZones: boolean) =>
+        this.handlers.handleUpdateModifiers(socket, clashEnabled, safeZones));
 
       socket.on('disconnect', () => this.handlers.handleDisconnect(socket));
     });

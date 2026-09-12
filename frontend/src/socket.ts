@@ -24,6 +24,35 @@ export type ServerEvents = {
   game_timeout: () => void;
   game_expired: () => void;
   state_update: (payload: GameState) => void;
+  clash_start: (e: {
+    gameId: string;
+    attackerKey: string;
+    defenderKey: string;
+    target: number;
+    duration: number;
+    attacker: PlayerColor;
+    defender: PlayerColor;
+    phase: 'announce' | 'countdown' | 'pressing';
+    startAt: number;
+    announceDeadline: number;
+    countdownDeadline: number;
+    pressDeadline: number;
+    attackerPresses: number;
+    defenderPresses: number;
+  }) => void;
+  clash_phase: (e: {
+    phase: 'announce' | 'countdown' | 'pressing';
+    countdownDeadline: number;
+    pressDeadline: number;
+  }) => void;
+  clash_press: (e: { color: PlayerColor; presses: number }) => void;
+  clash_result: (e: {
+    winner: PlayerColor;
+    loser: PlayerColor;
+    winnerPresses: number;
+    loserPresses: number;
+  }) => void;
+  modifiers_updated: (e: { clashEnabled: boolean; safeZones: boolean }) => void;
   error: (msg: string) => void;
 };
 
@@ -36,6 +65,8 @@ export type ClientEvents = {
   leave_game: () => void;
   resign: () => void;
   end_game: () => void;
+  clash_input: (key: string) => void;
+  update_modifiers: (clashEnabled: boolean, safeZones: boolean) => void;
 };
 
 // Always connects to the page's own origin — nginx (or, in dev, the Vite

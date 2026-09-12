@@ -1,4 +1,9 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+
+/* Reserve scrollbar space so it never obscures content (home/lobby etc.) */
+html {
+  scrollbar-gutter: stable;
+}
 
 * {
   box-sizing: border-box;
@@ -9,7 +14,11 @@ html:not([data-theme]) body {
   min-height: 100vh;
   color: #efe6d6;
   background:
-    repeating-linear-gradient(96deg, rgba(255, 255, 255, 0.01) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(
+      96deg,
+      rgba(255, 255, 255, 0.01) 0 1px,
+      transparent 1px 7px
+    ),
     radial-gradient(130% 100% at 50% -12%, #2a1d12, #170f0a 55%, #100b07);
   background-attachment: fixed;
 }

@@ -28,12 +28,6 @@ dist-ssr
 *.sw?
 
 # planning
-eslint.md
-prettier.md
-.prettierignore
-.prettierrc
-TYPESCRIPT.md
-fixavatar.md
 
 # generated documentation
 
@@ -53,8 +47,6 @@ fixavatar.md
 /e2e-results.json
 /test-results
 
-
-
 # next.js
 /.next/
 /out/
@@ -69,12 +61,32 @@ fixavatar.md
 .env*
 !.env.example
 
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
 package-lock.json
+!frontend/public/*.png
+*.sh
 .markdownlint.json
+
+
+# planning
+eslint.md
+prettier.md
+.prettierignore
+.prettierrc
+TYPESCRIPT.md
+fixavatar.md
+
 e2e/
 *.skill
 screenshots

@@ -5,6 +5,7 @@ import { Die } from '../components/Die';
 import { localizedBotName } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor } from '../game/types';
+import { ClashOverlay } from '../game/ClashOverlay';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import { getApi, postApi } from '../api';
@@ -501,6 +502,10 @@ export function Game() {
     socket.on('player_disconnected', handleEngineEvent);
     socket.on('player_reconnected', handleEngineEvent);
     socket.on('lobby_update', handleEngineEvent);
+    socket.on('clash_start', handleEngineEvent);
+    socket.on('clash_result', handleEngineEvent);
+    socket.on('clash_phase', handleEngineEvent);
+    socket.on('clash_press', handleEngineEvent);
 
     socket.on(
       'player_aborted',
@@ -629,6 +634,7 @@ export function Game() {
         return;
       const v = viewRef.current;
       if (v.status !== 'active') return;
+      if (v.clash) return; // QTE in progress — space is a clash key, not a roll
       const isHotseatMode = activeMatch?.mode === 'hotseat';
       const activeHumanTurn = v.players.some(
         (p) => p.color === v.currentTurn && p.status === 'active' && !p.isBot,
@@ -671,6 +677,16 @@ export function Game() {
       }
     }, 2000);
   };
+
+  // Host-only room rule toggles (clash QTE on/off + safe zones on/off).
+  const updateModifiers = (clashEnabled: boolean, safeZones: boolean) => {
+    retroAudio.playUiBeep(760, 0.06);
+    socketRef.current?.emit('update_modifiers', clashEnabled, safeZones);
+  };
+  // Clash QTE: forward a pressed key to the engine, and clear the overlay
+  // (clash + result card) once the client-side card animation completes.
+  const clashInput = (key: string) => socketRef.current?.emit('clash_input', key);
+  const clearClash = () => dispatch({ type: 'clash_clear' });
 
   const movePiece = (pieceId: string) => {
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
@@ -854,6 +870,7 @@ export function Game() {
     isMyTurn &&
     view.turnPhase !== 'WAITING_FOR_MOVE' &&
     view.legalMoves.length === 0 &&
+    !view.clash &&
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
@@ -1671,6 +1688,111 @@ export function Game() {
                       })}
                     </div>
 
+                    {/* Host-only rules control — clash QTE + safe zones (PvP).
+                        Toggles broadcast via update_modifiers; every client
+                        re-renders from the modifiers_updated echo. */}
+                    {activeMatch.mode === 'pvp' &&
+                      (() => {
+                        const isHost = Boolean(
+                          view.hostId && user?.id && view.hostId === user?.id,
+                        );
+                        return (
+                          <div
+                            style={{
+                              borderTop: '1px solid rgba(0, 240, 255, 0.25)',
+                              paddingTop: 12,
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: '0.72rem',
+                                color: 'var(--accent-cyan)',
+                                marginBottom: 8,
+                                fontFamily: 'var(--font-mono)',
+                              }}
+                            >
+                              {t('game.rulesControl')}
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              <label
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 8,
+                                  fontSize: '0.78rem',
+                                  fontFamily: 'var(--font-mono)',
+                                  color: 'var(--text-main)',
+                                  cursor: isHost ? 'pointer' : 'not-allowed',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 4,
+                                  padding: '7px 10px',
+                                  background: 'rgba(0, 0, 0, 0.4)',
+                                  opacity: isHost ? 1 : 0.55,
+                                }}
+                              >
+                                <span>⚔️ {t('game.clashMode')}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={view.clashMode}
+                                  disabled={!isHost}
+                                  onChange={(e) => updateModifiers(e.target.checked, view.safeZones)}
+                                  style={{
+                                    accentColor: 'var(--accent-pink)',
+                                    width: 15,
+                                    height: 15,
+                                    cursor: isHost ? 'pointer' : 'not-allowed',
+                                  }}
+                                />
+                              </label>
+                              <label
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  gap: 8,
+                                  fontSize: '0.78rem',
+                                  fontFamily: 'var(--font-mono)',
+                                  color: 'var(--text-main)',
+                                  cursor: isHost ? 'pointer' : 'not-allowed',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 4,
+                                  padding: '7px 10px',
+                                  background: 'rgba(0, 0, 0, 0.4)',
+                                  opacity: isHost ? 1 : 0.55,
+                                }}
+                              >
+                                <span>🛡 {t('game.safeZones')}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={view.safeZones}
+                                  disabled={!isHost}
+                                  onChange={(e) => updateModifiers(view.clashMode, e.target.checked)}
+                                  style={{
+                                    accentColor: 'var(--accent-cyan)',
+                                    width: 15,
+                                    height: 15,
+                                    cursor: isHost ? 'pointer' : 'not-allowed',
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            {!isHost && (
+                              <div
+                                style={{
+                                  fontSize: '0.65rem',
+                                  color: 'var(--text-muted)',
+                                  marginTop: 6,
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                              >
+                                {t('game.hostOnlyRules')}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                     {activeMatch.mode === 'pvp' && (
                       <div
                         style={{ borderTop: '1px solid rgba(255, 0, 127, 0.25)', paddingTop: 12 }}
@@ -2486,6 +2608,18 @@ export function Game() {
           </div>
         }
       />
+
+      {/* QTE Clash overlay — mounted while a clash round is live; stays up
+          through the result card and unmounts itself via onComplete. */}
+      {view.clash && (
+        <ClashOverlay
+          clash={view.clash}
+          result={view.clashResult}
+          myColor={view.myColor}
+          onKeyPress={clashInput}
+          onComplete={clearClash}
+        />
+      )}
 
       {/* Game Results Modal Popup */}
       {showResultsModal && lastResult && (

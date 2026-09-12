@@ -14,6 +14,29 @@ export class LobbyManager {
     private publisher: EventPublisher,
   ) {}
 
+  // Update the room rule toggles (clash QTE + safe zones). Host-only, and
+  // only while the room is still waiting : the live GameState is kept in sync
+  // with the match hash so start-game seeds use the final toggles.
+  async updateModifiers(gameId: string, userId: string, clashEnabled: boolean, safeZones: boolean): Promise<void> {
+    const data = await this.store.getMatchData(gameId);
+    if (!data || data.status !== 'WAITING') {
+      throw new Error('Game is not in waiting state');
+    }
+    if (data.player1_id !== userId) {
+      throw new Error('Only the host can change the game rules');
+    }
+    await this.store.updateMatchData(gameId, {
+      clashEnabled: String(clashEnabled),
+      safeZones: String(safeZones),
+    });
+    const state = await this.store.loadGameState(gameId);
+    if (state) {
+      state.clashMode = clashEnabled;
+      state.safeZones = safeZones;
+      await this.store.saveGameState(gameId, state);
+    }
+  }
+
   // Assign (or swap) a seat color for a player in a waiting room, keeping the
   // match hash and the live engine GameState in sync. Used by
   // LudoEngine.handlePlayerSelectColor.

@@ -5,10 +5,13 @@ import { advanceTurnInState } from './player-handler';
 // Apply a move's outcome: sync piece mirrors, bump the counter, run the win
 // check, update stats/bonus, and advance the turn (or re-roll on 6/capture).
 // Pure mutation : persistence/emission stay with the caller.
+// Shared by movePiece and clash resolution (attackerWon=false → repulse:
+// the attacker lost the QTE, no bonus roll and the turn always advances).
 export function applyMoveOutcome(
   state: GameState,
   result: MoveResult,
   diceValue: number,
+  attackerWon = true,
 ): PlayerColor | null {
   // Sync the frontend-compatible piece mirrors. The authoritative field is
   // `step` (all rules read it); isInGoal/isInBase are read by the UI and must
@@ -60,12 +63,20 @@ export function applyMoveOutcome(
       mover.piecesInGoal = MoveValidator.countPiecesInGoal(state, result.color);
       mover.hasRolled = false;
       // bonusRoll tells the frontend to let the SAME player roll again.
-      mover.bonusRoll = sixBonus || result.captured;
+      if (attackerWon) {
+        mover.bonusRoll = sixBonus || result.captured;
+      } else {
+        // Repulse: the attacker lost the clash : no bonus even on a 6.
+        mover.bonusRoll = false;
+      }
     }
     // Turn hand-off: a 6 or an actual capture re-rolls the same player
     // (turnPhase back to WAITING_FOR_ROLL, no advance); anything else advances
-    // to the next active seat.
-    if (sixBonus || result.captured) {
+    // to the next active seat. A repulse always advances regardless of the die.
+    if (!attackerWon) {
+      state.turnPhase = 'WAITING_FOR_ROLL';
+      advanceTurnInState(state);
+    } else if (sixBonus || result.captured) {
       state.turnPhase = 'WAITING_FOR_ROLL';
     } else {
       state.turnPhase = 'WAITING_FOR_ROLL';
