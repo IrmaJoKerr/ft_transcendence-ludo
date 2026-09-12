@@ -423,6 +423,7 @@ export class LudoEngine {
   async emitLobbyUpdate(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state) return;
+    const matchData = await this.store.getMatchData(gameId);
     const players = state.players
       .filter((p) => p.status !== 'inactive')
       .map((p) => ({
@@ -433,6 +434,6 @@ export class LudoEngine {
         color: p.color,
         ready: state.readyPlayers.includes(p.color),
       }));
-    this.emit({ type: 'lobby_update', gameId, players });
+    this.emit({ type: 'lobby_update', gameId, hostId: matchData?.player1_id || '', players });
   }
 }

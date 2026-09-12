@@ -71,7 +71,7 @@ export const RETRO_AUTH_MUTED =
 
 // Shared "page shell" for 7 pages: fully custom-property driven, so it needs
 // no theme-aware logic here.
-export const CRT_SCREEN = 'relative z-10 min-h-screen';
+export const PAGE_SHELL = 'relative z-10 min-h-screen';
 
 // Animated synthwave grid + sun (RetroAuthLayout + dashboard pages); the theme
 // `display:none` rules become `&` variants, keyframes stay in retrowave.css.

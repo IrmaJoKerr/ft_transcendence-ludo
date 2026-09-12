@@ -48,7 +48,12 @@ export class RedisGameStore {
 
   // Create a new game, all 16 pieces in prison. Only `activeColors` seats
   // get PlayerMeta entries, so unused seats never appear downstream.
-  async createGame(gameId: string, activeColors: PlayerColor[] = COLORS): Promise<void> {
+  async createGame(
+    gameId: string,
+    clashMode: boolean = false,
+    activeColors: PlayerColor[] = COLORS,
+    safeZones: boolean = true,
+  ): Promise<void> {
     const pieces: Piece[] = [];
     for (const color of COLORS) {
       for (let i = 0; i < 4; i++) {
@@ -83,8 +88,8 @@ export class RedisGameStore {
       pendingLegalMoves: [],
       disconnectedPlayers: [],
       status: 'waiting',
-      clashMode: true, // clash QTE on by default (standard capture when disabled)
-      safeZones: true, // safe/star squares capture-immune by default
+      clashMode, // host's lobby toggle (match hash clashEnabled)
+      safeZones, // host's lobby toggle (match hash safeZones)
       readyPlayers: [],
     };
 

@@ -12,7 +12,7 @@ import { getRankTier } from '../utils/ranks';
 import { RankBadge } from '../components/RankBadge';
 import '../styles/retrowave.css';
 import {
-  CRT_SCREEN,
+  PAGE_SHELL,
   GRID_BACKGROUND,
   SYNTHWAVE_SUN,
   PERSPECTIVE_GRID,
@@ -148,24 +148,6 @@ export function Home() {
       });
   }, []);
 
-  // ------------------------------------------------------------------------
-  // 3. THEME & CRT CONTROLS
-  // ------------------------------------------------------------------------
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
 
   // ------------------------------------------------------------------------
   // 4. CYBER COMM // FRIEND LIST & AUDIO
@@ -730,10 +712,9 @@ export function Home() {
         <div className={PERSPECTIVE_GRID} />
       </div>
 
-      {/* CRT Monitor Overlay FX Container */}
+      {/* Page shell (full-height wrapper) */}
       <div
-        className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''} flex min-h-screen w-full flex-col items-center justify-start`}
-        id="crtScreen"
+        className={`${PAGE_SHELL} page-shell flex min-h-screen w-full flex-col items-center justify-start`}
       >
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
@@ -744,13 +725,13 @@ export function Home() {
           >
             <RetroNavbar
               activeRoute="/home"
-              crtEnabled={crtEnabled}
-              toggleCrt={toggleCrt}
+
+
               notifications={notifications}
               unreadCount={unreadCount}
               onMarkRead={markRead}
               onMarkAllRead={markAllRead}
-            />
+           />
           </aside>
 
           {/* Main Content Flow - Full Size Fit To Page */}
@@ -1037,7 +1018,7 @@ export function Home() {
                                     fontWeight: 900,
                                     fontSize: '0.95rem',
                                   }}
-                                />
+                               />
                               </div>
                               <span
                                 style={{
@@ -1051,7 +1032,7 @@ export function Home() {
                                   border: '2px solid #0d0221',
                                   boxShadow: `0 0 6px ${fStatus.color}`,
                                 }}
-                              />
+                             />
                             </div>
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div
@@ -1166,7 +1147,7 @@ export function Home() {
                         avatarStyle={user?.avatarStyle}
                         hasAvatarPhoto={user?.hasAvatarPhoto ?? false}
                         size={48}
-                      />
+                     />
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span
@@ -1183,7 +1164,7 @@ export function Home() {
                             tier={getRankTier(stats?.rating ?? 1200, leaderboardRank)}
                             fontSize="0.75rem"
                             padding="3px 10px"
-                          />
+                         />
                         </div>
                         <span
                           style={{
@@ -1437,7 +1418,7 @@ export function Home() {
                           background: isPlayingAudio ? 'var(--accent-cyan)' : 'var(--text-muted)',
                           boxShadow: isPlayingAudio ? '0 0 6px var(--accent-cyan)' : 'none',
                         }}
-                      />
+                     />
                       {isPlayingAudio
                         ? t('homeExtended.chiptuneLiveStereo')
                         : t('homeExtended.chiptuneStandby')}
@@ -1603,7 +1584,7 @@ export function Home() {
                               onClick={() => {
                                 handleLedSegmentClick(idx);
                               }}
-                            />
+                           />
                           );
                         })}
                       </div>
@@ -1687,7 +1668,7 @@ export function Home() {
         onClose={() => {
           setLegalModalDoc(null);
         }}
-      />
+     />
     </>
   );
 }

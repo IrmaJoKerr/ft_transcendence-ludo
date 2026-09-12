@@ -47,7 +47,7 @@ export function initialView(myColor: PlayerColor): GameViewState {
     myColor,
     readyPlayers: [],
     safeZones: true,
-    clashMode: true,
+    clashMode: false,
     lastRolls: {},
   };
 }
@@ -137,6 +137,9 @@ export function applyEvent(
         ...state,
         players,
         readyPlayers: payload.filter((p) => p.ready).map((p) => p.color),
+        // The room host can only be identified from this frame when the seat
+        // roster is refreshed: keep it so the rules panel stays interactive.
+        hostId: (event.hostId as string | undefined) ?? state.hostId,
       };
     }
     case 'my_color_changed':
@@ -164,21 +167,11 @@ export function applyEvent(
     case 'game_ended':
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
     case 'clash_start': {
+      // clash_start carries the complete round state — both players' keys,
+      // the press target, the starting phase, every deadline and both press
+      // counters (0 at start) — so the overlay can render immediately.
       const c = event as unknown as ClashState;
-      // Server may send clash_start without press counts (older payloads);
-      // default to 0 so the bars render black/empty until real clash_press events.
-      // target defaults to CLASH_TARGET (42) so the bar still calibrates if the
-      // payload omits it — the overlay otherwise falls back to its own constant.
-      return {
-        ...state,
-        clash: {
-          ...c,
-          target: c.target ?? 42,
-          attackerPresses: c.attackerPresses ?? 0,
-          defenderPresses: c.defenderPresses ?? 0,
-        },
-        clashResult: null,
-      };
+      return { ...state, clash: c, clashResult: null };
     }
     case 'clash_phase': {
       const e = event as unknown as {

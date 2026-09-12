@@ -96,6 +96,82 @@ export class EventPublisher {
             type: 'lobby_update',
             gameId: event.gameId,
             players: event.players,
+            hostId: event.hostId,
+          }),
+        );
+        break;
+
+      case 'clash_start':
+        this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_start',
+            gameId: event.gameId,
+            attackerKey: event.attackerKey,
+            defenderKey: event.defenderKey,
+            target: event.target,
+            duration: event.duration,
+            attacker: event.attacker,
+            defender: event.defender,
+            phase: event.phase,
+            startAt: event.startAt,
+            announceDeadline: event.announceDeadline,
+            countdownDeadline: event.countdownDeadline,
+            pressDeadline: event.pressDeadline,
+            attackerPresses: event.attackerPresses,
+            defenderPresses: event.defenderPresses,
+            resultMs: event.resultMs,
+          }),
+        );
+        break;
+
+      case 'clash_phase':
+        this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_phase',
+            gameId: event.gameId,
+            phase: event.phase,
+            countdownDeadline: event.countdownDeadline,
+            pressDeadline: event.pressDeadline,
+          }),
+        );
+        break;
+
+      case 'clash_press':
+        this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_press',
+            gameId: event.gameId,
+            color: event.color,
+            presses: event.presses,
+          }),
+        );
+        break;
+
+      case 'clash_result':
+        this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_result',
+            gameId: event.gameId,
+            winner: event.winner,
+            loser: event.loser,
+            winnerPresses: event.winnerPresses,
+            loserPresses: event.loserPresses,
+          }),
+        );
+        break;
+
+      case 'modifiers_updated':
+        this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'modifiers_updated',
+            gameId: event.gameId,
+            clashEnabled: event.clashEnabled,
+            safeZones: event.safeZones,
           }),
         );
         break;

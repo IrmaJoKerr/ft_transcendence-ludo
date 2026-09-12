@@ -27,8 +27,6 @@ const ACTIVE_GAME_POLL_MS = 10_000;
 
 interface RetroNavbarProps {
   activeRoute?: string;
-  crtEnabled?: boolean;
-  toggleCrt?: () => void;
   notifications?: Notification[];
   unreadCount?: number;
   onMarkRead?: (id: string) => void;

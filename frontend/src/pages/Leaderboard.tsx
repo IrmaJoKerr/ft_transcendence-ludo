@@ -9,7 +9,7 @@ import { getRankTier } from '../utils/ranks';
 import { RankBadge } from '../components/RankBadge';
 import '../styles/retrowave.css';
 import {
-  CRT_SCREEN,
+  PAGE_SHELL,
   GRID_BACKGROUND,
   SYNTHWAVE_SUN,
   PERSPECTIVE_GRID,
@@ -52,28 +52,6 @@ export function Leaderboard() {
   const { t } = useTranslation();
   const { user } = useApp();
 
-  // ------------------------------------------------------------------------
-  // CRT CONTROLS
-  // ------------------------------------------------------------------------
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('retro_theme') ?? 'synthwave';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    document.body.setAttribute('data-theme', savedTheme);
-
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
 
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,8 +89,8 @@ export function Leaderboard() {
         <div className={PERSPECTIVE_GRID} />
       </div>
 
-      {/* CRT Monitor Overlay FX Container */}
-      <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
+      {/* Page shell (full-height wrapper) */}
+      <div className={`${PAGE_SHELL} page-shell`}>
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
@@ -120,7 +98,7 @@ export function Leaderboard() {
             className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
             style={{ margin: 0, padding: 0 }}
           >
-            <RetroNavbar activeRoute="/leaderboard" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
+            <RetroNavbar activeRoute="/leaderboard" />
           </aside>
 
           {/* Main Content Flow */}
@@ -279,7 +257,7 @@ export function Leaderboard() {
                                   fontWeight: 'bold',
                                   fontSize: '1.05rem',
                                 }}
-                              />
+                             />
                               <div>
                                 <div
                                   style={{
@@ -414,7 +392,7 @@ export function Leaderboard() {
                                     fontWeight: 'bold',
                                     fontSize: '1.4rem',
                                   }}
-                                />
+                               />
                               </div>
                               <div>
                                 <div
@@ -537,7 +515,7 @@ export function Leaderboard() {
                                   fontWeight: 'bold',
                                   fontSize: '1.05rem',
                                 }}
-                              />
+                             />
                               <div>
                                 <div
                                   style={{
@@ -746,7 +724,7 @@ export function Leaderboard() {
                                 tier={tier}
                                 fontSize={isRankOne ? '13px' : '11.5px'}
                                 padding={isRankOne ? '5px 12px' : '4px 10px'}
-                              />
+                             />
                             </div>
 
                             {/* Pilot Info */}
@@ -773,7 +751,7 @@ export function Leaderboard() {
                                   fontWeight: 'bold',
                                   fontSize: isRankOne ? '1.1rem' : '0.85rem',
                                 }}
-                              />
+                             />
                               <div style={{ minWidth: 0 }}>
                                 <div
                                   style={{

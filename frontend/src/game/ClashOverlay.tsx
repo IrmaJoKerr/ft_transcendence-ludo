@@ -3,22 +3,22 @@ import { useTranslation } from 'react-i18next'
 import type { ClashResult, GameViewState } from './reducer'
 import type { ClashPhase, PlayerColor } from './types'
 
-// ── Clash timing constants — EDIT HERE to tune the FEEL ─────────────────────
-// These mirror the ENGINE constants in backend/app/ludo-engine/src/clash.ts.
-// The overlay's phase transitions come from the server-borne deadlines
-// (announceDeadline / countdownDeadline / pressDeadline), so these only affect
-// presentation helpers (result-card duration, fight-flash window, tick rate).
-// To change the ACTUAL race timings, ALSO edit the engine's clash.ts.
-const CLASH_ANNOUNCE_MS = 1500    // Card A splash ("⚔️ CLASH!" + colors)
-const CLASH_COUNTDOWN_MS = 3000   // GET READY → 3 → 2 → 1 (inside Card C)
-const CLASH_PRESS_MS = 5000       // keys + bars race
-const CLASH_RESULT_MS = 2000      // Card D result card
-const CLASH_FIGHT_FLASH_MS = 700  // "FIGHT!" flash at press start
-const CLASH_UI_TICK_MS = 250      // overlay re-render cadence
+// ── Clash presentation knobs (client-only) ──────────────────────────────────
+// The QTE's actual timing comes from the ENGINE, carried in the clash payload:
+//   target              → CLASH_TARGET (presses to win; bar chunk size)
+//   duration            → CLASH_PRESS_MS (press window, seconds)
+//   resultMs            → CLASH_RESULT_MS (result-card length)
+//   announce/countdown/press deadlines → phase transitions
+// So there is no timing mirror to keep in sync here — tune the engine's
+// backend/app/ludo-engine/src/clash.ts and every client follows.
+// The two constants below are pure presentation feel (no engine counterpart).
+const CLASH_FIGHT_FLASH_MS = 700 // "FIGHT!" flash at press start
+const CLASH_UI_TICK_MS = 250 // overlay re-render cadence
 
-const CLASH_TARGET = 42 // must mirror engine CLASH_TARGET
-// Bar renders in whole pixels: 168px track / 42 presses = 4px per press, so the
-// bar hits exactly full (168px) at 42 presses. Keep width a multiple of target.
+// Bar track width in px. The number of presses needed to fill it is NOT
+// hardcoded here: it comes from the engine (`clash_start.target`, sourced from
+// CLASH_TARGET in backend/app/ludo-engine/src/clash.ts), so px-per-press is
+// always track / target. Change the press count in the engine only.
 const CLASH_BAR_WIDTH_PX = 168
 
 // Player identity colors for the clash plates/bars. Theme-aware CSS vars
@@ -64,12 +64,12 @@ function phaseAt(clash: NonNullable<GameViewState['clash']>, now: number): Clash
 function Bar({ color, presses, target }: { color: PlayerColor; presses: number; target: number }) {
   const fullAt = Math.max(1, target)
   const safe = Number.isFinite(presses) ? presses : 0
-  // px-per-press = CLASH_BAR_WIDTH_PX / target (168/42 = 4px per press); capped at the track.
+  // px-per-press = track / target (from the engine payload); capped at the track.
   const widthPx = Math.min(CLASH_BAR_WIDTH_PX, (safe / fullAt) * CLASH_BAR_WIDTH_PX)
   return (
     <div
-      className="relative mx-auto h-[50px] w-[168px] overflow-hidden rounded-[10px] border border-(--border-color) bg-(--bg-secondary)"
-      style={{ marginTop: '3mm' }}
+      className="relative mx-auto h-[50px] overflow-hidden rounded-[10px] border border-(--border-color) bg-(--bg-secondary)"
+      style={{ marginTop: '3mm', width: CLASH_BAR_WIDTH_PX }}
     >
       <div
         style={{
@@ -167,15 +167,22 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
     return () => window.removeEventListener('keydown', handler)
   }, [iAmInClash, phase, listenerKeys, result, onKeyPress])
 
-  // Auto-dismiss the result card after CLASH_RESULT_MS.
+  // Auto-dismiss the result card after the ENGINE's result-card length, so the
+  // client card can never outlast the server freeze that derives from it.
   useEffect(() => {
     if (!result) return
-    const t = setTimeout(onComplete, CLASH_RESULT_MS)
+    const t = setTimeout(onComplete, clash.resultMs)
     return () => clearTimeout(t)
-  }, [result, onComplete])
+  }, [result, onComplete, clash.resultMs])
 
   const countdownSecs = Math.max(0, Math.ceil((clash.countdownDeadline - now) / 1000))
   const fightFlash = phase === 'pressing' && (now - clash.countdownDeadline) < CLASH_FIGHT_FLASH_MS
+
+  // Card lengths for the on-screen timing copy, derived from the payload's
+  // deadlines/duration — never from local mirrors.
+  const announceSecs = Math.max(0, (clash.announceDeadline - clash.startedAt) / 1000)
+  const countdownSecsTotal = Math.max(0, (clash.countdownDeadline - clash.announceDeadline) / 1000)
+  const pressSecs = clash.duration
 
   // Persistent "who's fighting" header — Defender LEFT / Attacker RIGHT (keyboard mirror).
   const plates = (
@@ -215,12 +222,12 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
             <div className="flex items-center justify-center gap-7">
               <div style={{ textAlign: 'center' }}>
                 <div className="text-[13px] font-bold text-(--text-main)">{t('game.clashDefenderRole')}</div>
-                <Bar color={clash.defender} presses={result.winner === clash.defender ? result.winnerPresses : result.loserPresses} target={clash.target ?? CLASH_TARGET} />
+                <Bar color={clash.defender} presses={result.winner === clash.defender ? result.winnerPresses : result.loserPresses} target={clash.target} />
               </div>
               <div className="text-2xl font-black text-(--text-muted)">{t('game.clashVersus')}</div>
               <div style={{ textAlign: 'center' }}>
                 <div className="text-[13px] font-bold text-(--text-main)">{t('game.clashAttackerRole')}</div>
-                <Bar color={clash.attacker} presses={result.winner === clash.attacker ? result.winnerPresses : result.loserPresses} target={clash.target ?? CLASH_TARGET} />
+                <Bar color={clash.attacker} presses={result.winner === clash.attacker ? result.winnerPresses : result.loserPresses} target={clash.target} />
               </div>
             </div>
           </>
@@ -231,7 +238,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
             </div>
             <div className="mt-2.5 text-sm text-(--text-muted)">{t('game.clashAnnounceBody')}</div>
             <div className="mt-1 text-xs text-(--text-muted)">
-              {t('game.clashAnnounceTiming', { reveal: CLASH_ANNOUNCE_MS / 1000, countdown: CLASH_COUNTDOWN_MS / 1000, clash: CLASH_PRESS_MS / 1000 })}
+              {t('game.clashAnnounceTiming', { reveal: announceSecs, countdown: countdownSecsTotal, clash: pressSecs })}
             </div>
             <div className="mt-[22px]">{plates}</div>
           </>
@@ -247,7 +254,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                     {t('game.clashGetReady')}
                   </div>
                   <div className="[font-family:var(--font-display)] text-[96px] font-bold leading-none text-(--accent-yellow)">
-                    {countdownSecs > 0 ? Math.min(countdownSecs, Math.ceil(CLASH_COUNTDOWN_MS / 1000)) : t('game.clashGo')}
+                    {countdownSecs > 0 ? Math.min(countdownSecs, Math.ceil(countdownSecsTotal)) : t('game.clashGo')}
                   </div>
                   <div className="mt-2 text-[13px] text-(--text-muted)">
                     {t('game.clashKeyHint')}
@@ -263,17 +270,17 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                   <div className="mt-2.5 flex items-start justify-center gap-7">
                     <div className="text-center">
                       <KeyBadge label={clash.defenderKey} emphasized={defenderIsMe} />
-                      <Bar color={clash.defender} presses={clash.defenderPresses} target={clash.target ?? CLASH_TARGET} />
+                      <Bar color={clash.defender} presses={clash.defenderPresses} target={clash.target} />
                     </div>
                     <div className="mt-2 self-center text-[26px] font-black text-(--text-muted)">{t('game.clashVersus')}</div>
                     <div className="text-center">
                       <KeyBadge label={clash.attackerKey} emphasized={attackerIsMe} />
-                      <Bar color={clash.attacker} presses={clash.attackerPresses} target={clash.target ?? CLASH_TARGET} />
+                      <Bar color={clash.attacker} presses={clash.attackerPresses} target={clash.target} />
                     </div>
                   </div>
                   {!iAmInClash && <div className="mt-2.5 text-[13px] text-(--text-muted)">{t('game.clashWatching')}</div>}
                   <div className="mt-2.5 text-xs text-(--text-muted)">
-                    {t('game.clashPressHint', { seconds: CLASH_PRESS_MS / 1000 })}
+                    {t('game.clashPressHint', { seconds: pressSecs })}
                   </div>
                 </>
               )}

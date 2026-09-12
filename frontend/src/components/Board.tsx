@@ -1,10 +1,23 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { COL, type ColorKey } from '../theme';
+import type { ColorKey } from '../theme';
 
-const CELL_BG = '#050515';
-const LINE = '#00f0ff';
+// Theme-driven player colors + board surface: the `[data-theme]` blocks in
+// retrowave.css define these, so the board matches the active theme.
+const VAR_PLAYER: Record<ColorKey, string> = {
+  red: 'var(--player-red)',
+  green: 'var(--player-green)',
+  yellow: 'var(--player-yellow)',
+  blue: 'var(--player-blue)',
+};
+
+/** Alpha variant of a player color (CSS vars can't take a hex-alpha suffix). */
+const playerMix = (ck: ColorKey, pct: number) =>
+  `color-mix(in srgb, ${VAR_PLAYER[ck]} ${pct}%, transparent)`;
+
+const CELL_BG = 'var(--board-cell-bg)';
+const LINE = 'var(--board-line)';
 
 // Track geometry: the engine uses logical steps (0-57); the UI maps them to
 // board cells. (15×15 cross board has exact 4-fold symmetry).
@@ -113,7 +126,6 @@ const PATH_MAP: Record<ColorKey, string> = {
 };
 
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
-  const c = COL[ck];
   const d = PATH_MAP[ck];
 
   return (
@@ -124,7 +136,7 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
         height: '100%',
         overflow: 'visible',
         filter: isLegal
-          ? 'drop-shadow(0 0 4px #ffe600) drop-shadow(0 0 8px #ffe600)'
+          ? 'drop-shadow(0 0 4px var(--board-legal-glow)) drop-shadow(0 0 8px var(--board-legal-glow))'
           : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
       }}
       shapeRendering="crispEdges"
@@ -139,7 +151,7 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
         strokeLinecap="square"
       />
       {/* Original Invader color fill */}
-      <path fill={c.base} d={d} />
+      <path fill={VAR_PLAYER[ck]} d={d} />
     </svg>
   );
 }
@@ -151,7 +163,7 @@ function Ring({ ck }: { ck: ColorKey }) {
         width: '62%',
         aspectRatio: '1',
         borderRadius: '50%',
-        border: `2px dashed ${COL[ck].base}88`,
+        border: `2px dashed ${playerMix(ck, 53)}`,
         boxSizing: 'border-box',
       }}
     />
@@ -176,7 +188,6 @@ function Yard({
   onPieceClick?: (pieceId: string) => void;
 }) {
   const { t } = useTranslation();
-  const col = COL[ck];
   const label = t(`board.${ck}Bay`);
   return (
     <div
@@ -184,10 +195,10 @@ function Yard({
         gridRow: `${r + 1} / span 6`,
         gridColumn: `${c + 1} / span 6`,
         padding: '6% 8%',
-        background: 'rgba(10, 2, 28, 0.95)',
-        border: '1.5px solid #2121ff',
+        background: 'var(--board-yard-bg)',
+        border: '1.5px solid var(--board-border)',
         borderRadius: 8,
-        boxShadow: '0 0 14px rgba(33, 33, 255, 0.45), inset 0 0 10px rgba(0, 240, 255, 0.15)',
+        boxShadow: 'var(--board-glow-soft)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -207,9 +218,9 @@ function Yard({
             fontSize: '0.62rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 'bold',
-            color: col.base,
+            color: VAR_PLAYER[ck],
             letterSpacing: '0.5px',
-            textShadow: `0 0 6px ${col.base}`,
+            textShadow: `0 0 6px ${VAR_PLAYER[ck]}`,
           }}
         >
           // {label}
@@ -219,12 +230,12 @@ function Yard({
             fontSize: '0.62rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 'bold',
-            color: goalCount > 0 ? '#00ff88' : '#ffffff',
-            background: 'rgba(5, 5, 20, 0.9)',
-            border: `1px solid ${col.base}`,
+            color: goalCount > 0 ? 'var(--board-goal)' : 'var(--text-main)',
+            background: 'var(--board-badge-bg)',
+            border: `1px solid ${VAR_PLAYER[ck]}`,
             padding: '1px 6px',
             borderRadius: 3,
-            boxShadow: `0 0 6px ${col.base}66`,
+            boxShadow: `0 0 6px ${playerMix(ck, 40)}`,
           }}
         >
           GOAL: {goalCount}/4
@@ -234,15 +245,15 @@ function Yard({
         style={{
           width: '100%',
           height: '82%',
-          background: 'rgba(10, 2, 28, 0.95)',
-          border: `1.5px solid ${col.base}`,
+          background: 'var(--board-yard-bg)',
+          border: `1.5px solid ${VAR_PLAYER[ck]}`,
           borderRadius: 8,
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gridTemplateRows: '1fr 1fr',
           gap: '8%',
           padding: '10%',
-          boxShadow: `inset 0 0 10px ${col.base}33`,
+          boxShadow: `inset 0 0 10px ${playerMix(ck, 20)}`,
           placeItems: 'center',
         }}
       >
@@ -310,10 +321,10 @@ const SAFE_STAR_CELLS: Record<string, boolean> = (() => {
 
 /** Home-stretch lane color for a track cell, or null for a plain cell. */
 function laneColor(r: number, c: number): string | null {
-  if (r === 7 && c >= 1 && c <= 5) return COL.red.base;
-  if (c === 7 && r >= 1 && r <= 5) return COL.green.base;
-  if (r === 7 && c >= 9 && c <= 13) return COL.yellow.base;
-  if (c === 7 && r >= 9 && r <= 13) return COL.blue.base;
+  if (r === 7 && c >= 1 && c <= 5) return VAR_PLAYER.red;
+  if (c === 7 && r >= 1 && r <= 5) return VAR_PLAYER.green;
+  if (r === 7 && c >= 9 && c <= 13) return VAR_PLAYER.yellow;
+  if (c === 7 && r >= 9 && r <= 13) return VAR_PLAYER.blue;
   return null;
 }
 
@@ -332,6 +343,8 @@ type BoardProps = {
   animating?: { pieceId: string; step: number } | null;
   /** Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay. */
   fx?: { color: string; to: number } | null;
+  /** Hardcore mod: when false, safe/star squares lose capture immunity (stars are hidden). */
+  safeZones?: boolean;
 };
 
 /** The classic 15×15 cross board, rendered procedurally — no images. */
@@ -342,6 +355,7 @@ export function Board({
   onPieceClick,
   animating,
   fx,
+  safeZones = true,
 }: BoardProps = {}) {
   const legalPieceIds = new Set((legalMoves ?? []).map((m) => m.pieceId));
   const activeColors = new Set(
@@ -362,7 +376,7 @@ export function Board({
       if (r >= 6 && r <= 8 && c >= 6 && c <= 8) continue; // center handled separately
       const key = `${r},${c}`;
       const startCol = STARTS[key];
-      const bg = startCol ? COL[startCol].base : (laneColor(r, c) ?? CELL_BG);
+      const bg = startCol ? VAR_PLAYER[startCol] : (laneColor(r, c) ?? CELL_BG);
       const style: CSSProperties = {
         gridRow: r + 1,
         gridColumn: c + 1,
@@ -387,7 +401,7 @@ export function Board({
             }}
           />
         );
-      } else if (SAFE_STAR_CELLS[key]) {
+      } else if (SAFE_STAR_CELLS[key] && safeZones) {
         inner = (
           <div
             style={{
@@ -395,8 +409,8 @@ export function Board({
               height: '40%',
               clipPath:
                 'polygon(50% 0,61% 35%,100% 35%,68% 57%,79% 100%,50% 72%,21% 100%,32% 57%,0 35%,39% 35%)',
-              background: '#ffe600',
-              filter: 'drop-shadow(0 0 5px #ffe600)',
+              background: 'var(--board-safe-star)',
+              filter: 'drop-shadow(0 0 5px var(--board-safe-star))',
             }}
           />
         );
@@ -407,8 +421,8 @@ export function Board({
               width: 4,
               height: 4,
               borderRadius: '50%',
-              background: '#ffb8ae',
-              boxShadow: '0 0 4px #ffb8ae',
+              background: 'var(--board-dot)',
+              boxShadow: '0 0 4px var(--board-dot)',
             }}
           />
         );
@@ -485,7 +499,6 @@ export function Board({
     const ck = fx.color as ColorKey;
     const cell = stepToCell(ck, fx.to);
     if (cell) {
-      const col = COL[ck];
       let uid = 0;
       const spark = (dx: number, dy: number, size: number, bg: string) => (
         <div
@@ -520,21 +533,21 @@ export function Board({
             alignSelf: 'center',
             justifySelf: 'center',
             borderRadius: '50%',
-            border: `3px solid ${col.base}`,
-            boxShadow: `0 0 12px ${col.base}aa`,
+            border: `3px solid ${VAR_PLAYER[ck]}`,
+            boxShadow: `0 0 12px ${playerMix(ck, 67)}`,
             pointerEvents: 'none',
             zIndex: 11,
             animation: 'captureRing 600ms ease-out forwards',
           }}
         />,
         spark(0, -20, 7, '#ffffff'),
-        spark(0, 20, 7, col.base),
+        spark(0, 20, 7, VAR_PLAYER[ck]),
         spark(-20, 0, 6, '#ffffff'),
-        spark(20, 0, 6, col.base),
-        spark(-14, -14, 5, col.base),
+        spark(20, 0, 6, VAR_PLAYER[ck]),
+        spark(-14, -14, 5, VAR_PLAYER[ck]),
         spark(14, -14, 5, '#ffffff'),
         spark(-14, 14, 5, '#ffffff'),
-        spark(14, 14, 5, col.base),
+        spark(14, 14, 5, VAR_PLAYER[ck]),
       );
     }
   }
@@ -581,9 +594,9 @@ export function Board({
           gap: 1,
           padding: '2.5%',
           borderRadius: 10,
-          background: 'rgba(15, 6, 38, 0.95)',
-          border: '2px solid #2121ff',
-          boxShadow: '0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgba(0, 240, 255, 0.25)',
+          background: 'var(--board-bg)',
+          border: '2px solid var(--board-border)',
+          boxShadow: 'var(--board-glow)',
         }}
       >
         <Yard
@@ -626,9 +639,9 @@ export function Board({
           style={{
             gridRow: '7 / span 3',
             gridColumn: '7 / span 3',
-            background: `conic-gradient(from 45deg, ${COL.yellow.base} 0 90deg, ${COL.blue.base} 90deg 180deg, ${COL.red.base} 180deg 270deg, ${COL.green.base} 270deg 360deg)`,
-            border: '2px solid #2121ff',
-            boxShadow: '0 0 18px rgba(33, 33, 255, 0.6), inset 0 0 12px rgba(0,0,0,.7)',
+            background: `conic-gradient(from 45deg, ${VAR_PLAYER.yellow} 0 90deg, ${VAR_PLAYER.blue} 90deg 180deg, ${VAR_PLAYER.red} 180deg 270deg, ${VAR_PLAYER.green} 270deg 360deg)`,
+            border: '2px solid var(--board-border)',
+            boxShadow: 'var(--board-glow)',
           }}
         />
         {cells}

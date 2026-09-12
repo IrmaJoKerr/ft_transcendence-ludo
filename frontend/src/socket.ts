@@ -3,7 +3,7 @@ import type { Socket } from 'socket.io-client';
 import type { GameState, PlayerColor, LegalMove, MoveResult } from './game/types';
 
 export type ServerEvents = {
-  game_joined: (state: GameState) => void;
+  game_joined: (state: GameState & { hostId?: string }) => void;
   dice_rolled: (e: {
     value: number;
     legalMoves: LegalMove[];
@@ -20,6 +20,7 @@ export type ServerEvents = {
   player_reconnected: (e: { color: PlayerColor }) => void;
   lobby_update: (e: {
     players: Array<{ username: string; color: PlayerColor; ready: boolean }>;
+    hostId?: string;
   }) => void;
   game_timeout: () => void;
   game_expired: () => void;
@@ -39,6 +40,7 @@ export type ServerEvents = {
     pressDeadline: number;
     attackerPresses: number;
     defenderPresses: number;
+    resultMs: number;
   }) => void;
   clash_phase: (e: {
     phase: 'announce' | 'countdown' | 'pressing';

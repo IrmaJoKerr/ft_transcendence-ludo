@@ -9,7 +9,7 @@ import { SEAT_COLORS, type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
-  CRT_SCREEN,
+  PAGE_SHELL,
   GRID_BACKGROUND,
   SYNTHWAVE_SUN,
   PERSPECTIVE_GRID,
@@ -59,10 +59,12 @@ export function Lobby() {
   const [startError, setStartError] = useState<string | null>(null);
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
+  // Room rules for this arena match: clash QTE + safe zones. Both default to
+  // safe Zones ON, clash OFF (opt-in extra minigame). Sent with the create
+  // payload so every mode (PvP/PvE/hotseat) gets the host's choice.
+  const [clashOn, setClashOn] = useState(false);
+  const [safeZonesOn, setSafeZonesOn] = useState(true);
 
-  const [crtEnabled] = useState(() => {
-    return localStorage.getItem('crt_enabled') !== 'false';
-  });
 
   useEffect(() => {
     resetSeats();
@@ -122,6 +124,8 @@ export function Lobby() {
           (gameMode === 'hotseat' || gameMode === 'pve') && seatColors.length > 0
             ? seatColors
             : undefined,
+        clashEnabled: clashOn,
+        safeZones: safeZonesOn,
       });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
@@ -140,8 +144,8 @@ export function Lobby() {
         <div className={PERSPECTIVE_GRID} />
       </div>
 
-      {/* CRT FX Overlay */}
-      <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
+      {/* Page shell (full-height wrapper) */}
+      <div className={`${PAGE_SHELL} page-shell`}>
         {/* Main Content Container */}
         <div
           className={APP_WRAPPER}
@@ -196,7 +200,7 @@ export function Lobby() {
                     background: 'var(--accent-cyan)',
                     boxShadow: '0 0 6px var(--accent-cyan)',
                   }}
-                />
+               />
                 <span
                   style={{
                     fontFamily: 'var(--font-heading)',
@@ -228,6 +232,65 @@ export function Lobby() {
               </div>
             </div>
           </header>
+
+          {/* Game Modifiers — rules for this arena match, applied in every
+              mode (PvP / PvE / hotseat). Sent with the create payload. */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              marginTop: 14,
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                border: '1px solid var(--border-color)',
+                borderRadius: 4,
+                padding: '6px 10px',
+                background: 'rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              <span>⚔️ {t('game.clashMode')}</span>
+              <input
+                type="checkbox"
+                checked={clashOn}
+                onChange={(e) => setClashOn(e.target.checked)}
+                style={{ accentColor: 'var(--accent-pink)', width: 15, height: 15, cursor: 'pointer' }}
+             />
+            </label>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-main)',
+                cursor: 'pointer',
+                border: '1px solid var(--border-color)',
+                borderRadius: 4,
+                padding: '6px 10px',
+                background: 'rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              <span>🛡 {t('game.safeZones')}</span>
+              <input
+                type="checkbox"
+                checked={safeZonesOn}
+                onChange={(e) => setSafeZonesOn(e.target.checked)}
+                style={{ accentColor: 'var(--accent-cyan)', width: 15, height: 15, cursor: 'pointer' }}
+             />
+            </label>
+          </div>
 
           {/* Main Grid */}
           <main
@@ -352,7 +415,7 @@ export function Lobby() {
                                     placeItems: 'center',
                                   }}
                                   style={{ borderRadius: 6, border: `1px solid ${hue}` }}
-                                />
+                               />
                                 <div>
                                   <div
                                     style={{
@@ -551,7 +614,7 @@ export function Lobby() {
                                           fontSize: '0.86rem',
                                           fontFamily: 'var(--font-mono)',
                                         }}
-                                      />
+                                     />
                                     ) : (
                                       <div
                                         onClick={() => {

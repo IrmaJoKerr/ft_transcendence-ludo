@@ -12,7 +12,7 @@ import { STATUS_STYLE, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
-  CRT_SCREEN,
+  PAGE_SHELL,
   GRID_BACKGROUND,
   SYNTHWAVE_SUN,
   PERSPECTIVE_GRID,
@@ -71,24 +71,6 @@ export function Friends() {
   const { t } = useTranslation();
   const { setActiveMatch } = useApp();
 
-  // ------------------------------------------------------------------------
-  // CRT CONTROLS
-  // ------------------------------------------------------------------------
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
 
   // ------------------------------------------------------------------------
   // STATE MANAGEMENT
@@ -287,10 +269,9 @@ export function Friends() {
         <div className={PERSPECTIVE_GRID} />
       </div>
 
-      {/* CRT Monitor Overlay FX Container */}
+      {/* Page shell (full-height wrapper) */}
       <div
-        className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`}
-        id="crtScreen"
+        className={`${PAGE_SHELL} page-shell`}
         style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
@@ -300,7 +281,7 @@ export function Friends() {
             className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
             style={{ margin: 0, padding: 0 }}
           >
-            <RetroNavbar activeRoute="/friends" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
+            <RetroNavbar activeRoute="/friends" />
           </aside>
 
           {/* Main Content Flow */}
@@ -555,7 +536,7 @@ export function Friends() {
                             outline: 'none',
                             width: 170,
                           }}
-                        />
+                       />
                       </div>
                     )}
                   </div>
@@ -685,7 +666,7 @@ export function Friends() {
                                         fontWeight: 900,
                                         fontSize: '1rem',
                                       }}
-                                    />
+                                   />
                                   </div>
                                   <span
                                     style={{
@@ -699,7 +680,7 @@ export function Friends() {
                                       border: '2px solid #0d0221',
                                       boxShadow: `0 0 6px ${fStatus.color}`,
                                     }}
-                                  />
+                                 />
                                 </div>
 
                                 <div style={{ minWidth: 0 }}>
@@ -873,7 +854,7 @@ export function Friends() {
                                 placeItems: 'center',
                                 fontWeight: 900,
                               }}
-                            />
+                           />
                             <div>
                               <div
                                 style={{
@@ -977,7 +958,7 @@ export function Friends() {
                           outline: 'none',
                           letterSpacing: '0.04em',
                         }}
-                      />
+                     />
                       <button
                         className={RETRO_BTN}
                         onClick={() => {
@@ -1068,7 +1049,7 @@ export function Friends() {
                             background: requests.length > 0 ? '#ff007f' : 'var(--text-muted)',
                             boxShadow: requests.length > 0 ? '0 0 8px #ff007f' : 'none',
                           }}
-                        />
+                       />
                         <span
                           style={{
                             fontSize: '0.78rem',
@@ -1173,7 +1154,7 @@ export function Friends() {
                                   placeItems: 'center',
                                   fontWeight: 900,
                                 }}
-                              />
+                             />
                               <div style={{ minWidth: 0 }}>
                                 <div
                                   style={{

@@ -65,6 +65,8 @@ export interface ClashState {
   defender: PlayerColor;
   attackerKey: string;
   defenderKey: string;
+  /** Presses needed to win — sent by the engine (CLASH_TARGET); the bars are
+   *  sized from this, so the client never hardcodes a press count. */
   target: number;
   duration: number;
   startedAt: number;
@@ -74,6 +76,9 @@ export interface ClashState {
   phase: ClashPhase;
   attackerPresses: number;
   defenderPresses: number;
+  /** Result-card length in ms (engine CLASH_RESULT_MS): the overlay's
+   *  auto-dismiss timer, always shorter than the server's post-clash freeze. */
+  resultMs: number;
   disconnectTimestamp?: number;
   reconnectDeadline?: number;
   waitingForReconnect?: PlayerColor;

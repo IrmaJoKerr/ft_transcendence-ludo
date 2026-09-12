@@ -29,8 +29,6 @@
   --grid-bg-glow: rgba(157, 0, 255, 0.2);
   --btn-bg: linear-gradient(135deg, #ff007f, #9d00ff);
   --btn-hover-shadow: 0 0 20px #00f0ff, 0 0 35px #ff007f;
-  --crt-scanline-opacity: 0.15;
-  --crt-flicker-opacity: 0.03;
   --window-header-bg: linear-gradient(90deg, #ff007f, #00f0ff);
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
@@ -89,8 +87,6 @@
   --grid-bg-glow: transparent;
   --btn-bg: #9b9b9b;
   --btn-hover-shadow: inset 1px 1px 0px #cecece, inset -1px -1px 0px #000000;
-  --crt-scanline-opacity: 0.05;
-  --crt-flicker-opacity: 0.01;
   --window-header-bg: linear-gradient(90deg, #000068, #0d6aa8);
   --window-header-text: #ffffff;
   --card-border-style: 2px solid #cecece;
@@ -147,8 +143,6 @@
   --grid-bg-glow: rgba(51, 255, 51, 0.05);
   --btn-bg: #0a1f0a;
   --btn-hover-shadow: 0 0 15px #33ff33;
-  --crt-scanline-opacity: 0.25;
-  --crt-flicker-opacity: 0.06;
   --window-header-bg: #116611;
   --window-header-text: #33ff33;
   --card-border-style: 1px solid #33ff33;
@@ -300,29 +294,13 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   CRT MONITOR OVERLAY EFFECTS
+   PAGE SHELL — full-height page wrapper (layout only).
    -------------------------------------------------------------------------- */
 
-.crt-screen {
+.page-shell {
   position: relative;
   z-index: 10;
   min-height: 100vh;
-}
-
-.crt-scanlines {
-  display: none !important;
-}
-
-.crt-flicker {
-  display: none !important;
-}
-
-.crt-curved {
-  position: relative;
-}
-
-.crt-curved::after {
-  display: none !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -769,7 +747,7 @@ body:has(.game-page) * {
   scrollbar-width: none !important;
 }
 
-body:has(.game-page) .crt-screen {
+body:has(.game-page) .page-shell {
   min-height: unset !important;
   height: 100vh !important;
   max-height: 100vh !important;
@@ -1811,8 +1789,6 @@ canvas#snakeCanvas {
 /* Neon horizon glow line */
 
 /* Floating city building silhouettes */
-
-/* CRT scanlines overlay */
 
 /* Floating 42 holographic logo */
 

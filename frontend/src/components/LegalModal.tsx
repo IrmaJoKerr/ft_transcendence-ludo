@@ -83,7 +83,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            padding: '10px 16px',
+            padding: '12px 20px',
           }}
         >
           <div className="flex items-center gap-3">
@@ -94,12 +94,12 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {/* Document Tabs */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
+            <div className="flex items-center gap-1.5 rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-1">
               <button
                 type="button"
-                className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
+                className={`font-display rounded px-3 py-1.5 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'privacy'
                     ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
                     : 'text-[var(--text-muted)] hover:text-[#ffffff]'
@@ -113,7 +113,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
               </button>
               <button
                 type="button"
-                className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
+                className={`font-display rounded px-3 py-1.5 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'terms'
                     ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
                     : 'text-[var(--text-muted)] hover:text-[#ffffff]'
@@ -128,12 +128,12 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             </div>
 
             {/* Language Switcher */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
+            <div className="flex items-center gap-1.5 rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-1">
               {(['en', 'ms', 'fr'] as const).map((l) => (
                 <button
                   key={l}
                   type="button"
-                  className={`rounded px-2 py-1 font-mono text-[0.68rem] font-bold transition-all ${
+                  className={`rounded px-3 py-1.5 font-mono text-[0.68rem] font-bold transition-all ${
                     docLang === l
                       ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
                       : 'text-[var(--text-muted)] hover:text-[#ffffff]'
@@ -164,12 +164,15 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
           </div>
         </div>
 
-        {/* Scrollable Document Body */}
+        {/* Scrollable Document Body — generous padding so the text never
+            hugs the window frame, with a comfortable line length. */}
         <div
-          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgba(12,4,28,0.92)] p-6 text-[var(--text-main)] sm:p-8`}
+          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgba(12,4,28,0.92)] px-8 py-8 text-[var(--text-main)] sm:px-12 sm:py-10`}
           style={{ maxHeight: 'calc(90vh - 110px)' }}
         >
-          <MarkdownViewer content={currentContent} />
+          <div className="mx-auto w-full max-w-3xl">
+            <MarkdownViewer content={currentContent} />
+          </div>
         </div>
 
         {/* Modal Footer Bar */}

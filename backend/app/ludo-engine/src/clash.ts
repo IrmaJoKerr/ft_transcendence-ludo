@@ -8,9 +8,23 @@ export const CLASH_ANNOUNCE_MS = 1500; // big "CLASH!" flash
 export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys hidden
 export const CLASH_PRESS_MS = 5000; // press race
 export const CLASH_RESULT_MS = 2000; // result card (client-displayed)
-/** Server freeze after a clash resolves : longer than the client's result card so no move/roll lands while it's visible. */
-export const CLASH_RESULT_FREEZE_MS = 4000;
-export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start
+/**
+ * Server freeze after a clash resolves. DERIVED from CLASH_RESULT_MS: the
+ * freeze must always outlast the client's result card (card + 1s slack) so no
+ * move/roll can land while the card is still on screen. Tune the card length,
+ * not this.
+ */
+export const CLASH_RESULT_FREEZE_MS = CLASH_RESULT_MS + 1000;
+/**
+ * Outer cleanup bound from clash start, used by the recovery sweep to
+ * force-resolve an orphaned clash (phase timers lost to a crash/restart).
+ * DERIVED: a clash cannot outlive announce → countdown → press → result-card
+ * freeze, so the sweep only needs a small buffer past that natural bound.
+ */
+export const CLASH_SWEEP_GRACE_MS =
+  CLASH_ANNOUNCE_MS + CLASH_COUNTDOWN_MS + CLASH_PRESS_MS + CLASH_RESULT_FREEZE_MS + 500;
+/** Presses needed to win the race. Sent to clients in clash_start, which is how
+ *  the frontend sizes its bars — change it here only. */
 export const CLASH_TARGET = 42;
 export const CLASH_PRESS_CAP_MS = 110; // min ms between accepted presses per side (~9 Hz ceiling : at elite-human max, so rapid-fire keyboards can't out-press a human)
 // Bot clash presser tuning
@@ -49,6 +63,9 @@ export class ClashManager {
       phase: 'announce',
       attackerPresses: 0,
       defenderPresses: 0,
+      // Client-side result-card length, so the overlay can time its
+      // auto-dismiss from the same value the server freeze derives from.
+      resultMs: CLASH_RESULT_MS,
       lastPressAt: {},
     };
     await this.store.saveClashState(gameId, clashState);
@@ -68,6 +85,7 @@ export class ClashManager {
       pressDeadline: clashState.pressDeadline,
       attackerPresses: 0,
       defenderPresses: 0,
+      resultMs: clashState.resultMs,
     });
   }
 

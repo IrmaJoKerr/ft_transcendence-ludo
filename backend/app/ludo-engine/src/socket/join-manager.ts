@@ -79,7 +79,16 @@ export class JoinManager {
           const seatColors = creationMatchData?.seatColors
             ? (creationMatchData.seatColors.split(',') as PlayerColor[])
             : SLOT_COLORS.slice(0, playerCount);
-          await this.store.createGame(effectiveGameId, seatColors);
+          // Clash mode + safe zones follow the match's lobby toggles (persisted
+          // in the match hash by the backend at creation) rather than being
+          // hardcoded on: the engine gate in movePiece checks state.clashMode,
+          // and safeZones gates captures/blockades in MoveValidator.
+          await this.store.createGame(
+            effectiveGameId,
+            creationMatchData?.clashEnabled === 'true',
+            seatColors,
+            creationMatchData?.safeZones !== 'false',
+          );
           state = await this.store.loadGameState(effectiveGameId);
         }
         if (state) {
@@ -173,7 +182,15 @@ export class JoinManager {
           this.scheduleBotTurn?.(effectiveGameId);
         }
 
-        if (state) socket.emit('game_joined', state);
+        if (state) {
+          // hostId travels with the join payload so the waiting room can tell
+          // who may toggle the room rules (clash mode / safe zones).
+          const joinMatchData = await this.store.getMatchData(effectiveGameId);
+          socket.emit(
+            'game_joined',
+            joinMatchData ? { ...state, hostId: joinMatchData.player1_id || '' } : state,
+          );
+        }
       } catch (error) {
         socket.emit('error', `Failed to join game: ${error}`);
       }

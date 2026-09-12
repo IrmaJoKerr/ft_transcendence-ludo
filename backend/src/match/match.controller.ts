@@ -24,8 +24,12 @@ export class MatchController {
   // PvP: Create invite game (share code via chat)
   @UseGuards(JwtAuthGuard)
   @Post('api/match/pvp/invite')
-  pvpInvite(@Request() req: { user: { id: string } }) {
-    return this.match.createInvite(req.user.id);
+  pvpInvite(
+    @Request() req: { user: { id: string } },
+    @Body('clashEnabled') clashEnabled?: boolean,
+    @Body('safeZones') safeZones?: boolean,
+  ) {
+    return this.match.createInvite(req.user.id, clashEnabled ?? false, safeZones ?? true);
   }
 
   // PvP: Join by invite code
@@ -38,8 +42,13 @@ export class MatchController {
   // PvE: Human vs Bot (1 - 3 bots)
   @UseGuards(JwtAuthGuard)
   @Post('api/match/pve')
-  pve(@Request() req: { user: { id: string } }, @Body('playerCount') playerCount: number) {
-    return this.match.playBot(req.user.id, playerCount || 2);
+  pve(
+    @Request() req: { user: { id: string } },
+    @Body('playerCount') playerCount: number,
+    @Body('clashEnabled') clashEnabled?: boolean,
+    @Body('safeZones') safeZones?: boolean,
+  ) {
+    return this.match.playBot(req.user.id, playerCount || 2, clashEnabled ?? false, safeZones ?? true);
   }
 
   // Unified Match Creation
@@ -52,6 +61,8 @@ export class MatchController {
     @Body('botCount') botCount?: number,
     @Body('botColors') botColors?: string[],
     @Body('seatColors') seatColors?: string[],
+    @Body('clashEnabled') clashEnabled?: boolean,
+    @Body('safeZones') safeZones?: boolean,
   ) {
     if (mode !== 'pvp' && mode !== 'pve' && mode !== 'hotseat') {
       throw new BadRequestException('mode is required and must be pvp, pve, or hotseat');
@@ -66,6 +77,8 @@ export class MatchController {
       botCount ?? 0,
       botColors,
       seatColors,
+      clashEnabled ?? false,
+      safeZones ?? true,
     );
   }
 

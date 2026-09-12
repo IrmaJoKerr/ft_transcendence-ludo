@@ -25,14 +25,30 @@ export class MatchService {
     botCount: number,
     botColors?: string[],
     seatColors?: string[],
+    clashEnabled: boolean = false,
+    safeZones: boolean = true,
   ) {
-    return this.creator.createMatch(userId, mode, playerCount, botCount, botColors, seatColors);
+    return this.creator.createMatch(
+      userId,
+      mode,
+      playerCount,
+      botCount,
+      botColors,
+      seatColors,
+      clashEnabled,
+      safeZones,
+    );
   }
-  async createInvite(userId: string) {
-    return this.creator.createInvite(userId);
+  async createInvite(userId: string, clashEnabled: boolean = false, safeZones: boolean = true) {
+    return this.creator.createInvite(userId, clashEnabled, safeZones);
   }
-  async playBot(userId: string, playerCount: number = 2) {
-    return this.creator.playBot(userId, playerCount);
+  async playBot(
+    userId: string,
+    playerCount: number = 2,
+    clashEnabled: boolean = false,
+    safeZones: boolean = true,
+  ) {
+    return this.creator.playBot(userId, playerCount, clashEnabled, safeZones);
   }
   async joinByInvite(inviteCode: string, userId: string) {
     return this.creator.joinByInvite(inviteCode, userId, (gameId: string, uid: string) =>

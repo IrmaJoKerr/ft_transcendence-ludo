@@ -52,7 +52,7 @@ export interface ClashState {
   defender: PlayerColor;
   attackerKey: string;
   defenderKey: string;
-  target: number;
+  target: number; // presses needed to win (CLASH_TARGET), used by the client's bars
   duration: number; // press window seconds (CLASH_PRESS_MS / 1000)
   startedAt: number;
   announceDeadline: number;
@@ -61,6 +61,7 @@ export interface ClashState {
   phase: ClashPhase;
   attackerPresses: number;
   defenderPresses: number;
+  resultMs: number; // client result-card length (CLASH_RESULT_MS)
   lastPressAt?: Partial<Record<PlayerColor, number>>;
 }
 
@@ -161,7 +162,7 @@ export type GameEvent =
   | { type: 'player_disconnected'; gameId: string; color: PlayerColor }
   | { type: 'player_reconnected'; gameId: string; color: PlayerColor }
   | { type: 'color_selected'; gameId: string; userId: string; color: PlayerColor }
-  | { type: 'clash_start'; gameId: string; attackerKey: string; defenderKey: string; target: number; duration: number; attacker: PlayerColor; defender: PlayerColor; phase: ClashPhase; startAt: number; announceDeadline: number; countdownDeadline: number; pressDeadline: number; attackerPresses: number; defenderPresses: number }
+  | { type: 'clash_start'; gameId: string; attackerKey: string; defenderKey: string; target: number; duration: number; attacker: PlayerColor; defender: PlayerColor; phase: ClashPhase; startAt: number; announceDeadline: number; countdownDeadline: number; pressDeadline: number; attackerPresses: number; defenderPresses: number; resultMs: number }
   | { type: 'clash_phase'; gameId: string; phase: ClashPhase; countdownDeadline: number; pressDeadline: number }
   | { type: 'clash_press'; gameId: string; color: PlayerColor; presses: number }
   | { type: 'clash_result'; gameId: string; winner: PlayerColor; loser: PlayerColor; winnerPresses: number; loserPresses: number }
@@ -169,6 +170,7 @@ export type GameEvent =
   | {
       type: 'lobby_update';
       gameId: string;
+      hostId: string;
       players: {
         userId: string;
         username: string;

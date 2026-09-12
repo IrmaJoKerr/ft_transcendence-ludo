@@ -12,7 +12,7 @@ import { getRankTier } from '../utils/ranks';
 import { RankBadge } from '../components/RankBadge';
 import '../styles/retrowave.css';
 import {
-  CRT_SCREEN,
+  PAGE_SHELL,
   GRID_BACKGROUND,
   SYNTHWAVE_SUN,
   PERSPECTIVE_GRID,
@@ -165,28 +165,6 @@ export function Profile() {
   const username = query.get('u') ?? user?.username;
   const isOwnProfile = user?.username === username;
 
-  // ------------------------------------------------------------------------
-  // CRT CONTROLS
-  // ------------------------------------------------------------------------
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('retro_theme') ?? 'synthwave';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    document.body.setAttribute('data-theme', savedTheme);
-
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [gamesData, setGamesData] = useState<MatchHistory | null>(null);
@@ -383,8 +361,8 @@ export function Profile() {
         <div className={PERSPECTIVE_GRID} />
       </div>
 
-      {/* CRT Monitor Overlay FX Container */}
-      <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
+      {/* Page shell (full-height wrapper) */}
+      <div className={`${PAGE_SHELL} page-shell`}>
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
@@ -392,7 +370,7 @@ export function Profile() {
             className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
             style={{ margin: 0, padding: 0 }}
           >
-            <RetroNavbar activeRoute="/profile" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
+            <RetroNavbar activeRoute="/profile" />
           </aside>
 
           {/* Main Content Flow */}
@@ -536,7 +514,7 @@ export function Profile() {
                         opacity: 0.25,
                         pointerEvents: 'none',
                       }}
-                    />
+                   />
 
                     {/* Col 1: Avatar + Callsign + Meta Info */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
@@ -568,7 +546,7 @@ export function Profile() {
                               fontWeight: 900,
                               fontFamily: 'var(--font-display)',
                             }}
-                          />
+                         />
                         </div>
 
                         {/* Live Presence Beacon */}
@@ -585,7 +563,7 @@ export function Profile() {
                             border: '2.5px solid #0d0221',
                             boxShadow: `0 0 8px ${statusStyle.color}`,
                           }}
-                        />
+                       />
 
                         {isOwnProfile && (
                           <div
@@ -625,7 +603,7 @@ export function Profile() {
                             void handleFileChange(e);
                           }}
                           style={{ display: 'none' }}
-                        />
+                       />
                       </div>
 
                       {/* Pilot Identity Texts */}
@@ -1013,7 +991,7 @@ export function Profile() {
                             background: 'var(--accent-cyan)',
                             boxShadow: '0 0 6px var(--accent-cyan)',
                           }}
-                        />
+                       />
                       </div>
                     </div>
 
@@ -1352,7 +1330,7 @@ export function Profile() {
                                     boxShadow: '0 0 12px rgba(0, 240, 255, 0.65)',
                                     transition: 'width 0.4s ease',
                                   }}
-                                />
+                               />
                               </div>
                             </div>
 
@@ -1478,7 +1456,7 @@ export function Profile() {
                                                 : '0 0 6px rgba(0, 240, 255, 0.5)',
                                               transition: 'width 0.4s ease',
                                             }}
-                                          />
+                                         />
                                         </div>
                                         <div
                                           style={{
@@ -1658,7 +1636,7 @@ export function Profile() {
                                             fontWeight: 900,
                                             fontSize: '0.95rem',
                                           }}
-                                        />
+                                       />
                                       </div>
                                       <span
                                         style={{
@@ -1672,7 +1650,7 @@ export function Profile() {
                                           border: '2px solid #0d0221',
                                           boxShadow: `0 0 6px ${fStatus.color}`,
                                         }}
-                                      />
+                                     />
                                     </div>
                                     <div style={{ minWidth: 0, flex: 1 }}>
                                       <div
@@ -1701,7 +1679,7 @@ export function Profile() {
                                           tier={fTier}
                                           fontSize="9.5px"
                                           padding="2px 7px"
-                                        />
+                                       />
                                       </div>
                                       <div
                                         style={{
@@ -1772,7 +1750,7 @@ export function Profile() {
             // public-profile payload so the header/display name reflects the change.
             setProfileRefresh((n) => n + 1);
           }}
-        />
+       />
       )}
     </>
   );

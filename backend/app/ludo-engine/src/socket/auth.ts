@@ -27,6 +27,7 @@ export function verifyToken(token: string): {
   role: string;
   color?: PlayerColor;
   mode?: string;
+  clashEnabled?: boolean;
 } | null {
   try {
     const parts = token.split('.');
@@ -64,6 +65,10 @@ export function verifyToken(token: string): {
       // socket driving every local seat, so it legitimately joins as colours
       // other than the token's.
       mode: payload.mode,
+      // Room rules the host chose at creation. The engine uses the persisted
+      // match hash as the authority; this copy lets a socket know the rules
+      // before its seat's game state exists.
+      clashEnabled: payload.clashEnabled,
     };
   } catch {
     return null;
