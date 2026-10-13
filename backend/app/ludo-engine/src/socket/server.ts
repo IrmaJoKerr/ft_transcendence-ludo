@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import * as http from 'http';
 import { LudoEngine } from '../engine';
+import { ClashManager } from '../clash';
 import { RedisGameStore } from '../redis';
 import { getOrCreateBot, isBotSeat } from '../bot';
 import { EventPublisher } from './event-publisher';
@@ -52,6 +53,9 @@ export class SocketServer {
   private httpServer!: http.Server;
   private store: RedisGameStore;
   private engine: LudoEngine;
+  // Owns clash record lifecycle (create/validate/count/clear). The engine runs
+  // the QTE timers; this is the state side both share.
+  private clashManager: ClashManager;
   private publisher: EventPublisher;
   private broadcaster: RedisBroadcaster;
   private resultSubmitter: ResultSubmitter;
@@ -68,7 +72,8 @@ export class SocketServer {
   constructor() {
     this.store = new RedisGameStore();
     this.publisher = new EventPublisher(this.store);
-    this.engine = new LudoEngine(this.store);
+    this.clashManager = new ClashManager(this.store, this.publisher);
+    this.engine = new LudoEngine(this.store, this.clashManager);
     const lobbyManager = new LobbyManager(this.store, this.publisher);
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();

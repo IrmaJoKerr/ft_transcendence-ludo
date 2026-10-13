@@ -69,6 +69,7 @@ export const en = {
     MATCH_END_PLAYERS_REQUIRED: 'At least one player is required',
     MATCH_END_PVP_MIN_PLAYERS: 'A PvP result needs at least 2 players',
     LOBBY_NOT_WAITING: 'The game accepts no colour changes once it has started',
+    MODIFIERS_HOST_ONLY: 'Only the host can change the game rules',
     INVALID_COLOR: 'Colour not valid. Only red, yellow, blue, and green.',
     VALIDATION_USERNAME_FORMAT: 'Username must be 3-20 characters: letters, numbers, underscore only',
     VALIDATION_CODE_FORMAT: 'Code must be 6 digits',

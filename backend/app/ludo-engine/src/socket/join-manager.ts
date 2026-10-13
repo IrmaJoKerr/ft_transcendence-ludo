@@ -97,7 +97,16 @@ export class JoinManager {
           const seatColors: PlayerColor[] = matchData.seatColors
             ? (matchData.seatColors.split(',') as PlayerColor[])
             : SLOT_COLORS.slice(0, playerCount);
-          await this.store.createGame(effectiveGameId, seatColors);
+          // The room rules travel with the match hash (the host's lobby toggles)
+          // instead of being hardcoded here: the engine's movePiece gate checks
+          // state.clashMode and the safe-zone checks check state.safeZones. A
+          // hash without the fields keeps the pre-port behaviour: safe zones on.
+          await this.store.createGame(
+            effectiveGameId,
+            matchData.clashEnabled === 'true',
+            seatColors,
+            matchData.safeZones !== 'false',
+          );
           state = await this.store.loadGameState(effectiveGameId);
         }
         if (state) {

@@ -96,4 +96,37 @@ export class LobbyManager {
       await this.store.saveGameState(gameId, state);
     }
   }
+
+  // Change the room rules before the game starts: clash mode (the capture QTE)
+  // and safe zones (safe squares capture-immune). Host only, WAITING only: once
+  // the game is live the flags are frozen, because mid-game flips would
+  // invalidate moves already validated against the old rules.
+  // Throws carry i18n codes, not prose (see handleSelectColor above).
+  async updateModifiers(
+    gameId: string,
+    userId: string,
+    clashEnabled: boolean,
+    safeZones: boolean,
+  ): Promise<void> {
+    const data = await this.store.getMatchData(gameId);
+    if (!data || data.status !== 'WAITING') {
+      throw new Error('LOBBY_NOT_WAITING');
+    }
+    if (data.player1_id !== userId) {
+      throw new Error('MODIFIERS_HOST_ONLY');
+    }
+
+    // Match hash first (the room's advertised rules), then the live engine state
+    // so the very next roll already honours them.
+    await this.store.updateMatchData(gameId, {
+      clashEnabled: String(clashEnabled),
+      safeZones: String(safeZones),
+    });
+    const state = await this.store.loadGameState(gameId);
+    if (state) {
+      state.clashMode = clashEnabled;
+      state.safeZones = safeZones;
+      await this.store.saveGameState(gameId, state);
+    }
+  }
 }

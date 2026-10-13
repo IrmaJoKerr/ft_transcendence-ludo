@@ -23,7 +23,7 @@ The Bot AI module provides an automated opponent for single-player (PvE) games. 
 3. **Scores the remaining moves** — otherwise it ranks each move and picks the highest score.
 4. **Paces its moves** — it waits about 1.2 seconds before moving so the dice animation can play.
 
-Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot turns never overlap.
+Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot turns never overlap. If a bot holds the turn when the engine restarts, the wake pass re-arms the turn from the persisted state, so no client has to rejoin.
 
 
 ---
@@ -34,7 +34,7 @@ Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot
 
 | File | Role |
 |------|------|
-| `bot.ts` | `LudoBot` class + `getOrCreateBot()` / `isBotPlayer()` helpers |
+| `bot.ts` | `LudoBot` class + `getOrCreateBot()` / `isBotSeat()` helpers |
 
 
 ---
@@ -74,7 +74,13 @@ client translates only the colour word. See
 | Where | Helper | Rule |
 |-------|--------|------|
 | Engine | `isBotUserId()` in `socket/auth.ts` | `userId.startsWith('bot-')` |
+| Engine | `isBotSeat(state, color)` in `bot.ts` | the persisted seat's `isBot` flag, falling back to a `bot-` username |
 | Backend | `BOT_PREFIX` / `isBotUserId()` in `backend/src/common/botname-enforce.ts` | same prefix, separate copy |
+
+A seat is identified as a bot **from the persisted state**, never from the
+in-memory seat map: that map is empty after a restart, and reading it is what
+froze every bot game. `isBotSeat` is what the bot scheduler, the rejoin path and
+the startup wake pass all use.
 
 The backend writes the id and the engine reads it, so the two copies must be
 changed together. The backend keeps the list of modules that filter bots — see

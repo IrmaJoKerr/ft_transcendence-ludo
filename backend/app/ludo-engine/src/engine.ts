@@ -17,6 +17,8 @@ import {
   expireDisconnectedPlayer,
 } from './player-handler';
 import type { LobbyManager } from './lobby';
+import { ClashManager } from './clash';
+import { ClashEngine } from './clash-engine';
 
 // The game engine core: roll/move handling, per-game operation locking,
 // player lifecycle (disconnect/ready/exit), and event emission to the
@@ -30,9 +32,19 @@ export class LudoEngine {
   // each other (a bot acting at the same time as a human would otherwise
   // both load the same state and one move gets lost).
   private gameLocks = new Map<string, Promise<unknown>>();
+  // Clash QTE: capture deferral, phase timers, recovery sweep, bot pressers.
+  // ClashEngine owns the timers, the manager owns the clash record, and the
+  // engine owns the lock the clash work runs under.
+  private clashEngine: ClashEngine;
 
-  constructor(store: RedisGameStore) {
+  constructor(store: RedisGameStore, clashManager: ClashManager) {
     this.store = store;
+    this.clashEngine = new ClashEngine(
+      store,
+      clashManager,
+      (e) => this.emit(e),
+      (gameId, fn) => this.withGameLock(gameId, fn),
+    );
   }
 
   setLobbyManager(lobbyManager: LobbyManager): void {
@@ -113,6 +125,12 @@ export class LudoEngine {
       // reconnects or is pruned.
       if (state.paused) {
         throw new Error('Game is paused: waiting for player to reconnect');
+      }
+
+      // Result-card freeze: the clash just resolved and the client is showing
+      // the outcome, so no roll may land on top of it.
+      if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
+        throw new Error('Clash result in progress : wait for the card to clear');
       }
 
       // Math.random() cannot be seeded directly, so it seeds the per-roll stream.
@@ -212,6 +230,11 @@ export class LudoEngine {
         throw new Error('Game is paused: waiting for player to reconnect');
       }
 
+      // Result-card freeze: same rule as rollDice, the move waits for the card.
+      if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
+        throw new Error('Clash result in progress : wait for the card to clear');
+      }
+
       // Validate: must be in WAITING_FOR_MOVE phase
       if (state.turnPhase !== 'WAITING_FOR_MOVE') {
         throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
@@ -229,6 +252,72 @@ export class LudoEngine {
       const diceValue = state.pendingDiceValue;
       if (diceValue === undefined) {
         throw new Error('No pending dice value : roll first');
+      }
+
+      const moverColor = state.pieces.find((p) => p.id === pieceId)?.color as PlayerColor;
+
+      // Clash gate: a capture is deferred to the QTE and applied only once that
+      // resolves, so no piece moves yet.
+      if (state.clashMode && pendingMove.isCapture) {
+        // Find the defender via the SHARED track position: comparing per-colour
+        // steps would be wrong across colours.
+        const capturedPieceIds = MoveValidator.findPiecesAtPosition(
+          state,
+          moverColor,
+          pendingMove.to,
+        );
+        // No defender on that square (a blockade, or home/goal): fall through to
+        // a normal capture move.
+        const defenderPiece = state.pieces.find((p) => p.id === capturedPieceIds[0]);
+        if (defenderPiece) {
+          const defenderColor = defenderPiece.color as PlayerColor;
+
+          state.pendingCapture = {
+            pieceId,
+            from: pendingMove.from,
+            to: pendingMove.to,
+            diceValue,
+            attacker: moverColor,
+            defender: defenderColor,
+            capturedPieceIds,
+            enteredHome: pendingMove.isHomeEntry,
+          };
+          state.pendingLegalMoves = [];
+          state.pendingDiceValue = undefined;
+          state.pendingIsFirstRoll = undefined;
+          await this.store.saveGameState(gameId, state);
+
+          const attackerIsBot =
+            state.players.find((p) => p.color === moverColor)?.isBot ?? false;
+          const defenderIsBot =
+            state.players.find((p) => p.color === defenderColor)?.isBot ?? false;
+
+          await this.clashEngine.startClash(
+            gameId,
+            moverColor,
+            defenderColor,
+            attackerIsBot,
+            defenderIsBot,
+          );
+
+          // Deferred: no piece_moved yet, the clash outcome emits it afterwards.
+          return {
+            result: {
+              ply: state.moveCounter + 1,
+              color: moverColor,
+              diceValue,
+              pieceId,
+              from: pendingMove.from,
+              path: [],
+              to: pendingMove.to,
+              captured: true,
+              capturedPieceIds: [],
+              enteredHome: pendingMove.isHomeEntry,
+              bonusRoll: false,
+            },
+            state,
+          };
+        }
       }
 
       // Execute move via MoveValidator (pure game logic)
@@ -265,8 +354,9 @@ export class LudoEngine {
 
       // Apply the move outcome: sync piece mirrors, bump the counter, run the
       // win check, update stats/bonus, and hand off the turn (or re-roll on a
-      // 6/capture). Returns the winner if the game just finished.
-      const winner = applyMoveOutcome(state, result, diceValue);
+      // 6/capture). Returns the winner if the game just finished. `attackerWon`
+      // is true here: this path is a normal, already-resolved move.
+      const winner = applyMoveOutcome(state, result, diceValue, true);
 
       await this.store.saveGameState(gameId, state);
 
@@ -277,6 +367,38 @@ export class LudoEngine {
 
       return { result, state };
     });
+  }
+
+  // Clash orchestration facades: the logic lives in ClashEngine (clash-engine.ts).
+
+  // Boot-time clash recovery: re-arm the persisted QTE phase timers and sweep
+  // every 5s for orphaned or stalled clashes. Called once by socket/server.ts
+  // alongside the engine's other wake-pass recovery.
+  startClashRecoverySweep(): void {
+    this.clashEngine.startRecoverySweep();
+  }
+
+  // A clash press from either side (locked inside ClashEngine). Returns the
+  // side's new press total; 0 means the press was rejected.
+  async recordClashPress(
+    gameId: string,
+    color: PlayerColor,
+    key?: string,
+    isBot = false,
+  ): Promise<number> {
+    return this.clashEngine.recordClashPress(gameId, color, key, isBot);
+  }
+
+  // Settle a mid-clash disconnect immediately by meters (tie goes to the
+  // attacker, the same rule as the timeout). Called by socket-handlers AFTER the
+  // disconnect's own lock has released, so it cannot re-enter that lock.
+  async resolveClashOnDisconnect(gameId: string): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    if (!state?.clash) return;
+    const clash = state.clash;
+    const winner =
+      clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
+    await this.clashEngine.resolveClashOutcome(gameId, winner);
   }
 
   // Player lifecycle handlers (delegated to player-handler.ts)
@@ -353,6 +475,36 @@ export class LudoEngine {
       this.lobbyManager.handleSelectColor(gameId, userId, color),
     );
     await this.emitLobbyUpdate(gameId);
+  }
+
+  // Host-only live update of the room rules. LobbyManager mirrors them into the
+  // match hash and the engine state; the broadcast then carries what was
+  // actually persisted, not what the caller asked for.
+  async handleUpdateModifiers(
+    gameId: string,
+    userId: string,
+    clashEnabled: boolean,
+    safeZones: boolean,
+  ): Promise<void> {
+    if (!this.lobbyManager) {
+      throw new Error('Lobby manager not initialized');
+    }
+    await this.withGameLock(gameId, () =>
+      this.lobbyManager.updateModifiers(gameId, userId, clashEnabled, safeZones),
+    );
+    await this.emitModifiersUpdate(gameId);
+  }
+
+  // Broadcast the room's current rules (clash mode + safe zones) to the room.
+  async emitModifiersUpdate(gameId: string): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    if (!state) return;
+    this.emit({
+      type: 'modifiers_updated',
+      gameId,
+      clashEnabled: state.clashMode,
+      safeZones: state.safeZones,
+    });
   }
 
   // Broadcast the waiting-room roster so every client's lobby stays in sync

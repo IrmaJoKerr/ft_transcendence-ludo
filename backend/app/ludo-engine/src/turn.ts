@@ -12,11 +12,15 @@ function syncPiecesInGoal(state: GameState, player: PlayerMeta): void {
 
 // Apply a move's outcome: sync piece mirrors, bump the counter, run the win
 // check, update stats/bonus, and advance the turn (or re-roll on 6/capture).
+// `attackerWon` matters only for a clash-resolved move: a defender who won the
+// press race repulses the attacker, so that move earns no re-roll and the turn
+// always passes on.
 // Pure mutation : persistence/emission stay with the caller.
 export function applyMoveOutcome(
   state: GameState,
   result: MoveResult,
   diceValue: number,
+  attackerWon: boolean,
 ): PlayerColor | null {
   // Sync the frontend-compatible piece mirrors. The authoritative field is
   // `step` (all rules read it); isInGoal/isInBase are read by the UI and must
@@ -70,8 +74,15 @@ export function applyMoveOutcome(
     }
     // Turn hand-off: a 6 or an actual capture re-rolls the same player
     // (turnPhase back to WAITING_FOR_ROLL, no advance); anything else advances
-    // to the next active seat.
-    if (sixBonus || result.captured) {
+    // to the next active seat. A repulsed clash attacker never re-rolls: the
+    // defender held the square, so the turn passes on.
+    if (!attackerWon) {
+      if (mover) {
+        mover.bonusRoll = false;
+      }
+      state.turnPhase = 'WAITING_FOR_ROLL';
+      advanceTurnInState(state);
+    } else if (sixBonus || result.captured) {
       state.turnPhase = 'WAITING_FOR_ROLL';
     } else {
       state.turnPhase = 'WAITING_FOR_ROLL';

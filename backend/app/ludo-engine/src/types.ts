@@ -1,6 +1,8 @@
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
+// Clash QTE phases: flash, 3-2-1 countdown, then the press race.
+export type ClashPhase = 'announce' | 'countdown' | 'pressing';
 
 export type PieceId = string; // Format: "{color}-{index}" e.g., "red-0", "blue-3"
 
@@ -40,7 +42,42 @@ export interface PlayerMeta {
     turns: number;
     captures: number;
     piecesInGoal: number;
+    // clash QTE tallies: drives the two clash achievements
+    clashDefends: number;
+    clashAttacksWon: number;
   };
+}
+
+// One live clash QTE. Deadlines are absolute, so a restarted engine can re-arm
+// the exact phase timers from what Redis holds.
+export interface ClashState {
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  attackerKey: string; // key the attacker must mash
+  defenderKey: string; // key the defender must mash
+  target: number; // presses needed to win
+  duration: number; // press window seconds (CLASH_PRESS_MS / 1000)
+  startedAt: number;
+  announceDeadline: number;
+  countdownDeadline: number;
+  pressDeadline: number;
+  phase: ClashPhase;
+  attackerPresses: number;
+  defenderPresses: number;
+  lastPressAt?: Partial<Record<PlayerColor, number>>; // press-cap per side
+}
+
+// A capture deferred until the clash resolves: the move is held here instead of
+// being applied at move time.
+export interface PendingCapture {
+  pieceId: PieceId;
+  from: number;
+  to: number;
+  diceValue: number;
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  capturedPieceIds: PieceId[];
+  enteredHome: boolean;
 }
 
 export interface DisconnectState {
@@ -72,6 +109,11 @@ export interface GameState {
   paused?: boolean; // game paused (e.g. disconnect grace period)
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
   pausedReason?: string; // rationale for the pause (e.g. 'disconnect_grace')
+  clash?: ClashState; // live clash QTE, absent when none is running
+  clashMode: boolean; // clash minigame on (false: capture applies immediately)
+  safeZones: boolean; // star squares capture-immune (false: hardcore mod)
+  pendingCapture?: PendingCapture; // capture held until the clash resolves
+  resultCardUntil?: number; // input freeze while the clash result card shows
 }
 
 // The outcome of one applied move, recorded in history and broadcast to clients.
@@ -87,6 +129,8 @@ export interface MoveResult {
   capturedPieceIds?: PieceId[]; // Every opponent piece sent home from the landing square (a stacked block sends all of them back)
   enteredHome: boolean; // moved into the home stretch
   bonusRoll: boolean; // mover rolls again
+  // Set only on a move that came out of a clash: who won the press race.
+  clashOutcome?: 'attacker_won' | 'defender_won';
 }
 
 // A move the current player is allowed to make after a roll.
@@ -137,4 +181,40 @@ export type GameEvent =
         color: PlayerColor;
         ready: boolean;
       }[];
-    };
+    }
+  | {
+      type: 'clash_start';
+      gameId: string;
+      attackerKey: string;
+      defenderKey: string;
+      target: number;
+      duration: number;
+      attacker: PlayerColor;
+      defender: PlayerColor;
+      phase: ClashPhase;
+      startAt: number;
+      announceDeadline: number;
+      countdownDeadline: number;
+      pressDeadline: number;
+      attackerPresses: number;
+      defenderPresses: number;
+    }
+  | {
+      type: 'clash_phase';
+      gameId: string;
+      phase: ClashPhase;
+      countdownDeadline: number;
+      pressDeadline: number;
+    }
+  | { type: 'clash_press'; gameId: string; color: PlayerColor; presses: number }
+  | {
+      type: 'clash_result';
+      gameId: string;
+      winner: PlayerColor;
+      loser: PlayerColor;
+      winnerPresses: number;
+      loserPresses: number;
+    }
+  // Host changed the room rules while it was still waiting: clash mode and/or
+  // safe zones. Mirrors what the lobby already shows.
+  | { type: 'modifiers_updated'; gameId: string; clashEnabled: boolean; safeZones: boolean };

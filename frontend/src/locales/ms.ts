@@ -69,6 +69,7 @@ export const ms = {
     MATCH_END_PLAYERS_REQUIRED: 'Sekurang-kurangnya seorang pemain diperlukan',
     MATCH_END_PVP_MIN_PLAYERS: 'Keputusan PvP memerlukan sekurang-kurangnya 2 pemain',
     LOBBY_NOT_WAITING: 'Permainan tidak lagi menerima perubahan warna selepas bermula',
+    MODIFIERS_HOST_ONLY: 'Hanya hos boleh menukar peraturan permainan',
     INVALID_COLOR: 'Warna tidak sah. Hanya merah, kuning, biru dan hijau.',
     VALIDATION_USERNAME_FORMAT: 'Nama pengguna mesti 3-20 aksara: huruf, nombor, garis bawah sahaja',
     VALIDATION_CODE_FORMAT: 'Kod mesti 6 digit',

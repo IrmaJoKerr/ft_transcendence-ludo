@@ -244,8 +244,10 @@ its own check, 6 for the rejoin banner). Two players sharing an IP therefore sit
 well under the global limit of 300 requests/min per IP. A new room or a rejoin banner appears within
 a few seconds.
 
-Measured with two tabs on the lobby page: 61 Redis `SCAN`s/min = 60 poll requests (30 per user) plus
-the engine's idle sweep, i.e. 6.8 Redis ops/s and 0.003% of one CPU core, with no throttled request.
+Measured with two tabs on the lobby page: 60 Redis `SCAN`s/min = 60 poll requests (30 per user), i.e.
+6.7 Redis ops/s and 0.003% of one CPU core, with no throttled request. The engine's former idle sweep
+contributed one more `SCAN` per minute and is gone: the engine scans only in its wake pass, at boot
+and after a Redis reconnect (see [Engine restart recovery](#engine-restart-recovery-ludo-engine)).
 
 
 ---
@@ -281,7 +283,7 @@ two are not interchangeable — see `backend/prisma.config.ts`.
 Several distinct uses:
 
 - **Leaderboard cache** — `LeaderboardRedisService`, sorted sets keyed `leaderboard:{mode}`, backfilled from PostgreSQL when the set is empty (a Redis outage is surfaced as an error, not masked).
-- **Live game state** — `MatchService` (matchmaking and match lifecycle) and the engine's `RedisGameStore`.
+- **Live game state** — `MatchService` (matchmaking and match lifecycle) and the engine's `RedisGameStore`, which holds the full `GameState` plus the match hash's durable `idleSince` stamp. It is the system of record the engine replays after a restart: see [Engine restart recovery](#engine-restart-recovery-ludo-engine).
 - **Presence** — heartbeat keys per user for online/offline/playing status (`PresenceService`). The heartbeat itself is the **client → server** direction; see [Connection liveness](#connection-liveness-two-direction-heartbeats).
 - **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
 - **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, public profile) rewrite it from Postgres, so a missed write or an eviction converges on the next read. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
@@ -298,6 +300,46 @@ metadata cache. The engine is a separate process, so its `RedisGameStore` and
 
 
 ---
+---
+
+
+## Engine restart recovery (ludo-engine)
+
+Redis is the ludo-engine's system of record. Everything a room needs in order to resume lives in
+`game:{gameId}` (the full `GameState`) and `match:{gameId}` (seats, status, the `idleSince` stamp),
+so the engine process itself is stateless across a restart. What it does keep in memory is a cache
+with timers: one `RoomContext` per awake room (human seat bindings, the idle-lobby window, the
+post-game teardown), held in the server's `RoomRegistry`.
+
+A restart, or a Redis outage, empties that cache. The failure that motivated the design is concrete:
+a bot's turn would never resume, because `LudoBot.takeTurn` swallows a failed state load and is
+never retried, so the game waited on a bot that had stopped asking. The engine therefore runs one
+**wake pass** (`SocketServer.wake()`) that replays the durable deadlines and then sleeps.
+
+| Trigger | Where |
+| --- | --- |
+| Boot | `start()`, after `store.connect()` (awaited) |
+| Redis reconnect | `store.onReady()`, the Redis `ready` event (fire-and-forget) |
+
+The pass walks `game:*`, rebuilds each room's `RoomContext` from the persisted state, expires grace
+windows whose deadline has passed, re-arms a bot turn when the persisted turn seat is a bot
+(`isBotSeat`), re-arms the post-game timer of a finished room, and settles the idle window of a
+WAITING room below quorum. It then walks `match:*` through `IdleLobbyWatcher.sweepAll()`, which
+covers the rooms that have no game state at all (created but never joined, or dropped below quorum
+by a backend-only departure). `wakeInFlight` skips an overlapping pass, and every action
+re-validates against live state, so replaying an already-settled deadline is a no-op.
+
+Steady state has **no periodic scan**. Each deadline is armed by the event that creates it (a join, a
+departure, a game end), which is why the two 60 s `setInterval` sweeps the engine used to run are
+gone. A `join_game` is also refused when the match hash is missing or `ABORTED`
+(`MATCH_GAME_NOT_FOUND`), so a client cannot enter a room the engine has already abandoned.
+
+Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.md) → Wake pass, and
+[ludo-engine-redis-system.md](./ludo-engine/ludo-engine-redis-system.md) → the `idleSince` stamp.
+
+
+---
+
 ---
 
 
@@ -567,12 +609,14 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │       ├── redis.ts              # RedisGameStore (persistence)
 │   │   │       ├── types.ts              # GameState, PlayerColor, events
 │   │   │       └── socket/
-│   │   │           ├── server.ts             # SocketServer, event routing
+│   │   │           ├── server.ts             # SocketServer, event routing, wake pass
 │   │   │           ├── allowed-origins.ts    # CORS_ORIGIN allow-list parser
 │   │   │           ├── event-rate-limiter.ts # Per-socket inbound event token bucket
 │   │   │           ├── socket-handlers.ts    # join_game, roll_dice, move_piece, …
 │   │   │           ├── join-manager.ts       # Seat assignment, bot seeding (identity + label)
 │   │   │           ├── bot-scheduler.ts      # One timer per game for bot turns
+│   │   │           ├── room-context.ts       # RoomContext/RoomRegistry: in-memory room state
+│   │   │           ├── idle-lobby.ts         # Idle-lobby window (durable idleSince stamp)
 │   │   │           ├── post-game.ts          # End-of-game flow → result-submitter
 │   │   │           ├── auth.ts               # JWT middleware, GameSocket type
 │   │   │           ├── event-publisher.ts    # Redis pub/sub → Socket.IO bridge

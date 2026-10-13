@@ -53,6 +53,7 @@ class RedisGameStore {
   // Connections
   async connect(): Promise<void>                                          // Open the command and subscriber connections
   async disconnect(): Promise<void>                                       // Close both connections
+  onReady(handler: () => void): void                                      // Run on every Redis `ready`, including the first connect (the wake trigger)
   async getAvatarMeta(userId: string): Promise<{ has: boolean; style?: string } | null>  // Read the cached avatar facts
 
   // Main state (hash field "state")
@@ -68,7 +69,7 @@ class RedisGameStore {
   async updateMatchData(gameId: string, fields: Record<string, string>): Promise<void>                 // Update specific match-hash fields
   async scanMatchKeys(): Promise<string[]>                                                             // SCAN all match:* hashes
   async scanGameKeys(): Promise<string[]>                                                              // SCAN all game:* hashes (skips the :moves lists)
-  async setIdleSince(gameId: string, now: number): Promise<void>                                       // Stamp idle time (room < 2 seated), once
+  async setIdleSince(gameId: string, now: number): Promise<number>                                     // Stamp idle time (room < 2 seated) with HSETNX, so an existing window is never restarted; returns the effective stamp the caller arms its timer from
   async clearIdleSince(gameId: string): Promise<void>                                                  // Clear the idle stamp (room ≥ 2 seated)
   async clearMatchSeat(gameId: string, color: PlayerColor): Promise<void>                              // Free a non-host seat (delete its row and account record)
   async reserveMatchSeat(gameId: string, color: PlayerColor): Promise<void>                            // Reserve a non-host seat (set player{N}_left)
@@ -206,8 +207,8 @@ dice_rolled   → if no legal moves → botScheduler.schedule(gameId, 750 + 500)
 
 `BotTurnScheduler.schedule` keeps **one timer per game** (`botTurnTimers`): it cancels the
 old timer before starting a new one, so bot turns never overlap. When the timer
-fires, it checks the current turn is a bot (`isBotPlayer`), gets the bot from
-`getOrCreateBot`, and calls `bot.takeTurn()`.
+fires, it checks the current turn is a bot (`isBotSeat`, read from the persisted
+state), gets the bot from `getOrCreateBot`, and calls `bot.takeTurn()`.
 
 `takeTurn()` checks things first:
 1. Reads state from Redis; stops if the game is not active / it's not this
@@ -252,6 +253,13 @@ prefix: `isBotUserId()` in `socket/auth.ts` inside the engine, and
 `isBotUserId()` in `common/botname-enforce.ts` inside the backend. The backend's
 copy is used by the match postgame scorer and the achievements service, so those
 two always agree; the engine's copy keeps the engine free of backend imports.
+
+A **seat** is a different question from a user id, and the engine answers it from
+the persisted state: `isBotSeat(state, color)` (`bot.ts`) reads the seat's
+`isBot` flag, falling back to a `bot-` username for states written before the
+flag existed. This is the helper the bot scheduler, the rejoin path and the
+startup wake pass use, because the in-memory seat map is empty after a restart
+and answering the question from it is what froze bot games.
 
 
 ---

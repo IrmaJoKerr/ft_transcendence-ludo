@@ -79,8 +79,9 @@ export class MoveValidator {
     for (let step = from + 1; step <= lastTrackStep; step++) {
       const moverPos = BoardMapper.toTrackPosition(pieceId, step);
       if (moverPos === -1) continue;
-      // Safe zones never form a blockade : skip them so a stack there doesn't block.
-      if (BoardMapper.isSafeZoneStep(pieceId, step)) continue;
+      // Safe zones never form a blockade : skip them so a stack there doesn't
+      // block. The hardcore mod (safeZones off) removes that exemption.
+      if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, step)) continue;
       for (const blockerColor of opponentColors) {
         if (BoardMapper.isBlockadeAtTrackPos(state.pieces, blockerColor, moverPos)) {
           return true;
@@ -101,8 +102,10 @@ export class MoveValidator {
   ): boolean {
     if (targetStep <= 0 || targetStep >= 52) return false;
 
-    // Safe zones (start squares + shared safe loop) never allow captures.
-    if (BoardMapper.isSafeZoneStep(pieceId, targetStep)) return false;
+    // Safe zones (start squares + shared safe loop) never allow captures, unless
+    // the room turned safe zones off: the hardcore mod makes every square fair
+    // game, which is what the lobby toggle advertises.
+    if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, targetStep)) return false;
 
     const targetPos = BoardMapper.toTrackPosition(pieceId, targetStep);
     if (targetPos === -1) return false;

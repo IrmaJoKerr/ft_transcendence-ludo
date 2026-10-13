@@ -69,6 +69,7 @@ export const fr = {
     MATCH_END_PLAYERS_REQUIRED: 'Au moins un joueur est requis',
     MATCH_END_PVP_MIN_PLAYERS: 'Un résultat PvP nécessite au moins 2 joueurs',
     LOBBY_NOT_WAITING: 'La partie n\'accepte plus de changement de couleur une fois lancée',
+    MODIFIERS_HOST_ONLY: 'Seul l\'hôte peut modifier les règles de la partie',
     INVALID_COLOR: 'Couleur invalide. Seulement rouge, jaune, bleu et vert.',
     VALIDATION_USERNAME_FORMAT:
       'Le nom d\'utilisateur doit comporter 3 à 20 caractères : lettres, chiffres, tiret bas uniquement',

@@ -94,6 +94,8 @@ input/output. Each event is documented in full below; see
 | `socket/socket-handlers.ts` | All client→server event handlers (join, roll, move, etc.) |
 | `socket/join-manager.ts` | `JoinManager` — seat resolution, game creation, reconnect vs fresh join, PvE/hotseat auto-start |
 | `socket/bot-scheduler.ts` | One timer per game that drives bot turns |
+| `socket/room-context.ts` | `RoomContext` + `RoomRegistry`: the in-memory owner of one awake room (that room's human seat bindings plus its idle-lobby and post-game timers) |
+| `socket/idle-lobby.ts` | `IdleLobbyWatcher`: aborts a WAITING room below quorum once its persisted `idleSince` stamp is `IDLE_LOBBY_TIMEOUT_MS` old |
 | `socket/post-game.ts` | End-of-game flow — post-game timeout and room teardown |
 | `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel |
 | `socket/redis-broadcaster.ts` | `RedisBroadcaster` — forwards Redis `game:*` messages into the matching Socket.IO room |
@@ -237,6 +239,38 @@ sequenceDiagram
 - Players join the room via `join_game`.
 - Server broadcasts to a room using `io.to(room).emit(...)`.
 
+### Wake pass (boot and Redis reconnect)
+
+Redis is the system of record. The engine's per-room memory is only a cache with timers: a room is
+**awake** while it has a `RoomContext` (`socket/room-context.ts`) in the server's `RoomRegistry`,
+holding that room's human seat bindings plus its idle-lobby and post-game timers.
+
+A container restart, or a Redis outage, empties that cache. A lost timer would then leave its room
+frozen: a bot whose turn came up would never move, because `LudoBot.takeTurn` swallows a failed
+state load and is never retried. The **wake pass** (`SocketServer.wake()`) replays the durable
+deadlines in one scan, then sleeps. It has two triggers:
+
+| Trigger | Where | Notes |
+|---|---|---|
+| Boot | `start()`, after `store.connect()` | Awaited, so the process serves with its deadlines re-armed |
+| Redis reconnect | `store.onReady()` (the Redis `ready` event) | Fire-and-forget; the engine survives a Redis container rebuild |
+
+For every `game:{gameId}` key the pass rebuilds that room's `RoomContext` and replays what is due:
+
+1. grace windows whose `reconnectDeadline` has passed (`expireDisconnectedPlayer`);
+2. a bot seat holding the turn, re-armed from the persisted state (`isBotSeat`), so no client has to rejoin for the bots to resume;
+3. the post-game timer of a finished room;
+4. the idle window of a WAITING room below quorum.
+
+It then calls `IdleLobbyWatcher.sweepAll()`, which walks `match:*` and covers the rooms that have no
+game state at all (created but never joined, or dropped below quorum by a backend-only departure).
+`wakeInFlight` skips a pass that overlaps a running one, for example a Redis reconnect during the
+boot pass. Every action re-validates against live state, so replaying an already-settled deadline is
+a no-op.
+
+Steady state has **no periodic scans**. Each room arms its own timer from the event that created its
+deadline (a join, a departure, a game end), and the wake pass is the only scan.
+
 
 ---
 ---
@@ -266,7 +300,7 @@ socket.emit('join_game', gameId, playerColor, userId?, displayName?);
 
 **Response:** `game_joined` event with full `GameState`
 
-**Errors:** `error` event with message.
+**Errors:** `error` with `MATCH_GAME_NOT_FOUND` when the match hash is missing or `ABORTED` (the socket is detached from the room, but stays pinned to its own game), or `seat_expired` when the token's seat can no longer be resumed.
 
 
 ---
@@ -420,7 +454,7 @@ The pause is cleared when its owner reconnects (`handlePlayerReconnect`, which a
 | `piece_moved` | `MoveResult` | After piece moved |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
-| `game_timeout` | none | Post-game lobby expired (60s) — finished room torn down |
+| `game_timeout` | none | Post-game lobby expired (60s) — finished room torn down. The timer lives in the room's `RoomContext` and is re-armed by the wake pass after a restart |
 | `game_expired` | `{ gameId }` | Room torn down: idle lobby (5 min, < 2 seated), single-instance disconnect window expired, or quorum lost after an exit |
 | `player_exited` | `{ color }` | Permanent exit — left the room or the disconnect grace window expired |
 | `player_aborted` | `{ color, username }` | A player aborted the game |
@@ -430,7 +464,7 @@ The pause is cleared when its owner reconnects (`handlePlayerReconnect`, which a
 | `lobby_update` | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed |
 | `color_selected` | `{ gameId, userId, color }` | A player picked a color |
 | `state_update` | full `GameState` | A live exit moved the turn, or a PvP disconnect set or cleared the reconnect pause |
-| `error` | `string` | On invalid action |
+| `error` | `string` | On invalid action, or `MATCH_GAME_NOT_FOUND` when the match is missing or `ABORTED` |
 
 
 ---
@@ -573,11 +607,11 @@ Module-level constants in the socket layer — edit the value at the top of the 
 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
-| `IDLE_LOBBY_TIMEOUT_MS` | `socket/server.ts` | 5 min | A WAITING room (< 2 seated) is aborted after this long idle |
-| `POST_GAME_TIMEOUT_MS` | `socket/server.ts` | 60 s | Post-game room auto-times-out after a game ends |
+| `IDLE_LOBBY_TIMEOUT_MS` | `socket/server.ts` | 5 min | A WAITING room (< 2 seated) is aborted once its persisted `idleSince` stamp is this old. Armed per room in its `RoomContext` from the join and departure events, and replayed by the wake pass |
+| `POST_GAME_TIMEOUT_MS` | `socket/server.ts` | 60 s | Post-game room auto-times-out after a game ends. Armed in the room's `RoomContext` and re-armed by the wake pass |
 | `BOT_STEP_ANIM_MS` | `socket/server.ts` | 220 ms | Per-step piece-move animation pacing used to time bot turns |
 | `BOT_THINK_MS` | `socket/server.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
-| (inline) lobby and grace sweeps | `socket/server.ts` | 60 s | How often the lobby-expiry and expired-grace-window sweeps run (`setInterval(..., 60_000)` in `start()`) |
+| (removed) lobby and grace sweeps | `socket/server.ts` | — | The two 60 s `setInterval` sweeps were deleted with the restart-recovery work. See *Wake pass* above: deadlines are armed per room and replayed after a restart |
 | (inline) dice-anim wait | `socket/server.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
 | `SLOT_COLORS` | `socket/join-manager.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |
 | `BOT_PREFIX` | `socket/auth.ts` | `bot-` | Prefix that marks a user id as a bot |

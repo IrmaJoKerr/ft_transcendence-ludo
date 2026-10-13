@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta } from './types';
+import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } from './types';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -57,7 +57,14 @@ export class RedisGameStore {
 
   // Create a new game, all 16 pieces in prison. Only `activeColors` seats
   // get PlayerMeta entries, so unused seats never appear downstream.
-  async createGame(gameId: string, activeColors: PlayerColor[] = COLORS): Promise<void> {
+  // clashMode/safeZones are the room rules, frozen here at creation: the lobby
+  // can change them only while the room is still WAITING (see lobby.ts).
+  async createGame(
+    gameId: string,
+    clashMode = true,
+    activeColors: PlayerColor[] = COLORS,
+    safeZones = true,
+  ): Promise<void> {
     const pieces: Piece[] = [];
     for (const color of COLORS) {
       for (let i = 0; i < 4; i++) {
@@ -77,7 +84,7 @@ export class RedisGameStore {
       consecutiveSixes: 0,
       bonusRoll: false,
       isFinished: false,
-      stats: { turns: 0, captures: 0, piecesInGoal: 0 },
+      stats: { turns: 0, captures: 0, piecesInGoal: 0, clashDefends: 0, clashAttacksWon: 0 },
     }));
 
     const state: GameState = {
@@ -93,6 +100,8 @@ export class RedisGameStore {
       disconnectedPlayers: [],
       status: 'waiting',
       readyPlayers: [],
+      clashMode,
+      safeZones,
     };
 
     await this.saveGameState(gameId, state);
@@ -133,6 +142,48 @@ export class RedisGameStore {
   // Publish state change to all subscribers
   async publish(gameId: string, message: string): Promise<void> {
     await this.client.publish(`game:${gameId}`, message);
+  }
+
+  // The live clash QTE, embedded in the game state so a restart replays it (the
+  // deadlines inside are absolute timestamps).
+  async loadClashState(gameId: string): Promise<ClashState | null> {
+    const state = await this.loadGameState(gameId);
+    return state?.clash ?? null;
+  }
+
+  // Persist an active clash (phase deadlines) into the game state.
+  async saveClashState(gameId: string, clash: ClashState): Promise<void> {
+    const state = await this.loadGameState(gameId);
+    if (!state) return;
+
+    state.clash = clash;
+    await this.saveGameState(gameId, state);
+  }
+
+  // Drop the clash from the game state (resolved or aborted).
+  async clearClashState(gameId: string): Promise<void> {
+    const state = await this.loadGameState(gameId);
+    if (!state) return;
+
+    delete state.clash;
+    await this.saveGameState(gameId, state);
+  }
+
+  // Count a press for the attacker/defender side; returns that side's new total.
+  async recordClashPress(gameId: string, color: PlayerColor): Promise<number> {
+    const state = await this.loadGameState(gameId);
+    if (!state?.clash) return 0;
+
+    const isAttacker = state.clash.attacker === color;
+    if (isAttacker) {
+      state.clash.attackerPresses++;
+    } else {
+      state.clash.defenderPresses++;
+    }
+    state.clash.lastPressAt = state.clash.lastPressAt || {};
+    state.clash.lastPressAt[color] = Date.now();
+    await this.saveGameState(gameId, state);
+    return isAttacker ? state.clash.attackerPresses : state.clash.defenderPresses;
   }
 
   // Get the match metadata hash (for lobby/color selection)

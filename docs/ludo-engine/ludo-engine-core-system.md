@@ -147,7 +147,8 @@ on its own paths, but doing it in `advanceTurnInState` makes the invariant hold 
 requires at least two seats that are both `active` and not bots. Bots never count, so a PvE room is
 not kept alive by its bot seats. When a departure drops the room below that count, `teardownRoom`
 runs: it emits `game_expired`, marks the match `ABORTED`, deletes the engine game state, and calls
-the in-memory cleanup callback (which clears `userIdMap`, bots, and per-game locks).
+the in-memory cleanup callback (which drops the room's `RoomContext` from the `RoomRegistry`, and its
+pending bot turn, in one disposal path).
 
 **Source files.** `firstActiveColor`, `advanceTurnInState`, `handlePlayerDisconnect`,
 `handlePlayerReconnect`, `expireDisconnectedPlayer`, `finalizeDeparture`, `teardownRoom`, and

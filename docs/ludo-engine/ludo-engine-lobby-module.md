@@ -106,9 +106,11 @@ A rejoin only works inside the grace window: once the seat is `exited` the backe
 
 The backend also hides a room from the moment its game starts: `GET /api/games/rooms` and `GET /api/games/mine` read the engine state (`isEngineGameStarted`) and only advertise a started room back to a player who still holds a reclaimable seat in it (the `mySeat` flag), so a departed player is neither offered a dead seat nor shown a room they can no longer enter.
 
-Both seat methods skip the host's seat (`player1_color`), and both write `idleSince` to
-restart the room's idle-abort timer. The `player<N>_left` flag is what keeps the
-seated count correct, so a reserved seat cannot hold a room open. See also
+Both seat methods skip the host's seat (`player1_color`), and both stamp `idleSince` as they run
+(`setIdleSince`, HSETNX, so an existing window is never restarted). The `IdleLobbyWatcher` then arms
+the room's in-process timer for the rest of that window, and the stamp is what the startup wake pass
+replays after a restart. The `player<N>_left` flag is what keeps the seated count correct, so a
+reserved seat cannot hold a room open. See also
 [`ludo-engine-core-system.md`](ludo-engine-core-system.md) → Seat statuses.
 
 
