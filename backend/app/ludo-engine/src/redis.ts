@@ -36,6 +36,15 @@ export class RedisGameStore {
     await this.subscriber.quit();
   }
 
+  // The wake trigger for a Redis reconnect: a Redis container rebuild with the
+  // engine still alive resets in-memory timers and subscriptions, while the
+  // durable deadlines in the data survive, so the engine replays them. The boot
+  // connection is not covered here on purpose: the caller runs the first wake
+  // pass itself, right after connect().
+  onReady(handler: () => void): void {
+    this.client.on('ready', handler);
+  }
+
   // The avatar fact the backend caches in Redis. The engine has no database
   // access, so this is how a seat learns whether its player has a photo. A miss
   // means has=false: reading it as maybe would 404 on every render.
@@ -162,9 +171,14 @@ export class RedisGameStore {
     return keys;
   }
 
-  // Stamp the moment a room became idle (< 2 seated), without overwriting an existing stamp.
-  async setIdleSince(gameId: string, now: number): Promise<void> {
-    await this.client.hsetnx(this.matchKey(gameId), 'idleSince', now.toString());
+  // Stamp the moment a room became idle (< 2 seated), without overwriting an
+  // existing stamp. Returns the effective stamp, so the caller can arm its local
+  // timer for the remainder of the window instead of restarting it.
+  async setIdleSince(gameId: string, now: number): Promise<number> {
+    const written = await this.client.hsetnx(this.matchKey(gameId), 'idleSince', now.toString());
+    if (written === 1) return now;
+    const existing = await this.client.hget(this.matchKey(gameId), 'idleSince');
+    return existing ? parseInt(existing, 10) : now;
   }
 
   // Clear the idle stamp (room has ≥ 2 seated players again).

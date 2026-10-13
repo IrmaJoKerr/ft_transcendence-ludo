@@ -10,6 +10,7 @@ export const fr = {
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mail déjà enregistré. Utilisez un autre e-mail',
+    AUTH_EMAIL_SEND_FAILED: "Impossible d'envoyer l'e-mail : réessayez plus tard",
     AUTH_INVALID_CREDENTIALS: 'Nom d\'utilisateur, e-mail ou mot de passe invalide',
     AUTH_EMAIL_NOT_VERIFIED: 'Vérifiez votre adresse e-mail avant de vous connecter. Ouvrez le lien que nous vous avons envoyé lors de votre inscription.',
     AUTH_RESET_LINK_INVALID: 'Ce lien de réinitialisation est invalide ou a expiré',
@@ -64,6 +65,11 @@ export const fr = {
     MATCH_ACTIVE_GAME: 'Vous avez déjà une partie en cours. Quittez-la avant de créer ou de rejoindre une autre partie.',
     MATCH_SEAT_EXPIRED: 'Votre place dans cette partie est perdue et ne peut pas être récupérée',
     MATCH_PVP_ONLY_INVITE: 'Seules les salles PvP peuvent recevoir des invitations',
+    MATCH_END_GAME_ID_REQUIRED: "L'identifiant de partie est requis",
+    MATCH_END_PLAYERS_REQUIRED: 'Au moins un joueur est requis',
+    MATCH_END_PVP_MIN_PLAYERS: 'Un résultat PvP nécessite au moins 2 joueurs',
+    LOBBY_NOT_WAITING: 'La partie n\'accepte plus de changement de couleur une fois lancée',
+    INVALID_COLOR: 'Couleur invalide. Seulement rouge, jaune, bleu et vert.',
     VALIDATION_USERNAME_FORMAT:
       'Le nom d\'utilisateur doit comporter 3 à 20 caractères : lettres, chiffres, tiret bas uniquement',
     VALIDATION_CODE_FORMAT: 'Le code doit comporter 6 chiffres',
@@ -71,6 +77,8 @@ export const fr = {
     VALIDATION_DISPLAY_NAME_CHARS:
       'Le nom d\'affichage ne peut contenir que des lettres, chiffres, espaces, tirets bas, apostrophes et traits d\'union',
     VALIDATION_EMAIL_FORMAT: 'Saisissez une adresse e-mail valide',
+    VALIDATION_FRIEND_ID_FORMAT: "Identifiant d'ami invalide",
+    RATE_LIMITED: 'Trop de requêtes: réessayez plus tard',
     AUTH_PASSWORD_UPDATED: 'Mot de passe mis à jour : les autres appareils ont été déconnectés.',
   },
   nav: {

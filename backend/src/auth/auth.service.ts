@@ -53,6 +53,19 @@ const formatVerifiedAt = (date: Date) =>
     timeStyle: 'short',
   }).format(date);
 
+// Columns an OAuth strategy may consume after validateOAuthLogin: the session
+// needs id/username/language, the 2FA branch needs email/twoFactorEnabled, and
+// the create branch seeds avatarMeta from avatarStyle. Selecting these instead of
+// the whole row means `password_hash` can never reach a strategy or a session.
+const OAUTH_USER_FIELDS = {
+  id: true,
+  username: true,
+  email: true,
+  twoFactorEnabled: true,
+  language: true,
+  avatarStyle: true,
+} as const;
+
 // The canonical user object every auth response returns (login, 2FA verify,
 // refresh, /me, PATCH profile). The SPA stores it wholesale, so a partial shape
 // reads there as "missing"/"off": an absent email faked an email change.
@@ -915,7 +928,7 @@ export class AuthService implements OnModuleDestroy {
           providerAccountId: input.providerAccountId,
         },
       },
-      include: { user: true },
+      select: { userId: true, user: { select: OAUTH_USER_FIELDS } },
     });
     if (existingAccount) {
       // "Add method" intent: same user -> no-op, different user -> conflict.
@@ -931,13 +944,17 @@ export class AuthService implements OnModuleDestroy {
     // "Add method" intent with a new provider account: link it straight to
     // the requesting user (provider identity is already vouched by OAuth).
     if (linkUserId) {
-      const linked = await this.prisma.db.user.findUnique({ where: { id: linkUserId } });
+      const linked = await this.prisma.db.user.findUnique({
+        where: { id: linkUserId },
+        select: OAUTH_USER_FIELDS,
+      });
       if (linked) {
         // The provider's email must not already belong to a different account
         const linkEmail = input.email ? normalizeEmail(input.email) : undefined;
         if (linkEmail) {
           const linkEmailOwner = await this.prisma.db.user.findUnique({
             where: { email: linkEmail },
+            select: { id: true },
           });
           if (linkEmailOwner && linkEmailOwner.id !== linkUserId) {
             throw new ConflictException({
@@ -972,7 +989,10 @@ export class AuthService implements OnModuleDestroy {
     //  existing user → REJECT. (The "add method" flow above is exempt.)
     const email = input.email ? normalizeEmail(input.email) : undefined;
     if (email) {
-      const emailOwner = await this.prisma.db.user.findUnique({ where: { email } });
+      const emailOwner = await this.prisma.db.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
       if (emailOwner) {
         // Don't leak the exact owner : same generic message as register().
         throw new ConflictException(
@@ -995,6 +1015,7 @@ export class AuthService implements OnModuleDestroy {
         emailVerified: email ? new Date() : null,
         achievement: { create: { id: crypto.randomUUID() } },
       },
+      select: OAUTH_USER_FIELDS,
     });
 
     await this.prisma.db.account.create({

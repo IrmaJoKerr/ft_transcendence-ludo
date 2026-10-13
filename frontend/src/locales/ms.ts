@@ -10,6 +10,7 @@ export const ms = {
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mel sudah didaftarkan. Gunakan e-mel lain',
+    AUTH_EMAIL_SEND_FAILED: 'E-mel tidak dapat dihantar: cuba lagi kemudian',
     AUTH_INVALID_CREDENTIALS: 'Nama pengguna, e-mel, atau kata laluan tidak sah',
     AUTH_EMAIL_NOT_VERIFIED: 'Sahkan alamat e-mel anda sebelum log masuk. Buka pautan yang kami hantar semasa anda mendaftar.',
     AUTH_RESET_LINK_INVALID: 'Pautan tetapan semula ini tidak sah atau telah tamat tempoh',
@@ -64,12 +65,19 @@ export const ms = {
     MATCH_ACTIVE_GAME: 'Anda sudah mempunyai permainan aktif. Keluar dahulu sebelum mencipta atau menyertai perlawanan lain.',
     MATCH_SEAT_EXPIRED: 'Tempat anda dalam permainan ini sudah hilang dan tidak dapat dipulihkan',
     MATCH_PVP_ONLY_INVITE: 'Hanya bilik PvP boleh dijemput',
+    MATCH_END_GAME_ID_REQUIRED: 'ID permainan diperlukan',
+    MATCH_END_PLAYERS_REQUIRED: 'Sekurang-kurangnya seorang pemain diperlukan',
+    MATCH_END_PVP_MIN_PLAYERS: 'Keputusan PvP memerlukan sekurang-kurangnya 2 pemain',
+    LOBBY_NOT_WAITING: 'Permainan tidak lagi menerima perubahan warna selepas bermula',
+    INVALID_COLOR: 'Warna tidak sah. Hanya merah, kuning, biru dan hijau.',
     VALIDATION_USERNAME_FORMAT: 'Nama pengguna mesti 3-20 aksara: huruf, nombor, garis bawah sahaja',
     VALIDATION_CODE_FORMAT: 'Kod mesti 6 digit',
     VALIDATION_DISPLAY_NAME_LENGTH: 'Nama paparan mesti 1-30 aksara',
     VALIDATION_DISPLAY_NAME_CHARS:
       'Nama paparan hanya boleh mengandungi huruf, nombor, ruang, garis bawah, apostrof dan sengkang',
     VALIDATION_EMAIL_FORMAT: 'Masukkan alamat e-mel yang sah',
+    VALIDATION_FRIEND_ID_FORMAT: 'ID rakan tidak sah',
+    RATE_LIMITED: 'Terlalu banyak permintaan: cuba lagi kemudian',
     AUTH_PASSWORD_UPDATED: 'Kata laluan dikemas kini: peranti lain telah dilog keluar.',
   },
   nav: {

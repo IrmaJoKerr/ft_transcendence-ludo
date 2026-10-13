@@ -1,9 +1,11 @@
 import type { LudoEngine } from '../engine';
 import type { RedisGameStore } from '../redis';
 import type { LudoBot } from '../bot';
+import { isBotSeat } from '../bot';
 import { firstActiveColor } from '../player-handler';
 import type { GameSocket } from './auth';
 import { isBotUserId, BOT_PREFIX } from './auth';
+import type { RoomRegistry } from './room-context';
 import type { PlayerColor } from '../types';
 
 // Shared seat order : used by the join flow to map slots to colors and to
@@ -22,7 +24,7 @@ export class JoinManager {
   constructor(
     private store: RedisGameStore,
     private engine: LudoEngine,
-    private userIdMap: Map<string, Map<PlayerColor, string>>,
+    private rooms: RoomRegistry,
     private getOrCreateBot: (
       gameId: string,
       color: PlayerColor,
@@ -30,6 +32,9 @@ export class JoinManager {
       store: RedisGameStore,
     ) => LudoBot,
     private scheduleBotTurn?: (gameId: string) => void,
+    // Re-evaluate a room's idle window: a join can refill a WAITING room that was
+    // below quorum, which cancels the abort timer.
+    private refreshIdle?: (gameId: string) => void,
   ) {}
 
   private withGameLock<T>(gameId: string, fn: () => Promise<T>): Promise<T> {
@@ -61,27 +66,36 @@ export class JoinManager {
 
     void this.withGameLock(effectiveGameId, async () => {
       try {
+        // A join is only ever allowed against a room that still exists in Redis.
+        // Without this gate a stale token would spawn an orphan game from
+        // createGame's defaults, and an aborted room would take fresh seats.
+        const matchData = await this.store.getMatchData(effectiveGameId);
+        if (!matchData || matchData.status === 'ABORTED') {
+          this.detachSocket(socket, effectiveGameId);
+          // A code, not English text: the client resolves engine error codes
+          // through `errors.<CODE>` (the same key the REST layer uses for a room
+          // that no longer exists).
+          socket.emit('error', 'MATCH_GAME_NOT_FOUND');
+          return;
+        }
+
         void socket.join(effectiveGameId);
         socket.data.gameId = effectiveGameId;
         socket.data.playerColor = effectiveColor;
 
         if (effectiveUserId) {
-          if (!this.userIdMap.has(effectiveGameId)) {
-            this.userIdMap.set(effectiveGameId, new Map());
-          }
-          this.userIdMap.get(effectiveGameId).set(effectiveColor, effectiveUserId);
+          this.rooms.ensure(effectiveGameId).bindSeat(effectiveColor, effectiveUserId);
           await this.store.setSeatUser(effectiveGameId, effectiveColor, effectiveUserId);
         }
 
         let state = await this.store.loadGameState(effectiveGameId);
         if (!state) {
-          const creationMatchData = await this.store.getMatchData(effectiveGameId);
-          const playerCount = parseInt(creationMatchData?.playerCount || '4', 10);
+          const playerCount = parseInt(matchData.playerCount || '4', 10);
           // Prefer the persisted seatColors (exact ordered seats, including
           // skipped colors in hotseat, e.g. blue + green + yellow with no red).
           // Falls back to the dense slot fill for older rooms / direct engine use.
-          const seatColors = creationMatchData?.seatColors
-            ? (creationMatchData.seatColors.split(',') as PlayerColor[])
+          const seatColors: PlayerColor[] = matchData.seatColors
+            ? (matchData.seatColors.split(',') as PlayerColor[])
             : SLOT_COLORS.slice(0, playerCount);
           await this.store.createGame(effectiveGameId, seatColors);
           state = await this.store.loadGameState(effectiveGameId);
@@ -175,6 +189,9 @@ export class JoinManager {
 
           if (state.status === 'waiting') {
             await this.store.saveGameState(effectiveGameId, state);
+            // A refill cancels the room's idle window: a WAITING room with fewer
+            // than two seated players is aborted after IDLE_LOBBY_TIMEOUT_MS.
+            this.refreshIdle?.(effectiveGameId);
             // Broadcast the roster so already-connected clients (e.g. the host)
             // learn about the new seat : nothing else does, and their Ready
             // button would never enable. See emitLobbyUpdate in engine.ts.
@@ -188,8 +205,7 @@ export class JoinManager {
         // PvE/Hotseat auto-start: neither has a second real remote player to
         // wait on (PvE's other seats are bots; hotseat's other seats are the
         // same physical device), so skip the manual ready-check entirely.
-        const matchData = await this.store.getMatchData(effectiveGameId);
-        if (matchData && (matchData.gameType === 'PVE' || matchData.gameType === 'HOTSEAT')) {
+        if (matchData.gameType === 'PVE' || matchData.gameType === 'HOTSEAT') {
           await this.autoStartIfReady(effectiveGameId, matchData);
           // Reload state : autoStartIfReady may have transitioned it to 'active'
           state = await this.store.loadGameState(effectiveGameId);
@@ -204,11 +220,11 @@ export class JoinManager {
           delete state.pausedReason;
           await this.store.saveGameState(effectiveGameId, state);
         }
-        if (
-          state?.status === 'active' &&
-          state.currentTurn &&
-          isBotUserId(this.userIdMap.get(effectiveGameId)?.get(state.currentTurn))
-        ) {
+        // A bot seat holding the turn is re-armed from the persisted state, so a
+        // client rejoin no longer has to carry the in-memory seat map with it
+        // (the map is empty after a restart). The wake pass covers rooms no
+        // client rejoins at all.
+        if (state?.status === 'active' && isBotSeat(state, state.currentTurn)) {
           this.scheduleBotTurn?.(effectiveGameId);
         }
 
@@ -264,19 +280,19 @@ export class JoinManager {
           player.username = botUserId;
           player.isBot = true;
           player.isConnected = true;
-          // `username` stays the immutable `bot-<color>` identity (userIdMap, isBotUserId
-          // and the bot scheduler all key on it). `displayName` holds the label the lobby
-          // assigned the seat, and falls back to the id when absent.
+          // `username` stays the immutable `bot-<color>` identity (isBotUserId and
+          // the persisted `isBot` seat flag both key on it). `displayName` holds
+          // the label the lobby assigned the seat, and falls back to the id when
+          // absent.
           player.displayName = matchData[`player${i}_displayName`] || botUserId;
           // A bot has no photo; hasAvatarPhoto stays false so the client renders
           // the generated avatar instead of requesting one.
           player.hasAvatarPhoto = false;
         }
 
-        if (!this.userIdMap.has(gameId)) {
-          this.userIdMap.set(gameId, new Map());
-        }
-        this.userIdMap.get(gameId).set(slotColor, botUserId);
+        // The persisted `seatUser_<color>` field is what the result submitter
+        // falls back to; the in-memory bindings hold human seats only, and a bot
+        // seat is identified from the state, so it is not registered here.
         await this.store.setSeatUser(gameId, slotColor, botUserId);
 
         // Instantiate bot

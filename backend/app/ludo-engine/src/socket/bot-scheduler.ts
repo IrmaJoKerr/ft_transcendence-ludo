@@ -1,7 +1,7 @@
 import type { LudoEngine } from '../engine';
 import type { RedisGameStore } from '../redis';
 import type { LudoBot } from '../bot';
-import { isBotPlayer } from '../bot';
+import { isBotSeat } from '../bot';
 import type { PlayerColor } from '../types';
 
 // BotTurnScheduler owns bot turn timing: one timer per game (never stacked),
@@ -12,7 +12,6 @@ export class BotTurnScheduler {
   constructor(
     private store: RedisGameStore,
     private engine: LudoEngine,
-    private userIdMap: Map<string, Map<PlayerColor, string>>,
     private getOrCreateBot: (
       gameId: string,
       color: PlayerColor,
@@ -39,7 +38,9 @@ export class BotTurnScheduler {
           // may finish its chain, but no further triggers run once the turn
           // moves past pauseTurnOwner.
           if (state.paused && state.currentTurn !== state.pauseTurnOwner) return;
-          if (!isBotPlayer(this.userIdMap, gameId, state.currentTurn)) return;
+          // Bot detection reads the persisted seat, so a restarted engine (its
+          // in-memory seat map empty) still drives the bot's turn.
+          if (!isBotSeat(state, state.currentTurn)) return;
 
           const bot = this.getOrCreateBot(gameId, state.currentTurn, this.engine, this.store);
           // takeTurn() catches its own failures, but this is fire-and-forget :

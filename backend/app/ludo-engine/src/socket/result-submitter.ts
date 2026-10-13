@@ -1,7 +1,7 @@
 import type { LudoEngine } from '../engine';
 import type { RedisGameStore } from '../redis';
-import type { PlayerColor } from '../types';
 import { BACKEND_URL } from './auth';
+import type { RoomRegistry } from './room-context';
 import { MoveValidator } from '../move-validator';
 
 // The backend compares this against its own ENGINE_API_KEY, so a fallback would
@@ -19,7 +19,7 @@ export class ResultSubmitter {
   constructor(
     private engine: LudoEngine,
     private store: RedisGameStore,
-    private userIdMap: Map<string, Map<PlayerColor, string>>,
+    private rooms: RoomRegistry,
     private cleanup: (gameId: string) => void,
   ) {}
 
@@ -59,7 +59,7 @@ export class ResultSubmitter {
         const userId =
           player.userId ||
           this.store.seatUserFrom(matchData, player.color) ||
-          this.userIdMap.get(gameId)?.get(player.color);
+          this.rooms.get(gameId)?.seat(player.color);
 
         // No account for a seat that is still in the game: report the rest of
         // the room rather than filing the result against a made-up user.

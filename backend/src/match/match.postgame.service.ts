@@ -51,9 +51,17 @@ export class MatchPostgameService {
   // by the engine when a match ends.
   async processGameEnd(data: GameEndPayload) {
     const { gameId, participants } = data;
-    if (!gameId) throw new BadRequestException('gameId is required');
+    if (!gameId) {
+      throw new BadRequestException({
+        code: 'MATCH_END_GAME_ID_REQUIRED',
+        message: 'gameId is required',
+      });
+    }
     if (!Array.isArray(participants) || participants.length === 0) {
-      throw new BadRequestException('participants array is required');
+      throw new BadRequestException({
+        code: 'MATCH_END_PLAYERS_REQUIRED',
+        message: 'at least one player is required',
+      });
     }
 
     // Idempotency guard: an engine retry after a network blip hits `existing`
@@ -71,7 +79,10 @@ export class MatchPostgameService {
     // (its opponents are bots, which leave no rows), while a PvP room always
     // finishes with two or more, so fewer means a seat went missing.
     if (gameType === 'PVP' && participants.length < 2) {
-      throw new BadRequestException('a PvP result needs at least 2 participants');
+      throw new BadRequestException({
+        code: 'MATCH_END_PVP_MIN_PLAYERS',
+        message: 'a PvP result needs at least 2 players',
+      });
     }
 
     await this.prisma.db.$transaction(async (tx) => {

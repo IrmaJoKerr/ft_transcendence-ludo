@@ -7,7 +7,7 @@ import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor, PlayerMeta } from '../game/types';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
-import { getApi, postApi } from '../api';
+import { getApi, postApi, translateErrorCode } from '../api';
 import { useApp, type ResultPlayer } from '../store';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
@@ -196,6 +196,10 @@ export function Game() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
+  // Reserved engine-error banner: localized text of the last engine socket error
+  // (see the 'error' handler below), auto-cleared after a short delay.
+  const [engineError, setEngineError] = useState<string | null>(null);
+  const engineErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevTurnRef = useRef<PlayerColor | null>(null);
   const isGameEnded = lastResult != null || view.status === 'finished';
 
@@ -615,6 +619,14 @@ export function Game() {
 
     socket.on('error', (msg: string) => {
       console.error('[engine]', msg);
+      // Engine errors carry i18n codes (lobby.ts): show the localized text in the
+      // reserved banner. Unmapped messages stay console-only.
+      const localized = translateErrorCode(msg);
+      if (localized) {
+        setEngineError(localized);
+        if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
+        engineErrorTimerRef.current = setTimeout(() => setEngineError(null), 6000);
+      }
       setIsRolling(false);
       pendingMoveRef.current = false;
     });
@@ -626,6 +638,8 @@ export function Game() {
       animTimerRef.current = null;
       if (captureFxTimerRef.current) clearTimeout(captureFxTimerRef.current);
       captureFxTimerRef.current = null;
+      if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
+      engineErrorTimerRef.current = null;
       setAnimatingPiece(null);
       setCaptureFx(null);
     };
@@ -1010,6 +1024,27 @@ export function Game() {
                             : t('game.statusRivalTurn', {
                                 name: localizedColor(t, effectiveTurn).toUpperCase(),
                               }))}
+              </div>
+
+              {/* Reserved engine-error banner: localized socket `error` text. */}
+              <div
+                role="alert"
+                aria-live="assertive"
+                style={{
+                  minHeight: 22,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ff0055',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  letterSpacing: '0.5px',
+                  textShadow: '0 0 8px #ff0055',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {engineError ?? ''}
               </div>
             </div>
 

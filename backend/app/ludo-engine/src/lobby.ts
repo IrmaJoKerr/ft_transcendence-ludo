@@ -17,10 +17,13 @@ export class LobbyManager {
   // Assign (or swap) a seat color for a player in a waiting room, keeping the
   // match hash and the live engine GameState in sync. Used by
   // LudoEngine.handlePlayerSelectColor.
+  // Throws carry i18n codes, not prose: socket-handlers.ts forwards the message
+  // on the engine `error` event and the client resolves it (errors.<CODE> in the
+  // frontend locales). MATCH_NOT_PLAYER reuses the existing backend code.
   async handleSelectColor(gameId: string, userId: string, color: PlayerColor): Promise<void> {
     const data = await this.store.getMatchData(gameId);
     if (data?.status !== 'WAITING') {
-      throw new Error('Game is not in waiting state');
+      throw new Error('LOBBY_NOT_WAITING');
     }
 
     // Find which slot this user is in
@@ -28,15 +31,16 @@ export class LobbyManager {
       userId,
     );
     if (slotIndex === -1) {
-      throw new Error('You are not a player in this game');
+      throw new Error('MATCH_NOT_PLAYER');
     }
 
-    // Colors beyond this match's seat count have no PlayerMeta in the engine
-    // state (see redis.ts createGame's activeColors) : reject before touching
-    // the match hash so it can't drift out of sync with the engine.
+    // Unknown colors and colors beyond this match's seat count have no PlayerMeta
+    // in the engine state (see redis.ts createGame's activeColors): reject before
+    // touching the match hash so it can't drift out of sync with the engine.
     const maxSeats = parseInt(data.playerCount || '4', 10);
-    if (SLOT_COLORS.indexOf(color) >= maxSeats) {
-      throw new Error('Color not available for this match size');
+    const colorIndex = SLOT_COLORS.indexOf(color);
+    if (colorIndex === -1 || colorIndex >= maxSeats) {
+      throw new Error('INVALID_COLOR');
     }
 
     // Check if color is already taken by another player

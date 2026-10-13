@@ -18,12 +18,15 @@ const VALIDATION_CODES: Record<string, string> = {
   // `email` is the property name in both RegisterDto and UpdateProfileDto, so
   // this one line localizes @IsEmail() failures for signup and profile edits.
   'email.isEmail': 'VALIDATION_EMAIL_FORMAT',
+  // Game invite (POST /api/game/:id/invite): InviteFriendDto.friendId must be a
+  // real user id, and the client picks it from its own friend list.
+  'friendId.isUuid': 'VALIDATION_FRIEND_ID_FORMAT',
 };
 
 // Which failing constraint to prefer when a field breaks more than one rule
 // (e.g. an empty display name fails both length and character rules; length is
 // the clearer message). Only affects fields that have a mapped code.
-const CONSTRAINT_PRIORITY = ['isLength', 'minLength', 'maxLength', 'matches', 'isEmail'];
+const CONSTRAINT_PRIORITY = ['isLength', 'minLength', 'maxLength', 'matches', 'isEmail', 'isUuid'];
 
 // Turns class-validator failures into { code?, message } so DTO validation errors
 // are localized like the rest. Unmapped constraints keep Nest's default shape.

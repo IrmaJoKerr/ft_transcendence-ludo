@@ -3,6 +3,7 @@ import type { RedisGameStore } from '../redis';
 import type { LudoBot } from '../bot';
 import type { GameSocket } from './auth';
 import { JoinManager } from './join-manager';
+import type { RoomRegistry } from './room-context';
 import { finalizeDeparture } from '../player-handler';
 import type { PlayerColor, PieceId } from '../types';
 
@@ -15,7 +16,7 @@ export class SocketHandlers {
   constructor(
     private store: RedisGameStore,
     private engine: LudoEngine,
-    private userIdMap: Map<string, Map<PlayerColor, string>>,
+    private rooms: RoomRegistry,
     private getOrCreateBot: (
       gameId: string,
       color: PlayerColor,
@@ -24,13 +25,15 @@ export class SocketHandlers {
     ) => LudoBot,
     private scheduleBotTurn?: (gameId: string) => void,
     private notifyAbort?: (gameId: string) => void,
+    refreshIdle?: (gameId: string) => void,
   ) {
     this.joinManager = new JoinManager(
       this.store,
       this.engine,
-      this.userIdMap,
+      this.rooms,
       this.getOrCreateBot,
       this.scheduleBotTurn,
+      refreshIdle,
     );
   }
 
@@ -122,22 +125,23 @@ export class SocketHandlers {
       try {
         const previousColor = socket.data.playerColor;
         await this.engine.handlePlayerSelectColor(gameId, userId, color as PlayerColor);
-        // Keep socket binding + userIdMap in sync with the engine's seat swap:
-        // vacate the old seat ONLY if it still maps to this user, since during
-        // a swap that color may already belong to the opponent.
+        // Keep the socket binding and the room's seat bindings in sync with the
+        // engine's seat swap: vacate the old seat ONLY if it still maps to this
+        // user, since during a swap that color may already belong to the opponent.
         if (
           previousColor &&
           previousColor !== color &&
-          this.userIdMap.get(gameId)?.get(previousColor) === userId
+          this.rooms.get(gameId)?.unbindSeatIf(previousColor, userId)
         ) {
-          this.userIdMap.get(gameId)?.delete(previousColor);
           await this.store.clearSeatUser(gameId, previousColor);
         }
-        this.userIdMap.get(gameId)?.set(color as PlayerColor, userId);
+        this.rooms.ensure(gameId).bindSeat(color as PlayerColor, userId);
         await this.store.setSeatUser(gameId, color as PlayerColor, userId);
         socket.data.playerColor = color as PlayerColor;
       } catch (error) {
-        socket.emit('error', `Color selection failed: ${error}`);
+        // LobbyManager throws i18n codes (lobby.ts); forward the code so the
+        // client can localize it. Unmapped messages stay console-only.
+        socket.emit('error', error instanceof Error ? error.message : String(error));
       }
     })();
   }

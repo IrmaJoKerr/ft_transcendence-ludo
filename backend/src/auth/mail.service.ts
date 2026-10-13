@@ -83,7 +83,10 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       await this.transporter.sendMail({ from: this.from, to, subject, text });
     } catch (err) {
       this.logger.error(`sendMail to ${to} failed: ${(err as Error).message}`);
-      throw new ServiceUnavailableException('Could not send email : try again later');
+      throw new ServiceUnavailableException({
+        code: 'AUTH_EMAIL_SEND_FAILED',
+        message: 'Could not send email : try again later',
+      });
     }
   }
 

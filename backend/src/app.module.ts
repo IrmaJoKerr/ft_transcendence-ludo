@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CodedThrottlerGuard } from './throttler.guard';
 import { PrismaService } from './prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -33,7 +34,9 @@ import { NotificationModule } from './notification/notification.module';
     // APP_GUARD applies the guard to every route. It has to be registered as a
     // provider rather than via app.useGlobalGuards() so Nest's DI container can
     // construct it : ThrottlerGuard needs its storage and options injected.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // CodedThrottlerGuard subclasses it to emit a localizable { code, message }
+    // 429 body instead of the library's English default.
+    { provide: APP_GUARD, useClass: CodedThrottlerGuard },
   ],
   exports: [PrismaService],
 })

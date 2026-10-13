@@ -10,6 +10,7 @@ export const en = {
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'Email already registered. Use a different email',
+    AUTH_EMAIL_SEND_FAILED: 'Could not send email: try again later',
     AUTH_INVALID_CREDENTIALS: 'Invalid username, email, or password',
     AUTH_EMAIL_NOT_VERIFIED: 'Verify your email address before signing in. Open the link we sent you when you signed up.',
     AUTH_RESET_LINK_INVALID: 'This reset link is invalid or has expired',
@@ -64,12 +65,19 @@ export const en = {
     MATCH_ACTIVE_GAME: 'You already have an active game. Leave it before creating or joining a new match.',
     MATCH_SEAT_EXPIRED: 'Your seat in this game is gone and cannot be reclaimed',
     MATCH_PVP_ONLY_INVITE: 'Only PvP rooms can be invited to',
+    MATCH_END_GAME_ID_REQUIRED: 'The game id is required',
+    MATCH_END_PLAYERS_REQUIRED: 'At least one player is required',
+    MATCH_END_PVP_MIN_PLAYERS: 'A PvP result needs at least 2 players',
+    LOBBY_NOT_WAITING: 'The game accepts no colour changes once it has started',
+    INVALID_COLOR: 'Colour not valid. Only red, yellow, blue, and green.',
     VALIDATION_USERNAME_FORMAT: 'Username must be 3-20 characters: letters, numbers, underscore only',
     VALIDATION_CODE_FORMAT: 'Code must be 6 digits',
     VALIDATION_DISPLAY_NAME_LENGTH: 'Display name must be 1-30 characters',
     VALIDATION_DISPLAY_NAME_CHARS:
       'Display name can only contain letters, numbers, spaces, underscores, apostrophes and hyphens',
     VALIDATION_EMAIL_FORMAT: 'Enter a valid email address',
+    VALIDATION_FRIEND_ID_FORMAT: 'Invalid friend id',
+    RATE_LIMITED: 'Too many requests: try again later',
     AUTH_PASSWORD_UPDATED: 'Password updated: other devices were signed out.',
   },
   nav: {

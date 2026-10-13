@@ -1,7 +1,7 @@
 import type { LudoEngine } from './engine';
 import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
-import { isBotUserId } from './socket/auth';
+import { BOT_PREFIX } from './socket/auth';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
 const botMap = new Map<string, Map<PlayerColor, LudoBot>>();
@@ -22,12 +22,14 @@ export function getOrCreateBot(
   return gameBots.get(color);
 }
 
-export function isBotPlayer(
-  userIdMap: Map<string, Map<PlayerColor, string>>,
-  gameId: string,
-  color: PlayerColor,
-): boolean {
-  return isBotUserId(userIdMap.get(gameId)?.get(color));
+// Is this seat a bot? Read from the persisted state, never from the in-memory
+// seat map: the map is empty after a restart, and gating bot turns on it is what
+// froze every bot game (todo P1: engine restart recovery). `isBot` is the
+// authoritative flag; the `bot-<color>` username keeps pre-flag states readable.
+export function isBotSeat(state: GameState | null | undefined, color: PlayerColor): boolean {
+  const player = state?.players.find((p) => p.color === color);
+  if (!player) return false;
+  return player.isBot === true || player.username?.startsWith(BOT_PREFIX) === true;
 }
 
 // Server-side Ludo Bot with heuristic move selection. One instance per

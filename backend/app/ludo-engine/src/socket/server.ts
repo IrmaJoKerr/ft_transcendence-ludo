@@ -2,7 +2,7 @@ import { Server } from 'socket.io';
 import * as http from 'http';
 import { LudoEngine } from '../engine';
 import { RedisGameStore } from '../redis';
-import { getOrCreateBot } from '../bot';
+import { getOrCreateBot, isBotSeat } from '../bot';
 import { EventPublisher } from './event-publisher';
 import { RedisBroadcaster } from './redis-broadcaster';
 import { ResultSubmitter } from './result-submitter';
@@ -16,6 +16,8 @@ import { teardownRoom } from '../player-handler';
 import type { PlayerColor } from '../types';
 import { parseAllowedOrigins } from './allowed-origins';
 import { EventRateLimiter } from './event-rate-limiter';
+import { IdleLobbyWatcher } from './idle-lobby';
+import { RoomRegistry } from './room-context';
 
 // A WAITING PvP room with fewer than 2 seated players is idle; once it has
 // been idle this long the room is aborted (friend on the way? give them time).
@@ -56,7 +58,13 @@ export class SocketServer {
   private handlers: SocketHandlers;
   private botScheduler: BotTurnScheduler;
   private postGame: PostGameManager;
-  private userIdMap: Map<string, Map<PlayerColor, string>> = new Map();
+  // Per-process room state (seat bindings + room timers). Every room-scoped
+  // deadline is persisted in Redis first, so this is a rebuildable cache: see
+  // wake() below, which replays it at boot and after a Redis reconnect.
+  private rooms = new RoomRegistry();
+  private idleLobby: IdleLobbyWatcher;
+  // Guards against overlapping wake passes (a redis reconnect during a boot wake).
+  private wakeInFlight = false;
   constructor() {
     this.store = new RedisGameStore();
     this.publisher = new EventPublisher(this.store);
@@ -64,25 +72,26 @@ export class SocketServer {
     const lobbyManager = new LobbyManager(this.store, this.publisher);
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();
+    // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
+    // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan.
+    this.idleLobby = new IdleLobbyWatcher(this.store, this.rooms, IDLE_LOBBY_TIMEOUT_MS, (gameId) =>
+      this.expireIdleLobby(gameId),
+    );
     this.resultSubmitter = new ResultSubmitter(
       this.engine,
       this.store,
-      this.userIdMap,
+      this.rooms,
       (gameId) => {
         this.cleanupGame(gameId);
       },
     );
-    this.botScheduler = new BotTurnScheduler(
-      this.store,
-      this.engine,
-      this.userIdMap,
-      getOrCreateBot,
-    );
+    this.botScheduler = new BotTurnScheduler(this.store, this.engine, getOrCreateBot);
     this.postGame = new PostGameManager(
       () => this.io,
       this.store,
       this.engine,
       this.publisher,
+      this.rooms,
       POST_GAME_TIMEOUT_MS,
       (gameId) => {
         this.cleanupGame(gameId);
@@ -91,15 +100,19 @@ export class SocketServer {
     this.handlers = new SocketHandlers(
       this.store,
       this.engine,
-      this.userIdMap,
+      this.rooms,
       getOrCreateBot,
       (gameId) => {
         this.botScheduler.schedule(gameId, BOT_THINK_MS);
       },
       (gameId) => {
         // teardownRoom already broadcast game_expired; this clears the engine's
-        // in-memory state (userIdMap, bots, locks).
+        // in-memory state (room bindings, bots, locks).
         this.cleanupGame(gameId);
+      },
+      (gameId) => {
+        // A refill cancels the idle window; a departure re-arms it.
+        void this.idleLobby.refresh(gameId);
       },
     );
     // Subscribe to engine events: the engine detects lifecycle changes once, here.
@@ -109,6 +122,12 @@ export class SocketServer {
       if (event.type === 'game_ended') {
         this.postGame.onGameEnded(event.gameId);
         void this.resultSubmitter.submitGameResult(event.gameId);
+      } else if (event.type === 'player_exited') {
+        // Every departure path (waiting-room leave, live leave, End Game, grace
+        // expiry, prune) funnels through this event, so the idle window is
+        // re-evaluated here instead of by a periodic lobby scan. Refills cancel
+        // it in JoinManager.
+        void this.idleLobby.refresh(event.gameId);
       } else if (event.type === 'game_started') {
         this.botScheduler.schedule(event.gameId, BOT_THINK_MS);
         void this.resultSubmitter.notifyGameStarted(event.gameId);
@@ -144,6 +163,15 @@ export class SocketServer {
 
     await this.store.connect();
 
+    // Wake trigger: a Redis reconnect. The engine stays alive through a Redis
+    // container rebuild, but its room timers do not, and a bot whose turn comes
+    // up would never resume (LudoBot.takeTurn swallows a failed state load and is
+    // never retried). The durable deadlines in the data survive, so the wake pass
+    // replays them. The boot connection calls the same pass below.
+    this.store.onReady(() => {
+      void this.wake('redis reconnect');
+    });
+
     this.httpServer = http.createServer((req, res) => {
       if (req.url === '/health' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -171,12 +199,10 @@ export class SocketServer {
       console.log(`Ludo engine listening on port ${port}`);
     });
 
-    // Periodic checks: expired lobbies, plus grace windows lost to a restart.
-    // The grace sweep also runs once now, so windows that expired while this
-    // process was down are settled immediately on startup.
-    setInterval(() => this.checkExpiredLobbies(), 60 * 1000);
-    setInterval(() => this.checkExpiredGraceWindows(), 60 * 1000);
-    void this.checkExpiredGraceWindows();
+    // Wake pass: replay every durable deadline this process (or a Redis outage)
+    // left behind, then sleep. Steady state has no periodic scans: each room arms
+    // its own timer from the event that created its deadline.
+    await this.wake('boot');
   }
 
   async stop(): Promise<void> {
@@ -184,73 +210,116 @@ export class SocketServer {
     await this.broadcaster.disconnect();
     this.httpServer.close();
   }
+  // Drop a room's in-memory state: its RoomContext (seat bindings + timers) and
+  // its pending bot turn. Called on teardown, and by the wake pass when an entry
+  // has no state behind it.
   private cleanupGame(gameId: string): void {
-    this.userIdMap.delete(gameId);
+    this.rooms.delete(gameId);
     this.botScheduler.clear(gameId);
   }
 
-  // Periodic sweep (1-minute interval) that aborts WAITING PvP rooms with
-  // fewer than 2 seated players after the IDLE_LOBBY_TIMEOUT_MS timeout.
-  private async checkExpiredLobbies(): Promise<void> {
-    const now = Date.now();
-    const matchKeys = await this.store.scanMatchKeys();
-    for (const key of matchKeys) {
-      const match = await this.store.getMatchData(key.slice('match:'.length));
-      if (match?.status !== 'WAITING') continue;
+  // Abort an idle lobby: teardownRoom emits game_expired, aborts the match and
+  // deletes the game state; its notify callback drops the in-memory context.
+  private async expireIdleLobby(gameId: string): Promise<void> {
+    await teardownRoom(
+      this.store,
+      (event) => {
+        this.engine.emitEvent(event);
+      },
+      gameId,
+      (id) => this.cleanupGame(id),
+    );
+  }
 
-      // A seat is seated only while its player is present: a reserved slot
-      // (player<N>_left) keeps its row so the owner can reclaim the color, but it
-      // must not keep the idle timer running, or an abandoned room never expires.
-      const seatedCount = [1, 2, 3, 4].filter(
-        (n) => match[`player${n}_id`] && !match[`player${n}_left`],
-      ).length;
-
-      if (seatedCount >= 2) {
-        // Two or more seated players : the idle timer is inactive.
-        await this.store.clearIdleSince(match.id);
-        continue;
+  // The wake pass: one scan of the durable deadlines, then sleep. It runs once
+  // at boot (after store.connect()) and again on every Redis reconnect, so a
+  // timer lost with the process (or with Redis) is replayed instead of leaving
+  // its room frozen. Every action re-validates against live state, so replaying
+  // an already-settled deadline is a no-op.
+  private async wake(reason: string): Promise<void> {
+    if (this.wakeInFlight) {
+      console.log(`[engine] wake pass (${reason}) skipped: another pass is running`);
+      return;
+    }
+    this.wakeInFlight = true;
+    try {
+      console.log(`[engine] wake pass (${reason}): replaying durable deadlines`);
+      const gameKeys = await this.store.scanGameKeys();
+      let checked = 0;
+      for (const key of gameKeys) {
+        const gameId = key.slice('game:'.length);
+        try {
+          await this.rebuildRoom(gameId);
+          checked++;
+        } catch (err) {
+          // One unreadable room must not abort the pass for the others.
+          console.error(
+            `[engine] wake: failed to rebuild room ${gameId}:`,
+            err instanceof Error ? err.message : err,
+          );
+        }
       }
-
-      // Idle room (< 2 seated). Stamp the idle start on first encounter
-      // (hsetnx : a pre-existing stamp is kept), then abort once the
-      // room has been idle for the full timeout.
-      await this.store.setIdleSince(match.id, now);
-      const idleSinceMs = match.idleSince ? parseInt(match.idleSince, 10) : now;
-      if (now - idleSinceMs > IDLE_LOBBY_TIMEOUT_MS) {
-        // teardownRoom broadcasts game_expired (engine event -> publisher ->
-        // broadcaster) and runs cleanupGame through its notify callback.
-        await teardownRoom(
-          this.store,
-          (event) => {
-            this.engine.emitEvent(event);
-          },
-          match.id,
-          this.cleanupGame,
-        );
-      }
+      // Rooms with no game state (created but never joined, or dropped below
+      // quorum by a backend-only departure) still need their idle window settled.
+      await this.idleLobby.sweepAll();
+      console.log(`[engine] wake pass (${reason}) complete: ${checked} game(s) checked`);
+    } catch (err) {
+      // Never reject: the boot pass is awaited by start() and a reconnect pass is
+      // fire-and-forget, and neither may take the process down.
+      console.error(
+        `[engine] wake pass (${reason}) failed:`,
+        err instanceof Error ? err.message : err,
+      );
+    } finally {
+      this.wakeInFlight = false;
     }
   }
-  // Sweep for grace windows that have already expired, covering windows whose
-  // in-process timer was lost (an engine restart or a crash). Safe to race the
-  // timer because expireDisconnectedPlayer re-checks the deadline.
-  private async checkExpiredGraceWindows(): Promise<void> {
-    const now = Date.now();
-    const gameKeys = await this.store.scanGameKeys();
-    for (const key of gameKeys) {
-      const gameId = key.slice('game:'.length);
-      const state = await this.store.loadGameState(gameId);
-      if (!state || state.disconnectedPlayers.length === 0) continue;
 
-      for (const disc of state.disconnectedPlayers) {
-        if (now < disc.reconnectDeadline) continue;
-        await this.engine.expireDisconnectedPlayer(gameId, disc.color, (id) => {
-          // teardownRoom already broadcast game_expired; this clears in-memory
-          // state for the dead room.
-          this.cleanupGame(id);
-        });
-      }
+  // Rebuild ONE room from Redis and replay whatever is due:
+  //   1. grace windows that expired while the process was down;
+  //   2. a bot seat holding the turn (the original freeze: no client has to
+  //      rejoin for the bots to resume);
+  //   3. a finished room whose post-game timer died with the process;
+  //   4. the idle window of a WAITING room below quorum.
+  private async rebuildRoom(gameId: string): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    if (!state) {
+      // Both keys gone: nothing to rebuild, drop the stale entry.
+      this.cleanupGame(gameId);
+      return;
     }
+
+    // Seat bindings are persisted per player, so they survive a restart too.
+    this.rooms.ensure(gameId).rebuild(state);
+
+    for (const disc of state.disconnectedPlayers) {
+      if (Date.now() < disc.reconnectDeadline) continue;
+      // Re-checks the deadline itself, so racing an in-flight grace timer is safe.
+      await this.engine.expireDisconnectedPlayer(gameId, disc.color, (id) => this.cleanupGame(id));
+    }
+
+    // Reload: an expiry above can advance the turn, end the game, or tear the
+    // room down entirely.
+    const current = await this.store.loadGameState(gameId);
+    if (!current) {
+      this.cleanupGame(gameId);
+      return;
+    }
+
+    // Bot detection reads the persisted seat: the in-memory binding map is empty
+    // after a restart, and reading it here is what froze bot games.
+    if (current.status === 'active' && isBotSeat(current, current.currentTurn)) {
+      this.botScheduler.schedule(gameId, BOT_THINK_MS);
+    }
+
+    // The finished room's 60 s expiry timer is in-process only, so re-arm it.
+    if (current.status === 'finished') {
+      this.postGame.onGameEnded(gameId);
+    }
+
+    await this.idleLobby.refresh(gameId);
   }
+
   // Socket wiring (orchestration only)
   private setupSocketHandlers(): void {
     this.io.use((socket: GameSocket, next) => {
