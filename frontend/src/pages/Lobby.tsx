@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { postApi } from '../api';
+import { getApi, postApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
@@ -56,6 +56,17 @@ export function Lobby() {
   const [startError, setStartError] = useState<string | null>(null);
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
+  const [hasActiveGame, setHasActiveGame] = useState(false);
+
+  // Backend-authoritative mirror of the state lock: /api/games/mine lists every
+  // room this player is seated in after a game started, so an empty answer means
+  // this screen may launch. One fetch on mount is enough for a config screen; the
+  // persisted activeMatch is deliberately not trusted (it outlives a closed tab).
+  useEffect(() => {
+    getApi<Array<{ id: string }>>('/api/games/mine')
+      .then((data) => setHasActiveGame(data.length > 0))
+      .catch(() => {});
+  }, []);
 
   const [crtEnabled] = useState(() => {
     return localStorage.getItem('crt_enabled') !== 'false';
@@ -77,7 +88,17 @@ export function Lobby() {
     ? botCount >= 1
     : visible.filter((s) => s.type === 'you' || s.type === 'player').length >= 2;
 
+  // Strict state lock, mirrored from the backend: with a live game on the books,
+  // this screen cannot launch another one until the player leaves that game.
+  const lockedByActiveGame = hasActiveGame;
+  const canLaunch = canStart && !lockedByActiveGame;
+
   const onStart = async () => {
+    if (lockedByActiveGame) {
+      retroAudio.playUiBeep(300, 0.08);
+      setStartError(t('lobby.activeGameLockError'));
+      return;
+    }
     if (!canStart || starting) return;
     retroAudio.playUiBeep(880, 0.1);
     setStartError(null);
@@ -881,12 +902,16 @@ export function Lobby() {
                         textAlign: 'center',
                         fontSize: '0.82rem',
                         fontFamily: 'var(--font-mono)',
-                        color: canStart ? '#00ff88' : '#ffe600',
+                        color: canLaunch ? '#00ff88' : '#ffe600',
                         marginTop: 12,
                         lineHeight: 1.5,
                       }}
                     >
-                      {canStart ? t('lobby.allSystemsPassed') : t('lobby.assignAtLeastOne')}
+                      {lockedByActiveGame
+                        ? t('lobby.activeGameLockError')
+                        : canStart
+                          ? t('lobby.allSystemsPassed')
+                          : t('lobby.assignAtLeastOne')}
                     </div>
                   </div>
 
@@ -896,32 +921,35 @@ export function Lobby() {
                       onClick={() => {
                         void onStart();
                       }}
-                      disabled={!canStart || starting}
+                      disabled={!canLaunch || starting}
                       className={RETRO_BTN}
+                      title={lockedByActiveGame ? t('lobby.activeGameLockTooltip') : undefined}
                       style={{
                         width: '100%',
                         padding: '16px 0',
                         fontSize: '1rem',
                         fontFamily: 'var(--font-heading)',
                         letterSpacing: '1.2px',
-                        background: canStart
+                        background: canLaunch
                           ? 'rgba(0, 255, 136, 0.2)'
                           : 'rgba(255, 255, 255, 0.05)',
-                        border: canStart
+                        border: canLaunch
                           ? '1px solid #00ff88'
                           : '1px solid rgba(255, 255, 255, 0.2)',
-                        color: canStart ? '#00ff88' : 'var(--text-muted)',
-                        cursor: canStart ? 'pointer' : 'not-allowed',
-                        boxShadow: canStart ? '0 0 15px rgba(0, 255, 136, 0.4)' : 'none',
+                        color: canLaunch ? '#00ff88' : 'var(--text-muted)',
+                        cursor: canLaunch ? 'pointer' : 'not-allowed',
+                        boxShadow: canLaunch ? '0 0 15px rgba(0, 255, 136, 0.4)' : 'none',
                       }}
                     >
-                      {starting
-                        ? t('lobby.initializingArena')
-                        : canStart
-                          ? t('lobby.launchArenaMatch')
-                          : isLocal
-                            ? t('lobby.addPlayerToStart')
-                            : t('lobby.addBotToStart')}
+                      {lockedByActiveGame
+                        ? t('lobby.activeGameLockLabel')
+                        : starting
+                          ? t('lobby.initializingArena')
+                          : canStart
+                            ? t('lobby.launchArenaMatch')
+                            : isLocal
+                              ? t('lobby.addPlayerToStart')
+                              : t('lobby.addBotToStart')}
                     </button>
 
                     {startError && (

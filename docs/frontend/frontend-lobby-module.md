@@ -7,6 +7,7 @@
 - [Key Types / Interfaces](#key-types--interfaces): Seat, PlayerCount and BOT_POOL types
 - [Core Logic / Flow](#core-logic--flow): Mermaid sequence diagrams for lobby setup and game start
 - [Logic Paths Summary](#logic-paths-summary): Decision trees for seat management and game start
+- [Strict State Lock Hint](#strict-state-lock-hint): One live game per player, mirrored as a UI hint
 - [Dependencies](#dependencies): Internal and external dependencies
 
 
@@ -131,6 +132,26 @@ sequenceDiagram
     Table->>Router: navigate('/game?gameId=…') → Game connects via Socket.IO
 ```
 
+### 3. Strict State Lock Hint
+
+The backend allows **one live game per player** (see
+[backend-match-module.md](../backend/backend-match-module.md) → Strict State Lock
+(`active-game.ts`)). Both lobby screens mirror that rule as a hint, never as the
+gate:
+
+| Screen | Source of truth | What it does |
+|--------|-----------------|--------------|
+| `LudoLobby.tsx` (`/gamelobby`) | `GET /api/games/mine`, polled on mount and every `ROOM_POLL_MS` (5 s) | Greys out the host pass and the join-by-code field, and disables the JOIN button on rooms the caller holds no seat in (a REJOIN row stays enabled), each with a tooltip and an inline message. The header seat badge reads `ACTIVE ROOM: YES [IN-FLIGHT]` |
+| `Lobby.tsx` (table, `/gamelobby/table`) | one-shot `GET /api/games/mine` on mount | Greys out LAUNCH and shows the lock message in the status box, with a tooltip |
+
+Neither screen trusts the store's persisted `activeMatch`: it survives a closed tab
+and would lock the screens forever after a game that ended off-screen. The
+authoritative `GET /api/games/mine` empties itself as soon as the room is gone, so
+the buttons come back on the next read. A create or join that still slips through
+(another tab started a game in the meantime) is refused by the backend with
+`403 MATCH_ACTIVE_GAME`, which `api.ts` renders as the localized
+`errors.MATCH_ACTIVE_GAME` message in the same error slot.
+
 
 ---
 ---
@@ -156,7 +177,8 @@ sequenceDiagram
 LudoLobby.tsx (/gamelobby)
   ├── Local setup → navigate('/gamelobby/table?mode=…&bots=…&local=…')
   ├── Create room → POST /api/match/pvp/invite
-  │   └── Refused while GET /api/games/mine is non-empty (you are already seated somewhere)
+  │   └── Refused while GET /api/games/mine is non-empty (you are already seated somewhere);
+  │       the same signal greys out the host pass and the join controls
   ├── Room row → room.mySeat → POST /api/game/:id/rejoin (REJOIN row, own seat)
   │              otherwise → POST /api/match/join/:code (JOIN row)
   ├── Invite-code box → a code matching one of your own row → rejoin
@@ -164,6 +186,7 @@ LudoLobby.tsx (/gamelobby)
   └── Success → setActiveMatch(result) → navigate('/game?gameId=…')
 
 Lobby.tsx (table, /gamelobby/table)
+  ├── LAUNCH disabled while GET /api/games/mine reports a room (one-shot read on mount)
   ├── POST /api/match/create { mode, playerCount, botCount, seatColors, botNames }
   │   ├── Error (bad mode / bots in non-pve) → show message
   │   └── Success → setActiveMatch(result)

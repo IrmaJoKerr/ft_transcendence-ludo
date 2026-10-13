@@ -21,7 +21,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 1. **Friends list** — accepted friends with avatar, username, rating, and live presence status.
 2. **Friend requests** — requests you have received and not yet answered, each with accept and decline actions; you can also send a request by username.
 3. **Blocked list** — users you have blocked, each with an unblock action. The two lists are separate tabs: Friends and Blocked.
-4. **Game invite** — invite a friend to a PvP (player versus player) game with `POST /api/friends/:friendId/invite`, which returns the match credentials.
+4. **Game invite** — invite a friend to a PvP (player versus player) game with `POST /api/friends/:friendId/invite`, which returns the match credentials. The invite creates the room *and* seats the friend, so it is refused with `403 MATCH_ACTIVE_GAME` while the caller or the friend already holds a seat in a live game (see [backend-match-module.md](../backend/backend-match-module.md) → Strict State Lock (`active-game.ts`)).
 
 > **Note:** The Friends page reads all of its data from the backend API (Application Programming Interface). It calls the endpoints below and refreshes the lists every 15 seconds.
 
@@ -114,6 +114,7 @@ Remove → DELETE /api/friends/remove/{friendId}
 Block  → POST /api/friends/block/{friendId}
 Unblock→ POST /api/friends/unblock/{userId}
 Invite → POST /api/friends/{friendId}/invite → setActiveMatch(res) → navigate('/game?gameId={gameId}')
+  └── Refused (403 MATCH_ACTIVE_GAME) while either side already holds a seat in a live game
 ```
 
 

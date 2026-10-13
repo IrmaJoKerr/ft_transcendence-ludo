@@ -7,6 +7,7 @@ import Redis from 'ioredis';
 import { isBotUserId } from '../common/botname-enforce';
 import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
+import { hasLiveMatch } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
 import { signEngineToken } from './engine-token.util';
 
@@ -45,6 +46,15 @@ export class MatchPlayerService {
       userId,
     );
     if (seatedSlot !== -1) return this.rejoin(gameId, userId);
+
+    // Strict lock: a caller with a live match must not open a second room, even
+    // one they used to play in.
+    if (await this.hasActiveMatch(userId)) {
+      throw new ForbiddenException({
+        code: 'MATCH_ACTIVE_GAME',
+        message: 'You already have an active game. Leave it before creating or joining a new match.',
+      });
+    }
 
     if (data.status !== 'WAITING')
       throw new ForbiddenException({
@@ -112,6 +122,15 @@ export class MatchPlayerService {
     const data = await this.redis.hgetall(`match:${gameId}`);
     if (!data.id)
       throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
+
+    // Strict lock: you may not join a second room while your current match is
+    // still live (rejoining your own live room is fine).
+    if (await this.hasActiveMatchExcept(userId, gameId)) {
+      throw new ForbiddenException({
+        code: 'MATCH_ACTIVE_GAME',
+        message: 'You already have an active game. Leave it before creating or joining a new match.',
+      });
+    }
 
     const slotIndex = [data.player1_id, data.player2_id, data.player3_id, data.player4_id].indexOf(
       userId,
@@ -416,5 +435,17 @@ export class MatchPlayerService {
       select: { displayName: true },
     });
     return user?.displayName ?? undefined;
+  }
+
+  // Whether the caller holds a seat in a live game right now: the strict state
+  // lock. While one is live the caller must not open or enter a second room.
+  private async hasActiveMatch(userId: string): Promise<boolean> {
+    return hasLiveMatch(this.redis, userId);
+  }
+
+  // Like hasActiveMatch, but the room the caller is trying to rejoin does not
+  // count: rejoining your own live room must still work.
+  private async hasActiveMatchExcept(userId: string, exceptGameId: string): Promise<boolean> {
+    return hasLiveMatch(this.redis, userId, exceptGameId);
   }
 }

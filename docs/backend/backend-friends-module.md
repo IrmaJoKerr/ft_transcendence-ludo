@@ -403,6 +403,8 @@ stateDiagram-v2
 > | A invites B to a game | the pair is not currently friends | `403 NOT_FRIENDS_WITH_USER` |
 > | A invites B to a game | either side is `blocked` | `403 FRIEND_BLOCKED` |
 > | A invites themself | — | `400 FRIEND_INVITE_SELF` |
+> | A invites B to a game | A already holds a seat in a live game | `403 MATCH_ACTIVE_GAME` (room create refused) |
+> | A invites B to a game | B already holds a seat in a live game | `403 MATCH_ACTIVE_GAME` (seating B refused, invite not stored) |
 
 
 ---

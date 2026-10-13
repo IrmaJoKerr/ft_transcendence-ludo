@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { requireSecret, secret } from '../secrets';
@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
+import { hasLiveMatch } from './active-game';
 
 const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 const FRONTEND_URL = requireSecret('FRONTEND_URL');
@@ -146,6 +147,16 @@ export class MatchCreatorService {
     botNames?: string[],
     seatColors?: string[],
   ) {
+    // Strict lock: a caller who is already in a live game must not open a second
+    // room, whatever the mode. Checked before the idempotent PvP reuse below, so
+    // a mid-game caller is refused instead of being handed any room at all.
+    if (await hasLiveMatch(this.redis, userId)) {
+      throw new ForbiddenException({
+        code: 'MATCH_ACTIVE_GAME',
+        message: 'You already have an active game. Leave it before creating or joining a new match.',
+      });
+    }
+
     // Idempotent create: a PvP create by a player who already has a seat in one
     // of their own PvP lobby rooms returns that seat instead of opening a second
     // room. Rooms whose game has already started are never reused.

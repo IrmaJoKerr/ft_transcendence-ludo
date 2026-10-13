@@ -199,7 +199,7 @@ function Toast({
   index: number;
 }) {
   const { t } = useTranslation();
-  const { setActiveMatch } = useApp();
+  const { activeMatch, setActiveMatch } = useApp();
   const [visible, setVisible] = useState(false);
 
   // Play audio alert and slide in on mount.
@@ -244,6 +244,16 @@ function Toast({
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
+    // Strict state lock, mirrored from the backend: one live game at a time. If
+    // another game is still live, accepting the challenge aborts it first, so the
+    // switch never hits the backend's MATCH_ACTIVE_GAME refusal. The abort is
+    // fire-and-forget: the room is dropped locally either way.
+    const currentGameId = activeMatch?.gameId;
+    if (currentGameId && currentGameId !== p.gameId) {
+      void apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
+        // Non-fatal: the switch below still happens.
+      });
+    }
     setActiveMatch({
       gameId: p.gameId as string,
       token: p.token as string,

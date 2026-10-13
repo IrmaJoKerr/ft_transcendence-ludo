@@ -61,6 +61,7 @@ export const fr = {
     MATCH_PVP_ONLY_JOIN: 'Seules les salles PvP peuvent être rejointes',
     MATCH_ROOM_FULL: 'La salle est pleine',
     MATCH_NOT_PLAYER: 'Vous n\'êtes pas un joueur de cette partie',
+    MATCH_ACTIVE_GAME: 'Vous avez déjà une partie en cours. Quittez-la avant de créer ou de rejoindre une autre partie.',
     MATCH_SEAT_EXPIRED: 'Votre place dans cette partie est perdue et ne peut pas être récupérée',
     MATCH_PVP_ONLY_INVITE: 'Seules les salles PvP peuvent recevoir des invitations',
     VALIDATION_USERNAME_FORMAT:
@@ -283,6 +284,9 @@ export const fr = {
     removeBotTooltip: 'Retirer le bot',
     removePlayerTooltip: 'Retirer le joueur',
     createFailed: 'Échec de la création du match',
+    activeGameLockError: 'Vous avez déjà une partie en cours. Quittez-la avant d\'en lancer une nouvelle',
+    activeGameLockLabel: '// TERMINEZ OU QUITTEZ VOTRE PARTIE EN COURS //',
+    activeGameLockTooltip: 'Quittez votre partie en cours pour en lancer une autre',
     colorPiece: 'Pièce {{color}}',
     colorRed: 'Rouge',
     colorGreen: 'Vert',
@@ -331,6 +335,8 @@ export const fr = {
     joinBtn: 'Rejoindre',
     fullBtn: 'Plein',
     createRoomWhileActiveError: 'Erreur: Impossible de créer un salon tout en ayant une partie active',
+    activeGameLockError: 'Vous avez déjà une partie en cours. Quittez-la avant de rejoindre une autre salle',
+    activeGameLockTooltip: 'Quittez votre partie en cours pour créer ou rejoindre une autre salle',
   },
   rules: {
     modalTitle: 'Comment Jouer au Ludo',

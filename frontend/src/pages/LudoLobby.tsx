@@ -100,6 +100,14 @@ export function LudoLobby() {
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Strict state lock, mirrored from the backend: /api/games/mine lists every
+  // room this player is seated in after a game started, so "has an active game"
+  // means the backend refuses a create/join with MATCH_ACTIVE_GAME. It is polled,
+  // so the controls can lag a refresh behind the truth — the backend is the gate,
+  // this only greys the buttons out early.
+  const lockedByActiveGame = hasActiveGame;
+  const hostLocked = hostBusy || lockedByActiveGame;
+
   // PASS #04 room-code field is a fixed-width box, so scale its text down to fit:
   // the Malay placeholder ("MASUKKAN KOD") is longer than the EN/FR ones and was
   // overflowing the input.
@@ -131,7 +139,7 @@ export function LudoLobby() {
   }, []);
 
   const createRoom = async () => {
-    if (hasActiveGame) {
+    if (lockedByActiveGame) {
       retroAudio.playUiBeep(300, 0.08);
       setError(t('lobbyBrowser.createRoomWhileActiveError'));
       return;
@@ -175,6 +183,11 @@ export function LudoLobby() {
       await rejoinRoom(ownRoom);
       return;
     }
+    if (lockedByActiveGame) {
+      retroAudio.playUiBeep(300, 0.08);
+      setError(t('lobbyBrowser.activeGameLockError'));
+      return;
+    }
     setJoiningByCode(true);
     setError(null);
     retroAudio.playUiBeep(780, 0.06);
@@ -189,6 +202,12 @@ export function LudoLobby() {
   };
 
   const joinRoom = async (room: Room) => {
+    // Strict lock: a second room cannot be entered while one game is live.
+    if (lockedByActiveGame) {
+      retroAudio.playUiBeep(300, 0.08);
+      setError(t('lobbyBrowser.activeGameLockError'));
+      return;
+    }
     setJoiningRoomId(room.id);
     setError(null);
     retroAudio.playUiBeep(780, 0.06);
@@ -290,14 +309,14 @@ export function LudoLobby() {
                 <span
                   className={RETRO_BADGE}
                   style={{
-                    border: hasActiveGame
+                    border: lockedByActiveGame
                       ? '1px solid var(--accent-yellow)'
                       : '1px dashed rgba(255,255,255,0.2)',
-                    color: hasActiveGame ? 'var(--accent-yellow)' : 'var(--text-soft)',
+                    color: lockedByActiveGame ? 'var(--accent-yellow)' : 'var(--text-soft)',
                   }}
                 >
                   {t('ludoLobbyExtra.activeRoomLabel', {
-                    status: hasActiveGame
+                    status: lockedByActiveGame
                       ? t('ludoLobbyExtra.activeRoomYes')
                       : t('ludoLobbyExtra.activeRoomNone'),
                   })}
@@ -326,9 +345,9 @@ export function LudoLobby() {
               >
                 {/* **LEVEL 1: HOST NEW TABLE TICKET** */}
                 <div
-                  className={`${RETRO_TICKET_PASS} ${TICKET_PINK} ${hostBusy ? 'disabled' : ''}`}
+                  className={`${RETRO_TICKET_PASS} ${TICKET_PINK} ${hostLocked ? 'disabled' : ''}`}
                   onClick={
-                    hostBusy
+                    hostLocked
                       ? undefined
                       : () => {
                           void createRoom();
@@ -336,10 +355,11 @@ export function LudoLobby() {
                   }
                   role="button"
                   tabIndex={0}
+                  title={lockedByActiveGame ? t('lobbyBrowser.activeGameLockTooltip') : undefined}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      if (!hostBusy) void createRoom();
+                      if (!hostLocked) void createRoom();
                     }
                   }}
                 >
@@ -408,7 +428,7 @@ export function LudoLobby() {
                       background: 'var(--accent-pink)',
                       color: '#ffffff',
                       boxShadow: '0 0 18px rgba(255, 0, 127, 0.5)',
-                      opacity: hostBusy ? 0.6 : 1,
+                      opacity: hostLocked ? 0.6 : 1,
                     }}
                   >
                     {hostBusy
@@ -720,7 +740,10 @@ export function LudoLobby() {
                         e.stopPropagation();
                         void joinByCode(roomCodeInput);
                       }}
-                      disabled={!roomCodeInput.trim() || joiningByCode}
+                      disabled={!roomCodeInput.trim() || joiningByCode || lockedByActiveGame}
+                      title={
+                        lockedByActiveGame ? t('lobbyBrowser.activeGameLockTooltip') : undefined
+                      }
                       style={{
                         minWidth: 170,
                         height: 50,
@@ -732,8 +755,12 @@ export function LudoLobby() {
                         background: 'rgba(0, 240, 255, 0.22)',
                         borderColor: 'var(--accent-cyan)',
                         color: 'var(--accent-cyan)',
-                        opacity: !roomCodeInput.trim() || joiningByCode ? 0.5 : 1,
-                        cursor: !roomCodeInput.trim() || joiningByCode ? 'not-allowed' : 'pointer',
+                        opacity:
+                          !roomCodeInput.trim() || joiningByCode || lockedByActiveGame ? 0.5 : 1,
+                        cursor:
+                          !roomCodeInput.trim() || joiningByCode || lockedByActiveGame
+                            ? 'not-allowed'
+                            : 'pointer',
                         boxShadow: '0 0 16px rgba(0, 240, 255, 0.4)',
                         flexShrink: 0,
                       }}
@@ -934,14 +961,28 @@ export function LudoLobby() {
                                     if (isMySeat) void rejoinRoom(room);
                                     else void joinRoom(room);
                                   }}
-                                  disabled={(!isMySeat && full) || joiningRoomId === room.id}
+                                  disabled={
+                                    (!isMySeat && (full || lockedByActiveGame)) ||
+                                    joiningRoomId === room.id
+                                  }
+                                  title={
+                                    !isMySeat && lockedByActiveGame
+                                      ? t('lobbyBrowser.activeGameLockTooltip')
+                                      : undefined
+                                  }
                                   style={{
                                     padding: '5px 12px',
                                     fontSize: '0.7rem',
                                     background: isMySeat ? 'var(--accent-pink)' : undefined,
                                     opacity:
-                                      (!isMySeat && full) || joiningRoomId === room.id ? 0.4 : 1,
-                                    cursor: !isMySeat && full ? 'not-allowed' : 'pointer',
+                                      (!isMySeat && (full || lockedByActiveGame)) ||
+                                      joiningRoomId === room.id
+                                        ? 0.4
+                                        : 1,
+                                    cursor:
+                                      !isMySeat && (full || lockedByActiveGame)
+                                        ? 'not-allowed'
+                                        : 'pointer',
                                   }}
                                 >
                                   {isMySeat

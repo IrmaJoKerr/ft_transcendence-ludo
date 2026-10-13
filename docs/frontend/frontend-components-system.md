@@ -46,7 +46,7 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/dicebear.ts` | DiceBear helper: generates an avatar data URI (Uniform Resource Identifier) (`avataaars`/`bottts`/`identicon`) |
 | `src/components/OAuthButtons.tsx` | OAuth provider buttons (42, GitHub, Google) |
 | `src/components/NotificationBell.tsx` | Bell icon, unread badge and dropdown |
-| `src/components/NotificationToast.tsx` | Toast notifications |
+| `src/components/NotificationToast.tsx` | Toast notifications: friend requests, game challenges, match cancellations. Accepting a `game_invite` aborts a game still stored in the store's `activeMatch` (`POST /api/game/:id/abort`, which marks that room `ABORTED`) before switching rooms, so a mid-game accept never trips the backend's one-live-game lock |
 | `src/components/ProfileEditModal.tsx` | Edit-profile dialog |
 | `src/components/DeleteAccountModal.tsx` | Delete-account dialog (sets a password first for OAuth-only accounts) |
 | `src/components/LegalModal.tsx` | Privacy Policy / Terms of Service popup, opened from Home's footer and from the Signup terms link |
