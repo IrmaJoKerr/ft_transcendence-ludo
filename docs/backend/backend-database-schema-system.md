@@ -155,7 +155,7 @@ avatar data (those live on `User`).
 |-------|------|------------|-------------|
 | `id` | String | UUID, PK | Unique identifier |
 | `userId` | String | Unique, FK | Owning user |
-| `achFirstBlood` … `achUnstoppable` | Boolean | Default: false | 13 achievement flags (see `backend-achievements-module.md`) |
+| `achFirstBlood` … `achMercilessAttacker` | Boolean | Default: false | 15 achievement flags (see `backend-achievements-module.md`) |
 
 **Relations:** `user` (1:1, back-reference)
 
@@ -215,6 +215,8 @@ One row per player per game.
 | `rank` | Int | | Final placement (1st-4th) |
 | `piecesCaptured` | Int | Default: 0 | Pieces knocked off |
 | `piecesInGoal` | Int | Default: 0 | Pieces finished (0-4) |
+| `clashDefends` | Int | Default: 0 | Clash (QTE) rounds won as defender |
+| `clashAttacksWon` | Int | Default: 0 | Clash (QTE) rounds won as attacker |
 
 **Relations:** `game`, `user`
 
@@ -366,6 +368,8 @@ erDiagram
         boolean achLoveTheMachine "Achievement: 3 PvE streak"
         boolean achSpeedDemon "Achievement: fast win"
         boolean achUnstoppable "Achievement: 3 captures"
+        boolean achSteadyDefender "Achievement: 2 clash rounds defended"
+        boolean achMercilessAttacker "Achievement: 2 clash rounds won attacking"
     }
     Account {
         string id PK "Unique ID"
@@ -389,6 +393,8 @@ erDiagram
         int rank "1st, 2nd, ..."
         int piecesCaptured "Pieces knocked off"
         int piecesInGoal "Pieces finished"
+        int clashDefends "Clash rounds won defending"
+        int clashAttacksWon "Clash rounds won attacking"
     }
     Friendship {
         string id PK "Unique ID"

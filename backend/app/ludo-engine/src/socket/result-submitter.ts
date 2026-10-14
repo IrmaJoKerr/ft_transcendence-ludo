@@ -80,6 +80,8 @@ export class ResultSubmitter {
           );
         }
 
+        // The two clash tallies ride along for the clash achievements; a seat
+        // record written before they existed reads 0.
         participants.push({
           userId,
           color: player.color.toUpperCase(),
@@ -87,6 +89,8 @@ export class ResultSubmitter {
           totalTurns: stats.turns,
           piecesCaptured: stats.captures,
           piecesInGoal,
+          clashDefends: stats.clashDefends ?? 0,
+          clashAttacksWon: stats.clashAttacksWon ?? 0,
         });
       }
 

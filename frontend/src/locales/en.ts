@@ -128,6 +128,10 @@ export const en = {
     achUnstoppableDesc: 'Capture 3 pieces in one game',
     achSpeedDemon: 'Speed Demon',
     achSpeedDemonDesc: 'Win a match in under 30 mins',
+    achSteadyDefender: 'Steady Defender',
+    achSteadyDefenderDesc: 'Defend 2 clashes in one clash-mode game',
+    achMercilessAttacker: 'Merciless Attacker',
+    achMercilessAttackerDesc: 'Win 2 clashes as attacker in one clash-mode game',
   },
   notifications: {
     dismissAlert: 'Dismiss Alert',
@@ -349,23 +353,6 @@ export const en = {
     createRoomWhileActiveError: 'Error: User tried to create a new room while existing room is active',
     activeGameLockError: 'You already have an active game. Leave it before joining another room',
     activeGameLockTooltip: 'Leave your active game to create or join another',
-  },
-  rules: {
-    modalTitle: 'How to Play Ludo',
-    objectiveTitle: 'Objective',
-    objectiveBody: 'Be the first player to move all four of your pieces from the Starting Area to the Home Triangle.',
-    setupTitle: 'Setup',
-    setupBody: 'Each player chooses one of the four colors (Red, Green, Yellow, Blue) and places their four pieces in their matching Starting Area.',
-    turnOrderTitle: 'Turn Order & Rolling',
-    turnOrderBody: "Play proceeds clockwise. Pieces start locked in the Starting Area: you must roll a 6 to enter a piece onto the track. Rolling a 6 also grants a bonus roll. Roll three 6s in a row and your turn is forfeited.",
-    movementTitle: 'Movement & Capturing',
-    movementBody: "Move a piece forward the exact number of spaces shown on the die. Landing on an opponent's piece captures it, sending it back to their Starting Area, and grants you a bonus roll. Two of your own pieces on the same space form a blockade opponents can't pass.",
-    zonesTitle: 'Board Zones',
-    zoneStarting: 'Starting Area ("Prison"): pieces here are inactive; a roll of 6 is required to leave.',
-    zoneTrack: 'White Track: the shared 52-space outer path where normal movement, captures, and blockades apply.',
-    zoneStar: 'Star Spaces: safe zones where pieces cannot be captured.',
-    zoneColumn: 'Colored Column: your 5-space home stretch; only your own pieces may enter, fully safe from capture.',
-    zoneHome: 'Home Triangle: the finish; you must roll the exact number needed to enter, and pieces here retire from play.',
   },
   game: {
     copyRoomCodeTooltip: 'Click to copy Room Code',
@@ -773,16 +760,28 @@ export const en = {
     rulesPage6Step2: '3-second countdown — defender vs attacker',
     rulesPage6Step3: 'Mash your key — fill your meter',
     rulesPage6Step4: 'Winner stays · loser goes to prison (even the attacker!)',
+    // A chain (a wall attack) is not a second mechanic: the deck spells out the
+    // one-clash-per-defender count next to the four steps, because the live
+    // screen shows a ROUND n / total pill and a ×R badge from the same count.
+    rulesPage6Chain:
+      'Landing on a wall — two or more pieces stacked — is not one fight but one clash per defender, each round a fresh key race: win them back to back and the square is yours, lose one and the wall holds.',
     rulesPage6Touch:
       'On a tablet you tap the circle holding your key instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
     rulesPage7Header: '// NO SAFE ZONES (HARDCORE)',
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:
-      'The eight star squares stop protecting, so a piece can be captured anywhere on the board. Only the safe squares change: your start square and your home lane keep working as before.',
+      'The eight star squares stop protecting, so a piece can be captured anywhere on the track — your own start square included. Only the home lane still shields you.',
+    // Hardcore's second half, and the one place it reads differently: stars also
+    // stop being exempt for stacks (a stack there blocks the path), and with clash
+    // mode on as well that stack is a breakable wall, one clash per defender.
+    rulesPage7Body2:
+      'Without safe zones the stars are no exemption for stacks either: two pieces on one square — a star included — form a wall that blocks the path. And with clash mode on too, that wall can be broken: land on it and fight one clash per defender.',
     rulesPage8Header: '// FREE EXIT',
     rulesPage8Title: '🚪 Leave prison on any roll',
     rulesPage8Body:
       'A piece in prison normally needs a 6 to come out. With free exit on, any roll releases it, and the piece then moves the rolled number of steps from the start square.',
+    rulesPage8Body2:
+      'A 6 still earns its bonus roll, and an exit never attacks a wall: it shares the square instead.',
   },
   legal: {
     privacyPolicy: 'PRIVACY POLICY',

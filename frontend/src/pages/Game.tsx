@@ -2801,6 +2801,9 @@ export function Game() {
                       {t('gameExtra.rulesPage6Step4')}
                     </div>
                   </div>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.9rem' }}>
+                    {t('gameExtra.rulesPage6Chain')}
+                  </p>
                   <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {t('gameExtra.rulesPage6Touch')}
                   </p>
@@ -2847,6 +2850,9 @@ export function Game() {
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
                     {t('gameExtra.rulesPage7Body')}
                   </p>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage7Body2')}
+                  </p>
                 </div>
               </div>
             )}
@@ -2889,6 +2895,9 @@ export function Game() {
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
                     {t('gameExtra.rulesPage8Body')}
+                  </p>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage8Body2')}
                   </p>
                 </div>
               </div>

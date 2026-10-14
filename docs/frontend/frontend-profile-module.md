@@ -164,7 +164,7 @@ sequenceDiagram
 
 ## Achievements (own profile)
 
-Your own profile renders the 13 achievements defined by `ACHIEVEMENTS_DEF` in `Profile.tsx`. The thresholds match the backend registry, which is the version that runs (see [backend-achievements-module.md](../backend/backend-achievements-module.md)). Match types are PvP (player versus player) and PvE (player versus environment, against bots).
+Your own profile renders the 15 achievements defined by `ACHIEVEMENTS_DEF` in `Profile.tsx`. The thresholds match the backend registry, which is the version that runs (see [backend-achievements-module.md](../backend/backend-achievements-module.md)). Match types are PvP (player versus player) and PvE (player versus environment, against bots).
 
 | Key | Requirement |
 |-----|-------------|
@@ -181,8 +181,10 @@ Your own profile renders the 13 achievements defined by `ACHIEVEMENTS_DEF` in `P
 | `achLoveTheMachine` | 3 consecutive PvE games, any outcome (a PvP game resets it) |
 | `achSpeedDemon` | win in under 30 minutes (unknown duration means no unlock) |
 | `achUnstoppable` | 3 captures in a single game |
+| `achSteadyDefender` | 2 clash rounds won as defender in one clash-mode game |
+| `achMercilessAttacker` | 2 clash rounds won as attacker in one clash-mode game |
 
-Hotseat games never count towards any achievement. The badge/tab counter shows `unlocked / 13`.
+Hotseat games never count towards any achievement. The badge/tab counter shows `unlocked / 15`.
 
 
 ---

@@ -128,6 +128,10 @@ export const ms = {
     achUnstoppableDesc: 'Tangkap 3 buah dalam satu perlawanan',
     achSpeedDemon: 'Iblis Kelajuan',
     achSpeedDemonDesc: 'Menang perlawanan dalam masa bawah 30 minit',
+    achSteadyDefender: 'Pertahanan Tabah',
+    achSteadyDefenderDesc: 'Pertahankan 2 pertembungan dalam satu perlawanan mod-pertembungan',
+    achMercilessAttacker: 'Penyerang Tanpa Belas',
+    achMercilessAttackerDesc: 'Menang 2 pertembungan sebagai penyerang dalam satu perlawanan mod-pertembungan',
   },
   notifications: {
     dismissAlert: 'Tutup Amaran',
@@ -323,7 +327,7 @@ export const ms = {
     arenaLaunchControlTitle: '// KAWALAN PELANCARAN ARENA',
     activePilotsLabel: '// PILOT AKTIF:',
     botUnitsLabel: '// UNIT BOT:',
-    unitsCount: '{{count}} UNIT',
+    unitsCount: '{{count}} UNIT{{plural}}',
     arenaModeLabel: '// MOD ARENA:',
     localHotseat: 'HOTSEAT TEMPATAN',
     pveArena: 'ARENA PVE',
@@ -349,23 +353,6 @@ export const ms = {
     createRoomWhileActiveError: 'Ralat: Tidak boleh mencipta bilik baharu semasa bilik sedia ada masih aktif',
     activeGameLockError: 'Anda sudah mempunyai permainan aktif. Keluar dahulu sebelum menyertai bilik lain',
     activeGameLockTooltip: 'Keluar dari permainan aktif untuk mencipta atau menyertai bilik lain',
-  },
-  rules: {
-    modalTitle: 'Cara Bermain Ludo',
-    objectiveTitle: 'Objektif',
-    objectiveBody: 'Jadilah pemain pertama yang menggerakkan keempat-empat buah anda dari Kawasan Mula ke Segi Tiga Rumah.',
-    setupTitle: 'Persediaan',
-    setupBody: 'Setiap pemain memilih salah satu daripada empat warna (Merah, Hijau, Kuning, Biru) dan meletakkan empat buah mereka di Kawasan Mula yang sepadan.',
-    turnOrderTitle: 'Giliran & Membaling Dadu',
-    turnOrderBody: 'Permainan berjalan mengikut arah jam. Buah bermula terkunci di Kawasan Mula: anda perlu membaling 6 untuk memasukkan buah ke laluan. Membaling 6 juga memberi giliran bonus. Baling tiga 6 berturut-turut, giliran anda dilucutkan.',
-    movementTitle: 'Pergerakan & Penawanan',
-    movementBody: 'Gerakkan buah ke hadapan mengikut bilangan tepat pada dadu. Mendarat di petak buah lawan akan menawan buah tersebut dan menghantarnya pulang ke Kawasan Mula, serta memberi anda giliran bonus. Dua buah anda sendiri pada petak yang sama membentuk sekatan yang tidak boleh dilalui lawan.',
-    zonesTitle: 'Zon Papan',
-    zoneStarting: 'Kawasan Mula ("Penjara"): buah di sini tidak aktif; perlu baling 6 untuk keluar.',
-    zoneTrack: 'Laluan Putih: laluan luar 52 petak yang dikongsi semua pemain; pergerakan, penawanan dan sekatan biasa terpakai di sini.',
-    zoneStar: 'Petak Bintang: zon selamat di mana buah tidak boleh ditawan.',
-    zoneColumn: 'Lorong Berwarna: laluan pulang 5 petak khas anda; hanya buah anda sendiri boleh masuk, selamat sepenuhnya daripada ditawan.',
-    zoneHome: 'Segi Tiga Rumah: garis penamat; anda perlu baling nombor yang tepat untuk masuk, dan buah yang masuk bersara daripada permainan.',
   },
   game: {
     copyRoomCodeTooltip: 'Klik untuk salin Kod Bilik',
@@ -771,16 +758,22 @@ export const ms = {
     rulesPage6Step2: 'Kiraan detik 3 saat — pertahanan lawan penyerang',
     rulesPage6Step3: 'Tekan kekunci laju — penuhkan meter anda',
     rulesPage6Step4: 'Pemenang kekal · yang kalah masuk penjara (walaupun penyerang!)',
+    rulesPage6Chain:
+      'Mendarat di atas tembok — dua buah atau lebih bertindan — bukan satu pertarungan tetapi satu Clash bagi setiap pertahanan, setiap pusingan perlumbaan kekunci yang baharu: menang semuanya berturut-turut dan petak itu milik anda, kalah satu dan tembok itu bertahan.',
     rulesPage6Touch:
       'Pada tablet anda mengetik bulatan yang memegang kekunci anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
     rulesPage7Header: '// TANPA ZON SELAMAT (HARDCORE)',
     rulesPage7Title: '💀 Tiada tempat bersembunyi',
     rulesPage7Body:
-      'Lapan petak bintang tidak lagi melindungi, jadi buah boleh ditangkap di mana-mana petak. Hanya petak selamat berubah: petak permulaan dan lorong rumah anda berfungsi seperti biasa.',
+      'Lapan petak bintang tidak lagi melindungi, jadi buah boleh ditangkap di mana-mana di laluan — termasuk petak permulaan anda sendiri. Hanya lorong rumah masih melindungi anda.',
+    rulesPage7Body2:
+      'Tanpa zon selamat, bintang tidak lagi menjadi pengecualian untuk susunan: dua buah pada satu petak — walaupun di atas bintang — membentuk tembok yang menyekat laluan. Dan jika mod Clash turut aktif, tembok itu boleh dipecahkan: mendarat di atasnya dan lawan satu Clash bagi setiap pertahanan.',
     rulesPage8Header: '// KELUAR BEBAS',
     rulesPage8Title: '🚪 Keluar penjara dengan sebarang guling',
     rulesPage8Body:
       'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang guling membebaskannya, dan buah itu bergerak sebanyak mata guling dari petak permulaan.',
+    rulesPage8Body2:
+      'Gulingan 6 masih memberi gulingan bonus, dan keluar penjara tidak pernah menyerang tembok: ia berkongsi petak itu.',
   },
   legal: {
     privacyPolicy: 'DASAR PRIVASI',

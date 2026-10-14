@@ -4,7 +4,7 @@
 
 - [Overview](#overview) — Achievement evaluation and retrieval
 - [Files](#files) — Source file inventory
-- [Key Types / Interfaces](#key-types--interfaces) — The 13 achievements and response shape
+- [Key Types / Interfaces](#key-types--interfaces) — The 15 achievements and response shape
 - [API Endpoints](#api-endpoints) — Both routes
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagram of check flow
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees
@@ -17,7 +17,7 @@
 
 ## Overview
 
-The Achievements module tracks 13 achievement badges earned from match performance. Achievements are stored as true/false columns on the 1:1 `Achievement` model (see `backend-database-schema-system.md`). They are evaluated in two ways:
+The Achievements module tracks 15 achievement badges earned from match performance. Achievements are stored as true/false columns on the 1:1 `Achievement` model (see `backend-database-schema-system.md`). They are evaluated in two ways:
 
 1. **Automatically after a game** — `evaluateAfterGame(gameId)` runs after every PvP/PvE game ends, checks each real (non-bot) player, and sends a notification when an achievement unlocks.
 2. **On demand** — `POST /api/achievements/check` re-evaluates the current user silently (no notifications), which is useful after a rule change.
@@ -35,7 +35,7 @@ Hotseat games never reach the backend, so they are not counted. Bots (`user_id` 
 |------|------|
 | `achievements.controller.ts` | HTTP routes: GET list, POST check |
 | `achievements.service.ts` | Business logic: evaluate rules, unlock flags, fire notifications |
-| `achievements.registry.ts` | Single source of truth: 13 rules with keys, types, and thresholds |
+| `achievements.registry.ts` | Single source of truth: 15 rules with keys, types, and thresholds |
 | `achievements.module.ts` | NestJS module — registers controller, service, PrismaService |
 
 
@@ -45,7 +45,7 @@ Hotseat games never reach the backend, so they are not counted. Bots (`user_id` 
 
 ## Key Types / Interfaces
 
-### The 13 Achievements
+### The 15 Achievements
 
 The registry (`achievements.registry.ts`) defines two rule types:
 - **`lifetime`** — cumulative thresholds over PvP/PvE history.
@@ -66,8 +66,12 @@ The registry (`achievements.registry.ts`) defines two rule types:
 | 11 | `achLoveTheMachine` | Love The Machine | lifetime | 3-game PvE streak | `User.pveGameStreak` |
 | 12 | `achSpeedDemon` | Speed Demon | per-game | Win in under 30 minutes | rank 1 + game duration (`Game.startedAt` / `Game.endedAt`) |
 | 13 | `achUnstoppable` | Unstoppable | per-game | Capture ≥ 3 pieces in one game | `GameParticipant.piecesCaptured` |
+| 14 | `achSteadyDefender` | Steady Defender | per-game | Win ≥ 2 clash rounds as defender in one game | `GameParticipant.clashDefends` |
+| 15 | `achMercilessAttacker` | Merciless Attacker | per-game | Win ≥ 2 clash rounds as attacker in one game | `GameParticipant.clashAttacksWon` |
 
-> **Lifetime rule sources** (`wins`, `botWins`, `humanWins`) come from `LifecycleCounts`, computed once per evaluation from the user's `COMPLETED` PVP/PVE participations (`rank === 1`). The streak inputs (`winStreak`, `pveGameStreak`) are stored on the **`User`** model, not on `Achievement` — the `Achievement` row stores only the 13 unlocked flags. In-app display copy for each name/description is defined in `frontend/src/locales/en.ts` (`achXxx` / `achXxxDesc` keys).
+> **The two clash rules** (14, 15) read the clash-mode tallies the engine sends on `POST /api/game/end`. With clash off both columns are 0, so neither can unlock. A chain counts one round per defender, and a repelled attacker still records every round it won (`clash-engine.ts`), so a defended wall run can unlock both.
+
+> **Lifetime rule sources** (`wins`, `botWins`, `humanWins`) come from `LifecycleCounts`, computed once per evaluation from the user's `COMPLETED` PVP/PVE participations (`rank === 1`). The streak inputs (`winStreak`, `pveGameStreak`) are stored on the **`User`** model, not on `Achievement` — the `Achievement` row stores only the 15 unlocked flags. In-app display copy for each name/description is defined in `frontend/src/locales/en.ts` (`achXxx` / `achXxxDesc` keys).
 
 To add or tweak an achievement, edit `ACHIEVEMENT_KEYS` / `ACHIEVEMENT_RULES` in `achievements.registry.ts` — no new endpoints or logic are needed.
 
@@ -89,6 +93,8 @@ To add or tweak an achievement, edit `ACHIEVEMENT_KEYS` / `ACHIEVEMENT_RULES` in
   achLoveTheMachine: { unlocked: boolean; progress: number; target: number };  // Love The Machine achievement (3 PvE streak)
   achSpeedDemon: { unlocked: boolean; progress: number; target: number };  // Speed Demon achievement (win under 30 min)
   achUnstoppable: { unlocked: boolean; progress: number; target: number };  // Unstoppable achievement (3 captures in a game)
+  achSteadyDefender: { unlocked: boolean; progress: number; target: number };  // Steady Defender achievement (2 clash rounds defended)
+  achMercilessAttacker: { unlocked: boolean; progress: number; target: number };  // Merciless Attacker achievement (2 clash rounds won as attacker)
 }
 
 // POST /api/achievements/check returns:
@@ -106,7 +112,7 @@ To add or tweak an achievement, edit `ACHIEVEMENT_KEYS` / `ACHIEVEMENT_RULES` in
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/achievements` | JWT | Report for all 13 achievements: `{ unlocked, progress, target }` per key |
+| `GET` | `/api/achievements` | JWT | Report for all 15 achievements: `{ unlocked, progress, target }` per key |
 | `POST` | `/api/achievements/check` | JWT | Force re-evaluate (silent backfill), return newly-unlocked keys |
 
 
@@ -152,7 +158,7 @@ sequenceDiagram
 ```
 GET /api/achievements (JWT)
   └── Walk the achievement registry for the user's Achievement row
-       ├── Found → 200 { achFirstBlood: { unlocked, progress, target }, ..., achUnstoppable: { ... } }
+       ├── Found → 200 { achFirstBlood: { unlocked, progress, target }, ..., achMercilessAttacker: { ... } }
        └── Not found → 200 {}
 ```
 
@@ -181,7 +187,8 @@ POST /api/achievements/check (JWT)
 - **`achLoveTheMachine` depends on `User.pveGameStreak`**, which increments on any PVE game (any rank) and resets to 0 on a PVP game (`match.postgame.service.ts`). It is not derivable from lifetime win/loss counts, so seed data approximates it rather than guaranteeing it.
 - **`achSpeedDemon` needs both `startedAt` and `endedAt`** on the game; if either is missing, progress is 0 (no unlock) — it does not error.
 - **`POST /achievements/check`** runs the same rules with `announce: false` — a silent backfill pass useful after schema/seed changes. Because no single game is passed in, it replays the user's full `COMPLETED` game history so per-game rules can unlock from historical games, not just the latest one.
-- **Frontend badge counter** (`achievementsBadge` / `achievementsTab`) is `unlocked / 13`.
+- **Frontend badge counter** (`achievementsBadge` / `achievementsTab`) is `unlocked / 15`.
+- **The two clash rules have no seed data**: `seed.ts` leaves both flags false, and only a clash-mode game (or the `POST /check` backfill over a game that recorded tallying rounds) can unlock them.
 
 
 ---

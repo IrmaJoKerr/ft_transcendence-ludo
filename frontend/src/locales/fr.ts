@@ -130,6 +130,10 @@ export const fr = {
     achUnstoppableDesc: 'Capturez 3 pièces dans une seule partie',
     achSpeedDemon: 'Démon de la Vitesse',
     achSpeedDemonDesc: 'Gagnez une partie en moins de 30 minutes',
+    achSteadyDefender: 'Défenseur Constant',
+    achSteadyDefenderDesc: 'Défendez 2 chocs dans une partie en mode choc',
+    achMercilessAttacker: 'Attaquant Impitoyable',
+    achMercilessAttackerDesc: 'Gagnez 2 chocs en attaque dans une partie en mode choc',
   },
   notifications: {
     dismissAlert: "Masquer l'alerte",
@@ -352,23 +356,6 @@ export const fr = {
     activeGameLockError: 'Vous avez déjà une partie en cours. Quittez-la avant de rejoindre une autre salle',
     activeGameLockTooltip: 'Quittez votre partie en cours pour créer ou rejoindre une autre salle',
   },
-  rules: {
-    modalTitle: 'Comment Jouer au Ludo',
-    objectiveTitle: 'Objectif',
-    objectiveBody: 'Soyez le premier joueur à déplacer vos quatre pièces de la Zone de Départ jusqu\'au Triangle d\'Arrivée.',
-    setupTitle: 'Mise en Place',
-    setupBody: 'Chaque joueur choisit une des quatre couleurs (Rouge, Vert, Jaune, Bleu) et place ses quatre pièces dans sa Zone de Départ correspondante.',
-    turnOrderTitle: 'Ordre des Tours & Lancer de Dé',
-    turnOrderBody: 'Le jeu se déroule dans le sens horaire. Les pièces commencent verrouillées dans la Zone de Départ : vous devez obtenir un 6 pour entrer une pièce sur le parcours. Obtenir un 6 donne également un lancer bonus. Si vous obtenez trois 6 d\'affilée, votre tour est perdu.',
-    movementTitle: 'Déplacement & Capture',
-    movementBody: 'Avancez une pièce du nombre exact de cases indiqué par le dé. Atterrir sur la pièce d\'un adversaire la capture, la renvoie dans sa Zone de Départ et vous octroie un lancer bonus. Deux de vos propres pièces sur la même case forment un blocage infranchissable par les adversaires.',
-    zonesTitle: 'Zones du Plateau',
-    zoneStarting: 'Zone de Départ ("Prison") : les pièces y sont inactives ; un 6 est requis pour en sortir.',
-    zoneTrack: 'Parcours Blanc : la piste extérieure partagée de 52 cases où s\'appliquent déplacements, captures et blocages.',
-    zoneStar: 'Cases Étoile : zones de sécurité où les pièces ne peuvent pas être capturées.',
-    zoneColumn: 'Colonne Colorée : votre ligne droite d\'arrivée de 5 cases ; seules vos propres pièces peuvent y entrer, en toute sécurité.',
-    zoneHome: 'Triangle d\'Arrivée : l\'arrivée finale ; vous devez obtenir le nombre exact pour y entrer, et les pièces s\'y retirent du jeu.',
-  },
   game: {
     copyRoomCodeTooltip: 'Cliquez pour copier le code du salon',
     returnToLobbyTooltip: 'Retour au salon Ludo',
@@ -382,7 +369,7 @@ export const fr = {
     yourTurnShort: 'Votre tour',
     waitingRoomTitle: 'Salle d\'Attente',
     pausedForReconnectTitle: 'EN PAUSE // EN ATTENTE DE {{name}}',
-    pausedForReconnectDetail: 'Joueur deconnecte, reconnexion ou tour suivant.',
+    pausedForReconnectDetail: "{{name}} s'est déconnecté : reconnexion ou le tour passera.",
     readyNeedsOpponent: 'En attente d\'un adversaire…',
     readyBadge: 'Prêt',
     localPlayer: 'Local',
@@ -776,16 +763,22 @@ export const fr = {
     rulesPage6Step2: 'Compte à rebours de 3 s — défenseur contre attaquant',
     rulesPage6Step3: 'Martelez votre touche — remplissez votre jauge',
     rulesPage6Step4: 'Le gagnant reste · le perdant va en prison (même l’attaquant !)',
+    rulesPage6Chain:
+      "Atterrir sur un mur — deux pièces ou plus empilées — n'est pas un seul combat mais un Clash par défenseur, chaque manche étant une nouvelle course aux touches : gagnez-les d'affilée et la case est à vous, perdez-en une et le mur tient.",
     rulesPage6Touch:
       "Sur tablette, vous touchez le cercle de votre touche au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
     rulesPage7Header: '// SANS ZONES SÛRES (HARDCORE)',
     rulesPage7Title: '💀 Nulle part où se cacher',
     rulesPage7Body:
-      "Les huit cases étoilées cessent de protéger : une pièce peut être capturée n'importe où sur le plateau. Seules les cases sûres changent : votre case de départ et votre couloir final fonctionnent comme avant.",
+      "Les huit cases étoilées cessent de protéger : une pièce peut être capturée n'importe où sur le parcours — votre propre case de départ comprise. Seul le couloir final vous protège encore.",
+    rulesPage7Body2:
+      "Sans zones sûres, les étoiles ne font plus exception pour les piles : deux pièces sur une case — une étoile y compris — forment un mur qui bloque le passage. Et si le mode Clash est aussi actif, ce mur peut être brisé : posez-vous dessus et livrez un Clash par défenseur.",
     rulesPage8Header: '// SORTIE LIBRE',
     rulesPage8Title: '🚪 Sortez de prison sur tout lancer',
     rulesPage8Body:
       "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer la libère, puis la pièce avance du nombre de pas obtenu depuis la case de départ.",
+    rulesPage8Body2:
+      "Un 6 conserve son lancer bonus, et une sortie n'attaque jamais un mur : elle partage la case.",
   },
   legal: {
     privacyPolicy: 'POLITIQUE DE CONFIDENTIALITÉ',

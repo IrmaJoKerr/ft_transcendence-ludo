@@ -260,7 +260,7 @@ and after a Redis reconnect (see [Engine restart recovery](#engine-restart-recov
 
 Prisma-managed, schema at `backend/prisma/schema.prisma`.
 
-**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (13 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
+**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (15 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
 **Enums:** `FriendshipStatus`, `PlayerColor`, `GameStatus`, `GameType`
 
 Schema is applied with `npx prisma db push` (**no** `--accept-data-loss`) from
@@ -353,7 +353,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `UserModule` | `/api/user` | Profile, avatar, game history |
 | `FriendsModule` | `/api/friends` | Requests, accept/decline, block |
 | `LeaderboardModule` | `/api/leaderboard` | Rankings, Redis sorted sets (Postgres backfill when the set is empty; a Redis outage surfaces as an error) |
-| `AchievementsModule` | `/api/achievements` | 13 Ludo achievements |
+| `AchievementsModule` | `/api/achievements` | 15 Ludo achievements |
 | `StatsModule` | `/api/stats` | Per-player aggregates |
 | `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle |
 | `PresenceModule` | `/api/presence` | Online/offline/playing presence tracking |
@@ -572,10 +572,10 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── leaderboard.service.ts        # ranking logic + response envelope
 │   │   │   ├── leaderboard-redis.service.ts  # Redis sorted-set storage (one set per mode)
 │   │   │   └── leaderboard.module.ts
-│   │   ├── achievements/         # 13 Ludo achievements
+│   │   ├── achievements/         # 15 Ludo achievements
 │   │   │   ├── achievements.controller.ts  # progress report + check route
 │   │   │   ├── achievements.service.ts     # evaluation logic
-│   │   │   ├── achievements.registry.ts    # authoritative list of the 13 achievements
+│   │   │   ├── achievements.registry.ts    # authoritative list of the 15 achievements
 │   │   │   └── achievements.module.ts
 │   │   ├── player-stats/         # Per-player aggregates
 │   │   │   ├── stats.controller.ts  # GET /api/stats
@@ -702,7 +702,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
     │   ├── backend-friends-module.md         # Friend requests, block/unblock, game invites
     │   ├── backend-match-module.md           # Matchmaking (PvP/PvE/hotseat) + lifecycle
     │   ├── backend-leaderboard-module.md     # Rankings (Redis cache + Postgres fallback)
-    │   ├── backend-achievements-module.md    # 13 achievement badges + evaluation
+    │   ├── backend-achievements-module.md    # 15 achievement badges + evaluation
     │   ├── backend-player-stats-module.md    # Per-player lifetime statistics
     │   ├── backend-presence-module.md         # Online / in-game / offline tracking
     │   ├── backend-notification-module.md    # Real-time notifications (SSE + Redis pub/sub)

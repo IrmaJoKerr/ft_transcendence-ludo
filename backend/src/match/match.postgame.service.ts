@@ -15,6 +15,8 @@ export interface GameEndParticipant {
   rank: number;
   piecesCaptured?: number;
   piecesInGoal?: number;
+  clashDefends?: number;
+  clashAttacksWon?: number;
 }
 export interface GameEndPayload {
   gameId: string;
@@ -112,6 +114,10 @@ export class MatchPostgameService {
             rank: p.rank,
             piecesCaptured: p.piecesCaptured ?? 0,
             piecesInGoal: p.piecesInGoal ?? 0,
+            // Written even when the room had clash off: both read 0 there, and
+            // the columns are the only place the clash achievements can read.
+            clashDefends: p.clashDefends ?? 0,
+            clashAttacksWon: p.clashAttacksWon ?? 0,
           },
         });
 

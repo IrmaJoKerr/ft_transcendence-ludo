@@ -155,7 +155,7 @@ export class AchievementsService {
     }
   }
 
-  // GET /api/achievements : report for all 13 achievement keys.
+  // GET /api/achievements : report for all 15 achievement keys.
   async getUserAchievements(userId: string, targetUsername?: string) {
     let effectiveUserId = userId;
     if (targetUsername) {

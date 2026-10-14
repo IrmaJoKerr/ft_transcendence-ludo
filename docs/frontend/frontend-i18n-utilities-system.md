@@ -82,6 +82,7 @@ flowchart LR
 1. On startup `i18n.ts` reads `lr.lang`, validates it against `['en', 'ms', 'fr']`, and initializes i18next with the matching resource bundle (`en` fallback).
 2. Components call `useTranslation()`; the language selector (in `RetroNavbar`, `LegalPage`, and others) switches language at runtime via `setLang` from the store, which updates both i18next and `lr.lang`.
 3. `LegalPage` reads the route (`/privacy` or `/terms`), picks the markdown document for the current language, and renders it through `MarkdownViewer`.
+4. A string lands in all three sheets at once: `en.ts` is the reference, and `fr` plus `ms` carry every key with the same `{{placeholders}}`, so a call site may name only a key that exists in all three. A standalone developer audit, kept outside this checkout because it is tooling rather than product code, fails the run on a key missing from `fr` or `ms`, on `{{placeholders}}` that differ across the three, and on a call site naming a nonexistent key. Dead copy is reported but never fails; a key reached through a variable (`i18n.t(code)` for backend errors, `COLOR_KEYS[ck]`) cannot be proven unused from the call sites alone.
 
 
 ---

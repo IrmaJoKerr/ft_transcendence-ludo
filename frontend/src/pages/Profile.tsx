@@ -85,7 +85,7 @@ const STATUS_KEYS: Record<PresenceStatus, string> = {
   offline: 'friends.offline',
 };
 
-/** The 13 visible achievements. */
+/** The 15 visible achievements. */
 const ACHIEVEMENTS_DEF = [
   {
     key: 'achFirstBlood',
@@ -148,6 +148,18 @@ const ACHIEVEMENTS_DEF = [
     key: 'achUnstoppable',
     fallbackTitle: 'UNSTOPPABLE',
     desc: 'Capture 3 pieces in one game',
+    icon: '⚔️',
+  },
+  {
+    key: 'achSteadyDefender',
+    fallbackTitle: 'STEADY DEFENDER',
+    desc: 'Defend 2 clashes in one clash-mode game',
+    icon: '🛡️',
+  },
+  {
+    key: 'achMercilessAttacker',
+    fallbackTitle: 'MERCILESS ATTACKER',
+    desc: 'Win 2 clashes as attacker in one clash-mode game',
     icon: '⚔️',
   },
 ];

@@ -42,7 +42,7 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | `match.creator.service.ts` | Match creation: PvP/PvE/hotseat, invite codes, room joining, bot seeding |
 | `match.player.service.ts` | In-game actions: join, rejoin, invite friend, ready, exit, cancel |
 | `match.query.service.ts` | Browse queries: open rooms, my rooms |
-| `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, achievements) |
+| `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, persists the clash tallies, achievements) |
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
 | `active-game.ts` | The strict state lock — `hasLiveMatch()`: does this player already hold a seat in a live game? Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, `POST /api/game/:id/invite` and rejoin refusal |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
@@ -121,7 +121,7 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
 | `POST` | `/api/game/:id/invite` | JWT | Invite a friend into a WAITING PvP room |
 | `GET` | `/api/games/rooms` | JWT | List the PvP rooms the caller may enter (open lobby rooms + their own reclaimable seats in started games) |
 | `GET` | `/api/games/mine` | JWT | List rooms the user is seated in |
-| `POST` | `/api/game/end` | engine key (`X-Engine-Key`) | Engine callback — process game end (scoring/achievements) |
+| `POST` | `/api/game/end` | engine key (`X-Engine-Key`) | Engine callback — process game end (scoring/achievements); persists `clashDefends` / `clashAttacksWon` per participant |
 | `POST` | `/api/game/:id/started` | engine key (`X-Engine-Key`) | Engine callback — mark game started |
 
 > **Invite body validation:** `POST /api/game/:id/invite` takes an

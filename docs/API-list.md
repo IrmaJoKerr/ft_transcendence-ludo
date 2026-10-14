@@ -1489,7 +1489,7 @@ to `WAITING` cannot resurrect a dead seat.
 
 **Source:** `backend/src/match/match.controller.ts` — MatchModule
 
-Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authenticated via `x-engine-key` header. The payload lists the **human seats that finished**: bots and seats nobody took are not sent.
+Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authenticated via `x-engine-key` header. The payload lists the **human seats that finished**: bots and seats nobody took are not sent. Each seat also carries its clash-mode tallies (`clashDefends`, `clashAttacksWon`), both optional and 0 by default. The engine additionally sends `totalTurns`, which this handler ignores.
 
 **Headers:** `x-engine-key: <ENGINE_API_KEY>`  
 **Body:**
@@ -1503,7 +1503,9 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
       "color": "'RED'|'GREEN'|'YELLOW'|'BLUE'",
       "rank": 1,
       "piecesCaptured": 3,
-      "piecesInGoal": 4
+      "piecesInGoal": 4,
+      "clashDefends": 2,
+      "clashAttacksWon": 0
     }
   ]
 }

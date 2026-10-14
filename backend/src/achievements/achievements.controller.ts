@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class AchievementsController {
   constructor(private readonly achievements: AchievementsService) {}
 
-  // GET /api/achievements : progress report for all 13 achievements.
+  // GET /api/achievements : progress report for all 15 achievements.
   // Optional ?username=... targets another user.
   @UseGuards(JwtAuthGuard)
   @Get()
