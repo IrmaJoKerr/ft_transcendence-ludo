@@ -18,7 +18,7 @@ import {
   expireDisconnectedPlayer,
 } from './player-handler';
 import type { LobbyManager } from './lobby';
-import { ClashManager } from './clash';
+import { ClashManager, orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
 
 // The room rules as they arrive from the wire, turned into domain truth: only a
@@ -287,6 +287,12 @@ export class LudoEngine {
         const defenderPiece = state.pieces.find((p) => p.id === capturedPieceIds[0]);
         if (defenderPiece) {
           const defenderColor = defenderPiece.color as PlayerColor;
+          // The chain's ledger: EVERY opponent piece on the landing square, one
+          // round each, in ascending piece id order. Order is named by piece id
+          // rather than read off `state.pieces` so it stays stable if that array is
+          // ever rebuilt, and so two runs of the same board fight the same order.
+          const defenderIds = orderDefenderIds(capturedPieceIds);
+          const totalRounds = defenderIds.length;
 
           state.pendingCapture = {
             pieceId,
@@ -295,8 +301,13 @@ export class LudoEngine {
             diceValue,
             attacker: moverColor,
             defender: defenderColor,
-            capturedPieceIds,
+            capturedPieceIds: defenderIds,
             enteredHome: pendingMove.isHomeEntry,
+            // Round 1 of R, with the ledger the chain advances on every win.
+            round: 1,
+            totalRounds,
+            remainingDefenderIds: [...defenderIds],
+            beatenDefenderIds: [],
           };
           state.pendingLegalMoves = [];
           state.pendingDiceValue = undefined;
@@ -314,6 +325,12 @@ export class LudoEngine {
             defenderColor,
             attackerIsBot,
             defenderIsBot,
+            {
+              round: 1,
+              totalRounds,
+              defenderPieceId: defenderIds[0],
+              remainingDefenderIds: [...defenderIds],
+            },
           );
 
           // Deferred: no piece_moved yet, the clash outcome emits it afterwards.
@@ -406,7 +423,9 @@ export class LudoEngine {
   }
 
   // Settle a mid-clash disconnect immediately by meters (tie goes to the
-  // attacker, the same rule as the timeout). Called by socket-handlers AFTER the
+  // attacker, the same rule as the timeout). Inside a chain this settles the
+  // ROUND: a round the attacker takes continues the chain, a round it loses
+  // repels the attack and ends the move. Called by socket-handlers AFTER the
   // disconnect's own lock has released, so it cannot re-enter that lock.
   async resolveClashOnDisconnect(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
@@ -444,9 +463,17 @@ export class LudoEngine {
     color: PlayerColor,
     displayName?: string,
   ): Promise<boolean> {
-    return this.withGameLock(gameId, () =>
+    const revived = await this.withGameLock(gameId, () =>
       handlePlayerReconnect(this.store, gameId, color, displayName),
     );
+    // A chain resumes on the seat that dropped: a disconnect froze the game
+    // mid-chain, so the reconnect is what starts the round the pause swallowed.
+    // Called AFTER the lock above is released: startNextRound takes the game lock
+    // itself and a re-entrant self-lock would deadlock.
+    if (revived) {
+      await this.clashEngine.startNextRound(gameId);
+    }
+    return revived;
   }
 
   async handlePlayerReady(gameId: string, color: PlayerColor): Promise<void> {

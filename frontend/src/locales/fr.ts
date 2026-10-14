@@ -443,6 +443,13 @@ export const fr = {
     clashPressHint:
       'Appuyez sans arrêt sur votre touche pour remplir la barre — {{seconds}}s pour gagner !',
     clashYou: 'VOUS',
+    // Chaînes de clash : attaquer une case empilée, c'est un clash par défenseur.
+    // Les clashs à un seul défenseur n'affichent ni la pastille ni la ligne.
+    clashRoundBadge: 'MANCHE {{round}} / {{total}}',
+    clashRoundOver: 'MANCHE TERMINÉE',
+    clashRoundWon: 'Encore {{left}} défenseur(s) — préparez la manche suivante…',
+    clashChainBroken: 'Mur brisé — la case est à vous !',
+    clashChainRepulsed: 'Repoussé — le mur tient.',
     clashOver: 'CLASH TERMINÉ',
     clashYouWon: '⚔️ Vous avez gagné !',
     clashWins: '{{color}} gagne',
@@ -705,6 +712,8 @@ export const fr = {
     greenBay: 'VERT-BAIE',
     yellowBay: 'JAUNE-BAIE',
     blueBay: 'BLEU-BAIE',
+    // Infobulle du badge ×R : attaquer une pile de R défenseurs coûte R manches.
+    chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
   },
   gameExtra: {
     diceRollLabel: 'LANCER DE DÉ :',

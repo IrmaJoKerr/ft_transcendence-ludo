@@ -176,6 +176,35 @@ function Plate({ role, color, isMe }: { role: 'defender' | 'attacker'; color: Pl
 const KEY_BADGE_W = 67;
 const KEY_BADGE_H = 61;
 
+/**
+ * Round pill for a clash CHAIN: "ROUND 2 / 3". A stacked square costs one round
+ * per defender, and each round is a fresh race with fresh keys, so the player
+ * must be able to see how far the attack has come. Absent (null) on a
+ * single-defender clash, which stays exactly the card it always was.
+ */
+function RoundBadge({ round, total }: { round: number; total: number }) {
+  const { t } = useTranslation();
+  if (total <= 1) return null;
+  return (
+    <div
+      style={{
+        display: 'inline-block',
+        padding: '3px 14px',
+        borderRadius: 999,
+        border: '1px solid var(--accent-yellow)',
+        background: 'rgba(255, 214, 0, 0.08)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 13,
+        fontWeight: 700,
+        letterSpacing: '.16em',
+        color: 'var(--accent-yellow)',
+      }}
+    >
+      {t('game.clashRoundBadge', { round, total })}
+    </div>
+  );
+}
+
 /** Large bold key chip — fixed static border, highlighted for the owning player, dimmed otherwise. */
 function KeyBadge({ label, emphasized }: { label: string; emphasized: boolean }) {
   return (
@@ -376,6 +405,20 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
   );
   // One clash is one round today; a chain re-randomises the pad per round.
   const round = clash.round ?? 1;
+  // Clash CHAIN: a stacked square costs one round per defender. The engine stamps
+  // the round on every clash_start of a chain, so a single clash reads 1/1 and
+  // the badge below renders nothing: this card is unchanged for it.
+  const totalRounds = clash.totalRounds ?? 1;
+  // Chain copy for the result card. A round the attacker took while defenders
+  // remain says how many are left (the next round is coming); the round that ends
+  // the attack says which way it ended. A single clash gets no line at all.
+  const chainLine = !result || (result.totalRounds ?? 1) <= 1
+    ? null
+    : result.continues
+      ? t('game.clashRoundWon', { left: result.remainingDefenderIds?.length ?? 0 })
+      : result.winner === clash.attacker
+        ? t('game.clashChainBroken')
+        : t('game.clashChainRepulsed');
 
   // The overlay swallows every tap. A stray tap must not reach the board and
   // emit a roll or a move: the server rejects both during the press window (the
@@ -501,7 +544,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                 marginBottom: 10,
               }}
             >
-              {t('game.clashOver')}
+              {result.continues ? t('game.clashRoundOver') : t('game.clashOver')}
             </div>
             <div
               style={{
@@ -516,6 +559,23 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                 ? t('game.clashYouWon')
                 : t('game.clashWins', { color: result.winner.toUpperCase() })}
             </div>
+            {chainLine && (
+              <div
+                style={{
+                  marginBottom: 14,
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: 'var(--text-main)',
+                }}
+              >
+                {chainLine}
+              </div>
+            )}
+            {result.totalRounds != null && result.totalRounds > 1 && (
+              <div style={{ marginBottom: 14 }}>
+                <RoundBadge round={result.round ?? round} total={result.totalRounds} />
+              </div>
+            )}
             <div
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28 }}
             >
@@ -571,11 +631,21 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                 clash: CLASH_PRESS_MS / 1000,
               })}
             </div>
+            {totalRounds > 1 && (
+              <div style={{ marginTop: 18 }}>
+                <RoundBadge round={round} total={totalRounds} />
+              </div>
+            )}
             <div style={{ marginTop: 22 }}>{plates}</div>
           </>
         ) : (
           <>
             {plates}
+            {totalRounds > 1 && (
+              <div style={{ marginTop: 18 }}>
+                <RoundBadge round={round} total={totalRounds} />
+              </div>
+            )}
             <div
               style={{
                 marginTop: 22,

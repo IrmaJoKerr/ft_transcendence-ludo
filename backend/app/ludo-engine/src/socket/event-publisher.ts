@@ -87,6 +87,17 @@ export class EventPublisher {
             pressDeadline: event.pressDeadline,
             attackerPresses: event.attackerPresses,
             defenderPresses: event.defenderPresses,
+            // Chain fields: which round this is, how many the attack costs, and
+            // the defenders standing on the square (the round's defender first).
+            // `info` is always supplied on the engine's capture path, so these
+            // reach the client for every clash; a single-defender clash reads
+            // 1/1 and the client shows no round badge. Defaults rather than
+            // omission (null / [] instead of undefined) keep the frame's field
+            // set CONSTANT, which is what the clash probe asserts.
+            round: event.round ?? 1,
+            totalRounds: event.totalRounds ?? 1,
+            defenderPieceId: event.defenderPieceId ?? null,
+            remainingDefenderIds: event.remainingDefenderIds ?? [],
           }),
         );
         break;
@@ -125,6 +136,16 @@ export class EventPublisher {
             loser: event.loser,
             winnerPresses: event.winnerPresses,
             loserPresses: event.loserPresses,
+            // Chain fields: the round that just ended, whether the square still
+            // holds defenders (the client then keeps the boards up for the next
+            // round), the defender that lost it and who is left standing. A
+            // single clash publishes 1/1 with continues false, so the client
+            // reads one shape.
+            round: event.round ?? 1,
+            totalRounds: event.totalRounds ?? 1,
+            continues: event.continues ?? false,
+            defenderPieceId: event.defenderPieceId ?? null,
+            remainingDefenderIds: event.remainingDefenderIds ?? [],
           }),
         );
         break;

@@ -1,6 +1,6 @@
 import type { RedisGameStore } from './redis';
 import type { EventPublisher } from './socket/event-publisher';
-import type { PlayerColor, ClashState } from './types';
+import type { PlayerColor, ClashState, ChainRound, PieceId } from './types';
 
 // One key grid per side, split so two players at one keyboard (hotseat) never
 // reach for the same key: defender keys are the left-hand block, attacker keys
@@ -27,6 +27,19 @@ export const CLASH_BOT_JITTER_MS = 30; // random ± spread added to each interva
 export const CLASH_BOT_VS_BOT_WIN_CHANCE = 0.5; // bot vs bot: coin flip
 export const CLASH_BOT_VS_HUMAN_WIN_CHANCE = 0.25; // bot vs human: bot win chance
 
+// A wall is fought in ascending piece-id order, so a chain is deterministic: the
+// same board always fights `red-0` before `red-3`, whatever order the pieces
+// happen to sit in the state array (which is rebuilt from Redis on every load).
+// Ids are `{color}-{index}` (see PieceId); a malformed id sorts last, and a tie
+// is broken by the id itself so the order never depends on the input order.
+export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
+  const indexOf = (id: PieceId): number => {
+    const suffix = Number(id.slice(id.lastIndexOf('-') + 1));
+    return Number.isFinite(suffix) ? suffix : Number.MAX_SAFE_INTEGER;
+  };
+  return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
+}
+
 // ClashManager owns one clash QTE's lifecycle: start it, validate and count
 // presses, publish the result and clear it. Phase timers, the recovery sweep and
 // bot pressers live in clash-engine.ts; the clash itself is persisted inside the
@@ -39,8 +52,15 @@ export class ClashManager {
 
   // Start a clash: pick one key per side, stamp the absolute phase deadlines,
   // persist them, then announce. Deadlines are absolute timestamps rather than
-  // delays, which is what lets a restarted engine re-arm the same window.
-  async startClash(gameId: string, attacker: PlayerColor, defender: PlayerColor): Promise<void> {
+  // delays, which is what lets a restarted engine re-arm the same window. `info`
+  // carries the chain's counters and the defender of this round: absent means a
+  // single-defender clash, the R = 1 case of the same shape.
+  async startClash(
+    gameId: string,
+    attacker: PlayerColor,
+    defender: PlayerColor,
+    info?: ChainRound,
+  ): Promise<void> {
     const attackerKey = ATTACKER_KEYS[Math.floor(Math.random() * ATTACKER_KEYS.length)];
     const defenderKey = DEFENDER_KEYS[Math.floor(Math.random() * DEFENDER_KEYS.length)];
     const startedAt = Date.now();
@@ -59,6 +79,8 @@ export class ClashManager {
       attackerPresses: 0,
       defenderPresses: 0,
       lastPressAt: {},
+      round: info?.round ?? 1,
+      totalRounds: info?.totalRounds ?? 1,
     };
     await this.store.saveClashState(gameId, clashState);
     this.publisher.publish({
@@ -77,6 +99,14 @@ export class ClashManager {
       pressDeadline: clashState.pressDeadline,
       attackerPresses: 0,
       defenderPresses: 0,
+      round: clashState.round,
+      totalRounds: clashState.totalRounds,
+      // Only a chain names the defender of the round: a single-defender clash
+      // already shows it as the side of the conflict.
+      ...(info?.defenderPieceId === undefined ? {} : { defenderPieceId: info.defenderPieceId }),
+      ...(info?.remainingDefenderIds === undefined
+        ? {}
+        : { remainingDefenderIds: info.remainingDefenderIds }),
     });
   }
 

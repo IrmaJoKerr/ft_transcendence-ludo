@@ -248,6 +248,13 @@ export function applyEvent(
       return { ...state, clash };
     }
     case 'clash_clear':
+      // A chain's rounds are 2s apart, which is exactly how long the overlay's
+      // result-card timer runs: if that timer fires just after the NEXT round's
+      // clash_start, a blind clear would take the new clash down with the old
+      // card (the overlay unmounts and the round plays out unseen). `clash_start`
+      // already nulled clashResult, so a clear that arrives against a null card
+      // is a leftover and changes nothing.
+      if (!state.clashResult) return state;
       return { ...state, clash: null, clashResult: null };
     case 'player_exited':
       return {

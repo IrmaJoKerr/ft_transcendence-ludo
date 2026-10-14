@@ -326,6 +326,8 @@ type BoardProps = {
     to: number;
     isCapture: boolean;
     isHomeEntry: boolean;
+    /** Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds. */
+    captureCount?: number;
   }>;
   onPieceClick?: (pieceId: string) => void;
   /** While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation. */
@@ -350,7 +352,17 @@ export function Board({
   fx,
   noSafeZones = false,
 }: BoardProps = {}) {
+  const { t } = useTranslation();
   const legalPieceIds = new Set((legalMoves ?? []).map((m) => m.pieceId));
+  // Clash CHAIN preview: an attack onto a STACK of defenders costs one QTE round
+  // per defender, so the legal piece wears a ×R badge and the price of the attack
+  // is visible before the click. 0/1 (a plain move or a single defender) show
+  // nothing: the badge is about walls. Prison exits never attack a wall, so only
+  // on-track pieces can carry one.
+  const chainCounts = new Map<string, number>();
+  for (const m of legalMoves ?? []) {
+    if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
+  }
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );
@@ -431,7 +443,7 @@ export function Board({
   // Render engine-driven pieces on the actual track cell their step maps to.
   // Grouped by cell so pieces sharing a square (common near base/captures)
   // fan out into sub-positions instead of fully overlapping.
-  const byCell = new Map<string, Array<{ id: string; ck: ColorKey; isLegal: boolean }>>();
+  const byCell = new Map<string, Array<{ id: string; ck: ColorKey; isLegal: boolean; chain: number }>>();
   for (const piece of pieces) {
     if (!activeColors.has(piece.color)) continue;
     const isAnimating = animating?.pieceId === piece.id;
@@ -445,7 +457,7 @@ export function Board({
     if (!cell) continue;
     const key = `${cell.r},${cell.c}`;
     const list = byCell.get(key) ?? [];
-    list.push({ id: piece.id, ck, isLegal: legalPieceIds.has(piece.id) });
+    list.push({ id: piece.id, ck, isLegal: legalPieceIds.has(piece.id), chain: chainCounts.get(piece.id) ?? 0 });
     byCell.set(key, list);
   }
 
@@ -557,6 +569,7 @@ export function Board({
           style={{
             gridRow: r + 1,
             gridColumn: c + 1,
+            position: 'relative',
             width: p.isLegal ? 36 : 30,
             height: p.isLegal ? 36 : 30,
             alignSelf: 'center',
@@ -571,6 +584,35 @@ export function Board({
           }}
         >
           <Sphere ck={p.ck} isLegal={p.isLegal} />
+          {p.chain >= 2 && (
+            // ×R on the attacker: this move fights R defenders back to back, i.e.
+            // R QTE rounds (the engine's captureCount). Pointer-events off so the
+            // piece underneath stays the click target.
+            <span
+              title={t('board.chainBadgeTitle', { rounds: p.chain })}
+              style={{
+                position: 'absolute',
+                top: -13,
+                left: '50%',
+                marginLeft: 6,
+                padding: '0 5px',
+                borderRadius: 6,
+                border: '1px solid var(--accent-yellow)',
+                background: 'rgba(13, 2, 33, 0.92)',
+                color: 'var(--accent-yellow)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                fontWeight: 900,
+                lineHeight: '16px',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                zIndex: 31,
+                textShadow: '0 0 6px var(--accent-yellow)',
+              }}
+            >
+              ×{p.chain}
+            </span>
+          )}
         </div>,
       );
     });

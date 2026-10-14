@@ -440,6 +440,13 @@ export const ms = {
     // Clash QTE
     clashPressHint: 'Tekan kekunci anda berulang kali untuk mengisi bar — {{seconds}}s untuk menang!',
     clashYou: 'ANDA',
+    // Rantaian clash: menyerang petak bertindan bermakna satu clash setiap
+    // pertahanan. Clash seorang pertahanan tidak memaparkan pil atau baris ini.
+    clashRoundBadge: 'PUSINGAN {{round}} / {{total}}',
+    clashRoundOver: 'PUSINGAN TAMAT',
+    clashRoundWon: '{{left}} pertahanan lagi — bersedia untuk pusingan seterusnya…',
+    clashChainBroken: 'Tembok pecah — petak itu milik anda!',
+    clashChainRepulsed: 'Dipatahkan semula — tembok bertahan.',
     clashOver: 'CLASH TAMAT',
     clashYouWon: '⚔️ Anda menang!',
     clashWins: '{{color}} menang',
@@ -700,6 +707,8 @@ export const ms = {
     greenBay: 'BAY-HIJAU',
     yellowBay: 'BAY-KUNING',
     blueBay: 'BAY-BIRU',
+    // Petua pada lencana ×R: menyerang timbunan R pertahanan mengambil R pusingan.
+    chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
   },
   gameExtra: {
     diceRollLabel: 'GULING DADU:',

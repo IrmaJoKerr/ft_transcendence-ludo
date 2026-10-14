@@ -44,6 +44,10 @@ export interface LegalMove {
   to: number;
   isCapture: boolean;
   isHomeEntry: boolean;
+  // Defenders the move would fight: 1 for a single one, R for a stacked square
+  // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
+  // ×R badge reads it, so the price of an attack is visible before the click.
+  captureCount?: number;
 }
 
 export interface MoveResult {

@@ -441,6 +441,14 @@ export const en = {
     clashPressHint: 'Spam your key to fill the bar — {{seconds}}s to win!',
     clashYou: 'YOU',
     clashOver: 'CLASH OVER',
+    // Clash CHAINS: an attack on a stacked square is one clash per defender, so
+    // the round pill names the round and the result card says what comes next.
+    // Single-defender clashes show neither.
+    clashRoundBadge: 'ROUND {{round}} / {{total}}',
+    clashRoundOver: 'ROUND OVER',
+    clashRoundWon: '{{left}} defender(s) left — brace for the next round…',
+    clashChainBroken: 'Wall broken — the square is yours!',
+    clashChainRepulsed: 'Repulsed — the wall holds.',
     clashYouWon: '⚔️ You won!',
     clashWins: '{{color}} wins',
     clashVersus: 'VS',
@@ -700,6 +708,9 @@ export const en = {
     greenBay: 'GREEN-BAY',
     yellowBay: 'YELLOW-BAY',
     blueBay: 'BLUE-BAY',
+    // Tooltip on a legal piece's ×R badge: the attack on a stack of R defenders
+    // is R clash rounds, one per defender.
+    chainBadgeTitle: 'Wall of {{rounds}}: this attack is {{rounds}} clash rounds',
   },
   gameExtra: {
     diceRollLabel: 'DICE ROLL:',

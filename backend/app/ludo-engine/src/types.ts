@@ -65,6 +65,13 @@ export interface ClashState {
   attackerPresses: number;
   defenderPresses: number;
   lastPressAt?: Partial<Record<PlayerColor, number>>; // press-cap per side
+  // Clash CHAINS: a wall of N defenders costs N rounds, one defender per round.
+  // `round` is the round in progress (1-based) and `totalRounds` the size of the
+  // wall as stamped when the attack began. Both are 1 (or absent, on a state
+  // written before the chain existed) for a single-defender clash: the chain is
+  // the R = 1 case of the same shape, never a second code path.
+  round?: number;
+  totalRounds?: number;
 }
 
 // A capture deferred until the clash resolves: the move is held here instead of
@@ -78,7 +85,26 @@ export interface PendingCapture {
   defender: PlayerColor;
   capturedPieceIds: PieceId[];
   enteredHome: boolean;
+  // Chain ledger. `remainingDefenderIds` holds every defender still standing on
+  // the landing square (the round's defender first) and `beatenDefenderIds` the
+  // ones already sent home by earlier rounds, so the final application can send
+  // the whole stack home without re-deriving it from the board. `round` is the
+  // round in progress, `totalRounds` the wall size stamped at move time.
+  round?: number;
+  totalRounds?: number;
+  remainingDefenderIds?: PieceId[];
+  beatenDefenderIds?: PieceId[];
 }
+
+// What one round of a chain needs beyond the two colours: which round it is, how
+// many rounds the attack takes, and who is standing in this round. Absent on a
+// single-defender clash, which reads as { round: 1, totalRounds: 1 }.
+export type ChainRound = {
+  round: number;
+  totalRounds: number;
+  defenderPieceId?: PieceId;
+  remainingDefenderIds?: PieceId[];
+};
 
 export interface DisconnectState {
   color: PlayerColor;
@@ -155,6 +181,12 @@ export interface LegalMove {
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
   isHomeEntry: boolean; // move enters the home stretch (52)
+  // How many defenders that capture sends home: 1 for a single piece, the wall's
+  // size (2-4) when the landing attacks a breakable wall, 0 when nothing is
+  // captured at all (a plain move, a shared square, an exit that lands on a wall).
+  // The bot ranks a capture by it (each defender is another clash round) and the
+  // client labels the clash "x N" from it.
+  captureCount: number;
 }
 
 export interface MovePieceOutput {
@@ -213,6 +245,12 @@ export type GameEvent =
       pressDeadline: number;
       attackerPresses: number;
       defenderPresses: number;
+      // Chain fields: which round this is, how many the attack takes, and the
+      // defender standing in it. Absent on a single-defender clash.
+      round?: number;
+      totalRounds?: number;
+      defenderPieceId?: PieceId;
+      remainingDefenderIds?: PieceId[];
     }
   | {
       type: 'clash_phase';
@@ -229,6 +267,17 @@ export type GameEvent =
       loser: PlayerColor;
       winnerPresses: number;
       loserPresses: number;
+      // Chain fields. A chain reuses this frame for every round: `continues` says
+      // whether the square still holds defenders, `defenderPieceId` the defender
+      // that just lost this round, and `remainingDefenderIds` the defenders left
+      // standing AFTER it (what the board re-renders, excluding the beaten one).
+      // `continues` false means the move is complete: this frame follows a
+      // `piece_moved`, or a repulse, on the round the chain ended.
+      round?: number;
+      totalRounds?: number;
+      continues?: boolean;
+      defenderPieceId?: PieceId;
+      remainingDefenderIds?: PieceId[];
     }
   // Host changed the room rules while the room was still waiting. One object in,
   // one object out: the same three fields the panel sent, carrying what was
