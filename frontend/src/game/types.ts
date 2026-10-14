@@ -5,6 +5,8 @@ export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
 export type PieceId = string;
+// Clash QTE phases: announce flash, 3-2-1 countdown, then the press race.
+export type ClashPhase = 'announce' | 'countdown' | 'pressing';
 
 export interface Piece {
   id: PieceId;
@@ -56,6 +58,51 @@ export interface MoveResult {
   capturedPieceIds?: PieceId[];
   enteredHome: boolean;
   bonusRoll: boolean;
+  // Set only on a move that came out of a clash: who won the press race.
+  clashOutcome?: 'attacker_won' | 'defender_won';
+}
+
+// One live clash QTE. Deadlines are absolute (server timestamps), which is what
+// lets the overlay derive every phase from `announceDeadline` /
+// `countdownDeadline` / `pressDeadline` instead of counting locally.
+export interface ClashState {
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  attackerKey: string; // the key the attacker must mash
+  defenderKey: string; // the key the defender must mash
+  target: number; // presses needed to win
+  duration: number; // press window in seconds
+  startedAt: number;
+  announceDeadline: number;
+  countdownDeadline: number;
+  pressDeadline: number;
+  phase: ClashPhase;
+  attackerPresses: number;
+  defenderPresses: number;
+  lastPressAt?: Partial<Record<PlayerColor, number>>; // press cap per side
+  // Clash CHAINS (a stacked square): declared optional on day one so the chain
+  // (Pass 5) is a change of behaviour, not a reopening of the render path.
+  // Absent or 1 on a single-defender clash.
+  round?: number;
+  totalRounds?: number;
+}
+
+// A capture deferred until its clash resolves: the move is held here instead of
+// being applied at move time, so a repelled attack can send the mover home.
+export interface PendingCapture {
+  pieceId: PieceId;
+  from: number;
+  to: number;
+  diceValue: number;
+  attacker: PlayerColor;
+  defender: PlayerColor;
+  capturedPieceIds: PieceId[];
+  enteredHome: boolean;
+  // Chain ledger, optional for the same reason as ClashState's round fields.
+  round?: number;
+  totalRounds?: number;
+  remainingDefenderIds?: PieceId[];
+  beatenDefenderIds?: PieceId[];
 }
 
 export interface DisconnectState {
@@ -84,4 +131,14 @@ export interface GameState {
   paused?: boolean;
   pauseTurnOwner?: PlayerColor;
   pausedReason?: string;
+  clash?: ClashState; // live clash QTE, absent when none is running
+  clashMode: boolean; // clash minigame on (false: capture applies immediately)
+  // Safe zones, stored INVERTED so the three room rules are uniform (false =
+  // the variant is off). A standard room is false/false/false, and an absent
+  // key (a match hash written before this field existed) reads as false, which
+  // is today's default: safe zones on.
+  noSafeZones: boolean; // star squares capture-immune when false
+  freeExit?: boolean; // any roll leaves prison (absent reads as false)
+  pendingCapture?: PendingCapture; // capture held until its clash resolves
+  resultCardUntil?: number; // engine timestamp: input freeze while the card shows
 }

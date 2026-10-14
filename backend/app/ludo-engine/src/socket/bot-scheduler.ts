@@ -5,9 +5,13 @@ import { isBotSeat } from '../bot';
 import type { PlayerColor } from '../types';
 
 // BotTurnScheduler owns bot turn timing: one timer per game (never stacked),
-// called only by SocketServer from engine events and bot-slot joins.
+// called only by SocketServer from engine events and bot-slot joins. A hard
+// freeze also stands bots down while the clash QTE and its result card show.
 export class BotTurnScheduler {
   private botTurnTimers = new Map<string, NodeJS.Timeout>();
+  // While now < clashFreezeUntil[gameId] no bot turn fires. Bots act outside the
+  // human input path that state.resultCardUntil gates, so they need this map.
+  private clashFreezeUntil = new Map<string, number>();
 
   constructor(
     private store: RedisGameStore,
@@ -38,6 +42,9 @@ export class BotTurnScheduler {
           // may finish its chain, but no further triggers run once the turn
           // moves past pauseTurnOwner.
           if (state.paused && state.currentTurn !== state.pauseTurnOwner) return;
+          // Clash freeze: while the QTE or its result card is up, bots stand down.
+          const freezeUntil = this.clashFreezeUntil.get(gameId);
+          if (freezeUntil && Date.now() < freezeUntil) return;
           // Bot detection reads the persisted seat, so a restarted engine (its
           // in-memory seat map empty) still drives the bot's turn.
           if (!isBotSeat(state, state.currentTurn)) return;
@@ -64,10 +71,16 @@ export class BotTurnScheduler {
     this.botTurnTimers.set(gameId, timer);
   }
 
-  // Drop this game's bot-turn state (pending timers).
+  // Freeze bots for a game until `untilMs` (the clash QTE, then its result card).
+  setClashFreeze(gameId: string, untilMs: number): void {
+    this.clashFreezeUntil.set(gameId, untilMs);
+  }
+
+  // Drop this game's bot-turn state (pending timers + clash freeze).
   clear(gameId: string): void {
     const timer = this.botTurnTimers.get(gameId);
     if (timer) clearTimeout(timer);
     this.botTurnTimers.delete(gameId);
+    this.clashFreezeUntil.delete(gameId);
   }
 }

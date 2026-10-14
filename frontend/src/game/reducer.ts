@@ -2,7 +2,20 @@
 // The reducer is a renderer: it never decides outcomes.
 // The engine is authoritative; the reducer just keeps the UI in sync.
 
-import type { GameState, LegalMove, MoveResult, PlayerColor } from './types';
+import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
+
+export type ClashResult = {
+  winner: PlayerColor;
+  loser: PlayerColor;
+  winnerPresses: number;
+  loserPresses: number;
+  // Chain fields: absent (or undefined) on a single-defender clash.
+  round?: number;
+  totalRounds?: number;
+  continues?: boolean;
+  defenderPieceId?: string;
+  remainingDefenderIds?: string[];
+};
 
 export type GameViewState = {
   pieces: GameState['pieces'];
@@ -21,6 +34,22 @@ export type GameViewState = {
   paused: boolean;
   /** Whose turn the paused game is waiting on. Undefined when not paused. */
   pauseTurnOwner?: PlayerColor;
+  /** Live clash QTE. The overlay renders (and its keys listen) only while set. */
+  clash: ClashState | null;
+  /** Set for the CLASH_RESULT card window; cleared by the overlay's onComplete. */
+  clashResult: ClashResult | null;
+  /** Room rule: clash minigame on. */
+  clashMode: boolean;
+  /** Room rule, inverted: true is hardcore, i.e. star squares no longer protect. */
+  noSafeZones: boolean;
+  /**
+   * Room rule: any roll leaves prison instead of only a 6. Declared now so the
+   * host panel and the create body carry the third rule; the engine starts
+   * sending it in the free-exit pass, and until then it stays false.
+   */
+  freeExit: boolean;
+  /** Engine timestamp until which the clash result card freezes input. */
+  resultCardUntil?: number;
 };
 
 export function initialView(myColor: PlayerColor): GameViewState {
@@ -38,6 +67,14 @@ export function initialView(myColor: PlayerColor): GameViewState {
     lastRolls: {},
     paused: false,
     pauseTurnOwner: undefined,
+    clash: null,
+    clashResult: null,
+    // All three room rules default false: a standard room is clash off, free
+    // exit off, safe zones ON (the inverted flag is what makes that uniform).
+    clashMode: false,
+    noSafeZones: false,
+    freeExit: false,
+    resultCardUntil: undefined,
   };
 }
 
@@ -79,6 +116,11 @@ export function applyEvent(
         readyPlayers: s.readyPlayers ?? state.readyPlayers,
         paused: s.paused ?? false,
         pauseTurnOwner: s.pauseTurnOwner ?? undefined,
+        clash: s.clash ?? state.clash,
+        clashMode: s.clashMode ?? state.clashMode,
+        noSafeZones: s.noSafeZones ?? state.noSafeZones,
+        freeExit: s.freeExit ?? state.freeExit,
+        resultCardUntil: s.resultCardUntil ?? state.resultCardUntil,
       };
     }
     case 'lobby_update': {
@@ -126,6 +168,15 @@ export function applyEvent(
         readyPlayers: payload.filter((p) => p.ready).map((p) => p.color),
       };
     }
+    case 'modifiers_updated':
+      // One object both ways (no positional booleans). The engine broadcasts what
+      // it actually persisted, so this is a mirror, never an optimistic guess.
+      return {
+        ...state,
+        clashMode: Boolean(event.clashEnabled),
+        noSafeZones: Boolean(event.noSafeZones),
+        freeExit: Boolean(event.freeExit),
+      };
     case 'my_color_changed':
       return { ...state, myColor: event.color as PlayerColor };
     case 'game_started':
@@ -148,6 +199,56 @@ export function applyEvent(
       return applyMove(state, event as unknown as MoveResult);
     case 'game_ended':
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
+    case 'clash_start': {
+      const c = event as unknown as ClashState;
+      // Payloads may omit the press counts (bars start empty) and the target
+      // (the overlay then falls back to its own CLASH_TARGET constant). The
+      // chain's round fields pass straight through when the engine sends them.
+      return {
+        ...state,
+        clash: {
+          ...c,
+          target: c.target ?? 42,
+          attackerPresses: c.attackerPresses ?? 0,
+          defenderPresses: c.defenderPresses ?? 0,
+        },
+        clashResult: null,
+      };
+    }
+    case 'clash_phase': {
+      const e = event as unknown as {
+        phase: ClashState['phase'];
+        countdownDeadline: number;
+        pressDeadline: number;
+      };
+      if (!state.clash) return state;
+      return {
+        ...state,
+        clash: {
+          ...state.clash,
+          phase: e.phase,
+          countdownDeadline: e.countdownDeadline,
+          pressDeadline: e.pressDeadline,
+        },
+      };
+    }
+    case 'clash_result':
+      // KEEP the clash object through the result card: the overlay renders only
+      // while `view.clash` is truthy, and its onComplete timer is what eventually
+      // fires `clash_clear`. Nulling `clash` here would unmount the overlay (and
+      // its timer) instantly, leaving `clashResult` set forever, which locks
+      // canRoll until a refresh.
+      return { ...state, clashResult: event as unknown as ClashResult };
+    case 'clash_press': {
+      const e = event as unknown as { color: PlayerColor; presses: number };
+      if (!state.clash) return state;
+      const clash = { ...state.clash };
+      if (e.color === clash.attacker) clash.attackerPresses = e.presses;
+      else if (e.color === clash.defender) clash.defenderPresses = e.presses;
+      return { ...state, clash };
+    }
+    case 'clash_clear':
+      return { ...state, clash: null, clashResult: null };
     case 'player_exited':
       return {
         ...state,
@@ -185,10 +286,14 @@ export function applyEvent(
 
 function applyMove(state: GameViewState, move: MoveResult): GameViewState {
   const pieces = state.pieces.map((p) => {
-    if (p.id === move.pieceId)
-      return { ...p, step: move.to, isInGoal: move.to === 57, isInBase: false };
+    // CAPTURED-FIRST precedence: a repelled clash sends the MOVER (which the
+    // engine also lists in capturedPieceIds) to prison instead of the landing
+    // square. A normal move never lists its own mover as captured, so
+    // non-clash behaviour is unchanged.
     if (move.captured && move.capturedPieceIds?.includes(p.id))
       return { ...p, step: 0, isInGoal: false, isInBase: true };
+    if (p.id === move.pieceId)
+      return { ...p, step: move.to, isInGoal: move.to === 57, isInBase: false };
     return p;
   });
 

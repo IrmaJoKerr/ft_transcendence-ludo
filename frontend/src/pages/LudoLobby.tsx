@@ -148,7 +148,14 @@ export function LudoLobby() {
     setError(null);
     retroAudio.playUiBeep(920, 0.08);
     try {
-      const res = await postApi<MatchResult>('/api/match/pvp/invite');
+      // A PvP room is created with the standard rules (false/false/false: clash
+      // off, free exit off, safe zones ON — stored inverted). The host flips them
+      // from the room's rules panel, which is where the wire carries the object.
+      const res = await postApi<MatchResult>('/api/match/pvp/invite', {
+        clashEnabled: false,
+        noSafeZones: false,
+        freeExit: false,
+      });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
     } catch (err) {

@@ -14,6 +14,13 @@ achievement system, and the whole interface is available in multiple languages.
 - **Server-authoritative Ludo** — dice rolls, turn order, captures, safe squares and home
   entry are all resolved on the server; the client renders, it does not decide
 - **Match formats** — Hotseat mode, vs Bot/AI (PVE) mode, vs Multiplayer (PVP) mode
+- **Clash mode (QTE)** — with the rule on, an attack is not decided on the board: the
+  defender and the attacker race to mash a key, and the loser goes to prison (even the
+  attacker). Played with a keyboard or, on a tablet, by tapping the circle holding your
+  key — same server timeline either way, and landscape only on touch
+- **Room rules** — the host sets the three rules per room: clash mode, no safe zones
+  (hardcore) and free exit (any roll leaves prison). A standard room is clash off, free
+  exit off, safe zones on
 - **Real-time play** — WebSocket transport with live board updates, presence, and reconnect
 - **User management** — profiles, avatars, friends, live online status
 - **Authentication** — local accounts, OAuth 2.0 sign-in (Google, GitHub, 42), email verification, and two-factor authentication (email code)

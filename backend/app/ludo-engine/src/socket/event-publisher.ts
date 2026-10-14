@@ -67,6 +67,81 @@ export class EventPublisher {
         );
         break;
 
+      // Clash QTE (capture mini-game). The client renders each phase from these
+      // frames; the mashing client's own key sends clash_input back.
+      case 'clash_start':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_start',
+            attackerKey: event.attackerKey,
+            defenderKey: event.defenderKey,
+            target: event.target,
+            duration: event.duration,
+            attacker: event.attacker,
+            defender: event.defender,
+            phase: event.phase,
+            startAt: event.startAt,
+            announceDeadline: event.announceDeadline,
+            countdownDeadline: event.countdownDeadline,
+            pressDeadline: event.pressDeadline,
+            attackerPresses: event.attackerPresses,
+            defenderPresses: event.defenderPresses,
+          }),
+        );
+        break;
+
+      case 'clash_phase':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_phase',
+            phase: event.phase,
+            countdownDeadline: event.countdownDeadline,
+            pressDeadline: event.pressDeadline,
+          }),
+        );
+        break;
+
+      // One phase frame per registered press: this is the live meter every client
+      // (and the pressing client) reads, so no per-press ack exists.
+      case 'clash_press':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_press',
+            color: event.color,
+            presses: event.presses,
+          }),
+        );
+        break;
+
+      case 'clash_result':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_result',
+            winner: event.winner,
+            loser: event.loser,
+            winnerPresses: event.winnerPresses,
+            loserPresses: event.loserPresses,
+          }),
+        );
+        break;
+
+      // Host changed the room rules while the room was still waiting.
+      case 'modifiers_updated':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'modifiers_updated',
+            gameId: event.gameId,
+            clashEnabled: event.clashEnabled,
+            safeZones: event.safeZones,
+          }),
+        );
+        break;
+
       // Room teardown (quorum lost, single-instance disconnect expiry, idle
       // lobby). Emitted by teardownRoom so every surviving client leaves the
       // dead room cleanly.

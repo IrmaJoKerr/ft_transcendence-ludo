@@ -7,6 +7,10 @@ export const ms = {
     close: 'Tutup',
     couldNotReachServer: 'Tidak dapat menghubungi pelayan',
     requestFailed: 'Permintaan gagal ({{status}})',
+    // Notis sebelum permainan: permainan ini guna papan kekunci atau sentuhan,
+    // jadi telefon atau tablet dalam mod potret di luar skop sehingga diputar.
+    landscapeNotice:
+      'Hanya boleh dimainkan dalam mod landskap pada peranti bersaiz tablet (iOS atau Android) atau pada komputer dengan papan kekunci. Google Chrome disyorkan.',
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mel sudah didaftarkan. Gunakan e-mel lain',
@@ -422,6 +426,40 @@ export const ms = {
     rollDiceBtn: 'GULING DADU',
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
+    // Peraturan bilik: tiga suis hos. `noSafeZones` ialah bendera TERBALIK, dan
+    // label menamakan varian hardcore, bukan penafiannya, jadi polariti itu
+    // tidak pernah ditunjukkan kepada pemain.
+    rulesControl: '// PERATURAN BILIK',
+    hostOnlyRules: 'Hanya hos boleh menukarnya semasa bilik masih menunggu.',
+    clashMode: 'Mod Clash',
+    clashModeDesc: 'Menangi perlumbaan kekunci apabila diserang untuk kekal di petak',
+    noSafeZones: 'Tanpa Zon Selamat',
+    noSafeZonesDesc: 'Petak bintang tidak lagi melindungi (hardcore)',
+    freeExit: 'Keluar Bebas',
+    freeExitDesc: 'Sebarang guling membebaskan penjara, bukan hanya 6',
+    // Clash QTE
+    clashPressHint: 'Tekan kekunci anda berulang kali untuk mengisi bar — {{seconds}}s untuk menang!',
+    clashYou: 'ANDA',
+    clashOver: 'CLASH TAMAT',
+    clashYouWon: '⚔️ Anda menang!',
+    clashWins: '{{color}} menang',
+    clashVersus: 'VS',
+    clashDefenderRole: 'Pertahanan',
+    clashAttackerRole: 'Penyerang',
+    clashAnnounceTitle: '⚔️ CLASH!',
+    clashAnnounceBody: 'Perlanggaran akan berlaku!',
+    clashAnnounceTiming: '{{reveal}}s dedah · {{countdown}}s kira detik · {{clash}}s clash',
+    clashGetReady: 'BERSEDIA…',
+    clashGo: 'GO',
+    clashKeyHint: 'Kekunci anda akan muncul apabila pertarungan bermula!',
+    clashFight: '⚔️ LAWAN!',
+    clashWatching: 'Menonton…',
+    // Laluan sentuhan (tablet). Papan kekunci atau sentuhan, satu QTE.
+    clashTouchHint: 'Padankan kekunci yang dipaparkan pada pad apabila lawan bermula!',
+    clashTouchPress: 'Ketik bulatan yang memegang kekunci — {{seconds}}s untuk menang!',
+    clashRotateTitle: 'PUTAR KE MOD LANDSKAP',
+    clashRotateBody:
+      'Clash memerlukan mod landskap. Putarkan peranti anda — perlumbaan tetap bermula, jadi cepat.',
   },
   results: {
     matchInvoiceTitle: 'INVOIS PERLAWANAN LUDO RETRO \'42',
@@ -713,6 +751,27 @@ export const ms = {
     rulesPage5Header: '// LORONG RUMAH & GARISAN PENAMAT',
     rulesPage5Line1: 'Anda selamat sebaik sahaja tiba di lorong warna anda. Lawan tidak boleh memasuki lorong rumah anda!',
     rulesPage5Line2: 'Cuma sampai ke tengah! (jika anda dapat langkah yang tepat!)',
+    rulesTab6: '7. CLASH',
+    rulesTab7: '8. HARDCORE',
+    rulesTab8: '9. KELUAR BEBAS',
+    rulesPage6Header: '// MOD CLASH',
+    rulesPage6Title: '⚔️ Bertahan dengan menekan laju',
+    rulesPage6Body:
+      'Dalam mod Clash, serangan tidak diputuskan di papan: pertahanan dan penyerang berlumba menekan kekunci. Pemenang kekal di petak dan yang kalah masuk penjara — ya, penyerang juga.',
+    rulesPage6Step1: 'Buah menyerang → Clash bermula',
+    rulesPage6Step2: 'Kiraan detik 3 saat — pertahanan lawan penyerang',
+    rulesPage6Step3: 'Tekan kekunci laju — penuhkan meter anda',
+    rulesPage6Step4: 'Pemenang kekal · yang kalah masuk penjara (walaupun penyerang!)',
+    rulesPage6Touch:
+      'Pada tablet anda mengetik bulatan yang memegang kekunci anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
+    rulesPage7Header: '// TANPA ZON SELAMAT (HARDCORE)',
+    rulesPage7Title: '💀 Tiada tempat bersembunyi',
+    rulesPage7Body:
+      'Lapan petak bintang tidak lagi melindungi, jadi buah boleh ditangkap di mana-mana petak. Hanya petak selamat berubah: petak permulaan dan lorong rumah anda berfungsi seperti biasa.',
+    rulesPage8Header: '// KELUAR BEBAS',
+    rulesPage8Title: '🚪 Keluar penjara dengan sebarang guling',
+    rulesPage8Body:
+      'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang guling membebaskannya, dan buah itu bergerak sebanyak mata guling dari petak permulaan.',
   },
   legal: {
     privacyPolicy: 'DASAR PRIVASI',

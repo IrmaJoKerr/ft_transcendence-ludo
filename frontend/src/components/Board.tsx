@@ -332,6 +332,12 @@ type BoardProps = {
   animating?: { pieceId: string; step: number } | null;
   /** Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay. */
   fx?: { color: string; to: number } | null;
+  /**
+   * Hardcore room rule, stored inverted (false = the variant is off, which is a
+   * standard room). While false the star squares keep their tint, because they
+   * still protect; while true they are plain cells, because they no longer do.
+   */
+  noSafeZones?: boolean;
 };
 
 /** The classic 15×15 cross board, rendered procedurally: no images. */
@@ -342,6 +348,7 @@ export function Board({
   onPieceClick,
   animating,
   fx,
+  noSafeZones = false,
 }: BoardProps = {}) {
   const legalPieceIds = new Set((legalMoves ?? []).map((m) => m.pieceId));
   const activeColors = new Set(
@@ -387,7 +394,7 @@ export function Board({
             }}
           />
         );
-      } else if (SAFE_STAR_CELLS[key]) {
+      } else if (SAFE_STAR_CELLS[key] && !noSafeZones) {
         inner = (
           <div
             style={{

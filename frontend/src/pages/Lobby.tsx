@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
+import { LandscapeNotice } from '../components/RetroAuthLayout';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
 import { useApp, type PlayerCount } from '../store';
@@ -57,6 +58,12 @@ export function Lobby() {
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [hasActiveGame, setHasActiveGame] = useState(false);
+  // The three room rules chosen on this screen travel with the create body as
+  // separate fields of ONE payload. A standard room is false/false/false:
+  // safe zones are stored inverted, so `noSafeZones: false` means they protect.
+  const [clashEnabled, setClashEnabled] = useState(false);
+  const [noSafeZones, setNoSafeZones] = useState(false);
+  const [freeExit, setFreeExit] = useState(false);
 
   // Backend-authoritative mirror of the state lock: /api/games/mine lists every
   // room this player is seated in after a game started, so an empty answer means
@@ -147,6 +154,12 @@ export function Lobby() {
           (gameMode === 'hotseat' || gameMode === 'pve') && seatColors.length > 0
             ? seatColors
             : undefined,
+        // Room rules, one field each, so the backend persists them in the same
+        // create call (no second transaction). All three default to the standard
+        // game: clash off, free exit off, safe zones ON.
+        clashEnabled,
+        noSafeZones,
+        freeExit,
       });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
@@ -179,6 +192,9 @@ export function Lobby() {
             boxSizing: 'border-box',
           }}
         >
+          {/* Pre-game notice: keyboard or touch, landscape only. */}
+          <LandscapeNotice />
+
           {/* Hero Header - Identical 1-to-1 design & dimensions as Game.tsx */}
           <header className={HERO_SECTION} style={{ padding: '16px 0 14px', textAlign: 'center' }}>
             <div
@@ -890,6 +906,99 @@ export function Lobby() {
                       <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
                         {t('lobby.fourPiecesInGoal')}
                       </span>
+                    </div>
+
+                    {/* Room rules: the three toggles this room is created with. They
+                        travel in the create body, so the room is made with them in
+                        one call, and the host can still flip them from the game's
+                        room-rules panel once the room exists. */}
+                    <div
+                      style={{
+                        borderTop: '1px solid rgba(0, 240, 255, 0.25)',
+                        paddingTop: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {t('game.rulesControl')}
+                      </span>
+                      {(
+                        [
+                          {
+                            key: 'clashMode' as const,
+                            icon: '⚔️',
+                            label: t('game.clashMode'),
+                            desc: t('game.clashModeDesc'),
+                            checked: clashEnabled,
+                            accent: 'var(--accent-pink)',
+                            toggle: setClashEnabled,
+                          },
+                          {
+                            key: 'noSafeZones' as const,
+                            icon: '💀',
+                            label: t('game.noSafeZones'),
+                            desc: t('game.noSafeZonesDesc'),
+                            checked: noSafeZones,
+                            accent: 'var(--accent-cyan)',
+                            toggle: setNoSafeZones,
+                          },
+                          {
+                            key: 'freeExit' as const,
+                            icon: '🚪',
+                            label: t('game.freeExit'),
+                            desc: t('game.freeExitDesc'),
+                            checked: freeExit,
+                            accent: 'var(--accent-yellow)',
+                            toggle: setFreeExit,
+                          },
+                        ] as const
+                      ).map((rule) => (
+                        <label
+                          key={rule.key}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8,
+                            fontSize: '0.78rem',
+                            fontFamily: 'var(--font-mono)',
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 4,
+                            padding: '7px 10px',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                          }}
+                        >
+                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                            <span>
+                              {rule.icon} {rule.label}
+                            </span>
+                            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                              {rule.desc}
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={rule.checked}
+                            onChange={(e) => rule.toggle(e.target.checked)}
+                            style={{
+                              accentColor: rule.accent,
+                              width: 15,
+                              height: 15,
+                              cursor: 'pointer',
+                            }}
+                          />
+                        </label>
+                      ))}
                     </div>
 
                     {/* Status Info Box */}

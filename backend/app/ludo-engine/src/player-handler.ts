@@ -340,6 +340,12 @@ export async function finalizeDeparture(
     advanceTurnInState(state);
   }
 
+  // Cancel any capture race this seat was in. Clearing BOTH halves of the
+  // deferred move makes the still-armed clash timer a no-op (resolveClashOutcome
+  // returns early without pendingCapture).
+  delete state.clash;
+  delete state.pendingCapture;
+
   await store.saveGameState(gameId, state);
   emit({ type: 'player_exited', gameId, color });
   // The turn may have moved and the departed seat's pieces are gone; clients

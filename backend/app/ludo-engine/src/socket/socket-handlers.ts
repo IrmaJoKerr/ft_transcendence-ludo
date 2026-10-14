@@ -96,6 +96,49 @@ export class SocketHandlers {
       }
     })();
   }
+
+  // 'clash_input' event: one keypress in the capture QTE. The pressed KEY picks
+  // the side, then the room's seat binding proves the caller owns that seat: in
+  // PvP only the owner's key lands, while in hotseat one user owns both seats
+  // and may mash both keys. A press that fails any check is dropped silently.
+  handleClashInput(socket: GameSocket, key: string): void {
+    const gameId = socket.data.gameId;
+    const color = socket.data.playerColor;
+    if (!gameId || !color) return;
+
+    void (async () => {
+      try {
+        const clash = await this.store.loadClashState(gameId);
+        if (!clash) return;
+
+        const userId = socket.data.userId;
+        const seats = this.rooms.get(gameId);
+        // A seat with no binding (bot seats) belongs to nobody, so no client key
+        // ever registers for it.
+        const ownsAttacker = userId
+          ? seats?.seat(clash.attacker) === userId
+          : clash.attacker === color;
+        const ownsDefender = userId
+          ? seats?.seat(clash.defender) === userId
+          : clash.defender === color;
+
+        let pressColor: PlayerColor | null = null;
+        if (key === clash.attackerKey && ownsAttacker) {
+          pressColor = clash.attacker;
+        } else if (key === clash.defenderKey && ownsDefender) {
+          pressColor = clash.defender;
+        }
+        if (!pressColor) return;
+
+        // No ack: the engine broadcasts clash_press, which is the live meter for
+        // every client including this one.
+        await this.engine.recordClashPress(gameId, pressColor, key);
+      } catch (error) {
+        console.error('Clash input error:', error);
+      }
+    })();
+  }
+
   handlePlayerReady(socket: GameSocket): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -141,6 +184,26 @@ export class SocketHandlers {
       } catch (error) {
         // LobbyManager throws i18n codes (lobby.ts); forward the code so the
         // client can localize it. Unmapped messages stay console-only.
+        socket.emit('error', error instanceof Error ? error.message : String(error));
+      }
+    })();
+  }
+
+  // 'update_modifiers' event: the host flips the room rules while the room is
+  // still waiting. LobbyManager throws i18n codes (LOBBY_NOT_WAITING,
+  // MODIFIERS_HOST_ONLY); forward the code so the client can localize it.
+  handleUpdateModifiers(socket: GameSocket, clashEnabled: boolean, safeZones: boolean): void {
+    const gameId = socket.data.gameId;
+    const userId = socket.data.userId;
+    if (!gameId || !userId) {
+      socket.emit('error', 'Not in a game');
+      return;
+    }
+
+    void (async () => {
+      try {
+        await this.engine.handleUpdateModifiers(gameId, userId, clashEnabled, safeZones);
+      } catch (error) {
         socket.emit('error', error instanceof Error ? error.message : String(error));
       }
     })();
@@ -196,6 +259,11 @@ export class SocketHandlers {
     void (async () => {
       try {
         await this.engine.handlePlayerDisconnect(gameId, color, this.notifyAbort);
+        // Settle a mid-clash disconnect at once (higher meter wins, tie goes to
+        // the attacker) instead of freezing the QTE for the grace window. This
+        // runs after handlePlayerDisconnect released the game lock: the resolve
+        // takes that lock itself.
+        await this.engine.resolveClashOnDisconnect(gameId);
       } catch (error) {
         console.error('Disconnect handler error:', error);
       }

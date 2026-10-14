@@ -7,6 +7,10 @@ export const en = {
     close: 'Close',
     couldNotReachServer: 'Could not reach the server',
     requestFailed: 'Request failed ({{status}})',
+    // Unconditional pre-game notice: the game is keyboard or touch, so a phone
+    // or a portrait tablet is out of scope until it is turned sideways.
+    landscapeNotice:
+      'Only playable in landscape mode on a tablet sized device (iOS or Android) or on a computer with a keyboard. Using Google Chrome is recommended.',
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'Email already registered. Use a different email',
@@ -422,6 +426,40 @@ export const en = {
     rollDiceBtn: 'ROLL DICE',
     reconLogsTitle: '// RECON LOGS',
     noReconLogged: 'NO TELEMETRY LOGGED',
+    // Room rules: the host's three toggles. `noSafeZones` is the INVERTED flag,
+    // and the label names the hardcore variant rather than the negation, so the
+    // polarity is never shown to a player. A standard room is off/off/on.
+    rulesControl: '// ROOM RULES',
+    hostOnlyRules: 'Only the host can change these while the room is waiting.',
+    clashMode: 'Clash Mode',
+    clashModeDesc: 'Win the key race when attacked to stay on the square',
+    noSafeZones: 'No Safe Zones',
+    noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
+    freeExit: 'Free Exit',
+    freeExitDesc: 'Any roll leaves prison, not just a 6',
+    // Clash QTE
+    clashPressHint: 'Spam your key to fill the bar — {{seconds}}s to win!',
+    clashYou: 'YOU',
+    clashOver: 'CLASH OVER',
+    clashYouWon: '⚔️ You won!',
+    clashWins: '{{color}} wins',
+    clashVersus: 'VS',
+    clashDefenderRole: 'Defender',
+    clashAttackerRole: 'Attacker',
+    clashAnnounceTitle: '⚔️ CLASH!',
+    clashAnnounceBody: 'A collision is about to happen!',
+    clashAnnounceTiming: '{{reveal}}s reveal · {{countdown}}s countdown · {{clash}}s clash',
+    clashGetReady: 'GET READY…',
+    clashGo: 'GO',
+    clashKeyHint: 'Your key will appear when the fight starts!',
+    clashFight: '⚔️ FIGHT!',
+    clashWatching: 'Watching…',
+    // Touch path (tablet). Keyboard or touch, one QTE.
+    clashTouchHint: 'Match the key shown on the pad when the fight starts!',
+    clashTouchPress: 'Tap the circle holding the key — {{seconds}}s to win!',
+    clashRotateTitle: 'ROTATE TO LANDSCAPE',
+    clashRotateBody:
+      'The clash needs landscape. Turn your device sideways — the race starts either way, so hurry.',
   },
   results: {
     matchInvoiceTitle: "MATCH INVOICE RETRO LUDO '42",
@@ -713,6 +751,27 @@ export const en = {
     rulesPage5Header: '// HOME LANE & FINISH',
     rulesPage5Line1: 'You are safe once you reach your coloured lane. Opponents cannot enter your home stretch!',
     rulesPage5Line2: 'Just get to the center! (if you can get the exact steps!)',
+    rulesTab6: '7. CLASH',
+    rulesTab7: '8. HARDCORE',
+    rulesTab8: '9. FREE EXIT',
+    rulesPage6Header: '// CLASH MODE',
+    rulesPage6Title: '⚔️ Defend by mashing',
+    rulesPage6Body:
+      'With clash mode on, an attack is not decided on the board: the defender and the attacker fight a key race for it. The winner stays on the square and the loser goes to prison — yes, even the attacker.',
+    rulesPage6Step1: 'A piece attacks → a Clash starts',
+    rulesPage6Step2: '3-second countdown — defender vs attacker',
+    rulesPage6Step3: 'Mash your key — fill your meter',
+    rulesPage6Step4: 'Winner stays · loser goes to prison (even the attacker!)',
+    rulesPage6Touch:
+      'On a tablet you tap the circle holding your key instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
+    rulesPage7Header: '// NO SAFE ZONES (HARDCORE)',
+    rulesPage7Title: '💀 Nowhere to hide',
+    rulesPage7Body:
+      'The eight star squares stop protecting, so a piece can be captured anywhere on the board. Only the safe squares change: your start square and your home lane keep working as before.',
+    rulesPage8Header: '// FREE EXIT',
+    rulesPage8Title: '🚪 Leave prison on any roll',
+    rulesPage8Body:
+      'A piece in prison normally needs a 6 to come out. With free exit on, any roll releases it, and the piece then moves the rolled number of steps from the start square.',
   },
   legal: {
     privacyPolicy: 'PRIVACY POLICY',

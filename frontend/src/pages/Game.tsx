@@ -5,6 +5,7 @@ import { Die } from '../components/Die';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor, PlayerMeta } from '../game/types';
+import { ClashOverlay } from '../game/ClashOverlay';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
@@ -536,6 +537,15 @@ export function Game() {
     socket.on('player_disconnected', handleEngineEvent);
     socket.on('player_reconnected', handleEngineEvent);
     socket.on('lobby_update', handleEngineEvent);
+    // Clash QTE frames: every phase is derived from the server-borne deadlines,
+    // so the reducer merges each frame as it arrives.
+    socket.on('clash_start', handleEngineEvent);
+    socket.on('clash_phase', handleEngineEvent);
+    socket.on('clash_press', handleEngineEvent);
+    socket.on('clash_result', handleEngineEvent);
+    // The host flipped the room rules: the frame carries what the engine
+    // actually persisted, not what was asked for.
+    socket.on('modifiers_updated', handleEngineEvent);
 
     socket.on(
       'player_aborted',
@@ -674,6 +684,10 @@ export function Game() {
       // Paused for a reconnect: block the dice shortcut so no action can slip
       // in while the engine holds the turn.
       if (v.paused) return;
+      // The clash QTE owns the keyboard: Space must not fire a roll while the
+      // clash is up, or during the engine's post-clash freeze.
+      if (v.clash) return;
+      if (v.resultCardUntil != null && Date.now() < v.resultCardUntil) return;
       const isHotseatMode = activeMatch?.mode === 'hotseat';
       const activeHumanTurn = v.players.some(
         (p) => p.color === v.currentTurn && p.status === 'active' && !p.isBot,
@@ -718,6 +732,9 @@ export function Game() {
   };
 
   const movePiece = (pieceId: string) => {
+    // The clash overlay owns the board while the QTE (or its result card, which
+    // the engine freezes input for) is up.
+    if (viewRef.current.clash) return;
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
       return;
     pendingMoveRef.current = true;
@@ -734,6 +751,23 @@ export function Game() {
     retroAudio.playUiBeep(1100, 0.1);
     socketRef.current?.emit('player_ready');
   };
+
+  // One press of this player's clash key. The overlay owns the key matching
+  // (physical key or character, so any layout works); the server proves
+  // ownership and applies the press cap, which is where a decoy touch-pad press
+  // is discarded.
+  const clashInput = (key: string) => socketRef.current?.emit('clash_input', key);
+  // The overlay's result-card timer calls this after CLASH_RESULT_MS. It is what
+  // frees canRoll again: the reducer deliberately keeps `clash` alive until then.
+  const clearClash = () => dispatch({ type: 'clash_clear' });
+  // The three room rules travel as ONE object both ways, so a fourth rule is a
+  // field rather than a fifth positional boolean. The engine enforces host-only
+  // (MODIFIERS_HOST_ONLY) and echoes back what it actually persisted.
+  const updateModifiers = (rules: {
+    clashEnabled: boolean;
+    noSafeZones: boolean;
+    freeExit: boolean;
+  }) => socketRef.current?.emit('update_modifiers', rules);
 
   const selectColor = (color: PlayerColor) => {
     if (activeMatch?.mode === 'pvp') return;
@@ -903,6 +937,10 @@ export function Game() {
     isMyTurn &&
     view.turnPhase !== 'WAITING_FOR_MOVE' &&
     view.legalMoves.length === 0 &&
+    // Gate on the clash and on the engine's own post-clash freeze: the freeze
+    // outlasts the overlay's result card, so no roll or move can slip in.
+    !view.clash &&
+    !(view.resultCardUntil != null && Date.now() < view.resultCardUntil) &&
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
@@ -1708,6 +1746,7 @@ export function Game() {
                       onPieceClick={isRolling || isBotTurn ? () => {} : movePiece}
                       animating={animatingPiece}
                       fx={captureFx}
+                      noSafeZones={view.noSafeZones}
                     />
                   </div>
                 );
@@ -1773,6 +1812,116 @@ export function Game() {
                         total: view.players.filter((p) => p.status === 'active').length,
                       })}
                     </div>
+
+                    {activeMatch.mode === 'pvp' && (
+                      <div
+                        style={{ borderTop: '1px solid rgba(0, 240, 255, 0.25)', paddingTop: 12 }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '0.72rem',
+                            color: 'var(--accent-cyan)',
+                            marginBottom: 8,
+                            fontFamily: 'var(--font-mono)',
+                          }}
+                        >
+                          {t('game.rulesControl')}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {(
+                            [
+                              {
+                                key: 'clashMode' as const,
+                                icon: '⚔️',
+                                label: t('game.clashMode'),
+                                desc: t('game.clashModeDesc'),
+                                checked: view.clashMode,
+                                accent: 'var(--accent-pink)',
+                              },
+                              {
+                                key: 'noSafeZones' as const,
+                                icon: '💀',
+                                label: t('game.noSafeZones'),
+                                desc: t('game.noSafeZonesDesc'),
+                                checked: view.noSafeZones,
+                                accent: 'var(--accent-cyan)',
+                              },
+                              {
+                                key: 'freeExit' as const,
+                                icon: '🚪',
+                                label: t('game.freeExit'),
+                                desc: t('game.freeExitDesc'),
+                                checked: view.freeExit,
+                                accent: 'var(--accent-yellow)',
+                              },
+                            ] as const
+                          ).map((rule) => (
+                            <label
+                              key={rule.key}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                fontSize: '0.78rem',
+                                fontFamily: 'var(--font-mono)',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: 4,
+                                padding: '7px 10px',
+                                background: 'rgba(0, 0, 0, 0.4)',
+                              }}
+                            >
+                              <span
+                                style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}
+                              >
+                                <span>
+                                  {rule.icon} {rule.label}
+                                </span>
+                                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                                  {rule.desc}
+                                </span>
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={rule.checked}
+                                onChange={(e) =>
+                                  // One object each way: the toggle that moved is the
+                                  // only field that changes, the other two are echoed.
+                                  updateModifiers({
+                                    clashEnabled:
+                                      rule.key === 'clashMode' ? e.target.checked : view.clashMode,
+                                    noSafeZones:
+                                      rule.key === 'noSafeZones'
+                                        ? e.target.checked
+                                        : view.noSafeZones,
+                                    freeExit:
+                                      rule.key === 'freeExit' ? e.target.checked : view.freeExit,
+                                  })
+                                }
+                                style={{
+                                  accentColor: rule.accent,
+                                  width: 15,
+                                  height: 15,
+                                  cursor: 'pointer',
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.65rem',
+                            color: 'var(--text-muted)',
+                            marginTop: 6,
+                            fontFamily: 'var(--font-mono)',
+                          }}
+                        >
+                          {t('game.hostOnlyRules')}
+                        </div>
+                      </div>
+                    )}
 
                     {activeMatch.mode === 'pvp' && (
                       <div
@@ -2165,13 +2314,13 @@ export function Game() {
         title={t('gameExtra.rulesModalTitle')}
         versionTag={t('gameExtra.rulesVersionTag')}
         cancelLabel={t('common.close')}
-        proceedLabel={rulesPage < 5 ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')}
+        proceedLabel={rulesPage < 8 ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')}
         cancelShortcut="ESC"
-        proceedShortcut={rulesPage < 5 ? '→' : '↵'}
-        closeOnProceed={rulesPage >= 5}
+        proceedShortcut={rulesPage < 8 ? '→' : '↵'}
+        closeOnProceed={rulesPage >= 8}
         onCancel={() => setIsSystemModalOpen(false)}
         onProceed={() => {
-          if (rulesPage < 5) {
+          if (rulesPage < 8) {
             retroAudio.playUiBeep(700, 0.05);
             setRulesPage((p) => p + 1);
           } else {
@@ -2204,6 +2353,9 @@ export function Game() {
                 { id: 3, label: t('gameExtra.rulesTab3') },
                 { id: 4, label: t('gameExtra.rulesTab4') },
                 { id: 5, label: t('gameExtra.rulesTab5') },
+                { id: 6, label: t('gameExtra.rulesTab6') },
+                { id: 7, label: t('gameExtra.rulesTab7') },
+                { id: 8, label: t('gameExtra.rulesTab8') },
               ].map((p) => (
                 <button
                   key={p.id}
@@ -2587,9 +2739,176 @@ export function Game() {
                 </div>
               </div>
             )}
+
+            {/* PAGE 6: Clash Mode */}
+            {rulesPage === 6 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    color: '#ffe600',
+                    fontWeight: 'bold',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '1.05rem',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {t('gameExtra.rulesPage6Header')}
+                </div>
+                <div
+                  style={{
+                    background: 'rgba(5, 2, 18, 0.65)',
+                    padding: 16,
+                    borderRadius: 6,
+                    border: '1px solid rgba(255, 230, 0, 0.2)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ color: '#ffe600', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    {t('gameExtra.rulesPage6Title')}
+                  </div>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage6Body')}
+                  </p>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      borderLeft: '3px solid rgba(255, 230, 0, 0.35)',
+                      paddingLeft: 10,
+                    }}
+                  >
+                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
+                      {t('gameExtra.rulesPage6Step1')}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
+                      {t('gameExtra.rulesPage6Step2')}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
+                      {t('gameExtra.rulesPage6Step3')}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
+                      {t('gameExtra.rulesPage6Step4')}
+                    </div>
+                  </div>
+                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    {t('gameExtra.rulesPage6Touch')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* PAGE 7: No Safe Zones (hardcore) */}
+            {rulesPage === 7 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    color: '#ff0055',
+                    fontWeight: 'bold',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '1.05rem',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {t('gameExtra.rulesPage7Header')}
+                </div>
+                <div
+                  style={{
+                    background: 'rgba(5, 2, 18, 0.65)',
+                    padding: 16,
+                    borderRadius: 6,
+                    border: '1px solid rgba(255, 0, 85, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ color: '#ff0055', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    {t('gameExtra.rulesPage7Title')}
+                  </div>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage7Body')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* PAGE 8: Free exit */}
+            {rulesPage === 8 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    color: '#00f0ff',
+                    fontWeight: 'bold',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '1.05rem',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {t('gameExtra.rulesPage8Header')}
+                </div>
+                <div
+                  style={{
+                    background: 'rgba(5, 2, 18, 0.65)',
+                    padding: 16,
+                    borderRadius: 6,
+                    border: '1px solid rgba(0, 240, 255, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ color: '#00f0ff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    {t('gameExtra.rulesPage8Title')}
+                  </div>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage8Body')}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         }
       />
+
+      {/* QTE Clash overlay: one component serves keyboard and touch. In hotseat a
+          single device owns both seats, so both sides' keys are live at once. */}
+      {view.clash && (
+        <ClashOverlay
+          clash={view.clash}
+          result={view.clashResult}
+          myColor={view.myColor}
+          onKeyPress={clashInput}
+          onComplete={clearClash}
+          allowBothSides={activeMatch.mode === 'hotseat'}
+        />
+      )}
 
       {/* Game Results Modal Popup */}
       {showResultsModal && lastResult && (

@@ -7,6 +7,11 @@ export const fr = {
     close: 'Fermer',
     couldNotReachServer: 'Impossible de joindre le serveur',
     requestFailed: 'Échec de la requête ({{status}})',
+    // Avertissement affiché partout avant la partie : le jeu se joue au clavier
+    // ou au toucher, donc un téléphone ou une tablette en portrait est hors
+    // périmètre tant qu'il n'est pas tourné.
+    landscapeNotice:
+      "Jouable uniquement en mode paysage sur un appareil de la taille d'une tablette (iOS ou Android) ou sur un ordinateur avec un clavier. Google Chrome est recommandé.",
   },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mail déjà enregistré. Utilisez un autre e-mail',
@@ -423,6 +428,42 @@ export const fr = {
     rollDiceBtn: 'LANCER LE DÉ',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
+    // Règles de la salle : les trois options de l'hôte. `noSafeZones` est le
+    // drapeau INVERSÉ, et le libellé nomme la variante hardcore plutôt que la
+    // négation, donc la polarité n'est jamais montrée au joueur.
+    rulesControl: '// RÈGLES DE LA SALLE',
+    hostOnlyRules: "Seul l'hôte peut les modifier tant que la salle attend.",
+    clashMode: 'Mode Clash',
+    clashModeDesc: 'Gagnez la course aux touches quand on vous attaque pour rester sur la case',
+    noSafeZones: 'Sans zones sûres',
+    noSafeZonesDesc: 'Les cases étoilées ne protègent plus (hardcore)',
+    freeExit: 'Sortie libre',
+    freeExitDesc: 'Tout lancer libère la prison, pas seulement un 6',
+    // Clash QTE
+    clashPressHint:
+      'Appuyez sans arrêt sur votre touche pour remplir la barre — {{seconds}}s pour gagner !',
+    clashYou: 'VOUS',
+    clashOver: 'CLASH TERMINÉ',
+    clashYouWon: '⚔️ Vous avez gagné !',
+    clashWins: '{{color}} gagne',
+    clashVersus: 'VS',
+    clashDefenderRole: 'Défenseur',
+    clashAttackerRole: 'Attaquant',
+    clashAnnounceTitle: '⚔️ CLASH !',
+    clashAnnounceBody: 'Une collision est sur le point de se produire !',
+    clashAnnounceTiming:
+      "{{reveal}}s d'annonce · {{countdown}}s de compte à rebours · {{clash}}s de clash",
+    clashGetReady: 'PRÉPAREZ-VOUS…',
+    clashGo: 'GO',
+    clashKeyHint: 'Votre touche apparaîtra quand le combat commencera !',
+    clashFight: '⚔️ COMBAT !',
+    clashWatching: 'En spectateur…',
+    // Chemin tactile (tablette). Clavier ou toucher, un seul QTE.
+    clashTouchHint: 'Repérez la touche affichée sur le pavé quand le combat commence !',
+    clashTouchPress: 'Touchez le cercle de la touche — {{seconds}}s pour gagner !',
+    clashRotateTitle: 'PASSEZ EN PAYSAGE',
+    clashRotateBody:
+      'Le clash exige le mode paysage. Tournez votre appareil — la course commence quand même, alors faites vite.',
   },
   results: {
     matchInvoiceTitle: 'FACTURE DE MATCH LUDO RÉTRO \'42',
@@ -715,6 +756,27 @@ export const fr = {
     rulesPage5Header: '// COULOIR FINAL & ARRIVÉE',
     rulesPage5Line1: 'Vous êtes en sécurité une fois dans votre couloir de couleur. Les adversaires ne peuvent pas entrer dans votre ligne droite finale !',
     rulesPage5Line2: "Il suffit d'atteindre le centre ! (si vous obtenez le nombre exact de pas !)",
+    rulesTab6: '7. CLASH',
+    rulesTab7: '8. HARDCORE',
+    rulesTab8: '9. SORTIE LIBRE',
+    rulesPage6Header: '// MODE CLASH',
+    rulesPage6Title: '⚔️ Défendez-vous en martelant',
+    rulesPage6Body:
+      "En mode Clash, une attaque ne se décide pas sur le plateau : le défenseur et l'attaquant se livrent une course aux touches. Le gagnant reste sur la case et le perdant va en prison — oui, même l'attaquant.",
+    rulesPage6Step1: 'Une pièce attaque → un Clash commence',
+    rulesPage6Step2: 'Compte à rebours de 3 s — défenseur contre attaquant',
+    rulesPage6Step3: 'Martelez votre touche — remplissez votre jauge',
+    rulesPage6Step4: 'Le gagnant reste · le perdant va en prison (même l’attaquant !)',
+    rulesPage6Touch:
+      "Sur tablette, vous touchez le cercle de votre touche au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
+    rulesPage7Header: '// SANS ZONES SÛRES (HARDCORE)',
+    rulesPage7Title: '💀 Nulle part où se cacher',
+    rulesPage7Body:
+      "Les huit cases étoilées cessent de protéger : une pièce peut être capturée n'importe où sur le plateau. Seules les cases sûres changent : votre case de départ et votre couloir final fonctionnent comme avant.",
+    rulesPage8Header: '// SORTIE LIBRE',
+    rulesPage8Title: '🚪 Sortez de prison sur tout lancer',
+    rulesPage8Body:
+      "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer la libère, puis la pièce avance du nombre de pas obtenu depuis la case de départ.",
   },
   legal: {
     privacyPolicy: 'POLITIQUE DE CONFIDENTIALITÉ',

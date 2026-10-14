@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import * as http from 'http';
 import { LudoEngine } from '../engine';
-import { ClashManager } from '../clash';
+import { ClashManager, CLASH_RESULT_FREEZE_MS } from '../clash';
 import { RedisGameStore } from '../redis';
 import { getOrCreateBot, isBotSeat } from '../bot';
 import { EventPublisher } from './event-publisher';
@@ -44,6 +44,12 @@ const PING_TIMEOUT_MS = 15 * 1000;
 // socket is closed instead of served.
 const EVENT_LIMIT = 20;
 const EVENT_WINDOW_MS = 5 * 1000;
+// Clash presses spend their own bucket: a mash at the 110 ms press cap
+// (clash.ts) is about 9 presses/s per side, so the shared bucket would close the
+// socket mid-race. 25 presses/s sustained keeps the press cap and the phase
+// checks as the real bound, while a socket that loops faster still gets closed.
+const CLASH_EVENT_LIMIT = 125;
+const CLASH_EVENT_WINDOW_MS = 5 * 1000;
 
 // SocketServer is the orchestration root for the ludo engine: it wires the
 // engine, Redis pub/sub, bots, post-game lifecycle, and sockets, routing
@@ -140,13 +146,25 @@ export class SocketServer {
         // Wait for the move's box-by-box animation to finish on screen
         // (path.length steps) plus a short thinking pause before acting again.
         const animMs = event.result.path.length * BOT_STEP_ANIM_MS;
-        this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS);
+        // A move that settled a clash keeps every input frozen for the result
+        // card, so the bot's next action waits that card out too.
+        const clashCardMs = event.result.clashOutcome ? CLASH_RESULT_FREEZE_MS : 0;
+        this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS + clashCardMs);
       } else if (event.type === 'dice_rolled') {
         // Only trigger bot turn if no legal moves (turn auto-advanced)
         // Wait for the 750ms frontend dice-roll animation plus thinking pause
         if (event.legalMoves.length === 0) {
           this.botScheduler.schedule(event.gameId, 750 + BOT_THINK_MS);
         }
+      } else if (event.type === 'clash_start') {
+        // No bot turn while the QTE runs. The source freed bots only to the
+        // announce deadline (1500 ms), which left the countdown and the press
+        // race unguarded; freezing to the press deadline covers all three phases
+        // and matches that comment's intent.
+        this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
+      } else if (event.type === 'clash_result') {
+        // Stay frozen through the result card, then let the bot resume.
+        this.botScheduler.setClashFreeze(event.gameId, Date.now() + CLASH_RESULT_FREEZE_MS);
       }
     });
   }
@@ -199,6 +217,10 @@ export class SocketServer {
 
     this.broadcaster.start(this.io);
     this.setupSocketHandlers();
+    // Boot-time clash recovery: re-arm the persisted QTE phase timers and sweep
+    // every 5 s for an orphaned or stalled clash. The wake pass below replays the
+    // other durable deadlines.
+    this.engine.startClashRecoverySweep();
 
     this.httpServer.listen(port, () => {
       console.log(`Ludo engine listening on port ${port}`);
@@ -364,8 +386,12 @@ export class SocketServer {
       // bucket covers all of them. An over-budget socket is closed: a closed
       // socket takes the same disconnect path as a dropped connection.
       const limiter = new EventRateLimiter(EVENT_LIMIT, EVENT_WINDOW_MS);
+      // Presses during a clash race spend this bucket instead, so a mash at the
+      // 110 ms cap can never close the socket mid-QTE (see CLASH_EVENT_LIMIT).
+      const clashLimiter = new EventRateLimiter(CLASH_EVENT_LIMIT, CLASH_EVENT_WINDOW_MS);
       socket.use(([event], next) => {
-        if (limiter.allow()) {
+        const bucket = event === 'clash_input' ? clashLimiter : limiter;
+        if (bucket.allow()) {
           next();
           return;
         }
@@ -388,12 +414,20 @@ export class SocketServer {
         this.handlers.handleMovePiece(socket, pieceId);
       });
 
+      socket.on('clash_input', (key: string) => {
+        this.handlers.handleClashInput(socket, key);
+      });
+
       socket.on('player_ready', () => {
         this.handlers.handlePlayerReady(socket);
       });
 
       socket.on('select_color', (color: string) => {
         this.handlers.handleSelectColor(socket, color);
+      });
+
+      socket.on('update_modifiers', (clashEnabled: boolean, safeZones: boolean) => {
+        this.handlers.handleUpdateModifiers(socket, clashEnabled, safeZones);
       });
 
       socket.on('leave_game', () => {
