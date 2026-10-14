@@ -9,6 +9,7 @@ import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { hasLiveMatch } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
+import { readRoomRules } from './room-rules';
 import { signEngineToken } from './engine-token.util';
 
 const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
@@ -114,6 +115,9 @@ export class MatchPlayerService {
       inviteCode: data.inviteCode || undefined,
       mode: (data as { gameType?: string }).gameType?.toLowerCase() ?? 'pvp',
       playerCount: parseInt(data.playerCount || '2', 10),
+      // The joiner is handed the room's rules with the seat: the hash is the room's
+      // advertised rules, and the engine's join freezes the same values into state.
+      rules: readRoomRules(data),
     };
   }
 
@@ -176,6 +180,10 @@ export class MatchPlayerService {
       inviteCode: data.inviteCode || undefined,
       mode: (data as { gameType?: string }).gameType?.toLowerCase() ?? 'pvp',
       playerCount: parseInt(data.playerCount || '2', 10),
+      // Read back out of the hash, not re-derived: after a refresh this is how a
+      // rejoining client learns which room it is re-entering (the engine state
+      // carries the live flags too, but only once a socket has joined).
+      rules: readRoomRules(data),
     };
   }
 

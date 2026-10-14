@@ -190,9 +190,11 @@ export class SocketHandlers {
   }
 
   // 'update_modifiers' event: the host flips the room rules while the room is
-  // still waiting. LobbyManager throws i18n codes (LOBBY_NOT_WAITING,
-  // MODIFIERS_HOST_ONLY); forward the code so the client can localize it.
-  handleUpdateModifiers(socket: GameSocket, clashEnabled: boolean, safeZones: boolean): void {
+  // still waiting. One object in, passed through as the client sent it: the
+  // engine's façade normalizes it (only a literal `true` turns a rule on).
+  // LobbyManager throws i18n codes (LOBBY_NOT_WAITING, MODIFIERS_HOST_ONLY);
+  // forward the code so the client can localize it.
+  handleUpdateModifiers(socket: GameSocket, raw: unknown): void {
     const gameId = socket.data.gameId;
     const userId = socket.data.userId;
     if (!gameId || !userId) {
@@ -202,7 +204,7 @@ export class SocketHandlers {
 
     void (async () => {
       try {
-        await this.engine.handleUpdateModifiers(gameId, userId, clashEnabled, safeZones);
+        await this.engine.handleUpdateModifiers(gameId, userId, raw);
       } catch (error) {
         socket.emit('error', error instanceof Error ? error.message : String(error));
       }

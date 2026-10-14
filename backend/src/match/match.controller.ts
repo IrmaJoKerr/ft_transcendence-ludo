@@ -25,8 +25,17 @@ export class MatchController {
   // PvP: Create invite game (share code via chat)
   @UseGuards(JwtAuthGuard)
   @Post('api/match/pvp/invite')
-  pvpInvite(@Request() req: { user: { id: string } }) {
-    return this.match.createInvite(req.user.id);
+  pvpInvite(
+    @Request() req: { user: { id: string } },
+    // The room rules, read one body param at a time like every other field on
+    // these create routes (no DTO, so no ValidationPipe: room-rules.ts normalizes
+    // and defaults them). The room browser sends the standard rules and the host
+    // flips them from the room's panel.
+    @Body('clashEnabled') clashEnabled?: boolean,
+    @Body('noSafeZones') noSafeZones?: boolean,
+    @Body('freeExit') freeExit?: boolean,
+  ) {
+    return this.match.createInvite(req.user.id, { clashEnabled, noSafeZones, freeExit });
   }
 
   // PvP: Join by invite code
@@ -54,6 +63,14 @@ export class MatchController {
     @Body('botColors') botColors?: string[],
     @Body('botNames') botNames?: string[],
     @Body('seatColors') seatColors?: string[],
+    // The host's room rules ride the same body as the seats, so a room is created
+    // with its rules in ONE call (no second transaction, no window where a room
+    // exists without them). Read as separate params because this route has no DTO
+    // class, so the global ValidationPipe never runs on it and nothing would strip
+    // or transform a rules object: room-rules.ts coerces the raw values instead.
+    @Body('clashEnabled') clashEnabled?: boolean,
+    @Body('noSafeZones') noSafeZones?: boolean,
+    @Body('freeExit') freeExit?: boolean,
   ) {
     if (mode !== 'pvp' && mode !== 'pve' && mode !== 'hotseat') {
       throw new BadRequestException({
@@ -75,6 +92,7 @@ export class MatchController {
       botColors,
       botNames,
       seatColors,
+      { clashEnabled, noSafeZones, freeExit },
     );
   }
 

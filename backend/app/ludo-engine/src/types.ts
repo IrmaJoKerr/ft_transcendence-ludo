@@ -86,6 +86,17 @@ export interface DisconnectState {
   reconnectDeadline: number;
 }
 
+// The three room rules as ONE object, in both directions of the wire: the host's
+// rules panel sends them and `modifiers_updated` broadcasts them, in the same
+// shape the create body carries, the match hash stores and a full `state_update`
+// carries. A fourth rule is a field here, not a fifth positional boolean at the
+// four call sites that would each have to agree on it.
+export type RoomRules = {
+  clashEnabled: boolean;
+  noSafeZones: boolean;
+  freeExit: boolean;
+};
+
 // The complete server-side state of one Ludo game, persisted to Redis.
 export interface GameState {
   id: string; // game id (matches match:<id> in backend Redis)
@@ -110,8 +121,12 @@ export interface GameState {
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
   pausedReason?: string; // rationale for the pause (e.g. 'disconnect_grace')
   clash?: ClashState; // live clash QTE, absent when none is running
+  // The three room rules, frozen when the room is created (lobby.ts can still
+  // change them while it is WAITING), all phrased so that false is the standard
+  // game: clash in the QTE, star squares protecting, prison exits needing a 6.
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
-  safeZones: boolean; // star squares capture-immune (false: hardcore mod)
+  noSafeZones: boolean; // true: hardcore mod, star squares capture-immune no more
+  freeExit: boolean; // true: any roll leaves prison, and the roll then applies from the star
   pendingCapture?: PendingCapture; // capture held until the clash resolves
   resultCardUntil?: number; // input freeze while the clash result card shows
 }
@@ -215,6 +230,13 @@ export type GameEvent =
       winnerPresses: number;
       loserPresses: number;
     }
-  // Host changed the room rules while it was still waiting: clash mode and/or
-  // safe zones. Mirrors what the lobby already shows.
-  | { type: 'modifiers_updated'; gameId: string; clashEnabled: boolean; safeZones: boolean };
+  // Host changed the room rules while the room was still waiting. One object in,
+  // one object out: the same three fields the panel sent, carrying what was
+  // actually persisted, so the waiting room mirrors the room and never guesses.
+  | {
+      type: 'modifiers_updated';
+      gameId: string;
+      clashEnabled: boolean;
+      noSafeZones: boolean;
+      freeExit: boolean;
+    };

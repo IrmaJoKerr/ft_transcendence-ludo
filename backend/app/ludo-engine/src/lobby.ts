@@ -1,6 +1,6 @@
 import type { RedisGameStore } from './redis';
 import type { EventPublisher } from './socket/event-publisher';
-import type { PlayerColor } from './types';
+import type { PlayerColor, RoomRules } from './types';
 
 const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -97,17 +97,14 @@ export class LobbyManager {
     }
   }
 
-  // Change the room rules before the game starts: clash mode (the capture QTE)
-  // and safe zones (safe squares capture-immune). Host only, WAITING only: once
-  // the game is live the flags are frozen, because mid-game flips would
-  // invalidate moves already validated against the old rules.
+  // Change the room rules before the game starts: clash mode (the capture QTE),
+  // the star-square shield and the free prison exit. Host only, WAITING only:
+  // once the game is live the rules are frozen, because mid-game flips would
+  // invalidate moves already validated against the old ones.
+  // One object in, and a replacement rather than a patch: the host's panel always
+  // sends all three fields (the toggle that moved plus the two it echoes).
   // Throws carry i18n codes, not prose (see handleSelectColor above).
-  async updateModifiers(
-    gameId: string,
-    userId: string,
-    clashEnabled: boolean,
-    safeZones: boolean,
-  ): Promise<void> {
+  async updateModifiers(gameId: string, userId: string, rules: RoomRules): Promise<void> {
     const data = await this.store.getMatchData(gameId);
     if (!data || data.status !== 'WAITING') {
       throw new Error('LOBBY_NOT_WAITING');
@@ -119,13 +116,15 @@ export class LobbyManager {
     // Match hash first (the room's advertised rules), then the live engine state
     // so the very next roll already honours them.
     await this.store.updateMatchData(gameId, {
-      clashEnabled: String(clashEnabled),
-      safeZones: String(safeZones),
+      clashEnabled: String(rules.clashEnabled),
+      noSafeZones: String(rules.noSafeZones),
+      freeExit: String(rules.freeExit),
     });
     const state = await this.store.loadGameState(gameId);
     if (state) {
-      state.clashMode = clashEnabled;
-      state.safeZones = safeZones;
+      state.clashMode = rules.clashEnabled;
+      state.noSafeZones = rules.noSafeZones;
+      state.freeExit = rules.freeExit;
       await this.store.saveGameState(gameId, state);
     }
   }

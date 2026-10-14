@@ -21,9 +21,16 @@ export class MoveValidator {
       // Prison exit rule: a piece leaves prison only on a roll of 6, and exiting
       // consumes the 6 (the piece lands on step 1; the remaining 5 steps are not
       // applied). The next roll then moves it 1-6 steps.
+      // Under the free exit room rule any roll opens the prison and the roll then
+      // applies FROM the star, so `to` is diceValue + 1: a 5 walks out to step 6,
+      // a 6 reaches step 7 and still grants its bonus roll. Either way the exit
+      // checks no blockade, so it may pass over a wall and may share the square
+      // it lands on: with the star shield off a wall can be parked on a start
+      // square, and an exit that respected blockades would be sealed for good
+      // (see the free-exit note in todo.md).
       if (from === 0) {
-        if (diceValue !== 6) continue;
-        const to = 1;
+        if (diceValue !== 6 && !state.freeExit) continue;
+        const to = state.freeExit ? diceValue + 1 : 1;
         const isHomeEntry = false;
         const isCapture = this.isCapturableTarget(state, color, piece.id, to);
         moves.push({ pieceId: piece.id, from, to, isCapture, isHomeEntry });
@@ -80,8 +87,8 @@ export class MoveValidator {
       const moverPos = BoardMapper.toTrackPosition(pieceId, step);
       if (moverPos === -1) continue;
       // Safe zones never form a blockade : skip them so a stack there doesn't
-      // block. The hardcore mod (safeZones off) removes that exemption.
-      if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, step)) continue;
+      // block. The hardcore mod (noSafeZones on) removes that exemption.
+      if (!state.noSafeZones && BoardMapper.isSafeZoneStep(pieceId, step)) continue;
       for (const blockerColor of opponentColors) {
         if (BoardMapper.isBlockadeAtTrackPos(state.pieces, blockerColor, moverPos)) {
           return true;
@@ -103,9 +110,9 @@ export class MoveValidator {
     if (targetStep <= 0 || targetStep >= 52) return false;
 
     // Safe zones (start squares + shared safe loop) never allow captures, unless
-    // the room turned safe zones off: the hardcore mod makes every square fair
-    // game, which is what the lobby toggle advertises.
-    if (state.safeZones && BoardMapper.isSafeZoneStep(pieceId, targetStep)) return false;
+    // the room turned them off (`noSafeZones`, the hardcore mod): then every
+    // square is fair game, which is what the lobby toggle advertises.
+    if (!state.noSafeZones && BoardMapper.isSafeZoneStep(pieceId, targetStep)) return false;
 
     const targetPos = BoardMapper.toTrackPosition(pieceId, targetStep);
     if (targetPos === -1) return false;

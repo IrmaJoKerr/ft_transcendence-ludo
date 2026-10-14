@@ -7,6 +7,12 @@ import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { hasLiveMatch } from './active-game';
+import {
+  normalizeRoomRules,
+  readRoomRules,
+  roomRuleHashFields,
+  type RoomRules,
+} from './room-rules';
 
 const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 const FRONTEND_URL = requireSecret('FRONTEND_URL');
@@ -21,6 +27,11 @@ export interface MatchRoomHandoff {
   mode: string;
   playerCount: number;
   inviteCode?: string;
+  // The room's rules as they sit in the match hash, so every handoff (create,
+  // reused room, join, rejoin) tells the client which room it is entering instead
+  // of leaving it to assume the standard game. The engine's `game_joined` carries
+  // the live flags too; this one is there before a socket exists.
+  rules: RoomRules;
 }
 
 function generateInviteCode(): string {
@@ -73,6 +84,11 @@ export class MatchCreatorService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // The host's room rules from the same create payload as the seats. Normalized
+    // here, at the service boundary, so every caller (and every route) gets the
+    // defaulting and the coercion from one place; the hash write below takes the
+    // normalized object only.
+    rules: Partial<RoomRules> = {},
   ) {
     if (playerCount < 2 || playerCount > 4) {
       throw new BadRequestException({
@@ -111,8 +127,18 @@ export class MatchCreatorService {
       });
     }
 
+    const roomRules = normalizeRoomRules(rules);
     return this.withUserCreateLock(userId, () =>
-      this.createMatchLocked(userId, mode, playerCount, botCount, botColors, botNames, seatColors),
+      this.createMatchLocked(
+        userId,
+        mode,
+        playerCount,
+        botCount,
+        botColors,
+        botNames,
+        seatColors,
+        roomRules,
+      ),
     );
   }
 
@@ -146,6 +172,10 @@ export class MatchCreatorService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // Always the NORMALIZED rules, never raw wire values: this is the path that
+    // writes Redis. The default keeps a caller that has none on the standard room
+    // (the public entry point normalizes, so it always passes one).
+    rules: RoomRules = normalizeRoomRules(),
   ) {
     // Strict lock: a caller who is already in a live game must not open a second
     // room, whatever the mode. Checked before the idempotent PvP reuse below, so
@@ -236,6 +266,13 @@ export class MatchCreatorService {
       }
     }
 
+    // The room rules, written by the SAME hset as the seats: one payload means one
+    // transaction, so a room never exists without its rules. Keys, polarity and
+    // defaults live in room-rules.ts; the engine's join reads these back when it
+    // creates the game state and freezes them there, and the lobby may change them
+    // afterwards only while the room is still WAITING.
+    Object.assign(updates, roomRuleHashFields(rules));
+
     await this.redis.hset(`match:${gameId}`, updates);
     await this.redis.expire(`match:${gameId}`, 86400);
 
@@ -261,6 +298,7 @@ export class MatchCreatorService {
       color: player1Color,
       mode,
       playerCount,
+      rules,
     };
     if (isPvP) {
       result.inviteCode = updates.inviteCode;
@@ -330,12 +368,26 @@ export class MatchCreatorService {
       mode,
       playerCount: parseInt(data.playerCount || '4', 10),
       inviteCode: data.inviteCode || undefined,
+      // The room is reused, so its rules are whatever the hash already holds: the
+      // client must not assume the ones it just asked for.
+      rules: readRoomRules(data),
     };
   }
 
   // Create a PvP room and return its invite code (alias for createMatch).
-  async createInvite(userId: string) {
-    const result = await this.createMatch(userId, 'pvp', 4, 0);
+  async createInvite(userId: string, rules?: Partial<RoomRules>) {
+    // The three `undefined`s are botColors/botNames/seatColors: a PvP room has no
+    // bots and takes the dense default seat order.
+    const result = await this.createMatch(
+      userId,
+      'pvp',
+      4,
+      0,
+      undefined,
+      undefined,
+      undefined,
+      rules,
+    );
     return result;
   }
 

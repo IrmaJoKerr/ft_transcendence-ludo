@@ -3,6 +3,7 @@ import { MatchCreatorService } from './match.creator.service';
 import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
 import { MatchPostgameService, type GameEndPayload } from './match.postgame.service';
+import type { RoomRules } from './room-rules';
 export type { GameEndPayload } from './match.postgame.service';
 
 @Injectable()
@@ -25,6 +26,9 @@ export class MatchService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // The room rules from the create body, already one object: the controller
+    // shapes the wire params, the creator service normalizes and defaults them.
+    rules: Partial<RoomRules> = {},
   ) {
     return this.creator.createMatch(
       userId,
@@ -34,10 +38,11 @@ export class MatchService {
       botColors,
       botNames,
       seatColors,
+      rules,
     );
   }
-  async createInvite(userId: string) {
-    return this.creator.createInvite(userId);
+  async createInvite(userId: string, rules?: Partial<RoomRules>) {
+    return this.creator.createInvite(userId, rules);
   }
   async playBot(userId: string, playerCount: number = 2) {
     return this.creator.playBot(userId, playerCount);

@@ -57,13 +57,17 @@ export class RedisGameStore {
 
   // Create a new game, all 16 pieces in prison. Only `activeColors` seats
   // get PlayerMeta entries, so unused seats never appear downstream.
-  // clashMode/safeZones are the room rules, frozen here at creation: the lobby
-  // can change them only while the room is still WAITING (see lobby.ts).
+  // The three room rules are frozen here at creation: the lobby can change them
+  // only while the room is still WAITING (see lobby.ts). The defaults are the
+  // standard room, the same answer an absent match-hash field gets, so a caller
+  // that forgets a rule cannot ship a variant by omission: clash in the QTE off,
+  // the free exit off, and the star squares protecting.
   async createGame(
     gameId: string,
-    clashMode = true,
+    clashMode = false,
     activeColors: PlayerColor[] = COLORS,
-    safeZones = true,
+    noSafeZones = false,
+    freeExit = false,
   ): Promise<void> {
     const pieces: Piece[] = [];
     for (const color of COLORS) {
@@ -101,7 +105,8 @@ export class RedisGameStore {
       status: 'waiting',
       readyPlayers: [],
       clashMode,
-      safeZones,
+      noSafeZones,
+      freeExit,
     };
 
     await this.saveGameState(gameId, state);

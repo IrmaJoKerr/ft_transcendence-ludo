@@ -5,6 +5,7 @@ import type {
   MovePieceOutput,
   PieceId,
   GameEvent,
+  RoomRules,
 } from './types';
 import type { RedisGameStore } from './redis';
 import { MoveValidator } from './move-validator';
@@ -19,6 +20,21 @@ import {
 import type { LobbyManager } from './lobby';
 import { ClashManager } from './clash';
 import { ClashEngine } from './clash-engine';
+
+// The room rules as they arrive from the wire, turned into domain truth: only a
+// literal `true` turns a rule on, so `"false"`, `1`, `{}` and an absent field all
+// mean the default (off). The socket layer hands over whatever the client sent,
+// and this is where a payload stops being a payload: without the strict check the
+// string "false" would reach the match hash and the engine state and be read as
+// truthy, turning a rule ON for the rest of the room's life.
+function normalizeRoomRules(raw: unknown): RoomRules {
+  const input = (raw ?? {}) as Partial<RoomRules>;
+  return {
+    clashEnabled: input.clashEnabled === true,
+    noSafeZones: input.noSafeZones === true,
+    freeExit: input.freeExit === true,
+  };
+}
 
 // The game engine core: roll/move handling, per-game operation locking,
 // player lifecycle (disconnect/ready/exit), and event emission to the
@@ -477,25 +493,24 @@ export class LudoEngine {
     await this.emitLobbyUpdate(gameId);
   }
 
-  // Host-only live update of the room rules. LobbyManager mirrors them into the
-  // match hash and the engine state; the broadcast then carries what was
-  // actually persisted, not what the caller asked for.
-  async handleUpdateModifiers(
-    gameId: string,
-    userId: string,
-    clashEnabled: boolean,
-    safeZones: boolean,
-  ): Promise<void> {
+  // Host-only live update of the room rules. One object in (see RoomRules),
+  // normalized right here: this façade is the boundary where a wire payload
+  // becomes state, so a sloppy or hostile client cannot write a non-boolean.
+  // LobbyManager mirrors the result into the match hash and the engine state;
+  // the broadcast then carries what was actually persisted, not what the
+  // caller asked for.
+  async handleUpdateModifiers(gameId: string, userId: string, raw: unknown): Promise<void> {
     if (!this.lobbyManager) {
       throw new Error('Lobby manager not initialized');
     }
-    await this.withGameLock(gameId, () =>
-      this.lobbyManager.updateModifiers(gameId, userId, clashEnabled, safeZones),
-    );
+    const rules = normalizeRoomRules(raw);
+    await this.withGameLock(gameId, () => this.lobbyManager.updateModifiers(gameId, userId, rules));
     await this.emitModifiersUpdate(gameId);
   }
 
-  // Broadcast the room's current rules (clash mode + safe zones) to the room.
+  // Broadcast the room's current rules (one object, all three) to the room. Read
+  // back out of the state, never echoed from the caller: the clients mirror the
+  // room itself, so a stored value and a broadcast value cannot disagree.
   async emitModifiersUpdate(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state) return;
@@ -503,7 +518,8 @@ export class LudoEngine {
       type: 'modifiers_updated',
       gameId,
       clashEnabled: state.clashMode,
-      safeZones: state.safeZones,
+      noSafeZones: state.noSafeZones,
+      freeExit: state.freeExit,
     });
   }
 

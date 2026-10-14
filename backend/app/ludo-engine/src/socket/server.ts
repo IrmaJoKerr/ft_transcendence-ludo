@@ -426,8 +426,10 @@ export class SocketServer {
         this.handlers.handleSelectColor(socket, color);
       });
 
-      socket.on('update_modifiers', (clashEnabled: boolean, safeZones: boolean) => {
-        this.handlers.handleUpdateModifiers(socket, clashEnabled, safeZones);
+      // One object each way: the host's rules panel sends the three rules as
+      // `{clashEnabled, noSafeZones, freeExit}`, never as positional booleans.
+      socket.on('update_modifiers', (rules: unknown) => {
+        this.handlers.handleUpdateModifiers(socket, rules);
       });
 
       socket.on('leave_game', () => {

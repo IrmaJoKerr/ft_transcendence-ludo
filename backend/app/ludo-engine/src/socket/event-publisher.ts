@@ -129,7 +129,8 @@ export class EventPublisher {
         );
         break;
 
-      // Host changed the room rules while the room was still waiting.
+      // Host changed the room rules while the room was still waiting. One object
+      // out, the same three fields the panel sent in.
       case 'modifiers_updated':
         void this.store.publish(
           gameId,
@@ -137,7 +138,8 @@ export class EventPublisher {
             type: 'modifiers_updated',
             gameId: event.gameId,
             clashEnabled: event.clashEnabled,
-            safeZones: event.safeZones,
+            noSafeZones: event.noSafeZones,
+            freeExit: event.freeExit,
           }),
         );
         break;
