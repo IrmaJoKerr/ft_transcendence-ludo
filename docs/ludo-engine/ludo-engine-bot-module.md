@@ -43,23 +43,47 @@ Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot
 
 ## Key Types / Interfaces
 
-### Move selection priority
+### Move selection
 
 ```typescript
 // selectBestMove(legalMoves, state, diceValue)
-// 1. Any move where move.isCapture === true  → take it immediately
-// 2. On a 6, any move where move.from === 0   → free a piece from jail
-// 3. Otherwise score each move and take the best
+// ONE scale for every candidate, captures included. The highest score wins, so
+// there is no priority list to fall off the end of: a wall attack with nothing
+// else to play is still returned (never null — that would spend the dice and
+// stall the turn).
+// A capture scores CAPTURE_CREDIT x p ** captureCount (see below) and takes no
+// positional bonus; every other move is scored by scoreMove.
+```
+
+The credit is discounted by the odds the bot wins the clash the capture starts,
+which is what stops a bot from walking into a wall it will probably lose:
+
+```typescript
+// captureOdds(state, move):
+//   no clash mode (the capture just applies)            → 1
+//   one round against a bot seat  (p = 0.5)             → 0.5 ** captureCount
+//   one round against a human seat (p = 0.25)           → 0.25 ** captureCount
+// captureCount is the number of defenders on the landing square, i.e. one clash
+// round each (see move-validator.ts). The defender's seat comes from isBotSeat,
+// and its colour from the landing square via MoveValidator.findPiecesAtPosition.
+// One round vs a human: 7000 x 0.25 = 1750. A wall of 2: 437. Already beaten:
+// no positional score reaches 1560, so a sure capture still ranks first.
 ```
 
 ### Move scoring (`scoreMove`)
 
 | Condition | Score added |
 |---|---|
+| `move.isCapture` (takes the whole credit, no positional bonus) | `7000 × captureOdds` |
 | `move.isHomeEntry` (entering goal) | +1000 |
 | `move.to` lands on a safe zone | +500 |
 | `move.from === 0` (leaving jail) | +100 |
+| `move.from === 0` on a 6 (the old jail priority, kept as a bonus) | +1000 |
 | `move.to * 10` (progress along the track) | +10 per step |
+
+Ties keep the validator's order (`Array.prototype.sort` is stable), which
+reproduces the old "first capture" choice whenever the credits are equal — every
+capture in a room without clash mode, since the odds are then 1.
 
 ### Bot identity
 
@@ -108,7 +132,7 @@ sequenceDiagram
     alt No piece can move
         Bot-->>Game: Pass the turn
     else Moves available
-        Bot->>Bot: Pick the best move (capture > free from jail on 6 > highest score)
+        Bot->>Bot: Pick the best move (one scale: clash odds x credit, jail on 6, then score)
         Bot->>Bot: Wait about 1.2 seconds (so the dice animation shows)
         Bot->>Engine: Make the move
         Engine-->>Bot: result
@@ -161,7 +185,7 @@ flowchart LR
 | 2 | G0 piece `10 → 14` | safe zone (★) | `14×10 + 500 = 640` |
 | 3 | G1 piece `20 → 24` | plain square | `24×10 = 240` |
 
-The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same priority chain decides first — if any move could capture, it would take that move before scoring anything.
+The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same scale decides, captures included: a capture the bot is sure of scores `7000` and a lone defender `1750`, both above option 2, while a wall of two (a clash round each, `7000 × 0.25² = 437`) ranks below it — which is the point, a chain the bot probably loses is not worth walking into.
 
 
 ---
@@ -175,14 +199,13 @@ The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In re
 selectBestMove(legalMoves, state, diceValue)
   ├── No legal moves → return null (pass turn)
   ├── Exactly one legal move → return it
-  ├── Capture moves exist (isCapture) → return first capture
-  ├── diceValue === 6 and a move from===0 exists → return it (free from jail)
-  └── Otherwise score each move:
+  └── Otherwise score each move and return the highest:
+      ├── isCapture → 7000 × captureOdds (1 with no clash, else 0.5 or 0.25 per round, ^ rounds); nothing else added
       ├── +1000 if isHomeEntry
       ├── +500 if lands on a safe zone
-      ├── +100 if from === 0
+      ├── +100 if from === 0, and +1000 more of those on a 6 (the old jail priority)
       ├── +10 per step (move.to * 10)
-      └── Return the highest-scoring move
+      └── Ties keep the validator's order (a stable sort → the old "first capture")
 ```
 
 ### Bot Turn Path
@@ -206,8 +229,9 @@ takeTurn()
 
 | Dependency | Purpose |
 |-----------|---------|
-| `MoveValidator` | Provides the legal moves for a roll |
+| `MoveValidator` | Provides the legal moves for a roll, and `findPiecesAtPosition` names the defenders a capture would fight |
 | `LudoEngine` | Rolls the dice and executes moves |
 | `RedisGameStore` | Loads/saves game state |
-| `BoardMapper` | `isSafeZoneStep()` used in move scoring |
+| `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the defender's colour |
+| `clash.ts` | `CLASH_BOT_VS_HUMAN_WIN_CHANCE` / `CLASH_BOT_VS_BOT_WIN_CHANCE`: the same odds the clash pressers are pre-rolled against |
 | `socket/auth.ts` | `isBotUserId()` for bot detection |

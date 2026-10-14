@@ -275,7 +275,19 @@ export class ClashEngine {
       if (!clash) return;
       if (armedRound !== undefined && (clash.round ?? 1) !== armedRound) return;
       if (clash.phase !== 'pressing') return;
-      if (Date.now() < clash.pressDeadline) return;
+      // The armed press-deadline timer can fire a millisecond BEFORE the stamp it
+      // was scheduled for: its delay is `deadline - now` with both read off
+      // Date.now(), but the timer expires on the event loop's own millisecond
+      // clock, which can be a tick ahead of that. Returning here would drop the
+      // round quietly and leave the QTE frozen in front of both players until the
+      // 15s sweep (up to ~20s) or a reconnect, so a timer-armed call re-arms the
+      // remainder instead. The sweep passes no round and retries on its own
+      // cadence, so it simply returns.
+      const earlyBy = clash.pressDeadline - Date.now();
+      if (earlyBy > 0) {
+        if (armedRound !== undefined) this.armResolveAtDeadline(gameId, armedRound, earlyBy);
+        return;
+      }
       const winner =
         clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
       console.log(
@@ -285,6 +297,22 @@ export class ClashEngine {
     } catch (err) {
       console.error(`[clash] timeout ERROR ${gameId}:`, err);
     }
+  }
+
+  // Re-arm a press-deadline resolution that arrived a hair early, plus one
+  // millisecond so the retry clears the same comparison. The map is the game's
+  // pending-clash timer slot (the one the phase timers and resolveClashOutcome
+  // already use), and the callback carries its round, so a retry can never act on
+  // a later round of the same chain.
+  private armResolveAtDeadline(gameId: string, armedRound: number, afterMs: number): void {
+    const existing = this.clashTimers.get(gameId);
+    if (existing) clearTimeout(existing);
+    this.clashTimers.set(
+      gameId,
+      setTimeout(() => {
+        void this.resolveClashOnTimeout(gameId, armedRound);
+      }, afterMs + 1),
+    );
   }
 
   // Locked press recorder for humans and bots. Reaching CLASH_TARGET schedules

@@ -1,6 +1,8 @@
 import type { LudoEngine } from './engine';
 import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
+import { MoveValidator } from './move-validator';
+import { CLASH_BOT_VS_BOT_WIN_CHANCE, CLASH_BOT_VS_HUMAN_WIN_CHANCE } from './clash';
 import { BOT_PREFIX } from './socket/auth';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
@@ -32,6 +34,20 @@ export function isBotSeat(state: GameState | null | undefined, color: PlayerColo
   return player.isBot === true || player.username?.startsWith(BOT_PREFIX) === true;
 }
 
+// Move-selection scale. No positional score reaches 1560 (a home entry: 1000 +
+// 10 x 56), and a capture's credit is CAPTURE_CREDIT discounted by its clash odds
+// (see captureOdds), which keeps every old decision in place and adds the chain
+// rule: with no QTE standing in the way the credit is the full 7000, a lone
+// defender is still taken against a human (7000 x 0.25 = 1750) or a bot (3500),
+// while a wall of 2 or more falls below the positional moves (7000 x 0.25 ** 2 =
+// 437): a chain the bot probably loses is not worth walking into.
+const CAPTURE_CREDIT = 7000;
+// On a roll of 6 freeing a piece from jail is the tempo play the old priority
+// list took before any scoring. The bonus keeps that order: a jail exit with
+// every other bonus (100 + 10 x 7 + 500 = 670) plus this lands at 1670, above the
+// best positional move (1560) and below the cheapest capture the bot takes (1750).
+const JAIL_EXIT_BONUS = 1000;
+
 // Server-side Ludo Bot with heuristic move selection. One instance per
 // (game, color); turn scheduling is owned by SocketServer, not the bot.
 export class LudoBot {
@@ -48,39 +64,38 @@ export class LudoBot {
     this.store = store;
   }
 
-  // Select the best move by heuristic priority: capture > free from jail
-  // (on 6) > home entry > safe zone > max progress.
+  // Select the best move on one scale, captures included: a capture's credit
+  // carries the odds the bot wins its clash (see captureOdds), so a chain it
+  // expects to lose ranks below a safe alternative instead of being taken on
+  // sight. A rank, never a filter, because a null here spends the dice and stalls
+  // the turn (see takeTurnUnsafe): a wall attack with nothing else to play still
+  // comes back as the best move.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
     if (legalMoves.length === 1) return legalMoves[0];
 
-    // Priority 1: Capture moves - always take them
-    const captures = legalMoves.filter((m) => m.isCapture);
-    if (captures.length > 0) {
-      return captures[0];
-    }
-
-    // Priority 2: On a 6, prefer freeing pieces from jail (step 0)
-    if (diceValue === 6) {
-      const freesFromJail = legalMoves.filter((m) => m.from === 0);
-      if (freesFromJail.length > 0) {
-        return freesFromJail[0];
-      }
-    }
-
-    // Priority 3-5: Score remaining moves
     const scored = legalMoves.map((move) => ({
       move,
-      score: this.scoreMove(move),
+      score: this.scoreMove(move, state, diceValue),
     }));
 
+    // Array.prototype.sort is stable, so equal scores keep the validator's order
+    // (the tie-break the old `captures[0]` return used: pool captures, then the
+    // furthest along).
     scored.sort((a, b) => b.score - a.score);
     return scored[0].move;
   }
 
-  // Score a move based on heuristics.
-  // Higher score = better move.
-  private scoreMove(move: LegalMove): number {
+  // Score a move on one scale. Higher score = better move.
+  private scoreMove(move: LegalMove, state: GameState, diceValue: number): number {
+    // A capture is worth what it is likely to win, and carries no positional bonus
+    // on top: the credit already dwarfs them, and adding progress back would undo
+    // the chain discount (a 4 deep wall against a human is worth 219, while plain
+    // progress alone pays up to 570).
+    if (move.isCapture) {
+      return CAPTURE_CREDIT * this.captureOdds(state, move);
+    }
+
     let score = 0;
 
     // Home entry is excellent
@@ -96,12 +111,38 @@ export class LudoBot {
     // Progress bonus (scaled)
     score += move.to * 10;
 
-    // Moving from jail has slight bonus
+    // Moving from jail has slight bonus, and on a 6 it is the priority play
     if (move.from === 0) {
       score += 100;
+      if (diceValue === 6) {
+        score += JAIL_EXIT_BONUS;
+      }
     }
 
     return score;
+  }
+
+  // Odds the bot takes the landing square. With no QTE standing between the move
+  // and the capture (clash mode off, so the capture just applies) they are
+  // certain. Under clash mode each round's winner is drawn independently and
+  // pre-rolled against the same constants the bot pressers use, so a landing that
+  // costs one round is `p` and a wall of R defenders, one round each, is `p ** R`.
+  // The defender's seat picks p: another bot is a coin flip, a human beats this
+  // bot three times out of four.
+  private captureOdds(state: GameState, move: LegalMove): number {
+    if (!state.clashMode) return 1;
+    // The defenders' colour comes from the landing square through the same helper
+    // the validator counts a wall with, so the two can never disagree.
+    const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
+    const defenderColor = defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
+    const perRound =
+      defenderColor && isBotSeat(state, defenderColor)
+        ? CLASH_BOT_VS_BOT_WIN_CHANCE
+        : CLASH_BOT_VS_HUMAN_WIN_CHANCE;
+    // A capture always has at least one defender; the `> 0` guard is for a move
+    // list written before `captureCount` existed, where the field is undefined.
+    const rounds = move.captureCount > 0 ? move.captureCount : 1;
+    return perRound ** rounds;
   }
 
   // Execute bot turn: roll dice, make the best move. Does NOT schedule
