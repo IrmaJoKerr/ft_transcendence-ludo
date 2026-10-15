@@ -1,26 +1,35 @@
-import type { GameState, PlayerColor, LegalMove, PieceId, MoveResult } from './types';
+import type { GameState, PlayerColor, LegalMove, PieceId, MoveResult, BattlePlan } from './types';
 import { BoardMapper } from './board-mapper';
+import { orderDefenderIds } from './clash';
 
-// Breakable walls: the hardcore mod (star shields off) AND the clash QTE, because
-// a wall is beaten through the press race rather than captured outright. The
-// safe-zone flag cannot carry the gate on its own : it protects only the eight
-// safe squares, while a wall anywhere else still closes the path. Strict `=== true`
-// keeps a state written before these rules existed (both fields absent) blocking,
-// which is the standard room, and a sloppy payload (a string, a 1) from opening it.
-export function wallsAreBreakable(state: GameState): boolean {
-  return state.clashMode === true && state.noSafeZones === true;
+// A protected star square: the shield is on and this step is one of the eight
+// safe tracks. Its barriers neither block the path nor can be attacked, which is
+// the game's existing default and why a wall parked on a start square is a
+// non-issue in such a room.
+function isProtectedStar(state: GameState, pieceId: PieceId, step: number): boolean {
+  return state.noSafeZones !== true && BoardMapper.isSafeZoneStep(pieceId, step);
+}
+
+// Breakable walls, PER SQUARE: clash mode opens a wall, and a star square keeps
+// its shield unless the hardcore mod removed it, so the gate reads
+// `clashMode && (noSafeZones || !isStarSquare)`. Clash mode ALONE opens a wall on
+// an ordinary square: the old board-wide form demanded clash AND `noSafeZones`
+// together everywhere, which left a clash-only room unable to attack a wall at
+// all. Strict `=== true` reads keep a state written before these rules existed
+// (both fields absent) blocking, which is the standard room, and a sloppy payload
+// (a string, a 1) from opening it.
+export function wallIsAttackable(state: GameState, pieceId: PieceId, step: number): boolean {
+  return state.clashMode === true && !isProtectedStar(state, pieceId, step);
 }
 
 // MoveValidator - determines legal moves, resolves captures, checks wins, and executes moves.
 export class MoveValidator {
-  // All legal moves for `color` given the dice roll: prison exits (6 only),
-  // normal track moves with blockade checks, home entries. Used by
-  // LudoEngine.rollDice to build pendingLegalMoves.
+  // All legal moves for `color` given the dice roll: prison exits (a 6, or any
+  // roll under the free exit, plus the armed Barrier Buster exit), normal track
+  // moves with blockade checks, home entries. Used by LudoEngine.rollDice to
+  // build pendingLegalMoves.
   static getLegalMoves(state: GameState, color: PlayerColor, diceValue: number): LegalMove[] {
     const moves: LegalMove[] = [];
-    // One read of the breakable-wall gate for the whole list. It is passed to the
-    // track site only: the prison exit below keeps the share semantics.
-    const wallBreak = wallsAreBreakable(state);
 
     for (const piece of state.pieces.filter((p) => p.color === color)) {
       const from = piece.step;
@@ -31,32 +40,38 @@ export class MoveValidator {
       // Skip if already finished (step === 57)
       if (from === 57) continue;
 
-      // Prison exit rule: a piece leaves prison only on a roll of 6, and exiting
-      // consumes the 6 (the piece lands on step 1; the remaining 5 steps are not
-      // applied). The next roll then moves it 1-6 steps.
-      // Under the free exit room rule any roll opens the prison and the roll then
-      // applies FROM the star, so `to` is diceValue + 1: a 5 walks out to step 6,
-      // a 6 reaches step 7 and still grants its bonus roll. Either way the exit
-      // checks no blockade, so it may pass over a wall and may share the square
-      // it lands on: with the star shield off a wall can be parked on a start
-      // square, and an exit that respected blockades would be sealed for good
-      // (see the free-exit note in todo.md).
+      // Prison exit rule: a piece leaves prison on a 6, and that 6 lands it on
+      // step 1 (the remaining 5 steps are not applied). Under the free exit room
+      // rule any roll opens the prison and the first step out counts as part of
+      // the roll, so `to` is diceValue itself: a 5 walks out to step 5, a 6 to
+      // step 6 and still grants its bonus roll. Either way the exit is an
+      // ORDINARY move from step 0: it fights only the square it LANDS on, and a
+      // barrier it would have to cross blocks it exactly as it blocks any other
+      // move, so the door fight needs an exact roll (a 1 with the free exit on,
+      // a 6 with it off) — the wall on step k is attacked only by a move that
+      // lands on k. A barrier parked on a protected star is neither fought nor
+      // blocking: the exit passes it and shares the landing.
       if (from === 0) {
-        if (diceValue !== 6 && !state.freeExit) continue;
-        const to = state.freeExit ? diceValue + 1 : 1;
-        const isHomeEntry = false;
-        // A prison exit never attacks a wall, so no wallBreak is passed here: a wall
-        // on the landing square stays a share (captureCount 0) and never starts a
-        // clash, which matters most under the free exit where `to` can reach one.
-        const isCapture = this.isCapturableTarget(state, color, piece.id, to);
-        moves.push({
-          pieceId: piece.id,
-          from,
-          to,
-          isCapture,
-          isHomeEntry,
-          captureCount: this.captureCountAt(state, color, piece.id, to),
-        });
+        if (diceValue === 6 || state.freeExit === true) {
+          const to = state.freeExit ? diceValue : 1;
+          if (!this.blockadeBlocksPath(state, color, from, to, piece.id)) {
+            const wallBreak = wallIsAttackable(state, piece.id, to);
+            moves.push({
+              pieceId: piece.id,
+              from,
+              to,
+              isCapture: this.isCapturableTarget(state, color, piece.id, to, wallBreak),
+              isHomeEntry: false,
+              captureCount: this.captureCountAt(state, color, piece.id, to, wallBreak),
+            });
+            // A piece with a plain exit needs no rescue: the armed variant below
+            // would only repeat the same roll, so an exit is offered at most once
+            // per piece (and never twice on the same (pieceId, to)).
+            continue;
+          }
+        }
+        const armed = this.armedExit(state, color, piece.id, diceValue);
+        if (armed) moves.push(armed);
         continue;
       }
 
@@ -70,8 +85,10 @@ export class MoveValidator {
       }
 
       const isHomeEntry = to >= 52 && to <= 56;
-      // The gate travels as an argument: the exit branch above calls the same
-      // function and must keep the old semantics.
+      // The gate is read for THIS destination, not for the board: a wall on an
+      // ordinary square is attackable in a clash-only room, while a wall on a
+      // protected star stays a share.
+      const wallBreak = wallIsAttackable(state, piece.id, to);
       const isCapture = this.isCapturableTarget(state, color, piece.id, to, wallBreak);
 
       moves.push({
@@ -98,8 +115,11 @@ export class MoveValidator {
     to: number,
     pieceId: PieceId,
   ): boolean {
-    // Moves that never touch the main track can't be blocked.
-    if (from < 1 || to < 1) return false;
+    // Moves that never touch the main track can't be blocked. A prison exit is
+    // `from` 0 (an exited piece is negative and never moves), so it is checked
+    // from step 1 on: a wall on the square an exit LANDS on is the destination
+    // case below, not a crossing.
+    if (from < 0 || to < 1) return false;
 
     // Opponents' blockades only matter; own pieces never physically block the mover.
     const opponentColors: PlayerColor[] = ['blue', 'red', 'green', 'yellow'].filter(
@@ -109,18 +129,20 @@ export class MoveValidator {
     // Walk the mover's own-step path, but only main-track steps (1-51) participate.
     // When the move ends in the home stretch/goal (to > 51), still check the
     // intermediate track cells (e.g. step 51) the piece crosses before entering home.
-    // With breakable walls the landing square becomes attackable but no square
-    // becomes passable: the destination is excluded from the check, every square
-    // before it still blocks, and a home entry keeps checking 51 (a wall on the last
-    // track square still closes the way in). Hence `to <= 51 ? to - 1 : 51` rather
-    // than `Math.min(to, 51) - 1`, which would open 51 to home entries.
-    const lastTrackStep = wallsAreBreakable(state) ? (to <= 51 ? to - 1 : 51) : Math.min(to, 51);
+    // The destination is exempt from the walk only when a wall THERE is attackable
+    // (that landing is a fight, not a block); otherwise landing on a barrier is
+    // blocked like crossing it. No square becomes passable: every square before the
+    // destination still blocks, and a home entry keeps checking 51 (a wall on the
+    // last track square still closes the way in). Hence `to - 1` rather than
+    // `Math.min(to, 51) - 1`, which would open 51 to home entries.
+    const lastTrackStep =
+      to <= 51 && wallIsAttackable(state, pieceId, to) ? to - 1 : Math.min(to, 51);
     for (let step = from + 1; step <= lastTrackStep; step++) {
       const moverPos = BoardMapper.toTrackPosition(pieceId, step);
       if (moverPos === -1) continue;
       // Safe zones never form a blockade : skip them so a stack there doesn't
       // block. The hardcore mod (noSafeZones on) removes that exemption.
-      if (!state.noSafeZones && BoardMapper.isSafeZoneStep(pieceId, step)) continue;
+      if (isProtectedStar(state, pieceId, step)) continue;
       for (const blockerColor of opponentColors) {
         if (BoardMapper.isBlockadeAtTrackPos(state.pieces, blockerColor, moverPos)) {
           return true;
@@ -128,6 +150,88 @@ export class MoveValidator {
       }
     }
     return false;
+  }
+
+  // The opponent pieces standing on one step of the mover's OWN track, in the
+  // order a chain fights them (ascending piece id, so the same board always fights
+  // the same order however `state.pieces` happens to be ordered).
+  private static squareDefenders(
+    state: GameState,
+    moverColor: PlayerColor,
+    step: number,
+  ): PieceId[] {
+    return orderDefenderIds(this.findPiecesAtPosition(state, moverColor, step));
+  }
+
+  // True when the pieces on one square form a barrier: 2+ of the SAME opponent
+  // colour. A pair of different colours is not a barrier, it is a normal
+  // two-defender landing (the same reading `isBlockadeAtTrackPos` uses).
+  private static isBarrier(pieces: PieceId[]): boolean {
+    const byColor = new Map<PlayerColor, number>();
+    for (const id of pieces) {
+      const color = BoardMapper.parsePieceId(id).color;
+      byColor.set(color, (byColor.get(color) ?? 0) + 1);
+    }
+    return [...byColor.values()].some((n) => n >= 2);
+  }
+
+  // The armed exit (a Barrier Buster token): with clash mode on and a token in
+  // hand, a piece still in prison may leave on ANY roll — the token waives the
+  // exit-roll gate, which is what rescues a seat sealed in by a 6 drought — and
+  // the walk crosses a barrier the ordinary rules refuse to cross. It is offered
+  // only when the plain exit is NOT legal (see getLegalMoves), so a piece never
+  // carries two exits to the same square.
+  //
+  // The walk is steps 1..to with `to` = the roll: it crosses the barrier instead
+  // of being stopped by it, and finishes on `to` like any other move. One token
+  // fights AT MOST ONE barrier — a walk that meets two (the double-stacked
+  // corridor) has no armed variant at all, which keeps "one credit, one barrier"
+  // literal. A barrier on a protected star is never attacked: the walk passes it,
+  // exactly as the free exit does. The battles come back in path order (the
+  // crossed barrier first, then the landing square's own defenders), and
+  // `captureCount` is their total, i.e. the clash rounds the move costs.
+  private static armedExit(
+    state: GameState,
+    color: PlayerColor,
+    pieceId: PieceId,
+    to: number,
+  ): LegalMove | null {
+    if (state.clashMode !== true || to < 1 || to > 51) return null;
+    const mover = state.players.find((p) => p.color === color);
+    if ((mover?.barrierTokens ?? 0) <= 0) return null;
+
+    const fights: BattlePlan[] = [];
+    let barriers = 0;
+    for (let step = 1; step <= to; step++) {
+      const onSquare = this.squareDefenders(state, color, step);
+      if (onSquare.length === 0) continue;
+
+      if (this.isBarrier(onSquare)) {
+        if (isProtectedStar(state, pieceId, step)) continue;
+        barriers++;
+        if (barriers > 1) return null;
+        fights.push({ step, defenderIds: onSquare });
+        continue;
+      }
+
+      // Not a barrier: it only matters when it is the square the walk stops on.
+      if (step !== to) continue;
+      if (!this.isCapturableTarget(state, color, pieceId, step)) continue;
+      fights.push({ step, defenderIds: onSquare });
+    }
+
+    return {
+      pieceId,
+      from: 0,
+      to,
+      isCapture: fights.length > 0,
+      isHomeEntry: false,
+      captureCount: fights.reduce((n, b) => n + b.defenderIds.length, 0),
+      spendsBarrierToken: true,
+      // Only a walk that fights somewhere carries an explicit battle list: a walk
+      // with nothing to fight spends its token for the roll alone.
+      ...(fights.length > 0 ? { fights } : {}),
+    };
   }
 
   // The one decision behind "can the mover capture on targetStep, and how big is

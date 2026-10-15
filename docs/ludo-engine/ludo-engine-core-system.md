@@ -91,9 +91,26 @@ export interface PlayerMeta {
   bonusRoll: boolean;    // Rolled a 6 → rolls again
   isFinished: boolean;   // true when all 4 pieces in goal
   finishedAt?: string;   // ISO timestamp
-  stats: { turns: number; captures: number; piecesInGoal: number };  // Per-game counters
+  stats: {
+    turns: number;             // Turns taken by the seat this game
+    captures: number;          // Enemy pieces sent home
+    piecesInGoal: number;      // Mirrors the seat's pieces at step 57
+    clashDefends: number;      // Clash rounds fought as defender (achSteadyDefender)
+    clashAttacksWon: number;   // Clash rounds won as attacker (achMercilessAttacker)
+    barrierBreaks: number;     // Barriers torn down: token-priced exits that won their chain (achTearDownThisWall)
+  };
+  barrierTokens?: number;      // Barrier Buster tokens in hand (absent on a state written before the token = 0)
 }
 ```
+
+The two Barrier Buster fields are safe-by-default on purpose. A live room survives a redeploy
+in Redis, so a `GameState` written before the token existed can still be loaded mid-game; both
+fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) where `undefined - 1` is
+`NaN`, and a `NaN` seat would stay broken for the rest of the match. `RedisGameStore` normalizes
+them once at the only door the state comes back through (`withBarrierDefaults`, in
+[`redis.ts`](./ludo-engine-redis-system.md)), and every per-site read keeps a `?? 0` as belt and
+braces. `0` is also the honest reading: a room that old was never dealt a token and has not
+broken a wall.
 
 `userId` / `hasAvatarPhoto` / `avatarStyle` are filled in at join time from the backend's Redis
 `avatar:<userId>` record (the engine has no database access), and `emitLobbyUpdate` passes them to the
@@ -333,6 +350,8 @@ move_piece(pieceId)
   ├── Reject if the game is paused (a disconnect grace window is open)
   ├── Validate game active and turnPhase = WAITING_FOR_MOVE
   ├── Verify pieceId is in pendingLegalMoves (server snapshot from the roll)
+  ├── Barrier Buster move → spend the seat's token here (inside the game lock, against the
+  │   freshly loaded state: a replayed emit finds the move gone and spends nothing)
   ├── executeMove → move the piece; resolve any captures immediately (captured pieces → base)
   ├── recordMove (history) + moveCounter++
   ├── Check win condition (all 4 pieces at step 57)
@@ -343,6 +362,46 @@ move_piece(pieceId)
   ├── Clear pendingLegalMoves + pendingDiceValue
   └── saveGameState; emit piece_moved (+ game_ended if finished)
 ```
+
+### Barrier Buster Path
+
+The Barrier Buster is the armed prison exit: one token per seat, dealt by `createGame`, that buys a
+way out of a prison the dice will not open. It is the only move in the game that CROSSES a barrier
+instead of being stopped by one, and the only one that waives the exit-roll gate.
+
+```
+armed_exit(pieceId)                                 // MoveValidator.armedExit
+  ├── Require clash mode ON and the seat's token count > 0
+  ├── Require `to` = the roll, on the main track (1..51)
+  ├── Offered only when the plain exit is NOT legal for this roll (see getLegalMoves),
+  │   so a piece never carries two exits to the same square
+  ├── Walk steps 1..to in path order, collecting the battles the move has to fight
+  │   ├── A barrier (2+ of ONE opponent colour) → one battle; a SECOND barrier anywhere
+  │   │   in the corridor → return null, i.e. a double-stacked corridor has no armed
+  │   │   variant at all, which is what keeps "one token, one barrier" literal
+  │   ├── A barrier on a PROTECTED star → passed, never fought, so it costs no round
+  │   └── A non-barrier square → only matters at `to`, and only if it is capturable
+  ├── captureCount = the battles' total defenders = the clash rounds the move costs
+  └── LegalMove { from: 0, to, spendsBarrierToken: true, fights?: BattlePlan[] }
+```
+
+A walk with nothing to fight — no barrier crossed and nothing to capture on the square it lands on
+— carries no `fights` and spends its token for the door alone, which is the case a seat sealed in
+by a 6 drought uses.
+
+**Applying the move.** `movePiece` spends the token inside the game lock and against the state it
+has just re-read, *before* the clash gate: the move snapshot is cleared as the move is applied, so
+a replayed or duplicated emit finds no such move and is rejected before it can spend a second
+token. The battles then become ONE clash chain — one round per defender, in path order (the crossed
+barrier first, the landing square second) — and only a chain that is WON applies the walk. Losing
+any round leaves the walker in prison, and the token stays spent.
+
+**Crediting `barrierBreaks`.** Each move is stamped with `pendingMove.barrierBattles` = how many of
+its battles stood 2 or more defenders, and the clash engine adds that count to the attacker's
+`stats.barrierBreaks` only when the whole chain is won. So the tally counts BARRIERS, not rounds: a
+landing on a 2-stack is 1, an armed walk that crossed a wall (whatever the wall's size) is 1, a
+lone defender is 0, and a lost chain credits nothing. That count is what `achTearDownThisWall` sums
+per game; `?? 0` keeps a state written before the field existed reading as 0.
 
 
 ---

@@ -162,6 +162,12 @@ const ACHIEVEMENTS_DEF = [
     desc: 'Win 2 clashes as attacker in one clash-mode game',
     icon: '⚔️',
   },
+  {
+    key: 'achTearDownThisWall',
+    fallbackTitle: 'TEAR DOWN THIS WALL',
+    desc: 'Mr Gorbachev, tear down this wall! — break 2 walls in one clash-mode game',
+    icon: '🧱',
+  },
 ];
 
 export function Profile() {

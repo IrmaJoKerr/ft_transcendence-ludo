@@ -1,4 +1,4 @@
-// The authoritative list of the 15 achievements.
+// The authoritative list of the 16 achievements.
 // Adding one means adding a row here. Uses structural types because the generated
 // Prisma client may not exist at type-check time.
 
@@ -17,7 +17,8 @@ export type AchKey =
   | 'achSpeedDemon'
   | 'achUnstoppable'
   | 'achSteadyDefender'
-  | 'achMercilessAttacker';
+  | 'achMercilessAttacker'
+  | 'achTearDownThisWall';
 
 // Minimal structural shape of a GameParticipant row (fields we read).
 export interface GameParticipantLike {
@@ -26,6 +27,7 @@ export interface GameParticipantLike {
   piecesInGoal: number;
   clashDefends: number;
   clashAttacksWon: number;
+  barrierBreaks: number;
 }
 
 // Minimal structural shape of a Game row (fields we read).
@@ -69,6 +71,7 @@ export const ACHIEVEMENT_KEYS: AchKey[] = [
   'achUnstoppable',
   'achSteadyDefender',
   'achMercilessAttacker',
+  'achTearDownThisWall',
 ];
 
 export const ACHIEVEMENT_RULES: AchievementRule[] = [
@@ -184,5 +187,17 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     type: 'per-game',
     perGameTarget: 2,
     perGameSource: (part) => part.clashAttacksWon,
+  },
+  // The Barrier Buster: two walls torn down in ONE game (achTearDownThisWall).
+  // A wall is a battle that stood 2 or more defenders, so the two ways to bank one
+  // are an armed exit that crossed a wall and won its whole chain, and a later
+  // landing on a 2-stack (or bigger) that did the same. Both are reachable in a
+  // single clash-mode game, which is what makes 2 a fair target.
+  {
+    key: 'achTearDownThisWall',
+    nameKey: 'dashboard.achTearDownThisWall',
+    type: 'per-game',
+    perGameTarget: 2,
+    perGameSource: (part) => part.barrierBreaks ?? 0,
   },
 ];

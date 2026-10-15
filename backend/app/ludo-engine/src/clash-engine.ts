@@ -466,8 +466,17 @@ export class ClashEngine {
         result.captured = capturedIds.length > 0;
         result.capturedPieceIds = capturedIds;
         result.bonusRoll = pc.diceValue === 6 || result.captured;
-        if (capturedIds.length > 0) {
-          if (attackerMeta) attackerMeta.stats.captures += capturedIds.length;
+        if (attackerMeta) {
+          if (capturedIds.length > 0) attackerMeta.stats.captures += capturedIds.length;
+          // The Barrier Buster credit (achTearDownThisWall): the battles of this move
+          // that stood 2 or more defenders, stamped on pendingCapture at move time.
+          // Only a chain won END TO END reaches this branch — a repulse leaves the
+          // wall standing. `?? 0` keeps a seat record written before the field existed
+          // from turning the tally into NaN.
+          if (pc.barrierBattles) {
+            attackerMeta.stats.barrierBreaks =
+              (attackerMeta.stats.barrierBreaks ?? 0) + pc.barrierBattles;
+          }
         }
         result.clashOutcome = 'attacker_won';
       }

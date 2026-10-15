@@ -132,6 +132,9 @@ export const en = {
     achSteadyDefenderDesc: 'Defend 2 clashes in one clash-mode game',
     achMercilessAttacker: 'Merciless Attacker',
     achMercilessAttackerDesc: 'Win 2 clashes as attacker in one clash-mode game',
+    achTearDownThisWall: 'Tear Down This Wall',
+    achTearDownThisWallDesc:
+      'Mr Gorbachev, tear down this wall! — break 2 walls in one clash-mode game',
   },
   notifications: {
     dismissAlert: 'Dismiss Alert',
@@ -698,6 +701,12 @@ export const en = {
     // Tooltip on a legal piece's ×R badge: the attack on a stack of R defenders
     // is R clash rounds, one per defender.
     chainBadgeTitle: 'Wall of {{rounds}}: this attack is {{rounds}} clash rounds',
+    // Barrier Buster tooltips: the seat's remaining tokens (the pips next to the
+    // bay label) and the 🔓 price tag on a piece whose only legal move is the
+    // token-priced exit.
+    barrierTokensTitle:
+      'Barrier Buster ×{{count}}: spending one waives the roll a prison exit needs and carries the piece past one wall',
+    armedBadgeTitle: 'Barrier Buster: this exit costs one token',
   },
   gameExtra: {
     diceRollLabel: 'DICE ROLL:',
@@ -752,6 +761,7 @@ export const en = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. FREE EXIT',
+    rulesTab9: '10. BUSTER',
     rulesPage6Header: '// CLASH MODE',
     rulesPage6Title: '⚔️ Defend by mashing',
     rulesPage6Body:
@@ -771,17 +781,28 @@ export const en = {
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:
       'The eight star squares stop protecting, so a piece can be captured anywhere on the track — your own start square included. Only the home lane still shields you.',
-    // Hardcore's second half, and the one place it reads differently: stars also
-    // stop being exempt for stacks (a stack there blocks the path), and with clash
-    // mode on as well that stack is a breakable wall, one clash per defender.
+    // Hardcore's second half: stars also stop being exempt for stacks (a stack
+    // there blocks the path). The breakable-wall gate is PER SQUARE now — clash
+    // mode opens an ordinary square on its own, while a star needs hardcore — so
+    // the copy names both halves instead of promising it takes the two together.
     rulesPage7Body2:
-      'Without safe zones the stars are no exemption for stacks either: two pieces on one square — a star included — form a wall that blocks the path. And with clash mode on too, that wall can be broken: land on it and fight one clash per defender.',
+      'Without safe zones the stars are no exemption for stacks either: two pieces on one square — a star included — form a wall that blocks the path. A wall on an ordinary square is already breakable under clash mode alone: land on it and fight one clash per defender. With the stars off, a wall parked on a star is breakable too.',
     rulesPage8Header: '// FREE EXIT',
     rulesPage8Title: '🚪 Leave prison on any roll',
     rulesPage8Body:
-      'A piece in prison normally needs a 6 to come out. With free exit on, any roll releases it, and the piece then moves the rolled number of steps from the start square.',
+      'A piece in prison normally needs a 6 to come out. With free exit on, any roll opens the door and the exit is part of the move itself: the piece walks out and stops on the step it rolled — a 5 puts it on step 5, a 6 on step 6.',
+    // The free exit is an ORDINARY move from step 0: it fights only the square it
+    // lands on and a barrier on the way (the landing square included) blocks it,
+    // exactly like any other move. Walking ACROSS a barrier is the token's job
+    // (page 9, one wall per token), so the copy splits the two.
     rulesPage8Body2:
-      'A 6 still earns its bonus roll, and an exit never attacks a wall: it shares the square instead.',
+      'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece walks out along its own track and stops on the step it rolled, so a two-piece wall on the way — or exactly on that landing square — seals the prison until clash mode lets the piece break the wall it lands on, one clash per defender. A wall parked on a protected star is simply passed.',
+    rulesPage9Header: '// BARRIER BUSTER',
+    rulesPage9Title: '🔓 One token, one wall',
+    rulesPage9Body:
+      'Every pilot is dealt ONE Barrier Buster token at the start of the game. Spending it waives the roll a prison exit needs and carries the piece past the first wall in its path — one wall only, and only where clash mode makes it a wall. A 🔓 badge marks a piece in prison whose only exit is the token-priced one.',
+    rulesPage9Body2:
+      'The token crosses a wall, it does not break it: the piece still fights every defender it meets on the way out, one clash per defender, and the chain has to be won to move. A 6 already leaves prison on its own, so the token is offered only when the roll cannot — and never when two walls stand in the path, where nothing gets through.',
   },
   legal: {
     privacyPolicy: 'PRIVACY POLICY',

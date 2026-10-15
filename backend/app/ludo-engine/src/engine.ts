@@ -233,7 +233,11 @@ export class LudoEngine {
 
   // Move a piece: validate against pendingLegalMoves (server-authoritative),
   // apply using the stored pendingDiceValue, and return result + state.
-  async movePiece(gameId: string, pieceId: PieceId): Promise<MovePieceOutput> {
+  // `to` names WHICH move of that piece: one piece can hold two after a roll (a
+  // plain exit and the armed Barrier Buster walk). It is optional, so an older
+  // client that sends the piece alone keeps working — the piece's first move is
+  // then used, which is exactly the single-move list of a pre-token game.
+  async movePiece(gameId: string, pieceId: PieceId, to?: number): Promise<MovePieceOutput> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
       if (state?.status !== 'active') {
@@ -256,10 +260,12 @@ export class LudoEngine {
         throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
       }
 
-      // pieceId must be in pendingLegalMoves, a snapshot taken at roll time: a
-      // disconnect between roll and move is rejected here, and the capture is not
-      // re-derived.
-      const pendingMove = state.pendingLegalMoves.find((m) => m.pieceId === pieceId);
+      // pieceId (+ `to`, when the client names one) must be in pendingLegalMoves, a
+      // snapshot taken at roll time: a disconnect between roll and move is rejected
+      // here, and the capture is not re-derived.
+      const pendingMove = state.pendingLegalMoves.find(
+        (m) => m.pieceId === pieceId && (to === undefined || m.to === to),
+      );
       if (!pendingMove) {
         throw new Error('Invalid move: piece not in legal moves');
       }
@@ -272,26 +278,47 @@ export class LudoEngine {
 
       const moverColor = state.pieces.find((p) => p.id === pieceId)?.color as PlayerColor;
 
+      // A Barrier Buster move pays its token here, inside the game lock and against
+      // the freshly loaded state, exactly once: the snapshot is cleared as the move
+      // is applied below, so a replayed or duplicated emit finds no such move and is
+      // rejected before it can spend a second token. The re-read is what makes the
+      // counter authoritative — the client's copy is display only.
+      if (pendingMove.spendsBarrierToken) {
+        const mover = state.players.find((p) => p.color === moverColor);
+        if (!mover || (mover.barrierTokens ?? 0) <= 0) {
+          throw new Error('No barrier token available');
+        }
+        mover.barrierTokens = (mover.barrierTokens ?? 0) - 1;
+      }
+
       // Clash gate: a capture is deferred to the QTE and applied only once that
       // resolves, so no piece moves yet.
       if (state.clashMode && pendingMove.isCapture) {
-        // Find the defender via the SHARED track position: comparing per-colour
-        // steps would be wrong across colours.
-        const capturedPieceIds = MoveValidator.findPiecesAtPosition(
-          state,
-          moverColor,
-          pendingMove.to,
-        );
-        // No defender on that square (a blockade, or home/goal): fall through to
-        // a normal capture move.
-        const defenderPiece = state.pieces.find((p) => p.id === capturedPieceIds[0]);
+        // The move's battles, in path order, as defender groups. An ARMED exit walk
+        // fights on several squares (the barrier it crosses, then its landing square)
+        // and carries those battles in path order already; an ordinary capture fights
+        // the stack on its landing square, found via the SHARED track position,
+        // because comparing per-colour steps would be wrong across colours. Order
+        // WITHIN a square is named by piece id rather than read off `state.pieces` so
+        // it stays stable if that array is ever rebuilt, and so two runs of the same
+        // board fight the same order.
+        const battles =
+          pendingMove.fights && pendingMove.fights.length > 0
+            ? pendingMove.fights.map((b) => b.defenderIds)
+            : [
+                orderDefenderIds(
+                  MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to),
+                ),
+              ];
+        const defenderIds = battles.flat();
+        // A battle that stood 2 or more defenders is a barrier, and winning the chain
+        // credits every one of them to the attacker (achTearDownThisWall): a landing on
+        // a 2-stack is 1, an armed walk that crosses a wall is 1, a lone defender is 0.
+        const barrierBattles = battles.filter((ids) => ids.length >= 2).length;
+        // No defender behind the move (home/goal): fall through to a normal move.
+        const defenderPiece = state.pieces.find((p) => p.id === defenderIds[0]);
         if (defenderPiece) {
           const defenderColor = defenderPiece.color as PlayerColor;
-          // The chain's ledger: EVERY opponent piece on the landing square, one
-          // round each, in ascending piece id order. Order is named by piece id
-          // rather than read off `state.pieces` so it stays stable if that array is
-          // ever rebuilt, and so two runs of the same board fight the same order.
-          const defenderIds = orderDefenderIds(capturedPieceIds);
           const totalRounds = defenderIds.length;
 
           state.pendingCapture = {
@@ -308,6 +335,7 @@ export class LudoEngine {
             totalRounds,
             remainingDefenderIds: [...defenderIds],
             beatenDefenderIds: [],
+            barrierBattles,
           };
           state.pendingLegalMoves = [];
           state.pendingDiceValue = undefined;

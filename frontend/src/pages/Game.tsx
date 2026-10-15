@@ -2308,19 +2308,19 @@ export function Game() {
         isDanger
       />
 
-      {/* Cyberpunk System Control & Multi-Page Rules Modal (6 Pages) */}
+      {/* Cyberpunk System Control & Multi-Page Rules Modal (10 Pages) */}
       <CyberModal
         isOpen={isSystemModalOpen}
         title={t('gameExtra.rulesModalTitle')}
         versionTag={t('gameExtra.rulesVersionTag')}
         cancelLabel={t('common.close')}
-        proceedLabel={rulesPage < 8 ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')}
+        proceedLabel={rulesPage < 9 ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')}
         cancelShortcut="ESC"
-        proceedShortcut={rulesPage < 8 ? '→' : '↵'}
-        closeOnProceed={rulesPage >= 8}
+        proceedShortcut={rulesPage < 9 ? '→' : '↵'}
+        closeOnProceed={rulesPage >= 9}
         onCancel={() => setIsSystemModalOpen(false)}
         onProceed={() => {
-          if (rulesPage < 8) {
+          if (rulesPage < 9) {
             retroAudio.playUiBeep(700, 0.05);
             setRulesPage((p) => p + 1);
           } else {
@@ -2356,6 +2356,7 @@ export function Game() {
                 { id: 6, label: t('gameExtra.rulesTab6') },
                 { id: 7, label: t('gameExtra.rulesTab7') },
                 { id: 8, label: t('gameExtra.rulesTab8') },
+                { id: 9, label: t('gameExtra.rulesTab9') },
               ].map((p) => (
                 <button
                   key={p.id}
@@ -2898,6 +2899,50 @@ export function Game() {
                   </p>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
                     {t('gameExtra.rulesPage8Body2')}
+                  </p>
+                </div>
+              </div>
+            )}
+            {rulesPage === 9 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 14,
+                  fontSize: '0.95rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
+                  style={{
+                    color: '#00f0ff',
+                    fontWeight: 'bold',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '1.05rem',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {t('gameExtra.rulesPage9Header')}
+                </div>
+                <div
+                  style={{
+                    background: 'rgba(5, 2, 18, 0.65)',
+                    padding: 16,
+                    borderRadius: 6,
+                    border: '1px solid rgba(0, 240, 255, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ color: '#00f0ff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    {t('gameExtra.rulesPage9Title')}
+                  </div>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage9Body')}
+                  </p>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
+                    {t('gameExtra.rulesPage9Body2')}
                   </p>
                 </div>
               </div>

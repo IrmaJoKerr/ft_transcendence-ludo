@@ -132,6 +132,9 @@ export const ms = {
     achSteadyDefenderDesc: 'Pertahankan 2 pertembungan dalam satu perlawanan mod-pertembungan',
     achMercilessAttacker: 'Penyerang Tanpa Belas',
     achMercilessAttackerDesc: 'Menang 2 pertembungan sebagai penyerang dalam satu perlawanan mod-pertembungan',
+    achTearDownThisWall: 'Runtuhkan Tembok Ini',
+    achTearDownThisWallDesc:
+      'Encik Gorbachev, runtuhkan tembok ini! — pecahkan 2 tembok dalam satu perlawanan mod-pertembungan',
   },
   notifications: {
     dismissAlert: 'Tutup Amaran',
@@ -696,6 +699,12 @@ export const ms = {
     blueBay: 'BAY-BIRU',
     // Petua pada lencana ×R: menyerang timbunan R pertahanan mengambil R pusingan.
     chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
+    // Tip alat Pemecah Sekatan: token yang masih dipegang kerusi ini (titik di
+    // sebelah label pangkalan) dan tanda 🔓 pada buah yang satu-satunya langkah sah
+    // ialah keluar berpembayaran token.
+    barrierTokensTitle:
+      'Pemecah Sekatan ×{{count}}: menggunakan satu membatalkan guling keluar penjara dan membawa buah melepasi satu tembok',
+    armedBadgeTitle: 'Pemecah Sekatan: keluar ini menelan satu token',
   },
   gameExtra: {
     diceRollLabel: 'GULING DADU:',
@@ -750,6 +759,7 @@ export const ms = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. KELUAR BEBAS',
+    rulesTab9: '10. PEMECAH',
     rulesPage6Header: '// MOD CLASH',
     rulesPage6Title: '⚔️ Bertahan dengan menekan laju',
     rulesPage6Body:
@@ -767,13 +777,19 @@ export const ms = {
     rulesPage7Body:
       'Lapan petak bintang tidak lagi melindungi, jadi buah boleh ditangkap di mana-mana di laluan — termasuk petak permulaan anda sendiri. Hanya lorong rumah masih melindungi anda.',
     rulesPage7Body2:
-      'Tanpa zon selamat, bintang tidak lagi menjadi pengecualian untuk susunan: dua buah pada satu petak — walaupun di atas bintang — membentuk tembok yang menyekat laluan. Dan jika mod Clash turut aktif, tembok itu boleh dipecahkan: mendarat di atasnya dan lawan satu Clash bagi setiap pertahanan.',
+      'Tanpa zon selamat, bintang tidak lagi menjadi pengecualian untuk susunan: dua buah pada satu petak — walaupun di atas bintang — membentuk tembok yang menyekat laluan. Mod Clash sahaja sudah cukup untuk memecahkan tembok di petak biasa: mendarat di atasnya dan lawan satu Clash bagi setiap pertahanan. Setelah bintang dimatikan, tembok yang terletak di atas bintang juga boleh dipecahkan.',
     rulesPage8Header: '// KELUAR BEBAS',
     rulesPage8Title: '🚪 Keluar penjara dengan sebarang guling',
     rulesPage8Body:
-      'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang guling membebaskannya, dan buah itu bergerak sebanyak mata guling dari petak permulaan.',
+      'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang gulingan membuka pintu dan keluar itu sebahagian daripada pergerakan itu sendiri: buah keluar dan berhenti pada langkah yang digulingkan — gulingan 5 meletakkannya pada langkah 5, gulingan 6 pada langkah 6.',
     rulesPage8Body2:
-      'Gulingan 6 masih memberi gulingan bonus, dan keluar penjara tidak pernah menyerang tembok: ia berkongsi petak itu.',
+      'Gulingan 6 masih memberi gulingan bonus. Keluar penjara ialah pergerakan biasa: buah keluar sepanjang laluannya sendiri dan berhenti pada langkah yang digulingkan, jadi tembok dua buah di sepanjang laluan — atau tepat pada petak pendaratan itu — menyekat penjara, kecuali mod Clash membolehkan buah memecahkan tembok yang dipijaknya, satu Clash bagi setiap pertahanan. Tembok di atas bintang yang dilindungi hanya dilalui.',
+    rulesPage9Header: '// PEMECAH SEKATAN',
+    rulesPage9Title: '🔓 Satu token, satu tembok',
+    rulesPage9Body:
+      'Setiap juruterbang diberi SATU token Pemecah Sekatan pada awal permainan. Menggunakannya membatalkan gulingan yang diperlukan untuk keluar penjara dan membawa buah melepasi tembok PERTAMA dalam laluannya — satu tembok sahaja, dan hanya di tempat mod clash menjadikannya tembok. Tanda 🔓 menandakan buah dalam penjara yang satu-satunya jalan keluar ialah keluar berpembayaran token itu.',
+    rulesPage9Body2:
+      'Token melintasi tembok, bukan memecahkannya: buah itu tetap menentang setiap pertahanan yang ditemuinya semasa keluar, satu clash bagi setiap pertahanan, dan rantaian itu mesti dimenangi untuk bergerak. Gulingan 6 sudah cukup untuk keluar penjara, jadi token hanya ditawarkan apabila gulingan tidak mampu — dan tidak sekali-kali apabila dua tembok menghalang laluan, kerana tiada apa yang boleh melaluinya.',
   },
   legal: {
     privacyPolicy: 'DASAR PRIVASI',

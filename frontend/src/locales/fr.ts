@@ -134,6 +134,9 @@ export const fr = {
     achSteadyDefenderDesc: 'Défendez 2 chocs dans une partie en mode choc',
     achMercilessAttacker: 'Attaquant Impitoyable',
     achMercilessAttackerDesc: 'Gagnez 2 chocs en attaque dans une partie en mode choc',
+    achTearDownThisWall: 'Abattez ce Mur',
+    achTearDownThisWallDesc:
+      'M. Gorbatchev, abattez ce mur ! — brisez 2 murs dans une partie en mode choc',
   },
   notifications: {
     dismissAlert: "Masquer l'alerte",
@@ -701,6 +704,12 @@ export const fr = {
     blueBay: 'BLEU-BAIE',
     // Infobulle du badge ×R : attaquer une pile de R défenseurs coûte R manches.
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
+    // Infobulles du Brise-Barrière : les jetons restants du siège (les pastilles à
+    // côté du label de la base) et l'étiquette 🔓 sur une pièce dont la seule
+    // sortie légale est celle payée par un jeton.
+    barrierTokensTitle:
+      'Brise-Barrière ×{{count}} : en dépenser un annule le lancer de sortie de prison et fait franchir un mur à la pièce',
+    armedBadgeTitle: 'Brise-Barrière : cette sortie coûte un jeton',
   },
   gameExtra: {
     diceRollLabel: 'LANCER DE DÉ :',
@@ -755,6 +764,7 @@ export const fr = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. SORTIE LIBRE',
+    rulesTab9: '10. BRISE-MUR',
     rulesPage6Header: '// MODE CLASH',
     rulesPage6Title: '⚔️ Défendez-vous en martelant',
     rulesPage6Body:
@@ -772,13 +782,19 @@ export const fr = {
     rulesPage7Body:
       "Les huit cases étoilées cessent de protéger : une pièce peut être capturée n'importe où sur le parcours — votre propre case de départ comprise. Seul le couloir final vous protège encore.",
     rulesPage7Body2:
-      "Sans zones sûres, les étoiles ne font plus exception pour les piles : deux pièces sur une case — une étoile y compris — forment un mur qui bloque le passage. Et si le mode Clash est aussi actif, ce mur peut être brisé : posez-vous dessus et livrez un Clash par défenseur.",
+      "Sans zones sûres, les étoiles ne font plus exception pour les piles : deux pièces sur une case — une étoile y compris — forment un mur qui bloque le passage. Sur une case ordinaire, le mode Clash suffit déjà à briser ce mur : posez-vous dessus et livrez un Clash par défenseur. Une fois les étoiles désactivées, un mur posé sur une étoile est brisable lui aussi.",
     rulesPage8Header: '// SORTIE LIBRE',
     rulesPage8Title: '🚪 Sortez de prison sur tout lancer',
     rulesPage8Body:
-      "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer la libère, puis la pièce avance du nombre de pas obtenu depuis la case de départ.",
+      "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer ouvre la porte et la sortie fait partie du déplacement : la pièce sort et s'arrête sur le pas obtenu — un 5 la pose sur son pas 5, un 6 sur son pas 6.",
     rulesPage8Body2:
-      "Un 6 conserve son lancer bonus, et une sortie n'attaque jamais un mur : elle partage la case.",
+      "Un 6 conserve son lancer bonus. La sortie est un déplacement ordinaire depuis la prison : la pièce sort le long de son propre parcours et s'arrête sur le pas obtenu, donc un mur de deux pièces sur le trajet — ou exactement sur cette case d'arrivée — scelle la prison, sauf si le mode Clash permet de briser le mur sur lequel elle se pose, un Clash par défenseur. Un mur posé sur une étoile protégée est simplement traversé.",
+    rulesPage9Header: '// BRISE-BARRIÈRE',
+    rulesPage9Title: '🔓 Un jeton, un mur',
+    rulesPage9Body:
+      "Chaque pilote reçoit UN jeton Brise-Barrière au début de la partie. Le dépenser annule le lancer qu'exige une sortie de prison et fait franchir à la pièce le premier mur de son parcours — un seul mur, et uniquement là où le mode clash en fait un mur. Une étiquette 🔓 marque la pièce en prison dont la seule sortie est celle payée par un jeton.",
+    rulesPage9Body2:
+      "Le jeton traverse un mur, il ne le brise pas : la pièce affronte toujours chaque défenseur rencontré en sortant, un clash par défenseur, et il faut gagner la chaîne pour avancer. Un 6 sort déjà de prison tout seul, donc le jeton n'est proposé que lorsque le lancer ne suffit pas — et jamais quand deux murs barrent le parcours, où rien ne passe.",
   },
   legal: {
     privacyPolicy: 'POLITIQUE DE CONFIDENTIALITÉ',

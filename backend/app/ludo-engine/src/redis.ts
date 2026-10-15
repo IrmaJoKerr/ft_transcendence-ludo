@@ -3,6 +3,22 @@ import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } f
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
+// The Barrier Buster fields were added after the first rooms were written, and a
+// live room survives a redeploy in Redis, so a state created before the token
+// existed can be loaded mid-game. Both fields feed arithmetic (`-= 1` on the
+// hand, `+= n` on the tally), and `undefined - 1` is NaN, which would poison the
+// seat for the rest of the match: normalize them once, here, at the only door
+// the state comes back through. Zero is also the honest reading — a room that
+// old was never dealt a token and has not broken a wall — and the per-site
+// `?? 0` reads stay as belt and braces for a state that never passes this door.
+function withBarrierDefaults(state: GameState): GameState {
+  for (const player of state.players) {
+    if (player.barrierTokens === undefined) player.barrierTokens = 0;
+    if (player.stats.barrierBreaks === undefined) player.stats.barrierBreaks = 0;
+  }
+  return state;
+}
+
 // RedisGameStore is a PERSISTENCE LAYER: one serialized GameState per game
 // in Redis. Logic mutates in memory first, then persists here.
 export class RedisGameStore {
@@ -88,7 +104,17 @@ export class RedisGameStore {
       consecutiveSixes: 0,
       bonusRoll: false,
       isFinished: false,
-      stats: { turns: 0, captures: 0, piecesInGoal: 0, clashDefends: 0, clashAttacksWon: 0 },
+      // One Barrier Buster token is dealt at game start: the only way to leave
+      // prison past a barrier under clash mode, and a rescue from a 6 drought.
+      barrierTokens: 1,
+      stats: {
+        turns: 0,
+        captures: 0,
+        piecesInGoal: 0,
+        clashDefends: 0,
+        clashAttacksWon: 0,
+        barrierBreaks: 0,
+      },
     }));
 
     const state: GameState = {
@@ -116,7 +142,7 @@ export class RedisGameStore {
   async loadGameState(gameId: string): Promise<GameState | null> {
     const data = await this.client.hget(this.gameKey(gameId), 'state');
     if (!data) return null;
-    return JSON.parse(data) as GameState;
+    return withBarrierDefaults(JSON.parse(data) as GameState);
   }
 
   // Save the entire GameState to Redis (single operation)

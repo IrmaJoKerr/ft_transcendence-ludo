@@ -98,6 +98,7 @@ model Achievement {
   achUnstoppable       Boolean @default(false)
   achSteadyDefender    Boolean @default(false)
   achMercilessAttacker Boolean @default(false)
+  achTearDownThisWall  Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -139,6 +140,7 @@ model GameParticipant {
   piecesInGoal    Int         @default(0) // 0-4
   clashDefends    Int         @default(0) // QTE: rounds won as defender
   clashAttacksWon Int         @default(0) // QTE: rounds won as attacker
+  barrierBreaks   Int         @default(0) // Barrier Buster: token-priced prison exits that won their clash chain
 
   game Game @relation(fields: [game_id], references: [id], onDelete: Cascade)
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)

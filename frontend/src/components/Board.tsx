@@ -164,14 +164,17 @@ function Yard({
   ck,
   basePieces,
   goalCount,
+  barrierTokens,
   legalPieceIds,
   onPieceClick,
 }: {
   r: number;
   c: number;
   ck: ColorKey;
-  basePieces: Array<{ id: string }>;
+  basePieces: Array<{ id: string; armed: boolean }>;
   goalCount: number;
+  /** Barrier Buster tokens this seat still holds (0 = none, and no chip shows). */
+  barrierTokens: number;
   legalPieceIds: Set<string>;
   onPieceClick?: (pieceId: string) => void;
 }) {
@@ -230,6 +233,44 @@ function Yard({
           {t('board.goalLabel')} {goalCount}/4
         </span>
       </div>
+      {/* Barrier Buster pips: one per token still in hand. Rendered next to the bay
+          label (not on a piece) because a token outlives a single piece and the
+          seat's whole supply is what the player spends. */}
+      {barrierTokens > 0 && (
+        <div
+          title={t('board.barrierTokensTitle', { count: barrierTokens })}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            marginTop: 2,
+          }}
+        >
+          {Array.from({ length: barrierTokens }, (_, i) => (
+            <span
+              key={i}
+              style={{
+                width: 10,
+                height: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 2,
+                border: '1px solid var(--accent-yellow)',
+                background: 'rgba(13, 2, 33, 0.92)',
+                color: 'var(--accent-yellow)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 8,
+                lineHeight: '8px',
+                textShadow: '0 0 4px var(--accent-yellow)',
+              }}
+            >
+              🔓
+            </span>
+          ))}
+        </div>
+      )}
       <div
         style={{
           width: '100%',
@@ -278,9 +319,39 @@ function Yard({
                 cursor: isLegal ? 'pointer' : 'default',
                 animation: isLegal ? 'piecePulse 1.2s ease-in-out infinite' : 'none',
                 zIndex: isLegal ? 30 : 1,
+                position: 'relative',
               }}
             >
               <Sphere ck={ck} isLegal={isLegal} />
+              {piece.armed && (
+                // The only exit this piece has left is the token-priced one: the
+                // badge is the price tag, and the seat's pips above show whether
+                // it can pay it.
+                <span
+                  title={t('board.armedBadgeTitle')}
+                  style={{
+                    position: 'absolute',
+                    top: -8,
+                    left: '50%',
+                    marginLeft: 4,
+                    padding: '0 4px',
+                    borderRadius: 6,
+                    border: '1px solid var(--accent-yellow)',
+                    background: 'rgba(13, 2, 33, 0.92)',
+                    color: 'var(--accent-yellow)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    lineHeight: '14px',
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
+                    zIndex: 31,
+                    textShadow: '0 0 6px var(--accent-yellow)',
+                  }}
+                >
+                  🔓
+                </span>
+              )}
             </div>
           );
         })}
@@ -319,7 +390,7 @@ function laneColor(r: number, c: number): string | null {
 
 type BoardProps = {
   pieces?: Array<{ id: string; color: string; step: number; isInGoal: boolean; isInBase: boolean }>;
-  players?: Array<{ color: string; status: string }>;
+  players?: Array<{ color: string; status: string; barrierTokens?: number }>;
   legalMoves?: Array<{
     pieceId: string;
     from: number;
@@ -328,6 +399,8 @@ type BoardProps = {
     isHomeEntry: boolean;
     /** Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds. */
     captureCount?: number;
+    /** Barrier Buster exit: the move costs one token, so the piece wears the 🔓 price tag. */
+    spendsBarrierToken?: boolean;
   }>;
   onPieceClick?: (pieceId: string) => void;
   /** While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation. */
@@ -357,18 +430,28 @@ export function Board({
   // Clash CHAIN preview: an attack onto a STACK of defenders costs one QTE round
   // per defender, so the legal piece wears a ×R badge and the price of the attack
   // is visible before the click. 0/1 (a plain move or a single defender) show
-  // nothing: the badge is about walls. Prison exits never attack a wall, so only
-  // on-track pieces can carry one.
+  // nothing: the badge is about walls. A prison exit can carry one too — an armed
+  // exit fights the single barrier it crosses plus whatever it lands on.
   const chainCounts = new Map<string, number>();
   for (const m of legalMoves ?? []) {
     if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
   }
+  // Barrier Buster exits in the pool: their piece is still in the base but is
+  // playable, so it gets the 🔓 price tag instead of sitting in the bay unmarked.
+  const armedPieceIds = new Set(
+    (legalMoves ?? []).filter((m) => m.spendsBarrierToken).map((m) => m.pieceId),
+  );
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );
+  const barrierTokens = (ck: ColorKey) =>
+    players.find((p) => p.color === ck && (p.status === 'active' || p.status === 'disconnected'))
+      ?.barrierTokens ?? 0;
   const basePieces = (ck: ColorKey) =>
     activeColors.has(ck)
-      ? pieces.filter((p) => p.color === ck && p.isInBase && p.id !== animating?.pieceId)
+      ? pieces
+          .filter((p) => p.color === ck && p.isInBase && p.id !== animating?.pieceId)
+          .map((p) => ({ id: p.id, armed: armedPieceIds.has(p.id) }))
       : [];
   const goalCount = (ck: ColorKey) =>
     pieces.filter((p) => p.color === ck && p.isInGoal && p.id !== animating?.pieceId).length;
@@ -641,6 +724,7 @@ export function Board({
           ck="red"
           basePieces={basePieces('red')}
           goalCount={goalCount('red')}
+          barrierTokens={barrierTokens('red')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -650,6 +734,7 @@ export function Board({
           ck="green"
           basePieces={basePieces('green')}
           goalCount={goalCount('green')}
+          barrierTokens={barrierTokens('green')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -659,6 +744,7 @@ export function Board({
           ck="yellow"
           basePieces={basePieces('yellow')}
           goalCount={goalCount('yellow')}
+          barrierTokens={barrierTokens('yellow')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -668,6 +754,7 @@ export function Board({
           ck="blue"
           basePieces={basePieces('blue')}
           goalCount={goalCount('blue')}
+          barrierTokens={barrierTokens('blue')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />

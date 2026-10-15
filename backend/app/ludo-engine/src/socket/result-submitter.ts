@@ -80,7 +80,7 @@ export class ResultSubmitter {
           );
         }
 
-        // The two clash tallies ride along for the clash achievements; a seat
+        // The three clash tallies ride along for the clash achievements; a seat
         // record written before they existed reads 0.
         participants.push({
           userId,
@@ -91,6 +91,7 @@ export class ResultSubmitter {
           piecesInGoal,
           clashDefends: stats.clashDefends ?? 0,
           clashAttacksWon: stats.clashAttacksWon ?? 0,
+          barrierBreaks: stats.barrierBreaks ?? 0,
         });
       }
 

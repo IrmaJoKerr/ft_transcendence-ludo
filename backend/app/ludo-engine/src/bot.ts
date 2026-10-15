@@ -74,7 +74,14 @@ export class LudoBot {
     if (legalMoves.length === 0) return null;
     if (legalMoves.length === 1) return legalMoves[0];
 
-    const scored = legalMoves.map((move) => ({
+    // Bots never spend a Barrier Buster token (v1): the armed exit is dropped from
+    // the pool while anything else is playable, so a bot only arms when the token
+    // is the last way out of prison — the same "never stall the turn" rule the
+    // single-move path below follows.
+    const unarmed = legalMoves.filter((m) => m.spendsBarrierToken !== true);
+    const pool = unarmed.length > 0 ? unarmed : legalMoves;
+
+    const scored = pool.map((move) => ({
       move,
       score: this.scoreMove(move, state, diceValue),
     }));
@@ -103,8 +110,11 @@ export class LudoBot {
       score += 1000;
     }
 
-    // Safe zone bonus
-    if (BoardMapper.isSafeZoneStep(move.pieceId, move.to)) {
+    // Safe zone bonus: only for a move that ENTERS one on the track. A prison exit
+    // starts on step 0 (no square) and its landing is the occupied start square, so
+    // the bonus is off for it — the same reason the validator refuses a star bonus
+    // on an exit's landing.
+    if (move.from > 0 && BoardMapper.isSafeZoneStep(move.pieceId, move.to)) {
       score += 500;
     }
 
@@ -131,9 +141,16 @@ export class LudoBot {
   // bot three times out of four.
   private captureOdds(state: GameState, move: LegalMove): number {
     if (!state.clashMode) return 1;
-    // The defenders' colour comes from the landing square through the same helper
-    // the validator counts a wall with, so the two can never disagree.
-    const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
+    // The defenders' colour comes from the square the FIRST round is fought on:
+    // the landing square for an ordinary capture, and the crossed barrier for an
+    // armed exit walk that lands past it. An armed walk's own battle list is read
+    // first (it is the same list the chain fights, in path order), and everything
+    // else goes through the helper the validator counts a wall with, so the two
+    // can never disagree about who is standing in round one.
+    const firstBattle = move.fights?.[0];
+    const defenders = firstBattle
+      ? firstBattle.defenderIds
+      : MoveValidator.findPiecesAtPosition(state, this.color, move.to);
     const defenderColor = defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
     const perRound =
       defenderColor && isBotSeat(state, defenderColor)
@@ -189,8 +206,14 @@ export class LudoBot {
       const beforeMove = await this.store.loadGameState(this.gameId);
       if (beforeMove?.status !== 'active' || beforeMove.currentTurn !== this.color) return false;
 
-      // Execute move : engine emits piece_moved and game_ended events via handleEngineEvent
-      const { state: finalState } = await this.engine.movePiece(this.gameId, bestMove.pieceId);
+      // Execute move : engine emits piece_moved and game_ended events via handleEngineEvent.
+      // The landing square is passed too: one piece can hold two distinct moves only for
+      // the ARMED exit walk, where (pieceId, to) is what tells them apart.
+      const { state: finalState } = await this.engine.movePiece(
+        this.gameId,
+        bestMove.pieceId,
+        bestMove.to,
+      );
 
       // Check for win after bot move
       if (finalState.status === 'finished') {

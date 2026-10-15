@@ -36,6 +36,10 @@ export interface PlayerMeta {
   bonusRoll: boolean;
   isFinished: boolean;
   finishedAt?: string;
+  // Barrier Buster tokens this seat still holds, dealt at game start (1 each).
+  // Display only: the engine owns the counter and re-reads it when a move spends
+  // one, so the board can show the pip before the click but never decides it.
+  barrierTokens?: number;
 }
 
 export interface LegalMove {
@@ -48,6 +52,10 @@ export interface LegalMove {
   // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
   // ×R badge reads it, so the price of an attack is visible before the click.
   captureCount?: number;
+  // The Barrier Buster variant of a prison exit: this move costs one token, and
+  // the board marks the piece so the price is visible before the click. A piece
+  // carries at most one exit, so a click still names the piece alone.
+  spendsBarrierToken?: boolean;
 }
 
 export interface MoveResult {
