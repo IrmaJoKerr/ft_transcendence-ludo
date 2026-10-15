@@ -48,9 +48,10 @@ Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot
 ```typescript
 // selectBestMove(legalMoves, state, diceValue)
 // ONE scale for every candidate, captures included. The highest score wins, so
-// there is no priority list to fall off the end of: a wall attack with nothing
-// else to play is still returned (never null — that would spend the dice and
-// stall the turn).
+// there is no priority list to fall off the end of. Skip is the fallback at 0: a
+// list whose best score is not positive comes back as null, which is how a bot
+// declines a Barrier Buster bust whose odds do not cover the token's price and
+// passes the held turn instead of stalling it.
 // A capture scores CAPTURE_CREDIT x p ** captureCount (see below) and takes no
 // positional bonus; every other move is scored by scoreMove.
 ```
@@ -185,7 +186,7 @@ flowchart LR
 | 2 | G0 piece `10 → 14` | safe zone (★) | `14×10 + 500 = 640` |
 | 3 | G1 piece `20 → 24` | plain square | `24×10 = 240` |
 
-The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same scale decides, captures included: a capture the bot is sure of scores `7000` and a lone defender `1750`, both above option 2, while a wall of two (a clash round each, `7000 × 0.25² = 437`) ranks below it — which is the point, a chain the bot probably loses is not worth walking into.
+The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same scale decides, captures included: a capture the bot is sure of scores `7000` and a lone defender `1750`, both above option 2, while a wall of two (a clash round each, `7000 × 0.25² = 437`) ranks below it — which is the point, a chain the bot probably loses is not worth walking into. A Barrier Buster bust pays that same credit minus the held token's shadow (`BUST_TOKEN_SHADOW`, `0.2 × 7000 = 1400`): the same wall with a mirror bot defending (`7000 × 0.5² - 1400 = 350`) is worth the attempt, while against a human (`437 - 1400`) the bot declines and keeps the token.
 
 
 ---
@@ -198,9 +199,12 @@ The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In re
 ```
 selectBestMove(legalMoves, state, diceValue)
   ├── No legal moves → return null (pass turn)
-  ├── Exactly one legal move → return it
-  └── Otherwise score each move and return the highest:
+  └── Otherwise score each move and return the highest, or null when the best
+      score is not positive (Skip scores 0, and only a Barrier Buster bust can
+      fall below it):
       ├── isCapture → 7000 × captureOdds (1 with no clash, else 0.5 or 0.25 per round, ^ rounds); nothing else added
+      │   └── a Barrier Buster bust subtracts BUST_TOKEN_SHADOW (0.2 × 7000) for the
+      │       token it spends, so a coin-flip wall is taken and a long-odds one is not
       ├── +1000 if isHomeEntry
       ├── +500 if lands on a safe zone
       ├── +100 if from === 0, and +1000 more of those on a 6 (the old jail priority)
@@ -214,9 +218,10 @@ takeTurn()
   ├── loadGameState → must be active, bot's turn, WAITING_FOR_ROLL
   ├── engine.rollDice(gameId)
   ├── Re-check state.currentTurn (may have changed on disconnect)
-  ├── selectBestMove → if none, return
+  ├── selectBestMove → null means the bot declines the armed Barrier Buster bust:
+  │   engine.skipArmedBust() passes the held turn with the token in hand, then return
   ├── Wait 1.2s
-  ├── engine.movePiece(gameId, pieceId)
+  ├── engine.movePiece(gameId, pieceId, move.to)
   └── Return whether the game is still active
 ```
 

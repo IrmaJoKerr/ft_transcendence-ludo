@@ -414,6 +414,14 @@ export const ms = {
     statusSelectPiece: '// PILIH BUAH UNTUK DIGERAKKAN',
     statusRivalTurn: '// GILIRAN {{name}}...',
     rollDiceBtn: 'GULING DADU',
+    barrierBusterBtn: 'PEMECAH SEKATAN',
+    barrierBusterArmedBtn: 'PEMECAH SEKATAN: DIARMKAN',
+    barrierBusterTitle: 'Gunakan satu token: keluar ini menentang tembok yang dipijak gulingan',
+    barrierBusterArmedTitle:
+      'Diarmkan: ketik keluar penjara untuk menentang tembok, atau tekan lagi untuk batal',
+    skipBustBtn: 'LANGKAU',
+    skipBustTitle: 'Simpan token dan langkau giliran',
+    bustSkipped: '{{name}} melangkau: Pemecah Sekatan kekal di tangan',
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
     // Peraturan bilik: tiga suis hos. `noSafeZones` ialah bendera TERBALIK, dan
@@ -703,7 +711,7 @@ export const ms = {
     // sebelah label pangkalan) dan tanda 🔓 pada buah yang satu-satunya langkah sah
     // ialah keluar berpembayaran token.
     barrierTokensTitle:
-      'Pemecah Sekatan ×{{count}}: menggunakan satu membatalkan guling keluar penjara dan membawa buah melepasi satu tembok',
+      'Pemecah Sekatan ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
     armedBadgeTitle: 'Pemecah Sekatan: keluar ini menelan satu token',
   },
   gameExtra: {
@@ -787,9 +795,9 @@ export const ms = {
     rulesPage9Header: '// PEMECAH SEKATAN',
     rulesPage9Title: '🔓 Satu token, satu tembok',
     rulesPage9Body:
-      'Setiap juruterbang diberi SATU token Pemecah Sekatan pada awal permainan. Menggunakannya membatalkan gulingan yang diperlukan untuk keluar penjara dan membawa buah melepasi tembok PERTAMA dalam laluannya — satu tembok sahaja, dan hanya di tempat mod clash menjadikannya tembok. Tanda 🔓 menandakan buah dalam penjara yang satu-satunya jalan keluar ialah keluar berpembayaran token itu.',
+      'Setiap juruterbang diberi satu token Pemecah Sekatan pada awal permainan. Apabila gulingan anda akan mendaratkan buah yang masih dalam penjara tepat pada tembok, butang Pemecah Sekatan muncul di sisi kad pemain: armkannya, kemudian ketik buah itu untuk menentang tembok. Gulingan itu masih perlu mencapai tembok dengan sendirinya, kerana token hanya membeli pendaratan: ia tidak sekali-kali membawa buah melepasi sesuatu petak.',
     rulesPage9Body2:
-      'Token melintasi tembok, bukan memecahkannya: buah itu tetap menentang setiap pertahanan yang ditemuinya semasa keluar, satu clash bagi setiap pertahanan, dan rantaian itu mesti dimenangi untuk bergerak. Gulingan 6 sudah cukup untuk keluar penjara, jadi token hanya ditawarkan apabila gulingan tidak mampu — dan tidak sekali-kali apabila dua tembok menghalang laluan, kerana tiada apa yang boleh melaluinya.',
+      'Token membayar percubaan, bukan kemenangan: ia dibelanjakan sebaik sahaja pertempuran bermula, dan clash yang kalah tidak memulangkannya. Clash yang dimenangi menentang tepat satu pertahanan memberi satu token semula, dan tiga ialah jumlah maksimum yang boleh dipegang. Tembok di atas bintang yang dilindungi tidak pernah menjadi sasaran. Butang Langkau melangkau giliran dan menyimpan token.',
   },
   legal: {
     privacyPolicy: 'DASAR PRIVASI',

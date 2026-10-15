@@ -1,4 +1,4 @@
-import type { GameState, PlayerColor, LegalMove, PieceId, MoveResult, BattlePlan } from './types';
+import type { GameState, PlayerColor, LegalMove, PieceId, MoveResult } from './types';
 import { BoardMapper } from './board-mapper';
 import { orderDefenderIds } from './clash';
 
@@ -50,7 +50,9 @@ export class MoveValidator {
       // move, so the door fight needs an exact roll (a 1 with the free exit on,
       // a 6 with it off) — the wall on step k is attacked only by a move that
       // lands on k. A barrier parked on a protected star is neither fought nor
-      // blocking: the exit passes it and shares the landing.
+      // blocking: the exit passes it and shares the landing. The Barrier Buster
+      // token below buys the same landing on a barrier the plain exit cannot
+      // reach, and buys nothing else.
       if (from === 0) {
         if (diceValue === 6 || state.freeExit === true) {
           const to = state.freeExit ? diceValue : 1;
@@ -176,61 +178,50 @@ export class MoveValidator {
   }
 
   // The armed exit (a Barrier Buster token): with clash mode on and a token in
-  // hand, a piece still in prison may leave on ANY roll — the token waives the
-  // exit-roll gate, which is what rescues a seat sealed in by a 6 drought — and
-  // the walk crosses a barrier the ordinary rules refuse to cross. It is offered
-  // only when the plain exit is NOT legal (see getLegalMoves), so a piece never
-  // carries two exits to the same square.
+  // hand, a piece still in prison may spend it to LAND on the barrier the roll
+  // reaches exactly, which is the only way through a wall the plain exit cannot
+  // reach. It is offered only when the plain exit is NOT legal (see getLegalMoves),
+  // so a piece never carries two exits to the same square.
   //
-  // The walk is steps 1..to with `to` = the roll: it crosses the barrier instead
-  // of being stopped by it, and finishes on `to` like any other move. One token
-  // fights AT MOST ONE barrier — a walk that meets two (the double-stacked
-  // corridor) has no armed variant at all, which keeps "one credit, one barrier"
-  // literal. A barrier on a protected star is never attacked: the walk passes it,
-  // exactly as the free exit does. The battles come back in path order (the
-  // crossed barrier first, then the landing square's own defenders), and
-  // `captureCount` is their total, i.e. the clash rounds the move costs.
+  // The locked rule: the token buys a LANDING, never a crossing. `to` is the roll,
+  // the landing square must itself be a barrier, the exit-roll gate is not waived,
+  // and a barrier anywhere behind the landing blocks exactly as it blocks any
+  // other move, so the wall has to stand exactly `diceValue` squares out. A
+  // barrier on a protected star is never attacked and never blocks, so the plain
+  // exit already shares it and this variant is never reached for that square. The
+  // chain is the ordinary chain: one round per defender of that one square.
   private static armedExit(
     state: GameState,
     color: PlayerColor,
     pieceId: PieceId,
-    to: number,
+    diceValue: number,
   ): LegalMove | null {
+    const to = diceValue;
     if (state.clashMode !== true || to < 1 || to > 51) return null;
     const mover = state.players.find((p) => p.color === color);
     if ((mover?.barrierTokens ?? 0) <= 0) return null;
 
-    const fights: BattlePlan[] = [];
-    let barriers = 0;
-    for (let step = 1; step <= to; step++) {
-      const onSquare = this.squareDefenders(state, color, step);
-      if (onSquare.length === 0) continue;
-
-      if (this.isBarrier(onSquare)) {
-        if (isProtectedStar(state, pieceId, step)) continue;
-        barriers++;
-        if (barriers > 1) return null;
-        fights.push({ step, defenderIds: onSquare });
-        continue;
-      }
-
-      // Not a barrier: it only matters when it is the square the walk stops on.
-      if (step !== to) continue;
-      if (!this.isCapturableTarget(state, color, pieceId, step)) continue;
-      fights.push({ step, defenderIds: onSquare });
-    }
+    // The bust lands ON the wall it fights: a lone defender (or a mixed pair) is
+    // no barrier, and the ordinary exit rules above already cover it.
+    if (!this.isBarrier(this.squareDefenders(state, color, to))) return null;
+    // A protected star is never attacked. This must be read here, not left to the
+    // path check: a star never blocks, so `blockadeBlocksPath` would pass it and
+    // the bust would land on a wall it cannot fight.
+    if (!wallIsAttackable(state, pieceId, to)) return null;
+    // Everything behind the landing, under the same rule every other move reads:
+    // this is what forbids a second barrier on the way and what makes the roll's
+    // distance exact.
+    if (this.blockadeBlocksPath(state, color, 0, to, pieceId)) return null;
 
     return {
       pieceId,
       from: 0,
       to,
-      isCapture: fights.length > 0,
+      isCapture: true,
       isHomeEntry: false,
-      captureCount: fights.reduce((n, b) => n + b.defenderIds.length, 0),
+      // The whole barrier: one clash round per defender.
+      captureCount: this.captureCountAt(state, color, pieceId, to, true),
       spendsBarrierToken: true,
-      // Only a walk that fights somewhere carries an explicit battle list: a walk
-      // with nothing to fight spends its token for the roll alone.
-      ...(fights.length > 0 ? { fights } : {}),
     };
   }
 

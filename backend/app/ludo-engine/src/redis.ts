@@ -104,8 +104,9 @@ export class RedisGameStore {
       consecutiveSixes: 0,
       bonusRoll: false,
       isFinished: false,
-      // One Barrier Buster token is dealt at game start: the only way to leave
-      // prison past a barrier under clash mode, and a rescue from a 6 drought.
+      // One Barrier Buster token is dealt at game start: it buys the prison exit's
+      // landing on a barrier the roll reaches exactly. A clash won against a single
+      // defender pays one back, up to BUST_CAP (clash-engine.ts).
       barrierTokens: 1,
       stats: {
         turns: 0,

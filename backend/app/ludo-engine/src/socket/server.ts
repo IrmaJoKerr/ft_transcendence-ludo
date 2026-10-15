@@ -156,6 +156,10 @@ export class SocketServer {
         if (event.legalMoves.length === 0) {
           this.botScheduler.schedule(event.gameId, 750 + BOT_THINK_MS);
         }
+      } else if (event.type === 'turn_skipped') {
+        // A held turn passed to the next seat, which a bot may own: the same wake a
+        // no-move roll gets.
+        this.botScheduler.schedule(event.gameId, BOT_THINK_MS);
       } else if (event.type === 'clash_start') {
         // No bot turn while the QTE runs. The source freed bots only to the
         // announce deadline (1500 ms), which left the countdown and the press
@@ -412,6 +416,11 @@ export class SocketServer {
 
       socket.on('move_piece', (pieceId) => {
         this.handlers.handleMovePiece(socket, pieceId);
+      });
+
+      // The Skip button on a held turn: decline the armed Barrier Buster exit.
+      socket.on('skip_bust', () => {
+        this.handlers.handleSkipBust(socket);
       });
 
       socket.on('clash_input', (key: string) => {

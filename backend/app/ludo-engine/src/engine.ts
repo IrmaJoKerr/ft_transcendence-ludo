@@ -233,10 +233,10 @@ export class LudoEngine {
 
   // Move a piece: validate against pendingLegalMoves (server-authoritative),
   // apply using the stored pendingDiceValue, and return result + state.
-  // `to` names WHICH move of that piece: one piece can hold two after a roll (a
-  // plain exit and the armed Barrier Buster walk). It is optional, so an older
-  // client that sends the piece alone keeps working — the piece's first move is
-  // then used, which is exactly the single-move list of a pre-token game.
+  // `to` names WHICH move of that piece, for a caller that already knows its
+  // landing square. It is optional, and a piece's move list never holds two
+  // entries with the same `to` (the plain exit and the armed Barrier Buster exit
+  // exclude each other for one roll), so sending the piece alone is enough.
   async movePiece(gameId: string, pieceId: PieceId, to?: number): Promise<MovePieceOutput> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
@@ -282,39 +282,34 @@ export class LudoEngine {
       // the freshly loaded state, exactly once: the snapshot is cleared as the move
       // is applied below, so a replayed or duplicated emit finds no such move and is
       // rejected before it can spend a second token. The re-read is what makes the
-      // counter authoritative — the client's copy is display only.
+      // counter authoritative — the client's copy is display only. The debit is the
+      // ATTEMPT: a chain that repulses the attacker keeps the token spent, and a
+      // rejected or illegal execution never reaches this line. `Math.max` keeps a
+      // state written before the field existed from going negative.
       if (pendingMove.spendsBarrierToken) {
         const mover = state.players.find((p) => p.color === moverColor);
         if (!mover || (mover.barrierTokens ?? 0) <= 0) {
           throw new Error('No barrier token available');
         }
-        mover.barrierTokens = (mover.barrierTokens ?? 0) - 1;
+        mover.barrierTokens = Math.max(0, (mover.barrierTokens ?? 0) - 1);
       }
 
       // Clash gate: a capture is deferred to the QTE and applied only once that
       // resolves, so no piece moves yet.
       if (state.clashMode && pendingMove.isCapture) {
-        // The move's battles, in path order, as defender groups. An ARMED exit walk
-        // fights on several squares (the barrier it crosses, then its landing square)
-        // and carries those battles in path order already; an ordinary capture fights
-        // the stack on its landing square, found via the SHARED track position,
-        // because comparing per-colour steps would be wrong across colours. Order
-        // WITHIN a square is named by piece id rather than read off `state.pieces` so
-        // it stays stable if that array is ever rebuilt, and so two runs of the same
-        // board fight the same order.
-        const battles =
-          pendingMove.fights && pendingMove.fights.length > 0
-            ? pendingMove.fights.map((b) => b.defenderIds)
-            : [
-                orderDefenderIds(
-                  MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to),
-                ),
-              ];
-        const defenderIds = battles.flat();
-        // A battle that stood 2 or more defenders is a barrier, and winning the chain
-        // credits every one of them to the attacker (achTearDownThisWall): a landing on
-        // a 2-stack is 1, an armed walk that crosses a wall is 1, a lone defender is 0.
-        const barrierBattles = battles.filter((ids) => ids.length >= 2).length;
+        // The defenders of the landing square, the ONE square any move fights. The
+        // square is found via the SHARED track position, because comparing
+        // per-colour steps would be wrong across colours, and the order WITHIN it
+        // is named by piece id rather than read off `state.pieces`, so it stays
+        // stable if that array is ever rebuilt and two runs of the same board
+        // fight the same order.
+        const defenderIds = orderDefenderIds(
+          MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to),
+        );
+        // A landing square that stood 2 or more defenders is a barrier, and winning
+        // its chain credits the attacker once (achTearDownThisWall): a landing on a
+        // 2-stack is 1, a lone defender is 0.
+        const barrierBattles = defenderIds.length >= 2 ? 1 : 0;
         // No defender behind the move (home/goal): fall through to a normal move.
         const defenderPiece = state.pieces.find((p) => p.id === defenderIds[0]);
         if (defenderPiece) {
@@ -427,6 +422,43 @@ export class LudoEngine {
       }
 
       return { result, state };
+    });
+  }
+
+  // The Skip button on a held turn: the roll offered an armed Barrier Buster exit
+  // and the player declined it. A PASS, not a re-roll: the dice are spent, the turn
+  // advances, and the token stays in hand. Reachable only while such a bust is on
+  // the table, which is the only situation the hold exists for: rollDice's no-move
+  // pass never fires for a bust, because a bust is a legal move.
+  async skipArmedBust(gameId: string): Promise<void> {
+    return this.withGameLock(gameId, async () => {
+      const state = await this.store.loadGameState(gameId);
+      if (state?.status !== 'active') {
+        throw new Error('Game not active');
+      }
+      if (state.paused) {
+        throw new Error('Game is paused: waiting for player to reconnect');
+      }
+      if (state.turnPhase !== 'WAITING_FOR_MOVE') {
+        throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
+      }
+      // Nothing to decline without an armed move, and nothing on a 6: that roll
+      // already leaves prison on the room's own rules, so no armed variant exists
+      // for it (see MoveValidator.armedExit, which the plain exit pre-empts).
+      if (!state.pendingLegalMoves.some((m) => m.spendsBarrierToken)) {
+        throw new Error('No armed exit to skip');
+      }
+      if (state.pendingDiceValue === 6) {
+        throw new Error('Nothing to skip on a 6');
+      }
+
+      state.pendingLegalMoves = [];
+      state.pendingDiceValue = undefined;
+      state.pendingIsFirstRoll = undefined;
+      state.turnPhase = 'WAITING_FOR_ROLL';
+      advanceTurnInState(state);
+      await this.store.saveGameState(gameId, state);
+      this.emit({ type: 'turn_skipped', gameId, currentTurn: state.currentTurn });
     });
   }
 

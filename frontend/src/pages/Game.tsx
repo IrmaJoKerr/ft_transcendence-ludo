@@ -221,6 +221,20 @@ export function Game() {
   // is captured. Set at the end of the mover's walk and cleared after the burst
   // plays out, so it is visual only and never touches game state.
   const [captureFx, setCaptureFx] = useState<{ color: string; to: number } | null>(null);
+  // Barrier Buster: the token-priced exit is armed EXPLICITLY by the player, so a
+  // tap on a piece in prison can never spend a token by accident. The engine offers
+  // that move only when the roll lands exactly on a wall, so its presence in the
+  // list is also the "the token can be spent now" signal the controls read.
+  const [bustArmed, setBustArmed] = useState(false);
+  const bustMoves = useMemo(
+    () => (view.legalMoves ?? []).filter((m) => m.spendsBarrierToken),
+    [view.legalMoves],
+  );
+  // Arming lasts one roll: a new roll, a new turn or a phase change clears it, so a
+  // later tap can never spend the token on a stale arming.
+  useEffect(() => {
+    setBustArmed(false);
+  }, [view.currentTurn, view.diceValue, view.turnPhase]);
 
   useEffect(() => {
     if (moveLogContainerRef.current) {
@@ -500,6 +514,20 @@ export function Game() {
           );
           setActiveMatch({ ...activeMatchRef.current, color: mine.color });
         }
+      } else if (type === 'turn_skipped') {
+        // The held turn passed without a move: the armed Barrier Buster exit was
+        // declined. The reducer clears the moves and moves the turn on; this is the
+        // log line, named for the seat that skipped (read before the re-render).
+        const skipper = viewRef.current.currentTurn;
+        const skipperSeat = viewRef.current.players.find((p) => p.color === skipper);
+        const skipperName =
+          localizedBotName(t, skipperSeat?.displayName) ||
+          localizedBotName(t, skipperSeat?.username) ||
+          localizedColor(t, skipper);
+        setMoveLogs((prev) => [
+          { ck: skipper, text: t('game.bustSkipped', { name: skipperName }) },
+          ...prev.slice(0, 11),
+        ]);
       } else if (type === 'game_ended') {
         const e = state as { winner: PlayerColor; resultDetail: string };
         retroAudio.playUiBeep(1100, 0.3, 'sawtooth');
@@ -531,6 +559,8 @@ export function Game() {
     socket.on('state_update', handleEngineEvent);
     socket.on('dice_rolled', handleEngineEvent);
     socket.on('piece_moved', handleEngineEvent);
+    // A held turn passed by Skip: no piece moved, the turn simply advanced.
+    socket.on('turn_skipped', handleEngineEvent);
     socket.on('game_started', handleEngineEvent);
     socket.on('game_ended', handleEngineEvent);
     socket.on('player_exited', handleEngineEvent);
@@ -737,6 +767,11 @@ export function Game() {
     if (viewRef.current.clash) return;
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
       return;
+    // A Barrier Buster exit is only ever sent while the player has armed it. The
+    // board hides it from the tap targets too, so this is the second gate on the
+    // same rule and a stray tap can never spend a token.
+    const mine = viewRef.current.legalMoves.filter((m) => m.pieceId === pieceId);
+    if (mine.length > 0 && mine.every((m) => m.spendsBarrierToken) && !bustArmed) return;
     pendingMoveRef.current = true;
     retroAudio.playUiBeep(640, 0.05);
     socketRef.current?.emit('move_piece', pieceId);
@@ -745,6 +780,19 @@ export function Game() {
     setTimeout(() => {
       pendingMoveRef.current = false;
     }, 3000);
+  };
+
+  // Skip: the deliberate way out of a turn the armed exit is holding. The token
+  // stays in hand, the dice are spent and the turn passes. The engine refuses a
+  // Skip when no armed exit is on the table, so this only sends the intent.
+  const skipBust = () => {
+    if (viewRef.current.clash) return;
+    if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
+      return;
+    if (!viewRef.current.legalMoves.some((m) => m.spendsBarrierToken)) return;
+    setBustArmed(false);
+    retroAudio.playUiBeep(520, 0.06);
+    socketRef.current?.emit('skip_bust');
   };
 
   const markReady = () => {
@@ -944,6 +992,18 @@ export function Game() {
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
+  // The Barrier Buster control: offered only while THIS device owns the turn (the
+  // engine hands one seat's move list to everybody) and that seat still holds a
+  // token. Never on a 6: that roll already leaves prison on the room's own rules,
+  // so no armed variant exists for it.
+  const canOfferBust =
+    view.status === 'active' &&
+    !isPausedForReconnect &&
+    isMyTurn &&
+    !view.clash &&
+    bustMoves.length > 0 &&
+    (view.players.find((p) => p.color === view.currentTurn)?.barrierTokens ?? 0) > 0 &&
+    view.diceValue !== 6;
   const turnLabel =
     view.status === 'waiting'
       ? t('game.waitingRoomTitle').toUpperCase()
@@ -1747,6 +1807,7 @@ export function Game() {
                       animating={animatingPiece}
                       fx={captureFx}
                       noSafeZones={view.noSafeZones}
+                      bustArmed={bustArmed}
                     />
                   </div>
                 );
@@ -2130,6 +2191,74 @@ export function Game() {
                     >
                       {isRolling ? t('game.rolling').toUpperCase() : t('game.rollDiceBtn')}
                     </button>
+
+                    {/* Barrier Buster: the token is spent on the FIRST tap that
+                        commits it, so the control has two steps. Arm it here, then
+                        tap the prison exit on the board; Skip declines and keeps
+                        the token. Both render only while the roll actually offers
+                        such a bust, which is what makes them mean something. */}
+                    {canOfferBust && (
+                      <button
+                        className={RETRO_BTN}
+                        onClick={() => {
+                          retroAudio.playUiBeep(bustArmed ? 420 : 880, 0.06, 'square');
+                          setBustArmed((armed) => !armed);
+                        }}
+                        title={
+                          bustArmed
+                            ? t('game.barrierBusterArmedTitle')
+                            : t('game.barrierBusterTitle')
+                        }
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          fontSize: '0.78rem',
+                          fontFamily: 'var(--font-heading)',
+                          letterSpacing: '1px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textAlign: 'center',
+                          background: bustArmed ? 'rgba(255, 230, 0, 0.22)' : 'var(--btn-bg)',
+                          borderColor: bustArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
+                          color: bustArmed ? 'var(--accent-yellow)' : '#ffffff',
+                          boxShadow: bustArmed ? '0 0 18px var(--accent-yellow)' : 'none',
+                          animation: bustArmed ? 'pulse-glow 1.5s infinite' : 'none',
+                          cursor: 'pointer',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        {bustArmed
+                          ? `🔓 ${t('game.barrierBusterArmedBtn')}`
+                          : `🔓 ${t('game.barrierBusterBtn')}`}
+                      </button>
+                    )}
+
+                    {canOfferBust && (
+                      <button
+                        className={RETRO_BTN}
+                        onClick={skipBust}
+                        title={t('game.skipBustTitle')}
+                        style={{
+                          width: '100%',
+                          padding: '8px 16px',
+                          fontSize: '0.7rem',
+                          fontFamily: 'var(--font-mono)',
+                          letterSpacing: '1px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          textAlign: 'center',
+                          background: 'rgba(25, 10, 56, 0.6)',
+                          borderColor: 'var(--text-muted)',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        {t('game.skipBustBtn')}
+                      </button>
+                    )}
 
                     <div
                       style={{

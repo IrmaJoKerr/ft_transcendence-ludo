@@ -52,8 +52,9 @@ export interface LegalMove {
   // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
   // ×R badge reads it, so the price of an attack is visible before the click.
   captureCount?: number;
-  // The Barrier Buster variant of a prison exit: this move costs one token, and
-  // the board marks the piece so the price is visible before the click. A piece
+  // The Barrier Buster variant of a prison exit: this move costs one token and
+  // lands on the barrier the roll reaches exactly. The player arms it with an
+  // explicit control (the board marks the piece only while armed), and a piece
   // carries at most one exit, so a click still names the piece alone.
   spendsBarrierToken?: boolean;
 }
