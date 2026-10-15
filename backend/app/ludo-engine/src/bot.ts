@@ -42,6 +42,15 @@ export function isBotSeat(state: GameState | null | undefined, color: PlayerColo
 // while a wall of 2 or more falls below the positional moves (7000 x 0.25 ** 2 =
 // 437): a chain the bot probably loses is not worth walking into.
 const CAPTURE_CREDIT = 7000;
+// What a Barrier Buster token is worth while it stays in hand, i.e. the rescue it
+// buys later. A bust's score is its discounted capture credit minus this shadow,
+// so the bot spends the token when the attack still beats the shadow: against a
+// mirror bot a 2-deep wall (half chance per round) is worth the attempt at
+// 1750 - 1400 = 350, while the same wall against a human (a quarter per round,
+// 437) and anything deeper fall below it and the bot declines instead (Skip
+// scores 0). A lone defender is not a bust at all: a token only ever fights a
+// barrier.
+const BUST_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
 // On a roll of 6 freeing a piece from jail is the tempo play the old priority
 // list took before any scoring. The bonus keeps that order: a jail exit with
 // every other bonus (100 + 10 x 7 + 500 = 670) plus this lands at 1670, above the
@@ -67,21 +76,15 @@ export class LudoBot {
   // Select the best move on one scale, captures included: a capture's credit
   // carries the odds the bot wins its clash (see captureOdds), so a chain it
   // expects to lose ranks below a safe alternative instead of being taken on
-  // sight. A rank, never a filter, because a null here spends the dice and stalls
-  // the turn (see takeTurnUnsafe): a wall attack with nothing else to play still
-  // comes back as the best move.
+  // sight. Skip scores 0 and is the fallback: a list whose best score is not
+  // positive comes back as null, which is how the bot declines a Barrier Buster
+  // bust whose odds do not cover the token's shadow price (takeTurnUnsafe turns
+  // that null into the engine's pass). Every plain move and every ordinary capture
+  // scores above 0, so a null is only ever a declined bust.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
-    if (legalMoves.length === 1) return legalMoves[0];
 
-    // Bots never spend a Barrier Buster token (v1): the armed exit is dropped from
-    // the pool while anything else is playable, so a bot only arms when the token
-    // is the last way out of prison — the same "never stall the turn" rule the
-    // single-move path below follows.
-    const unarmed = legalMoves.filter((m) => m.spendsBarrierToken !== true);
-    const pool = unarmed.length > 0 ? unarmed : legalMoves;
-
-    const scored = pool.map((move) => ({
+    const scored = legalMoves.map((move) => ({
       move,
       score: this.scoreMove(move, state, diceValue),
     }));
@@ -90,7 +93,7 @@ export class LudoBot {
     // (the tie-break the old `captures[0]` return used: pool captures, then the
     // furthest along).
     scored.sort((a, b) => b.score - a.score);
-    return scored[0].move;
+    return scored[0].score > 0 ? scored[0].move : null;
   }
 
   // Score a move on one scale. Higher score = better move.
@@ -100,7 +103,11 @@ export class LudoBot {
     // the chain discount (a 4 deep wall against a human is worth 219, while plain
     // progress alone pays up to 570).
     if (move.isCapture) {
-      return CAPTURE_CREDIT * this.captureOdds(state, move);
+      const credit = CAPTURE_CREDIT * this.captureOdds(state, move);
+      // A Barrier Buster bust is a capture that also spends a token, so it pays
+      // the token's shadow price: a bust whose odds do not cover it drops below
+      // Skip (0) and the bot declines.
+      return move.spendsBarrierToken ? credit - BUST_TOKEN_SHADOW : credit;
     }
 
     let score = 0;
@@ -141,16 +148,12 @@ export class LudoBot {
   // bot three times out of four.
   private captureOdds(state: GameState, move: LegalMove): number {
     if (!state.clashMode) return 1;
-    // The defenders' colour comes from the square the FIRST round is fought on:
-    // the landing square for an ordinary capture, and the crossed barrier for an
-    // armed exit walk that lands past it. An armed walk's own battle list is read
-    // first (it is the same list the chain fights, in path order), and everything
-    // else goes through the helper the validator counts a wall with, so the two
-    // can never disagree about who is standing in round one.
-    const firstBattle = move.fights?.[0];
-    const defenders = firstBattle
-      ? firstBattle.defenderIds
-      : MoveValidator.findPiecesAtPosition(state, this.color, move.to);
+    // The defenders' colour comes from the landing square, the ONE square the move
+    // fights (an armed bust lands on the wall it attacks), and is read through the
+    // helper the validator counts a barrier with, so the two can never disagree
+    // about who is standing in round one. A wall's depth is already inside
+    // `move.captureCount`, one round per defender.
+    const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
     const defenderColor = defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
     const perRound =
       defenderColor && isBotSeat(state, defenderColor)
@@ -194,9 +197,15 @@ export class LudoBot {
       const afterRoll = await this.store.loadGameState(this.gameId);
       if (afterRoll?.currentTurn !== this.color) return false;
 
-      // Select best move using heuristics
+      // Select best move using heuristics. A null here is the bot declining an
+      // armed Barrier Buster bust whose odds do not cover the token's shadow price
+      // (see selectBestMove): it passes the held turn instead of stalling it, and
+      // the token stays in hand.
       const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue);
-      if (!bestMove) return false;
+      if (!bestMove) {
+        await this.engine.skipArmedBust(this.gameId);
+        return true;
+      }
 
       // Delay piece movement so frontend dice roll animation finishes first and displays the number
       await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -207,8 +216,8 @@ export class LudoBot {
       if (beforeMove?.status !== 'active' || beforeMove.currentTurn !== this.color) return false;
 
       // Execute move : engine emits piece_moved and game_ended events via handleEngineEvent.
-      // The landing square is passed too: one piece can hold two distinct moves only for
-      // the ARMED exit walk, where (pieceId, to) is what tells them apart.
+      // The landing square rides along, so a caller that already knows its move
+      // names it and the engine picks that exact entry.
       const { state: finalState } = await this.engine.movePiece(
         this.gameId,
         bestMove.pieceId,

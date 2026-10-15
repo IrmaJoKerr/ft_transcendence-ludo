@@ -44,6 +44,9 @@ export type ServerEvents = {
     forfeited?: boolean;
   }) => void;
   piece_moved: (e: MoveResult) => void;
+  // A held turn passed by Skip: no piece moved, the turn simply advanced, and the
+  // engine names the seat that takes over.
+  turn_skipped: (e: { gameId: string; currentTurn: PlayerColor }) => void;
   clash_start: (e: ClashStartEvent) => void;
   clash_phase: (e: { phase: ClashPhase; countdownDeadline: number; pressDeadline: number }) => void;
   clash_press: (e: { color: PlayerColor; presses: number }) => void;
@@ -83,6 +86,9 @@ export type ClientEvents = {
   join_game: (gameId: string, color: PlayerColor, userId?: string, displayName?: string) => void;
   roll_dice: () => void;
   move_piece: (pieceId: string) => void;
+  // Decline the armed Barrier Buster exit that is holding the turn: the token
+  // stays in hand, the dice are spent and the turn passes.
+  skip_bust: () => void;
   // One press of this player's clash key. The server proves ownership and
   // applies the press cap; a decoy (touch pad) press is discarded there.
   clash_input: (key: string) => void;

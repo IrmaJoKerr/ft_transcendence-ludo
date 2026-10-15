@@ -350,8 +350,9 @@ move_piece(pieceId)
   ├── Reject if the game is paused (a disconnect grace window is open)
   ├── Validate game active and turnPhase = WAITING_FOR_MOVE
   ├── Verify pieceId is in pendingLegalMoves (server snapshot from the roll)
-  ├── Barrier Buster move → spend the seat's token here (inside the game lock, against the
-  │   freshly loaded state: a replayed emit finds the move gone and spends nothing)
+  ├── Barrier Buster move → spend the seat's token here, on the ATTEMPT (inside the game lock,
+  │   against the freshly loaded state: a replayed emit finds the move gone and spends nothing,
+  │   and a repulsed chain keeps the token spent)
   ├── executeMove → move the piece; resolve any captures immediately (captured pieces → base)
   ├── recordMove (history) + moveCounter++
   ├── Check win condition (all 4 pieces at step 57)
@@ -366,8 +367,9 @@ move_piece(pieceId)
 ### Barrier Buster Path
 
 The Barrier Buster is the armed prison exit: one token per seat, dealt by `createGame`, that buys a
-way out of a prison the dice will not open. It is the only move in the game that CROSSES a barrier
-instead of being stopped by one, and the only one that waives the exit-roll gate.
+LANDING on a wall the plain exit cannot reach. It never crosses a barrier and never waives the
+exit-roll gate: the roll still has to reach the wall's square exactly, which is why the token's room
+is the standard room (with the free exit on, the plain exit already plays that landing).
 
 ```
 armed_exit(pieceId)                                 // MoveValidator.armedExit
@@ -375,33 +377,39 @@ armed_exit(pieceId)                                 // MoveValidator.armedExit
   ├── Require `to` = the roll, on the main track (1..51)
   ├── Offered only when the plain exit is NOT legal for this roll (see getLegalMoves),
   │   so a piece never carries two exits to the same square
-  ├── Walk steps 1..to in path order, collecting the battles the move has to fight
-  │   ├── A barrier (2+ of ONE opponent colour) → one battle; a SECOND barrier anywhere
-  │   │   in the corridor → return null, i.e. a double-stacked corridor has no armed
-  │   │   variant at all, which is what keeps "one token, one barrier" literal
-  │   ├── A barrier on a PROTECTED star → passed, never fought, so it costs no round
-  │   └── A non-barrier square → only matters at `to`, and only if it is capturable
-  ├── captureCount = the battles' total defenders = the clash rounds the move costs
-  └── LegalMove { from: 0, to, spendsBarrierToken: true, fights?: BattlePlan[] }
+  ├── Require the landing square itself to be a BARRIER (2+ of ONE opponent colour)
+  │   └── A lone defender, or a pair of different colours, is no barrier: the ordinary
+  │       exit rules above cover those squares
+  ├── Require the landing to be attackable (`wallIsAttackable`), read here because a protected
+  │   star never blocks either, so `blockadeBlocksPath` alone would let the bust land on a
+  │   wall it cannot fight
+  ├── Require a clear path behind the landing (`blockadeBlocksPath` from step 1): a second
+  │   barrier on the way blocks the bust exactly as it blocks any other move
+  └── LegalMove { from: 0, to: the roll, isCapture: true, captureCount: the barrier's depth,
+      spendsBarrierToken: true } — no battle list: the one square is the whole fight
 ```
 
-A walk with nothing to fight — no barrier crossed and nothing to capture on the square it lands on
-— carries no `fights` and spends its token for the door alone, which is the case a seat sealed in
-by a 6 drought uses.
+**Arming and Skip.** Arming is client-local (`Board.tsx` owns the flag): the token-priced move is
+only ever SENT while the player has armed it, so a tap on a piece in prison can never spend a token
+by accident, and arming lasts one roll. The engine HOLDS the turn while a bust is on the table (a
+bust is a legal move, so `rollDice`'s no-move pass never fires for it), and `skipArmedBust`
+(`skip_bust` on the wire) is the other way out: a PASS that spends the dice, advances the turn and
+leaves the token in hand. Skip is offered on rolls 1 to 5 only, which needs no extra rule: no armed
+bust exists on a 6, because the room's own exit already plays that roll.
 
-**Applying the move.** `movePiece` spends the token inside the game lock and against the state it
-has just re-read, *before* the clash gate: the move snapshot is cleared as the move is applied, so
-a replayed or duplicated emit finds no such move and is rejected before it can spend a second
-token. The battles then become ONE clash chain — one round per defender, in path order (the crossed
-barrier first, the landing square second) — and only a chain that is WON applies the walk. Losing
-any round leaves the walker in prison, and the token stays spent.
+**The economy.** Seed 1, cap `BUST_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
+inside the game lock and against the state it has just re-read, before the clash gate, so a replayed
+emit finds the move snapshot cleared and cannot spend a second, while a chain that repulses the
+attacker keeps the token spent. The income comes from the same clash branch that credits
+`barrierBreaks`: a chain won against EXACTLY ONE defender pays one token back, clamped to the cap. A
+won barrier pays nothing, so a wall never feeds the thing that breaks walls.
 
-**Crediting `barrierBreaks`.** Each move is stamped with `pendingMove.barrierBattles` = how many of
-its battles stood 2 or more defenders, and the clash engine adds that count to the attacker's
+**Crediting `barrierBreaks`.** Each move is stamped with `pendingMove.barrierBattles` = 1 when its
+landing square stood 2 or more defenders, else 0, and the clash engine adds that to the attacker's
 `stats.barrierBreaks` only when the whole chain is won. So the tally counts BARRIERS, not rounds: a
-landing on a 2-stack is 1, an armed walk that crossed a wall (whatever the wall's size) is 1, a
-lone defender is 0, and a lost chain credits nothing. That count is what `achTearDownThisWall` sums
-per game; `?? 0` keeps a state written before the field existed reading as 0.
+landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a lone defender is 0,
+and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
+keeps a state written before the field existed reading as 0.
 
 
 ---

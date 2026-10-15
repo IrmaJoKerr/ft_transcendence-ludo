@@ -97,6 +97,31 @@ export class SocketHandlers {
     })();
   }
 
+  // 'skip_bust' event: decline the armed Barrier Buster exit that is holding the
+  // turn. The engine owns the rule (such a move must be on the table, and never on
+  // a 6), so this only repeats the turn/ownership pre-check a move gets, then
+  // passes. Errors go back to the requesting socket only.
+  handleSkipBust(socket: GameSocket): void {
+    const gameId = socket.data.gameId;
+    const color = socket.data.playerColor;
+    if (!gameId || !color) {
+      socket.emit('error', 'Not in a game');
+      return;
+    }
+
+    void (async () => {
+      try {
+        const state = await this.store.loadGameState(gameId);
+        if (state?.status === 'active') {
+          if (state.currentTurn !== color) return;
+        }
+        await this.engine.skipArmedBust(gameId);
+      } catch (error) {
+        socket.emit('error', `Skip failed: ${error}`);
+      }
+    })();
+  }
+
   // 'clash_input' event: one keypress in the capture QTE. The pressed KEY picks
   // the side, then the room's seat binding proves the caller owns that seat: in
   // PvP only the owner's key lands, while in hotseat one user owns both seats

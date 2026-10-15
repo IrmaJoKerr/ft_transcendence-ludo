@@ -286,6 +286,16 @@ export function applyEvent(
             : p,
         ),
       };
+    case 'turn_skipped':
+      // A held turn passed without a move: Skip on the armed Barrier Buster exit.
+      // No piece moved, so nothing else needs re-deriving, and the engine names
+      // the seat that takes over.
+      return {
+        ...state,
+        legalMoves: [],
+        turnPhase: 'WAITING_FOR_ROLL',
+        currentTurn: (event.currentTurn as PlayerColor) ?? state.currentTurn,
+      };
     default:
       return state;
   }

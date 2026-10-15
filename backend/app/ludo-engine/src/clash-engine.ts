@@ -13,6 +13,7 @@ import {
 } from './clash';
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
+import { BUST_CAP } from './types';
 import type { PlayerColor, GameEvent, ClashState, PendingCapture, PieceId, ChainRound } from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
@@ -468,14 +469,21 @@ export class ClashEngine {
         result.bonusRoll = pc.diceValue === 6 || result.captured;
         if (attackerMeta) {
           if (capturedIds.length > 0) attackerMeta.stats.captures += capturedIds.length;
-          // The Barrier Buster credit (achTearDownThisWall): the battles of this move
-          // that stood 2 or more defenders, stamped on pendingCapture at move time.
-          // Only a chain won END TO END reaches this branch — a repulse leaves the
-          // wall standing. `?? 0` keeps a seat record written before the field existed
-          // from turning the tally into NaN.
+          // The Barrier Buster credit (achTearDownThisWall): 1 when the landing square
+          // stood 2 or more defenders, stamped on pendingCapture at move time. Only a
+          // chain won END TO END reaches this branch — a repulse leaves the wall
+          // standing. `?? 0` keeps a seat record written before the field existed from
+          // turning the tally into NaN.
           if (pc.barrierBattles) {
             attackerMeta.stats.barrierBreaks =
               (attackerMeta.stats.barrierBreaks ?? 0) + pc.barrierBattles;
+          }
+          // The token's income: a clash won against exactly ONE defender pays one
+          // token back, up to the cap. A won barrier pays nothing, so a wall never
+          // feeds the thing that breaks walls. Same branch as the credit above, so
+          // the money and the tally cannot drift apart.
+          if (capturedIds.length === 1) {
+            attackerMeta.barrierTokens = Math.min(BUST_CAP, (attackerMeta.barrierTokens ?? 0) + 1);
           }
         }
         result.clashOutcome = 'attacker_won';

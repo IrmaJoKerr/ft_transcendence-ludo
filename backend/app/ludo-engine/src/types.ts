@@ -45,13 +45,15 @@ export interface PlayerMeta {
     // clash QTE tallies: drives the two clash achievements
     clashDefends: number;
     clashAttacksWon: number;
-    // Barrier Buster tallies: a clash won on a token-bought exit walk (drives
-    // achTearDownThisWall). Absent on a state written before the token existed.
+    // Barrier Buster tallies: a clash won on a landing that stood a barrier
+    // (drives achTearDownThisWall). Absent on a state written before the token
+    // existed.
     barrierBreaks: number;
   };
-  // Barrier Buster tokens in hand for this seat: one is dealt at game start, and
-  // one is spent per token-bought exit walk. Optional so a state written before
-  // the token existed reads as 0 (spend nothing, offer nothing).
+  // Barrier Buster tokens in hand for this seat: one is dealt at game start, one
+  // is spent per token-bought exit, and one is earned back per clash won against
+  // exactly one defender (see BUST_CAP). Optional so a state written before the
+  // token existed reads as 0 (spend nothing, offer nothing).
   barrierTokens?: number;
 }
 
@@ -81,14 +83,11 @@ export interface ClashState {
   totalRounds?: number;
 }
 
-// One battle of a deferred move: the square it is fought on and the defenders
-// standing there, in the order they will be fought. A normal capture is one
-// battle; an armed exit walk that crosses a barrier and then lands on a defender
-// is two, in path order, and the move is applied only after the last of them.
-export interface BattlePlan {
-  step: number;
-  defenderIds: PieceId[];
-}
+// The Barrier Buster hand is capped here: the seed is 1 (redis.ts) and a clash won
+// against exactly one defender pays one back, so a seat banks at most three
+// attempts in a game. A won barrier never pays, so a wall cannot feed the token
+// that breaks walls.
+export const BUST_CAP = 3;
 
 // A capture deferred until the clash resolves: the move is held here instead of
 // being applied at move time.
@@ -105,22 +104,17 @@ export interface PendingCapture {
   // round's defender first) and `beatenDefenderIds` the ones already sent home by
   // earlier rounds, so the final application can send the whole ledger home without
   // re-deriving it from the board. `round` is the round in progress, `totalRounds`
-  // the defender count stamped at move time.
-  //
-  // The ledger is PATH-ORDERED and spans the whole move: for a single landing it is
-  // that square's stack, and for an armed exit walk that crosses a barrier before
-  // landing it is both battles flattened in path order. That is what lets one
-  // chain run a two-square walk with one round per defending piece, and it is
-  // persisted with the state, so a restart replays the walk exactly where it
-  // stopped.
+  // the defender count stamped at move time. The move fights exactly ONE square,
+  // the landing square, whose stack is the whole ledger; the ledger is persisted
+  // with the state, so a restart replays the chain exactly where it stopped.
   round?: number;
   totalRounds?: number;
   remainingDefenderIds?: PieceId[];
   beatenDefenderIds?: PieceId[];
-  // The move's battles that stood 2 or more defenders, stamped at move time: a
-  // won chain credits that many barrierBreaks to the attacker (achTearDownThisWall).
-  // A lone defender is 0, a landing on a 2-stack is 1, an armed walk over a wall is
-  // 1 whatever the wall's size.
+  // 1 when the landing square stood 2 or more defenders, else 0. Stamped at move
+  // time because the wall is gone from the board once the chain has sent its
+  // pieces home: a won chain credits that many barrierBreaks to the attacker
+  // (achTearDownThisWall). A lone defender pays nothing.
   barrierBattles?: number;
 }
 
@@ -209,28 +203,20 @@ export interface LegalMove {
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
   isHomeEntry: boolean; // move enters the home stretch (52)
-  // How many defenders that capture sends home: 1 for a single piece, the wall's
-  // size (2-4) when the landing attacks a breakable wall, 0 when nothing is
-  // captured at all (a plain move, a shared square). For an ARMED exit, whose walk
-  // fights a crossed barrier and then its landing square, it is the TOTAL across
-  // those battles, i.e. the number of clash rounds the move costs. The bot ranks a
-  // capture by it (each defender is another clash round) and the client labels the
-  // clash "x N" from it.
+  // How many defenders that capture sends home: 1 for a single piece, the barrier's
+  // size (2-4) when the landing attacks a breakable barrier, 0 when nothing is
+  // captured at all (a plain move, a shared square). It is the clash rounds the
+  // move costs, one per defender. The bot ranks a capture by it and the client
+  // labels the clash "x N" from it.
   captureCount: number;
-  // The ordered battles of an ARMED exit walk that fights on more than one square
-  // (a crossed barrier, then the landing): the engine flattens this list in path
-  // order instead of re-deriving a single landing square, and the move is applied
-  // only after the last battle. Absent for an ordinary move, whose one battle is
-  // read off `to`.
-  fights?: BattlePlan[];
-  // True on the Barrier Buster variant of an exit: the move costs one token from
-  // the mover's hand, waives the exit-roll gate and crosses one barrier. A piece
-  // is offered at most ONE exit per roll (see MoveValidator.armedExit, which is
-  // reached only when the plain exit is illegal), so a piece never carries two
-  // moves the same `pieceId` cannot tell apart; this flag is what the board tags
-  // the bay pieces with and what the bot filters the variant by, and `movePiece`'s
-  // optional `to` is the disambiguator for a caller that already knows its
-  // landing square.
+  // True on the Barrier Buster variant of a prison exit: the move costs one token
+  // from the mover's hand, and it LANDS on the barrier the roll reaches exactly
+  // (never a crossing, never a waiver of the exit-roll gate: see
+  // MoveValidator.armedExit, which is reached only when the plain exit is
+  // illegal). A piece is offered at most ONE exit per roll, so it never carries
+  // two moves the same `pieceId` cannot tell apart. The client arms this variant
+  // with an explicit control and then sends the piece alone; the engine keys the
+  // debit off this flag, so the client's choice is the whole mechanism.
   spendsBarrierToken?: boolean;
 }
 
@@ -251,6 +237,9 @@ export type GameEvent =
       forfeited?: boolean;
     }
   | { type: 'piece_moved'; gameId: string; result: MoveResult }
+  // A held turn passed without a move: the armed exit was declined (Skip), so no
+  // token was spent and the turn moves on. Carries the seat that takes over.
+  | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor }
   | { type: 'game_ended'; gameId: string; winner: PlayerColor; resultDetail: string }
   | { type: 'game_started'; gameId: string }
   | { type: 'game_expired'; gameId: string }

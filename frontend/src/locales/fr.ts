@@ -416,6 +416,15 @@ export const fr = {
     statusSelectPiece: '// CHOISISSEZ UNE PIÈCE À DÉPLACER',
     statusRivalTurn: '// TOUR DE {{name}}...',
     rollDiceBtn: 'LANCER LE DÉ',
+    barrierBusterBtn: 'BRISE-BARRIÈRE',
+    barrierBusterArmedBtn: 'BRISE-BARRIÈRE : ARMÉ',
+    barrierBusterTitle:
+      'Dépenser un jeton : cette sortie affronte le mur sur lequel le lancer retombe',
+    barrierBusterArmedTitle:
+      'Armé : touchez la sortie de prison pour affronter le mur, ou appuyez à nouveau pour annuler',
+    skipBustBtn: 'PASSER',
+    skipBustTitle: 'Garder le jeton et passer le tour',
+    bustSkipped: '{{name}} passe : le Brise-Barrière reste en main',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
     // Règles de la salle : les trois options de l'hôte. `noSafeZones` est le
@@ -708,7 +717,7 @@ export const fr = {
     // côté du label de la base) et l'étiquette 🔓 sur une pièce dont la seule
     // sortie légale est celle payée par un jeton.
     barrierTokensTitle:
-      'Brise-Barrière ×{{count}} : en dépenser un annule le lancer de sortie de prison et fait franchir un mur à la pièce',
+      'Brise-Barrière ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
     armedBadgeTitle: 'Brise-Barrière : cette sortie coûte un jeton',
   },
   gameExtra: {
@@ -792,9 +801,9 @@ export const fr = {
     rulesPage9Header: '// BRISE-BARRIÈRE',
     rulesPage9Title: '🔓 Un jeton, un mur',
     rulesPage9Body:
-      "Chaque pilote reçoit UN jeton Brise-Barrière au début de la partie. Le dépenser annule le lancer qu'exige une sortie de prison et fait franchir à la pièce le premier mur de son parcours — un seul mur, et uniquement là où le mode clash en fait un mur. Une étiquette 🔓 marque la pièce en prison dont la seule sortie est celle payée par un jeton.",
+      "Chaque pilote commence avec un jeton Brise-Barrière. Quand le lancer obtenu poserait exactement une pièce encore en prison sur un mur, un bouton Brise-Barrière apparaît à côté des cartes des joueurs : armez-le, puis touchez cette pièce pour affronter le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",
     rulesPage9Body2:
-      "Le jeton traverse un mur, il ne le brise pas : la pièce affronte toujours chaque défenseur rencontré en sortant, un clash par défenseur, et il faut gagner la chaîne pour avancer. Un 6 sort déjà de prison tout seul, donc le jeton n'est proposé que lorsque le lancer ne suffit pas — et jamais quand deux murs barrent le parcours, où rien ne passe.",
+      "Le jeton paie la tentative, pas la victoire : il est dépensé dès que le combat commence, et un clash perdu ne le rend pas. Un clash gagné contre exactement un défenseur rend un jeton, et trois est le maximum qu'un pilote peut détenir. Un mur posé sur une étoile protégée n'est jamais une cible. Le bouton Passer passe le tour et garde le jeton.",
   },
   legal: {
     privacyPolicy: 'POLITIQUE DE CONFIDENTIALITÉ',

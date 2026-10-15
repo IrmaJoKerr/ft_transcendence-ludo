@@ -413,6 +413,12 @@ type BoardProps = {
    * still protect; while true they are plain cells, because they no longer do.
    */
   noSafeZones?: boolean;
+  /**
+   * True while the player has armed the Barrier Buster control for this roll: only
+   * then is a token-priced exit a tap target (and badged), so tapping a piece can
+   * never spend a token by accident. Client-local state, owned by Game.tsx.
+   */
+  bustArmed?: boolean;
 };
 
 /** The classic 15×15 cross board, rendered procedurally: no images. */
@@ -424,23 +430,32 @@ export function Board({
   animating,
   fx,
   noSafeZones = false,
+  bustArmed = false,
 }: BoardProps = {}) {
   const { t } = useTranslation();
-  const legalPieceIds = new Set((legalMoves ?? []).map((m) => m.pieceId));
+  // A Barrier Buster exit is not a plain tap target: arming it is the player's
+  // explicit choice (the control in Game.tsx), so until then its piece is neither
+  // tappable nor badged and a stray tap cannot spend a token. The engine offers at
+  // most one exit per piece per roll, so the tap still names the piece alone.
+  const bustPieceIds = new Set(
+    (legalMoves ?? []).filter((m) => m.spendsBarrierToken).map((m) => m.pieceId),
+  );
+  const legalPieceIds = new Set(
+    (legalMoves ?? []).filter((m) => !m.spendsBarrierToken || bustArmed).map((m) => m.pieceId),
+  );
   // Clash CHAIN preview: an attack onto a STACK of defenders costs one QTE round
   // per defender, so the legal piece wears a ×R badge and the price of the attack
   // is visible before the click. 0/1 (a plain move or a single defender) show
-  // nothing: the badge is about walls. A prison exit can carry one too — an armed
-  // exit fights the single barrier it crosses plus whatever it lands on.
+  // nothing: the badge is about walls. A Barrier Buster bust carries the size of
+  // the wall it lands on, so the token's price is visible the same way.
   const chainCounts = new Map<string, number>();
   for (const m of legalMoves ?? []) {
     if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
   }
   // Barrier Buster exits in the pool: their piece is still in the base but is
-  // playable, so it gets the 🔓 price tag instead of sitting in the bay unmarked.
-  const armedPieceIds = new Set(
-    (legalMoves ?? []).filter((m) => m.spendsBarrierToken).map((m) => m.pieceId),
-  );
+  // playable, so it gets the 🔓 price tag — only while armed, which is what makes
+  // the badge mean "this tap spends the token".
+  const armedPieceIds = bustArmed ? bustPieceIds : new Set<string>();
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );

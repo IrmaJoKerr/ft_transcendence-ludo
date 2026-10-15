@@ -414,6 +414,18 @@ export const en = {
     statusSelectPiece: '// SELECT PIECE TO MOVE',
     statusRivalTurn: '// {{name}} TURN...',
     rollDiceBtn: 'ROLL DICE',
+    // Barrier Buster control: arm it, then tap the prison exit. The armed state is
+    // a second label, so the commitment is readable before the tap spends a token.
+    barrierBusterBtn: 'BARRIER BUSTER',
+    barrierBusterArmedBtn: 'BARRIER BUSTER: ARMED',
+    barrierBusterTitle: 'Spend one token: this exit fights the wall the roll lands on',
+    barrierBusterArmedTitle:
+      'Armed: tap the prison exit to fight the wall, or press again to cancel',
+    // Skip: the other way out of the turn an armed bust is holding.
+    skipBustBtn: 'SKIP',
+    skipBustTitle: 'Keep the token and pass the turn',
+    // Recon log line when a held turn is passed by Skip.
+    bustSkipped: '{{name}} skips: the Barrier Buster stays in hand',
     reconLogsTitle: '// RECON LOGS',
     noReconLogged: 'NO TELEMETRY LOGGED',
     // Room rules: the host's three toggles. `noSafeZones` is the INVERTED flag,
@@ -705,7 +717,7 @@ export const en = {
     // bay label) and the 🔓 price tag on a piece whose only legal move is the
     // token-priced exit.
     barrierTokensTitle:
-      'Barrier Buster ×{{count}}: spending one waives the roll a prison exit needs and carries the piece past one wall',
+      'Barrier Buster ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
     armedBadgeTitle: 'Barrier Buster: this exit costs one token',
   },
   gameExtra: {
@@ -793,16 +805,16 @@ export const en = {
       'A piece in prison normally needs a 6 to come out. With free exit on, any roll opens the door and the exit is part of the move itself: the piece walks out and stops on the step it rolled — a 5 puts it on step 5, a 6 on step 6.',
     // The free exit is an ORDINARY move from step 0: it fights only the square it
     // lands on and a barrier on the way (the landing square included) blocks it,
-    // exactly like any other move. Walking ACROSS a barrier is the token's job
-    // (page 9, one wall per token), so the copy splits the two.
+    // exactly like any other move. Breaking the barrier it LANDS on is the token's
+    // job (page 9, one wall per token), so the copy splits the two.
     rulesPage8Body2:
       'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece walks out along its own track and stops on the step it rolled, so a two-piece wall on the way — or exactly on that landing square — seals the prison until clash mode lets the piece break the wall it lands on, one clash per defender. A wall parked on a protected star is simply passed.',
     rulesPage9Header: '// BARRIER BUSTER',
     rulesPage9Title: '🔓 One token, one wall',
     rulesPage9Body:
-      'Every pilot is dealt ONE Barrier Buster token at the start of the game. Spending it waives the roll a prison exit needs and carries the piece past the first wall in its path — one wall only, and only where clash mode makes it a wall. A 🔓 badge marks a piece in prison whose only exit is the token-priced one.',
+      'Every pilot is dealt one Barrier Buster token at the start of the game. When your roll would land a piece still in prison exactly on a wall, a Barrier Buster button appears beside the player cards: arm it, then tap that piece to fight the wall. The roll must still reach the wall by itself, because the token buys the landing and nothing else: it never carries a piece past a square.',
     rulesPage9Body2:
-      'The token crosses a wall, it does not break it: the piece still fights every defender it meets on the way out, one clash per defender, and the chain has to be won to move. A 6 already leaves prison on its own, so the token is offered only when the roll cannot — and never when two walls stand in the path, where nothing gets through.',
+      'The token pays for the attempt, not for the win: it is spent as soon as the fight begins, and a lost clash does not return it. A clash won against exactly one defender earns one token back, and three is the most a pilot may hold. A wall parked on a protected star is never a target. Skip passes the turn and keeps the token in hand.',
   },
   legal: {
     privacyPolicy: 'PRIVACY POLICY',
