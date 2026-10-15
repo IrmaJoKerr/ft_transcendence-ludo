@@ -45,6 +45,7 @@ input/output. Each event is documented in full below; see
 | `join_game` | Entering a room — PvP join/rejoin, PvE/hotseat seat-in (hotseat sends one call per local seat) | `(gameId: string, playerColor?, userId?, displayName?)` | Bind the socket to the room/seat (reconnect or fresh join), create the game if missing, auto-start PvE/hotseat. A non-reconnecting join to an **ACTIVE** game is only rejected when the token's own seat can no longer be resumed (exited/inactive/never seated); the refused socket is detached from the room and unbound from the seat (so it can neither observe the game nor disturb a seated player on disconnect) and told `seat_expired`/`error`. A live seat is always the token holder's own, so it is accepted as a (re)join — this keeps a reconnect working when the previous socket has not been reaped yet, and any other socket still bound to that seat is unbound (takeover) so a stale one cannot later force the seat down. Hotseat is exempt (one socket controls all its seats) | `game_joined` to the sender |
 | `roll_dice` | Current player, phase `WAITING_FOR_ROLL` | `()` | Roll the die and compute the legal moves (a 3rd six auto-forfeits the turn) | `dice_rolled` |
 | `move_piece` | Current player, phase `WAITING_FOR_MOVE` | `(pieceId: string)` | Validate and apply the move | `piece_moved` |
+| `skip_bust` | Current player, phase `WAITING_FOR_MOVE`, with a token-priced exit on the table | `()` | Decline the armed Barrier Buster exit: a PASS, not a re-roll. The dice are spent, the turn advances and the token stays in hand. Refused on any other phase, and on a 6 (that roll already leaves prison on the room's own rules) | `turn_skipped` |
 | `player_ready` | Seated player in the waiting lobby | `()` | Mark ready; when every active player is ready the game starts | `game_started` |
 | `select_color` | Seated player during color selection | `(color: 'red'/'green'/'yellow'/'blue')` | Move the player to the requested seat color; clears Ready on both colors involved | `color_selected` + `lobby_update` |
 | `leave_game` | Player leaving a room (e.g. after a match) | `()` | Waiting room: seat parked `inactive` and reserved. Live game: seat parked `exited`, pieces cleared, turn advances | `player_exited` (+ `state_update` live) |
@@ -63,6 +64,7 @@ input/output. Each event is documented in full below; see
 | `game_joined` | A successful `join_game` | `GameState` | Sent to the joining socket only |
 | `dice_rolled` | A die roll | `{ value, legalMoves, bonusRoll, currentTurn, forfeited? }` | Room-wide |
 | `piece_moved` | A legal move applied | `MoveResult` | Room-wide |
+| `turn_skipped` | The armed Barrier Buster exit was declined (`skip_bust`) | `{ gameId, currentTurn }` | Room-wide. The turn has already advanced in the state: the SPA's reducer clears the move list and takes the seat this names, and the room's clients would otherwise keep rendering the skipped turn and its armed move |
 | `game_started` | All players ready / PvE or hotseat auto-start | `{ gameId }` | Room-wide |
 | `game_ended` | A match finishes (all pieces home / forfeit) | `{ winner, resultDetail }` | Room-wide |
 | `game_timeout` | 60 s after `game_ended` — the finished room is torn down | — | Room-wide |
@@ -97,7 +99,7 @@ input/output. Each event is documented in full below; see
 | `socket/room-context.ts` | `RoomContext` + `RoomRegistry`: the in-memory owner of one awake room (that room's human seat bindings plus its idle-lobby and post-game timers) |
 | `socket/idle-lobby.ts` | `IdleLobbyWatcher`: aborts a WAITING room below quorum once its persisted `idleSince` stamp is `IDLE_LOBBY_TIMEOUT_MS` old |
 | `socket/post-game.ts` | End-of-game flow — post-game timeout and room teardown |
-| `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel |
+| `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel. One case per event type: a type with no case is dropped silently, which is how the `turn_skipped` frame went missing until the live `barrier-buster` probe caught it (every frame the SPA consumes needs a published-frame assertion or a live probe) |
 | `socket/redis-broadcaster.ts` | `RedisBroadcaster` — forwards Redis `game:*` messages into the matching Socket.IO room |
 | `socket/result-submitter.ts` | POST /api/game/end callback to backend — submits the human seats that finished; skips a seat whose account cannot be recovered and logs the colour; posts nothing when no account resolves; reports the piece count read from the board rather than from a cached tally; carries the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them for the two clash achievements |
 
