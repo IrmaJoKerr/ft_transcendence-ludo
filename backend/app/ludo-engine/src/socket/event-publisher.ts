@@ -36,6 +36,22 @@ export class EventPublisher {
         );
         break;
 
+      // A held turn passed without a move: the Skip on an armed Barrier Buster
+      // exit. Carries the seat that takes over, because the clients have no other
+      // way to learn it: without this case the engine advanced the turn in Redis
+      // while every client kept rendering the skipped turn and its armed move
+      // (the SPA's reducer and its skip log line both wait on this frame).
+      case 'turn_skipped':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'turn_skipped',
+            gameId,
+            currentTurn: event.currentTurn,
+          }),
+        );
+        break;
+
       case 'game_ended':
         void this.store.publish(
           gameId,
