@@ -14,7 +14,7 @@ import { isMobileOS } from '../utils/device';
 const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("⚔️ CLASH!" + colors)
 const CLASH_COUNTDOWN_MS = 3000; // GET READY → 3 → 2 → 1 (inside Card C)
 const CLASH_PRESS_MS = 5000; // keys + bars race
-const CLASH_RESULT_MS = 2000; // Card D result card
+export const CLASH_RESULT_MS = 2000; // Card D result card (also the client's hold forecast)
 const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
 const CLASH_UI_TICK_MS = 250; // overlay re-render cadence
 
@@ -25,13 +25,21 @@ const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
 // Sized in CSS lengths so the pad scales with the device rather than the
-// viewport: 1.7 cm per circle is about 177 px at 264 ppi, ~2.5x Apple's 44 pt
-// minimum. The gap is inert dead space (a near miss must not land on a decoy)
-// and the edge buffer is ADDITIVE to the safe-area inset, so a resting thumb
-// never sits on the home-indicator gesture.
-const TOUCH_BUTTON = '1.7cm';
+// viewport: 3 cm per circle is about 312 px at 264 ppi, ~4.4x Apple's 44 pt
+// minimum, and bigger than Material's 48 dp several times over. The 1 cm edge
+// buffer is deliberately small: with circles this large the pad's mass sits
+// near the middle of each half, which is where two thumbs rest. The gap is
+// inert dead space (a near miss must not land on a decoy); the buffer is
+// ADDITIVE to the safe-area inset, so a resting thumb never sits on the
+// home-indicator gesture.
+const TOUCH_BUTTON = '3cm';
 const TOUCH_GAP = '1cm';
-const TOUCH_EDGE_BUFFER = '1.5cm';
+const TOUCH_EDGE_BUFFER = '1cm';
+// One tap is worth this many presses (the engine clamps it to
+// CLASH_TAP_COUNT_MAX): tapping a circle is slower and less repeatable than
+// holding a key down, and the per-side cap still gates the event rate, so this
+// only makes each accepted tap heavier.
+const TOUCH_TAP_COUNT = 2;
 const TOUCH_FLASH_MS = 120;
 
 // The two key sets, mirrored from the engine (clash.ts ATTACKER_KEYS /
@@ -87,7 +95,7 @@ type Props = {
   clash: NonNullable<GameViewState['clash']>;
   result: ClashResult | null;
   myColor: PlayerColor;
-  onKeyPress: (key: string) => void;
+  onKeyPress: (key: string, count?: number) => void;
   onComplete: () => void;
   /** Hotseat only: one device controls both seats, so BOTH sides' inputs must be
    *  accepted at once. PvP/PvE leave this false: each player only presses their
@@ -259,7 +267,7 @@ function drawPad(side: 'defender' | 'attacker', acceptKey: string, round: number
 }
 
 /**
- * One side's 2x2 pad of 1.7 cm circles. The side's OWN required key is one of
+ * One side's 2x2 pad of 3 cm circles. The side's OWN required key is one of
  * the four; the other three are random decoys from the same nine-key set, so
  * mashing blind lands the right circle about a quarter of the time. Reading
  * stays the skill — and it stays that way on a keyboard too, where mashing all
@@ -278,7 +286,8 @@ function TouchPad({
   acceptKey: string;
   round: number;
   active: boolean;
-  onPress: (key: string) => void;
+  /** The click handler. `count` is the tap weight (1 = one press). */
+  onPress: (key: string, count: number) => void;
 }) {
   const { t } = useTranslation();
   const [pressed, setPressed] = useState<string | null>(null);
@@ -306,7 +315,9 @@ function TouchPad({
     flashRef.current = setTimeout(() => setPressed(null), TOUCH_FLASH_MS);
     // Cheap extra, not a requirement: Android honours this, iOS ignores it.
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(8);
-    onPress(key);
+    // A pad tap is worth TOUCH_TAP_COUNT presses: the engine clamps the weight
+    // and still caps the event rate, so this is a heavier press, not a faster one.
+    onPress(key, TOUCH_TAP_COUNT);
   };
 
   // The buffer is additive to the safe area, so the visible gap is never
@@ -355,7 +366,7 @@ function TouchPad({
               background: pressed === k ? COLORS[color] : 'rgba(13, 2, 33, 0.85)',
               color: pressed === k ? '#12100a' : 'var(--text-main)',
               fontFamily: 'var(--font-mono)',
-              fontSize: 28,
+              fontSize: 40,
               fontWeight: 900,
               lineHeight: 1,
               display: 'grid',
@@ -459,12 +470,20 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
     return () => window.removeEventListener('keydown', handler);
   }, [iAmInClash, phase, listenerKeys, result, onKeyPress]);
 
-  // Auto-dismiss the result card; the reducer keeps `clash` alive until then.
+  // Auto-dismiss the result card; the reducer keeps `clash` alive until then (or until
+  // the engine's release frame, whichever comes first). The timer depends ONLY on the
+  // result: `onComplete` is an inline function in Game.tsx, so listing it as a
+  // dependency restarted this timer on every parent render, which could stop it from
+  // ever firing and leave the card (and its overlay) on screen.
+  const completeRef = useRef(onComplete);
+  useEffect(() => {
+    completeRef.current = onComplete;
+  }, [onComplete]);
   useEffect(() => {
     if (!result) return;
-    const timer = setTimeout(onComplete, CLASH_RESULT_MS);
+    const timer = setTimeout(() => completeRef.current(), CLASH_RESULT_MS);
     return () => clearTimeout(timer);
-  }, [result, onComplete]);
+  }, [result]);
 
   // Best-effort landscape lock, armed only where the touch path is active. It
   // needs fullscreen on Android Chrome and does not exist on iOS Safari, so the

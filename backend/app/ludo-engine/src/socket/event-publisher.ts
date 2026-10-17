@@ -148,6 +148,7 @@ export class EventPublisher {
           gameId,
           JSON.stringify({
             type: 'clash_result',
+            cardId: event.cardId,
             winner: event.winner,
             loser: event.loser,
             winnerPresses: event.winnerPresses,
@@ -162,6 +163,22 @@ export class EventPublisher {
             continues: event.continues ?? false,
             defenderPieceId: event.defenderPieceId ?? null,
             remainingDefenderIds: event.remainingDefenderIds ?? [],
+          }),
+        );
+        break;
+
+      // The result card's hold ended: the clients' own forecasts (clamped) shortened
+      // the freeze, so the engine says "the clash is over" and hands the new deadline
+      // over. Without this case the release would never reach a client (the same gap
+      // `turn_skipped` had), and a client that lost its card timer would keep a stale
+      // clash object forever.
+      case 'clash_card_released':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'clash_card_released',
+            gameId,
+            resultCardUntil: event.resultCardUntil,
           }),
         );
         break;

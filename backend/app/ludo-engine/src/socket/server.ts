@@ -169,6 +169,15 @@ export class SocketServer {
       } else if (event.type === 'clash_result') {
         // Stay frozen through the result card, then let the bot resume.
         this.botScheduler.setClashFreeze(event.gameId, Date.now() + CLASH_RESULT_FREEZE_MS);
+      } else if (event.type === 'clash_card_released') {
+        // The card ended early (every client reported it was done): shorten the bots'
+        // guard and re-arm their turn against the new deadline. `schedule` reads the
+        // seat first, so this is a no-op when a human holds the turn.
+        this.botScheduler.setClashFreeze(event.gameId, event.resultCardUntil);
+        this.botScheduler.schedule(
+          event.gameId,
+          Math.max(0, event.resultCardUntil - Date.now()) + BOT_THINK_MS,
+        );
       }
     });
   }
@@ -423,8 +432,25 @@ export class SocketServer {
         this.handlers.handleSkipBust(socket);
       });
 
-      socket.on('clash_input', (key: string) => {
-        this.handlers.handleClashInput(socket, key);
+      // The Barrier Buster arm switch, clash mode only: arm to be allowed to land
+      // on (and break) a wall this turn, disarm to be blocked by one. The engine
+      // owns the flag, so this is a request, not a local toggle.
+      socket.on('arm_barrier', (armed?: boolean) => {
+        this.handlers.handleArmBarrier(socket, armed === true);
+      });
+
+      // The result-card release handshake: the client forecasts how long its own
+      // card will run, and the engine answers with the release frame when the last
+      // participating user is done (or the ceiling, if a receipt never comes).
+      socket.on('clash_card_hold', (cardId?: string, holdMs?: number) => {
+        this.handlers.handleClashCardHold(socket, cardId, holdMs);
+      });
+
+      // One QTE press. The optional second argument is the tablet's tap weight
+      // (clamped inside the press rule), so a pad tap is worth 2 presses while a
+      // keyboard press stays 1.
+      socket.on('clash_input', (key: string, count?: number) => {
+        this.handlers.handleClashInput(socket, key, count ?? 1);
       });
 
       socket.on('player_ready', () => {

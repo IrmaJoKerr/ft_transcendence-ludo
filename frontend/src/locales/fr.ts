@@ -385,6 +385,8 @@ export const fr = {
     rolledValue: 'A obtenu un {{value}}',
     bonusSuffix: ' (bonus)',
     capturedPiece: 'A capturé une pièce {{color}} !',
+    bonusRollAgain: 'Capture : relancez le dé',
+    wallBrokenBonusRoll: 'Le mur a été brisé. Lancer bonus accordé.',
     inviteBtn: 'Inviter',
     inviteSent: 'Invité',
     noFriendsToInvite: 'Pas d\'amis à inviter pour le moment.',
@@ -418,12 +420,27 @@ export const fr = {
     rollDiceBtn: 'LANCER LE DÉ',
     barrierBusterBtn: 'BRISE-BARRIÈRE',
     barrierBusterArmedBtn: 'BRISE-BARRIÈRE : ARMÉ',
+    // La colonne des jetons de brise-mur à côté de la liste des pilotes (mode clash
+    // uniquement) : l'en-tête la nomme et la case de chaque pilote montre ses jetons
+    // en glyphes, touchables pour armer le siège au trait.
+    barrierColumnHeader: 'JETONS BRISE-BARRIÈRE',
+    barrierToggleHint: 'Toucher pour utiliser',
+    barrierColumnTitle:
+      "Le mode clash permet de briser un mur (2 pièces ou plus d'une même couleur adverse). Basculez ici pour l'autoriser ce tour : chaque mur sur lequel vous atterrissez coûte un jeton.",
+    barrierArmTitle:
+      'Armer : ce tour, un mur ne vous bloque plus, et en briser un coûte un jeton.',
+    barrierArmedTitle:
+      'Armé : atterrissez sur un mur pour le briser (1 jeton par mur, quelles que soient les règles de la salle). Appuyez à nouveau pour désarmer.',
+    barrierCannotArmTitle:
+      "Impossible d'armer : aucun jeton en main, ou ce n'est pas le tour de ce siège.",
+    barrierArmedCaption: 'ARMÉ',
     barrierBusterTitle:
       'Dépenser un jeton : cette sortie affronte le mur sur lequel le lancer retombe',
     barrierBusterArmedTitle:
       'Armé : touchez la sortie de prison pour affronter le mur, ou appuyez à nouveau pour annuler',
-    skipBustBtn: 'PASSER',
-    skipBustTitle: 'Garder le jeton et passer le tour',
+    skipBustBtn: 'PASSER LE BRIS DE MUR',
+    skipBustTitle: 'Passer le bris de mur : garder le jeton et passer le tour',
+    skipBustDisabledTitle: "Rien à refuser : aucune attaque de mur ne retient le tour",
     bustSkipped: '{{name}} passe : le Brise-Barrière reste en main',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
@@ -713,6 +730,8 @@ export const fr = {
     blueBay: 'BLEU-BAIE',
     // Infobulle du badge ×R : attaquer une pile de R défenseurs coûte R manches.
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
+    chainPricedBadgeTitle:
+      'Mur de {{rounds}} : cette attaque le brise, coûte un jeton et dure {{rounds}} manches de clash',
     // Infobulles du Brise-Barrière : les jetons restants du siège (les pastilles à
     // côté du label de la base) et l'étiquette 🔓 sur une pièce dont la seule
     // sortie légale est celle payée par un jeton.
@@ -801,9 +820,9 @@ export const fr = {
     rulesPage9Header: '// BRISE-BARRIÈRE',
     rulesPage9Title: '🔓 Un jeton, un mur',
     rulesPage9Body:
-      "Chaque pilote commence avec un jeton Brise-Barrière. Quand le lancer obtenu poserait exactement une pièce encore en prison sur un mur, un bouton Brise-Barrière apparaît à côté des cartes des joueurs : armez-le, puis touchez cette pièce pour affronter le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",
+      "Chaque pilote commence avec un jeton Brise-Barrière. Quand le lancer pose exactement une pièce sur un mur, cet atterrissage coûte un jeton. Armez l'interrupteur dans la colonne des jetons à côté de la liste des joueurs, puis touchez cette pièce. L'armement dure un tour : une pièce non armée est simplement bloquée par le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",
     rulesPage9Body2:
-      "Le jeton paie la tentative, pas la victoire : il est dépensé dès que le combat commence, et un clash perdu ne le rend pas. Un clash gagné contre exactement un défenseur rend un jeton, et trois est le maximum qu'un pilote peut détenir. Un mur posé sur une étoile protégée n'est jamais une cible. Le bouton Passer passe le tour et garde le jeton.",
+      "Le jeton paie la tentative, pas la victoire : il est dépensé dès que le combat commence, et un clash perdu ne le rend pas. Un clash gagné contre exactement un défenseur rend un jeton, et trois est le maximum qu'un pilote peut détenir. Un mur posé sur une étoile protégée n'est jamais une cible. Passer n'est proposé que lorsque le lancer ne peut atteindre que des murs ; il passe le tour et garde le jeton.",
   },
   legal: {
     privacyPolicy: 'POLITIQUE DE CONFIDENTIALITÉ',

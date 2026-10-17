@@ -202,15 +202,15 @@ export class RedisGameStore {
   }
 
   // Count a press for the attacker/defender side; returns that side's new total.
-  async recordClashPress(gameId: string, color: PlayerColor): Promise<number> {
+  async recordClashPress(gameId: string, color: PlayerColor, count = 1): Promise<number> {
     const state = await this.loadGameState(gameId);
     if (!state?.clash) return 0;
 
     const isAttacker = state.clash.attacker === color;
     if (isAttacker) {
-      state.clash.attackerPresses++;
+      state.clash.attackerPresses += count;
     } else {
-      state.clash.defenderPresses++;
+      state.clash.defenderPresses += count;
     }
     state.clash.lastPressAt = state.clash.lastPressAt || {};
     state.clash.lastPressAt[color] = Date.now();

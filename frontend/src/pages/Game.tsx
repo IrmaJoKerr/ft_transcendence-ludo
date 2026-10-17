@@ -5,7 +5,7 @@ import { Die } from '../components/Die';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor, PlayerMeta } from '../game/types';
-import { ClashOverlay } from '../game/ClashOverlay';
+import { ClashOverlay, CLASH_RESULT_MS } from '../game/ClashOverlay';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
@@ -90,6 +90,27 @@ function MiniDie({ value }: { value: number }) {
 // Matches the backend's SLOT_COLORS: hotseat seat index i always maps to this
 // color, regardless of the Lobby seat-picker's own (unrelated) display order.
 const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// The Barrier Buster hand cap, mirrored from the engine (types.ts BUST_CAP): the
+// wall-break cell draws exactly this many glyph slots, so an empty hand reads as
+// empty rather than as a row that vanished.
+const BUST_CAP = 3;
+// The wall break tokens panel: its width and the gap in front of it. That span is
+// exactly how much further the roster box overhangs its grid track in clash mode; a
+// smaller CARD_ROOM_OVERHANG is always added on top, so a standard room overhangs
+// less and the player cards come out the SAME width in both rooms (the panel is the
+// only difference between them), with room for the display names either way.
+const BUSTER_PANEL_W = 96;
+const BUSTER_PANEL_GAP = 10;
+// The result-card handshake: the client's own card duration plus a margin that
+// absorbs the receipt's one-way trip. The engine converts it to a deadline on
+// receipt and clamps it, so this is a forecast, never a local gate.
+const CARD_HOLD_MARGIN_MS = 200;
+const CARD_ROOM_OVERHANG = 46;
+// The wall-break token glyph. A padlock read as "locked"; dynamite (or a
+// sledgehammer) reads as "breaker", which is what the toggle actually does. One
+// constant, so switching glyphs is one edit.
+const BUSTER_GLYPH = '🧨';
 
 export function Game() {
   const { t } = useTranslation();
@@ -225,16 +246,59 @@ export function Game() {
   // tap on a piece in prison can never spend a token by accident. The engine offers
   // that move only when the roll lands exactly on a wall, so its presence in the
   // list is also the "the token can be spent now" signal the controls read.
-  const [bustArmed, setBustArmed] = useState(false);
+  // The Barrier Buster arm switch lives on the SERVER (`PlayerMeta.barrierArmed`):
+  // clash mode is the opportunity to break a wall, arming is the in-game decision
+  // to take it, and the engine is what blocks an unarmed seat at a wall (the wall
+  // simply blocks the landing). The seat holding the turn is the one whose switch
+  // matters, and the engine clears it when the turn moves on.
   const bustMoves = useMemo(
     () => (view.legalMoves ?? []).filter((m) => m.spendsBarrierToken),
     [view.legalMoves],
   );
-  // Arming lasts one roll: a new roll, a new turn or a phase change clears it, so a
-  // later tap can never spend the token on a stale arming.
+  const armSeat = view.players.find((p) => p.color === view.currentTurn);
+  const bustArmed = armSeat?.barrierArmed === true;
+  // Arming needs a token in hand: the engine refuses an arm without one, and the
+  // column disables the button. The engine also refuses an arm out of turn.
+  const canArmBust = view.clashMode === true && (armSeat?.barrierTokens ?? 0) > 0;
+  const toggleBustArm = () => {
+    if (!canArmBust) return;
+    retroAudio.playUiBeep(bustArmed ? 420 : 880, 0.06, 'square');
+    socketRef.current?.emit('arm_barrier', !bustArmed);
+  };
+  // How far the roster box reaches past its grid track (and the controls box under it
+  // follows the same width): the panel's span in clash mode, plus the same extra room
+  // for the display names in every room, so the cards are equally wide either way.
+  const rosterOverhang =
+    view.clashMode === true
+      ? CARD_ROOM_OVERHANG + BUSTER_PANEL_W + BUSTER_PANEL_GAP
+      : CARD_ROOM_OVERHANG;
+  // Only the three-column desktop layout (the `lg` grid) has a panel overhanging its column,
+  // so the board placement below is biased at that breakpoint and keeps the previously
+  // centred behaviour at the stacked tablet/mobile one, where the panels sit above and below.
+  const [desktopLayout, setDesktopLayout] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  );
   useEffect(() => {
-    setBustArmed(false);
-  }, [view.currentTurn, view.diceValue, view.turnPhase]);
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    setDesktopLayout(mq.matches);
+    const sync = () => setDesktopLayout(mq.matches);
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  // Desktop board placement: instead of centring, the board first yields the roster panel's
+  // overhang and then takes 20% of the space that leaves as a right margin, so the gap to the
+  // right column is 40% of the even split it used to get and the left gutter holds the panel.
+  // The min() clamps the margin to 0 when the track is too narrow for a 40% gap to fit,
+  // which is what keeps the panel off the board at every desktop width. `100%` is the
+  // board's own track (the grid area).
+  const boardSlack = `100% - min(650px, 66vh, 100% - ${rosterOverhang}px)`;
+  const boardMaxWidth = desktopLayout
+    ? `min(650px, 66vh, 100% - ${rosterOverhang}px)`
+    : 'min(650px, 66vh)';
+  const boardMarginRight = desktopLayout
+    ? `max(0px, min((${boardSlack}) * 0.2, ${boardSlack} - ${rosterOverhang}px))`
+    : undefined;
 
   useEffect(() => {
     if (moveLogContainerRef.current) {
@@ -425,8 +489,16 @@ export function Game() {
           capturedPieceIds?: string[];
           to: number;
           path?: number[];
+          // The engine's hand-off decision for this move: true means the SAME seat rolls
+          // again (a 6 or a capture), which is also what the reducer uses to pick whose turn
+          // it is. Read here only to say so in the log.
+          bonusRoll?: boolean;
         };
         const path = e.path ?? [];
+        // A wall break on the wire: the engine credits one when the landing square stood TWO
+        // or more defenders, and those ids ride the result, so the count is the same test the
+        // credit uses (a repulse lists only the attacker itself, a lone defender lists one).
+        const wallBroken = e.captured && (e.capturedPieceIds?.length ?? 0) >= 2;
 
         // Extract color of captured piece if a capture occurred
         let victimColor = '';
@@ -453,12 +525,30 @@ export function Game() {
           setAnimatingPiece(null);
           dispatch({ type: 'piece_moved', ...(state as object) });
           if (e.captured) {
+            // One line per capture: a wall break names the wall and the re-roll it awarded,
+            // because that is the bigger event (a whole stack went home); anything else names
+            // the piece it sent home.
             setMoveLogs((prev) => [
-              { ck: e.color, text: t('game.capturedPiece', { color: victimColor }) },
+              {
+                ck: e.color,
+                text:
+                  wallBroken && e.bonusRoll === true
+                    ? t('game.wallBrokenBonusRoll')
+                    : t('game.capturedPiece', { color: victimColor }),
+              },
               ...prev.slice(0, 11),
             ]);
             retroAudio.playExplosionSound();
             setCaptureFx({ color: e.color, to: e.to });
+          }
+          // A capture re-rolls the same seat. Say so when the capture was not a wall break:
+          // the wall line already names its own re-roll, and the board looks like it is simply
+          // "still your turn" otherwise (the roll control alone is quiet about why).
+          if (e.captured && e.bonusRoll === true && !wallBroken) {
+            setMoveLogs((prev) => [
+              { ck: e.color, text: t('game.bonusRollAgain') },
+              ...prev.slice(0, 11),
+            ]);
           }
           const settleMs = e.captured ? 600 : 350;
           if (captureFxTimerRef.current) clearTimeout(captureFxTimerRef.current);
@@ -573,6 +663,9 @@ export function Game() {
     socket.on('clash_phase', handleEngineEvent);
     socket.on('clash_press', handleEngineEvent);
     socket.on('clash_result', handleEngineEvent);
+    // The result card's hold ended: the engine shortened the freeze and says the clash
+    // is over. The reducer clears the clash slices on it.
+    socket.on('clash_card_released', handleEngineEvent);
     // The host flipped the room rules: the frame carries what the engine
     // actually persisted, not what was asked for.
     socket.on('modifiers_updated', handleEngineEvent);
@@ -786,11 +879,17 @@ export function Game() {
   // stays in hand, the dice are spent and the turn passes. The engine refuses a
   // Skip when no armed exit is on the table, so this only sends the intent.
   const skipBust = () => {
-    if (viewRef.current.clash) return;
+    // Inert unless the roll can ONLY reach a wall: the guards repeat the button's own test
+    // against the freshest view, and nothing is emitted (and no beep plays) unless the
+    // situation is exactly the one Skip exists for. That is what keeps a curious click, or a
+    // stray programmatic call, from producing a refusal anywhere.
+    const v = viewRef.current;
+    if (v.status !== 'active' || v.clash) return;
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
       return;
-    if (!viewRef.current.legalMoves.some((m) => m.spendsBarrierToken)) return;
-    setBustArmed(false);
+    if (v.turnPhase !== 'WAITING_FOR_MOVE') return;
+    const priced = v.legalMoves.filter((m) => m.spendsBarrierToken);
+    if (priced.length === 0 || priced.length !== v.legalMoves.length) return;
     retroAudio.playUiBeep(520, 0.06);
     socketRef.current?.emit('skip_bust');
   };
@@ -804,10 +903,21 @@ export function Game() {
   // (physical key or character, so any layout works); the server proves
   // ownership and applies the press cap, which is where a decoy touch-pad press
   // is discarded.
-  const clashInput = (key: string) => socketRef.current?.emit('clash_input', key);
+  const clashInput = (key: string, count = 1) =>
+    socketRef.current?.emit('clash_input', key, count);
   // The overlay's result-card timer calls this after CLASH_RESULT_MS. It is what
   // frees canRoll again: the reducer deliberately keeps `clash` alive until then.
   const clearClash = () => dispatch({ type: 'clash_clear' });
+
+  // The result card just appeared: tell the engine when it will be done. This is the
+  // client's forecast in its OWN clock (the engine converts it to a deadline on
+  // receipt and clamps it), it is sent once per card so a chain reports each round,
+  // and it never gates anything locally: the engine's release frame is the authority.
+  useEffect(() => {
+    const cardId = view.clashResult?.cardId;
+    if (!cardId) return;
+    socketRef.current?.emit('clash_card_hold', cardId, CLASH_RESULT_MS + CARD_HOLD_MARGIN_MS);
+  }, [view.clashResult]);
   // The three room rules travel as ONE object both ways, so a fourth rule is a
   // field rather than a fifth positional boolean. The engine enforces host-only
   // (MODIFIERS_HOST_ONLY) and echoes back what it actually persisted.
@@ -985,10 +1095,10 @@ export function Game() {
     isMyTurn &&
     view.turnPhase !== 'WAITING_FOR_MOVE' &&
     view.legalMoves.length === 0 &&
-    // Gate on the clash and on the engine's own post-clash freeze: the freeze
-    // outlasts the overlay's result card, so no roll or move can slip in.
-    !view.clash &&
-    !(view.resultCardUntil != null && Date.now() < view.resultCardUntil) &&
+    // No timing term here on purpose. The engine refuses a roll outside its phase and
+    // during the result-card freeze (which the release handshake now shortens to the
+    // clients' own forecasts), so a missing frame costs one refused click instead of
+    // the dead roll button that a client-side clock comparison used to cause.
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
@@ -1004,6 +1114,15 @@ export function Game() {
     bustMoves.length > 0 &&
     (view.players.find((p) => p.color === view.currentTurn)?.barrierTokens ?? 0) > 0 &&
     view.diceValue !== 6;
+  // Skip exists for exactly ONE situation: the roll can only reach a wall (every legal
+  // move is token-priced), so the turn would otherwise be stuck unless the player spends a
+  // token. With any ordinary move on the table the player just plays it, and the button
+  // stays inert. The button is always on screen in a clash room (so it is discoverable) and
+  // greyed out whenever this is false.
+  const allMovesPriced =
+    (view.legalMoves ?? []).length > 0 && bustMoves.length === (view.legalMoves ?? []).length;
+  const canSkipBust =
+    view.status === 'active' && !isPausedForReconnect && isMyTurn && !view.clash && allMovesPriced;
   const turnLabel =
     view.status === 'waiting'
       ? t('game.waitingRoomTitle').toUpperCase()
@@ -1189,7 +1308,20 @@ export function Game() {
               style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
             >
               {/* Pilot Roster Window */}
-              <section className={RETRO_WINDOW} id="playersWindow">
+              <section
+                className={RETRO_WINDOW}
+                id="playersWindow"
+                style={{
+                  // The wall break tokens panel takes its own room, and the display names
+                  // take a little more, so the box overhangs its grid track instead of
+                  // shrinking the cards. The controls box below follows the same width, and
+                  // the overhang is computed so the cards are the same width with or without
+                  // clash mode (see rosterOverhang).
+                  width: `calc(100% + ${rosterOverhang}px)`,
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              >
                 <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>{t('game.pilotRosterTitle')}</span>
@@ -1200,34 +1332,83 @@ export function Game() {
                   className={WINDOW_BODY}
                   style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
                 >
+                  {/* Header row: the roster labels on the left, and (clash mode only) the
+                      wall break tokens label on the right, aligned with the toggle panel
+                      below so the divider runs straight down through both rows. */}
                   <div
                     style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0 4px',
+                      gap: 10,
+                      alignItems: 'stretch',
+                      ...(view.clashMode === true
+                        ? {
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+                            paddingBottom: 6,
+                          }
+                        : {}),
                     }}
                   >
-                    <span
+                    <div
                       style={{
-                        fontSize: '0.7rem',
-                        color: 'var(--accent-cyan)',
-                        fontFamily: 'var(--font-mono)',
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                       }}
                     >
-                      {t('game.seatPilotHeader')}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.65rem',
-                        color: 'var(--text-muted)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {t('game.lastRolled').toUpperCase()}
-                    </span>
+                      <span
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {t('game.seatPilotHeader')}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          color: 'var(--text-muted)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {t('game.lastRolled').toUpperCase()}
+                      </span>
+                    </div>
+                    {view.clashMode === true && (
+                      <div
+                        title={t('game.barrierColumnTitle')}
+                        style={{
+                          width: BUSTER_PANEL_W,
+                          flex: 'none',
+                          boxSizing: 'border-box',
+                          paddingLeft: 10,
+                          borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.58rem',
+                          lineHeight: 1.3,
+                          letterSpacing: '0.06em',
+                          color: 'var(--accent-yellow)',
+                        }}
+                      >
+                        {t('game.barrierColumnHeader')}
+                      </div>
+                    )}
                   </div>
 
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                      }}
+                    >
                   {SEAT_COLORS.map((ck) => {
                     const playerMeta = view.players.find((p) => p.color === ck);
                     const occupied = Boolean(
@@ -1617,11 +1798,129 @@ export function Game() {
                       </div>
                     );
                   })}
+                    </div>
+
+                    {/* Barrier breaker column: clash mode is the OPPORTUNITY to break
+                        a wall, and this column is where the player takes it. One
+                        numbered button per pilot (the token count), aligned to that
+                        pilot's card; only the seat this device owns and only while it
+                        holds the turn can be armed, and the engine owns the flag. */}
+                    {view.clashMode === true && (
+                      <div
+                        style={{
+                          width: BUSTER_PANEL_W,
+                          flex: 'none',
+                          boxSizing: 'border-box',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                          // A panel of its own: the left divider and the padding are what
+                          // make the toggle section read as separate from the roster, and
+                          // stretching it keeps that divider running the cards' full height.
+                          paddingLeft: 10,
+                          borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
+                          alignSelf: 'stretch',
+                        }}
+                      >
+                        {/* The column's description sits above both sub-columns (see
+                            the barrier breaker hint), so the buttons start level with
+                            the cards. */}
+                        {SEAT_COLORS.map((ck) => {
+                          const seat = view.players.find((p) => p.color === ck);
+                          if (!seat || seat.status === 'inactive') {
+                            return <div key={ck} style={{ flex: 1 }} />;
+                          }
+                          const tokens = seat.barrierTokens ?? 0;
+                          const armed = seat.barrierArmed === true;
+                          const canArm =
+                            ck === view.myColor &&
+                            ck === view.currentTurn &&
+                            tokens > 0 &&
+                            seat.status === 'active';
+                          return (
+                            <button
+                              key={ck}
+                              type="button"
+                              disabled={!canArm}
+                              aria-pressed={armed}
+                              onClick={toggleBustArm}
+                              title={
+                                canArm
+                                  ? armed
+                                    ? t('game.barrierArmedTitle')
+                                    : t('game.barrierArmTitle')
+                                  : t('game.barrierCannotArmTitle')
+                              }
+                              style={{
+                                flex: 1,
+                                minHeight: 44,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 4,
+                                padding: '4px 2px',
+                                borderRadius: 4,
+                                border: `1.5px solid ${
+                                  armed
+                                    ? 'var(--accent-yellow)'
+                                    : canArm
+                                      ? SEAT_HUES[ck]
+                                      : 'rgba(255, 255, 255, 0.14)'
+                                }`,
+                                background: armed ? 'rgba(255, 230, 0, 0.2)' : 'rgba(25, 10, 56, 0.65)',
+                                color: armed ? 'var(--accent-yellow)' : '#ffffff',
+                                boxShadow: armed ? '0 0 14px var(--accent-yellow)' : 'none',
+                                fontFamily: 'var(--font-mono)',
+                                cursor: canArm ? 'pointer' : 'not-allowed',
+                                opacity: canArm || armed ? 1 : 0.45,
+                                touchAction: 'manipulation',
+                                boxSizing: 'border-box',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '0.5rem',
+                                  letterSpacing: '0.08em',
+                                  whiteSpace: 'nowrap',
+                                  color: armed ? 'var(--accent-yellow)' : 'var(--text-muted)',
+                                }}
+                              >
+                                {armed ? t('game.barrierArmedCaption') : t('game.barrierToggleHint')}
+                              </span>
+                              <span
+                                style={{ display: 'flex', gap: 3, fontSize: '0.85rem', lineHeight: 1 }}
+                              >
+                                {Array.from({ length: BUST_CAP }, (_, slot) => (
+                                  <span key={slot} style={{ opacity: slot < tokens ? 1 : 0.22 }}>
+                                    {BUSTER_GLYPH}
+                                  </span>
+                                ))}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
 
               {/* Controls, Shortcuts & Audio Window */}
-              <section className={RETRO_WINDOW} id="sectorControlWindow">
+              <section
+                className={RETRO_WINDOW}
+                id="sectorControlWindow"
+                style={{
+                  // Kept in step with the roster box above it (see rosterOverhang), so the
+                  // two stacked boxes are always the same width: wider in a clash room where
+                  // the roster makes room for the wall break tokens panel, and the same
+                  // narrower-with-extra-room width otherwise.
+                  width: `calc(100% + ${rosterOverhang}px)`,
+                  position: 'relative',
+                  zIndex: 2,
+                }}
+              >
                 <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span>{t('gameExtra.controlsShortcuts')}</span>
@@ -1788,8 +2087,11 @@ export function Game() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 width: '100%',
-                maxWidth: 'min(650px, 66vh)',
-                justifySelf: 'center',
+                // Desktop: the board yields the roster panel's overhang and then biases right
+                // (see boardMaxWidth / boardMarginRight); the stacked layout stays centred.
+                maxWidth: boardMaxWidth,
+                justifySelf: desktopLayout ? 'end' : 'center',
+                marginRight: boardMarginRight,
               }}
             >
               {(() => {
@@ -2200,10 +2502,7 @@ export function Game() {
                     {canOfferBust && (
                       <button
                         className={RETRO_BTN}
-                        onClick={() => {
-                          retroAudio.playUiBeep(bustArmed ? 420 : 880, 0.06, 'square');
-                          setBustArmed((armed) => !armed);
-                        }}
+                        onClick={toggleBustArm}
                         title={
                           bustArmed
                             ? t('game.barrierBusterArmedTitle')
@@ -2231,32 +2530,6 @@ export function Game() {
                         {bustArmed
                           ? `🔓 ${t('game.barrierBusterArmedBtn')}`
                           : `🔓 ${t('game.barrierBusterBtn')}`}
-                      </button>
-                    )}
-
-                    {canOfferBust && (
-                      <button
-                        className={RETRO_BTN}
-                        onClick={skipBust}
-                        title={t('game.skipBustTitle')}
-                        style={{
-                          width: '100%',
-                          padding: '8px 16px',
-                          fontSize: '0.7rem',
-                          fontFamily: 'var(--font-mono)',
-                          letterSpacing: '1px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          textAlign: 'center',
-                          background: 'rgba(25, 10, 56, 0.6)',
-                          borderColor: 'var(--text-muted)',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          boxSizing: 'border-box',
-                        }}
-                      >
-                        {t('game.skipBustBtn')}
                       </button>
                     )}
 
@@ -2405,6 +2678,26 @@ export function Game() {
                     />
                   );
                 })()}
+
+              {/* Skip: the deliberate way out of a turn a wall attack is holding (it keeps
+                  the token and passes). It sits under the abort control and is always on
+                  screen in a clash room, greyed out while nothing is holding the turn, so
+                  the control is discoverable before it is needed. The wrapper carries the
+                  tooltip because a disabled button fires no pointer events of its own. */}
+              {view.clashMode === true && !isGameEnded && (
+                <span
+                  style={{ display: 'block', width: '100%' }}
+                  title={canSkipBust ? t('game.skipBustTitle') : t('game.skipBustDisabledTitle')}
+                >
+                  <CyberButton
+                    label={t('game.skipBustBtn')}
+                    variant="yellow"
+                    disabled={!canSkipBust}
+                    onClick={skipBust}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  />
+                </span>
+              )}
             </div>
           </main>
         </div>

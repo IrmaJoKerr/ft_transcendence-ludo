@@ -12,13 +12,21 @@ export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys still hidden
 export const CLASH_PRESS_MS = 5000; // press race window
 export const CLASH_RESULT_MS = 2000; // result card, displayed by the client
 // Server freeze after a clash resolves: longer than the client's result card,
-// so no roll or move can land while the card is visible.
+// so no roll or move can land while the card is visible. This is the CEILING of
+// the card-release handshake: a client's hold can only ever shorten it.
 export const CLASH_RESULT_FREEZE_MS = 4000;
+// Floor for a client's card hold: a receipt asking for less than this is clamped,
+// so a broken client cannot skip the card's meaning (it is still cosmetic).
+export const CARD_HOLD_MIN_MS = 250;
 export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start
 export const CLASH_TARGET = 42; // presses needed to win the race
 // Min ms between accepted presses per side (~9 Hz). Rapid-fire keyboards cannot
 // out-press a human, and the cap bounds abuse without a rate-limit carve-out.
 export const CLASH_PRESS_CAP_MS = 110;
+// The most one accepted press may be worth. The touch pad sends 2, because a tap
+// on a circle is slower and less repeatable than a held key; the clamp keeps the
+// wire from asking for more, so the cap's ceiling stays 2x and no further.
+export const CLASH_TAP_COUNT_MAX = 2;
 // Bot presser tuning: the engine pre-rolls the winner, so the winning bot
 // presses faster than the losing one while both look human.
 export const CLASH_BOT_WIN_MS_BASE = 125; // winner's press interval base (ms)
@@ -119,6 +127,7 @@ export class ClashManager {
     color: PlayerColor,
     key: string,
     isBot = false,
+    count = 1,
   ): Promise<number> {
     const clash = await this.store.loadClashState(gameId);
     if (!clash) return 0;
@@ -133,20 +142,27 @@ export class ClashManager {
       if (key !== expectedKey) return 0;
     }
 
-    // Server-side press cap: a minimum gap between accepted presses per side.
+    // Server-side press cap: a minimum gap between accepted presses per side. The
+    // cap gates the EVENT, so the tablet's tap weight (below) cannot buy a faster
+    // event stream, only a heavier press once one is accepted.
     const last = clash.lastPressAt?.[color];
     if (typeof last === 'number' && Date.now() - last < CLASH_PRESS_CAP_MS) return 0;
 
-    const count = await this.store.recordClashPress(gameId, color);
+    // The tablet's tap weight: one tap on the touch pad is worth this many
+    // presses, because tapping a circle is slower and less repeatable than
+    // holding a key down. Clamped here, on the server, so the wire can ask for
+    // nothing heavier than the documented weight.
+    const weight = Math.min(CLASH_TAP_COUNT_MAX, Math.max(1, Math.floor(count) || 1));
+    const meter = await this.store.recordClashPress(gameId, color, weight);
     // Broadcast the live count to the whole room so both HUDs stay in step. The
-    // caller (clash-engine / socket-handlers) separately receives `count`.
+    // caller (clash-engine / socket-handlers) separately receives `meter`.
     this.publisher.publish({
       type: 'clash_press',
       gameId,
       color,
-      presses: count,
+      presses: meter,
     });
-    return count;
+    return meter;
   }
 
   // Publish the outcome and clear the clash. The deferred move is applied by the

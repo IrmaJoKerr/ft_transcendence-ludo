@@ -277,6 +277,10 @@ export class LudoEngine {
       }
 
       const moverColor = state.pieces.find((p) => p.id === pieceId)?.color as PlayerColor;
+      // Captured before the move resolves: a turn advance clears every seat's arm switch, so
+      // this is what tells the HUD below whether it needs a fresh players[] frame.
+      const moverWasArmed =
+        state.players.find((p) => p.color === moverColor)?.barrierArmed === true;
 
       // A Barrier Buster move pays its token here, inside the game lock and against
       // the freshly loaded state, exactly once: the snapshot is cleared as the move
@@ -288,10 +292,21 @@ export class LudoEngine {
       // state written before the field existed from going negative.
       if (pendingMove.spendsBarrierToken) {
         const mover = state.players.find((p) => p.color === moverColor);
+        // The arm switch is the player's consent, and this is where the engine enforces
+        // it: the move list carries every priced wall landing whatever the switch says (so
+        // a client can reveal it the instant it is toggled), which makes an unarmed
+        // attempt a refusal instead of a silent token spend.
+        if (mover?.barrierArmed !== true) {
+          throw new Error('Barrier breaker is not armed');
+        }
         if (!mover || (mover.barrierTokens ?? 0) <= 0) {
           throw new Error('No barrier token available');
         }
         mover.barrierTokens = Math.max(0, (mover.barrierTokens ?? 0) - 1);
+        // An empty hand cannot be armed (setBarrierArmed refuses it), so the switch does not
+        // survive the spend: without this, a seat that KEEPS the turn (a capture re-rolls)
+        // would show ARMED beside a hand of zero until some later turn change cleared it.
+        if ((mover.barrierTokens ?? 0) <= 0) delete mover.barrierArmed;
       }
 
       // Clash gate: a capture is deferred to the QTE and applied only once that
@@ -417,6 +432,13 @@ export class LudoEngine {
       await this.store.saveGameState(gameId, state);
 
       this.emit({ type: 'piece_moved', gameId, result });
+      // A wall landing spends a token, and ANY turn change clears the arm switch, so the
+      // HUD's token column gets a full-state frame whenever either happened: the count and
+      // the switch ride players[], and waiting for the next unrelated frame would leave them
+      // showing a token the seat no longer holds, or an arm it no longer has.
+      if (pendingMove.spendsBarrierToken || moverWasArmed) {
+        this.emit({ type: 'state_update', gameId, state });
+      }
       if (winner) {
         this.emit({ type: 'game_ended', gameId, winner, resultDetail: 'four_pieces' });
       }
@@ -425,11 +447,12 @@ export class LudoEngine {
     });
   }
 
-  // The Skip button on a held turn: the roll offered an armed Barrier Buster exit
-  // and the player declined it. A PASS, not a re-roll: the dice are spent, the turn
-  // advances, and the token stays in hand. Reachable only while such a bust is on
-  // the table, which is the only situation the hold exists for: rollDice's no-move
-  // pass never fires for a bust, because a bust is a legal move.
+  // The Skip button on a held turn: every move the roll offers is token-priced, so the
+  // seat either spends a token (by arming and taking the wall landing) or forfeits the turn
+  // and keeps the token for a better board. A PASS, not a re-roll: the dice are spent, the
+  // turn advances and the token stays in hand. Reachable only in that one situation, which
+  // is also the only one the hold exists for: rollDice's no-move pass never fires for it,
+  // because a priced move IS a legal move.
   async skipArmedBust(gameId: string): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
@@ -442,14 +465,14 @@ export class LudoEngine {
       if (state.turnPhase !== 'WAITING_FOR_MOVE') {
         throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
       }
-      // Nothing to decline without an armed move, and nothing on a 6: that roll
-      // already leaves prison on the room's own rules, so no armed variant exists
-      // for it (see MoveValidator.armedExit, which the plain exit pre-empts).
-      if (!state.pendingLegalMoves.some((m) => m.spendsBarrierToken)) {
-        throw new Error('No armed exit to skip');
-      }
-      if (state.pendingDiceValue === 6) {
-        throw new Error('Nothing to skip on a 6');
+      // Skip exists for exactly one situation: the roll can only reach a wall, i.e. EVERY
+      // pending move is token-priced. With an ordinary move on the table the player plays
+      // that instead, so a Skip is refused here (and the socket layer drops the refusal
+      // silently). No 6 carve-out: a 6 pre-empts the prison-exit variant, but an on-board
+      // piece can still have a wall as its only destination.
+      const priced = state.pendingLegalMoves.filter((m) => m.spendsBarrierToken);
+      if (priced.length === 0 || priced.length !== state.pendingLegalMoves.length) {
+        throw new Error('Nothing to skip: an ordinary move is available');
       }
 
       state.pendingLegalMoves = [];
@@ -459,6 +482,48 @@ export class LudoEngine {
       advanceTurnInState(state);
       await this.store.saveGameState(gameId, state);
       this.emit({ type: 'turn_skipped', gameId, currentTurn: state.currentTurn });
+      // The pass cleared every seat's arm switch (advanceTurnInState), so a full-state frame
+      // follows the turn_skipped: without it the passing seat's roster cell would keep
+      // showing ARMED from the arm frame it sent before the pass.
+      this.emit({ type: 'state_update', gameId, state });
+    });
+  }
+
+  // The Barrier Buster arm switch: clash mode grants the OPPORTUNITY to break a
+  // wall, and this is the seat's in-game decision to take it. The engine owns the
+  // flag because the rule it gates is enforced here (an armed landing on a wall,
+  // which spends a token): the client's copy is display only. Refused with an
+  // empty hand, refused out of turn, cleared when the turn moves on
+  // (advanceTurnInState), and refused entirely in a room without clash mode.
+  async setBarrierArmed(gameId: string, color: PlayerColor, armed: boolean): Promise<void> {
+    return this.withGameLock(gameId, async () => {
+      const state = await this.store.loadGameState(gameId);
+      if (state?.status !== 'active') {
+        throw new Error('Game not active');
+      }
+      if (state.clashMode !== true) {
+        throw new Error('No barrier breaker mode in this room');
+      }
+      if (state.currentTurn !== color) {
+        throw new Error('Not your turn');
+      }
+      const meta = state.players.find((p) => p.color === color);
+      if (!meta) {
+        throw new Error('No such seat');
+      }
+      if (armed && (meta.barrierTokens ?? 0) <= 0) {
+        throw new Error('No barrier token to arm');
+      }
+      if (armed) meta.barrierArmed = true;
+      else delete meta.barrierArmed;
+      // No recompute: the move list is the same whether or not the seat is armed (a wall
+      // landing is always emitted and priced, and this switch only decides whether the
+      // engine will accept it). The frame below is what tells the clients the switch moved,
+      // and each client reveals or hides the priced moves it already holds.
+      await this.store.saveGameState(gameId, state);
+      // The switch and the hand ride players[], so a full-state frame is what
+      // refreshes every client's token column.
+      this.emit({ type: 'state_update', gameId, state });
     });
   }
 
@@ -478,8 +543,21 @@ export class LudoEngine {
     color: PlayerColor,
     key?: string,
     isBot = false,
+    count = 1,
   ): Promise<number> {
-    return this.clashEngine.recordClashPress(gameId, color, key, isBot);
+    return this.clashEngine.recordClashPress(gameId, color, key, isBot, count);
+  }
+
+  // The result-card release handshake: a client's forecast for the card it is
+  // showing. Clamped and minimum-only inside ClashEngine, and accepted only from a
+  // user that owns a seat in that card. True when the release frame was emitted.
+  async holdClashCard(
+    gameId: string,
+    userId: string,
+    cardId: string,
+    holdMs: number,
+  ): Promise<boolean> {
+    return this.clashEngine.holdCard(gameId, userId, cardId, holdMs);
   }
 
   // Settle a mid-clash disconnect immediately by meters (tie goes to the

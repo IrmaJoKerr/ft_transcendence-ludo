@@ -457,13 +457,14 @@ loadGameState(gameId)
 
 `withBarrierDefaults` is the ONE door the state comes back through, and it exists because the
 Barrier Buster fields arrived after the first rooms were written: a live room survives a redeploy
-in Redis, so a `GameState` from before the token existed can be loaded mid-game. Both fields feed
+in Redis, so a `GameState` from before the token existed can be loaded mid-game. Both NUMERIC fields feed
 arithmetic (`barrierTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
 to `BUST_CAP`, `stats.barrierBreaks += 1` when a barrier chain is won), and `undefined - 1` is
 `NaN` — one NaN seat would stay broken for the rest of the
 match, because every later turn reads the poisoned counter back out of Redis. Normalizing at the
 load site (rather than at each read) keeps the fix in one place; the per-site `?? 0` reads stay as
-belt and braces for a state that is handed around in memory. `0` is also the honest reading: that
+belt and braces for a state that is handed around in memory. `barrierArmed` needs no normalizer: it is
+read as `=== true`, so an absent field is simply off. `0` is also the honest reading: that
 room was created before `createGame` dealt a token, and its players have not broken a wall.
 
 ### Record Move Path
