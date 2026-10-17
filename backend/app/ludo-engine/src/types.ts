@@ -50,6 +50,14 @@ export interface PlayerMeta {
     // existed.
     barrierBreaks: number;
   };
+  // The Barrier Buster arm switch for this seat, clash mode only. Clash mode is
+  // the OPPORTUNITY to break a wall; this flag is the in-game decision to use it.
+  // While it is on, this seat may attack a wall (2+ defenders of one colour) and
+  // every such landing spends one token; while it is off the wall blocks the
+  // landing like any other blockade. Never settable with an empty hand, and
+  // cleared when the turn leaves the seat, so a later roll cannot inherit it.
+  // Optional so a state written before the switch existed reads as off.
+  barrierArmed?: boolean;
   // Barrier Buster tokens in hand for this seat: one is dealt at game start, one
   // is spent per token-bought exit, and one is earned back per clash won against
   // exactly one defender (see BUST_CAP). Optional so a state written before the
@@ -240,6 +248,11 @@ export type GameEvent =
   // A held turn passed without a move: the armed exit was declined (Skip), so no
   // token was spent and the turn moves on. Carries the seat that takes over.
   | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor }
+  // The result card's hold ended: every participating client reported it was done
+  // (or there was none to wait for), so the engine shortened `resultCardUntil` and
+  // says the clash is over. Clients clear the live clash on this frame; the card
+  // itself is their own presentation clock.
+  | { type: 'clash_card_released'; gameId: string; resultCardUntil: number }
   | { type: 'game_ended'; gameId: string; winner: PlayerColor; resultDetail: string }
   | { type: 'game_started'; gameId: string }
   | { type: 'game_expired'; gameId: string }
@@ -308,6 +321,13 @@ export type GameEvent =
       // `continues` false means the move is complete: this frame follows a
       // `piece_moved`, or a repulse, on the round the chain ended.
       round?: number;
+      // The result card's identity for the release handshake: "attacker-defender-
+      // moveCounter" (`blue-red-41`). The colours name the two seats and the counter
+      // separates repeated clashes; the GAME is the hold map's key and the socket's
+      // own game id, so it is not repeated here. A client echoes it back and a
+      // receipt for any other card is dropped. Optional: a frame that predates the
+      // handshake (or a legacy publisher) simply leaves the ceiling in charge.
+      cardId?: string;
       totalRounds?: number;
       continues?: boolean;
       defenderPieceId?: PieceId;

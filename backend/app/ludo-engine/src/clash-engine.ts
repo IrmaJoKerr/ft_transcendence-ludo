@@ -5,6 +5,7 @@ import {
   CLASH_TARGET,
   CLASH_RESULT_MS,
   CLASH_RESULT_FREEZE_MS,
+  CARD_HOLD_MIN_MS,
   CLASH_BOT_WIN_MS_BASE,
   CLASH_BOT_LOSE_MS_BASE,
   CLASH_BOT_JITTER_MS,
@@ -14,7 +15,15 @@ import {
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
 import { BUST_CAP } from './types';
-import type { PlayerColor, GameEvent, ClashState, PendingCapture, PieceId, ChainRound } from './types';
+import type {
+  PlayerColor,
+  GameEvent,
+  GameState,
+  ClashState,
+  PendingCapture,
+  PieceId,
+  ChainRound,
+} from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
 const CLASH_SWEEP_INTERVAL_MS = 5000;
@@ -50,6 +59,15 @@ export class ClashEngine {
   // One timer per game for a chain's inter-round gap: while a round's result card
   // shows there is no live clash, so this is the timer that starts the next one.
   private chainTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  // The result-card release handshake (option 1, 2026-10-17): the card a client is
+  // showing, which USERS may report on it, and who already has. Keyed by game, one
+  // card at a time; the stored `resultCardUntil` is the ceiling and a receipt can
+  // only shorten it. In memory on purpose: a restart drops the handshake and the
+  // ceiling takes over, which is the same degradation as a client that never reports.
+  private cardHolds = new Map<
+    string,
+    { id: string; users: Set<string>; ready: Set<string>; midChain: boolean }
+  >();
 
   constructor(
     private store: RedisGameStore,
@@ -323,13 +341,14 @@ export class ClashEngine {
     color: PlayerColor,
     key?: string,
     isBot = false,
+    count = 1,
   ): Promise<number> {
     return this.withGameLock(gameId, async () => {
-      const count = await this.clashManager.recordPress(gameId, color, key ?? '', isBot);
-      if (count >= CLASH_TARGET) {
+      const meter = await this.clashManager.recordPress(gameId, color, key ?? '', isBot, count);
+      if (meter >= CLASH_TARGET) {
         setTimeout(() => void this.resolveClashOutcome(gameId, color), 0);
       }
-      return count;
+      return meter;
     });
   }
 
@@ -389,6 +408,9 @@ export class ClashEngine {
         delete state.clash;
         // The SHORT gap: the client's result card, then the kick-back animation.
         state.resultCardUntil = Date.now() + CLASH_RESULT_MS;
+        // The card a client is about to show, and the users who may report on it.
+        const cardId = this.cardIdFor(pc.attacker, defenderColor, state.moveCounter);
+        this.armCardHold(state, cardId, [pc.attacker, defenderColor], true);
         const paused = Boolean(state.paused);
         await this.store.saveGameState(gameId, state);
 
@@ -401,6 +423,7 @@ export class ClashEngine {
         this.emit({
           type: 'clash_result',
           gameId,
+          cardId,
           winner: pc.attacker,
           loser: defenderColor,
           winnerPresses: aCount,
@@ -506,14 +529,22 @@ export class ClashEngine {
       delete state.clash;
       delete state.pendingCapture;
       // Freeze all input while the result card shows (covers human and hotseat;
-      // bots are already frozen by the scheduler's clash-card delay).
+      // bots are already frozen by the scheduler's clash-card delay). The handshake
+      // can shorten this to the clients' own forecasts; the ceiling is the net.
       state.resultCardUntil = Date.now() + CLASH_RESULT_FREEZE_MS;
+      const cardId = this.cardIdFor(pc.attacker, defenderColor, state.moveCounter);
+      this.armCardHold(state, cardId, [pc.attacker, defenderColor], false);
       await this.store.saveGameState(gameId, state);
 
       this.emit({ type: 'piece_moved', gameId, result });
+      // A won chain can move the attacker's hand (a lone defender pays one token
+      // back, a wall pays nothing) and a chain also ends any staged capture, so the
+      // clients get a full-state frame to refresh the token column.
+      this.emit({ type: 'state_update', gameId, state });
       this.emit({
         type: 'clash_result',
         gameId,
+        cardId,
         winner: attackerWon ? pc.attacker : defenderColor,
         loser: attackerWon ? defenderColor : pc.attacker,
         winnerPresses: attackerWon ? aCount : dCount,
@@ -543,6 +574,87 @@ export class ClashEngine {
         );
       }, Math.max(0, delayMs)),
     );
+  }
+
+  // The result card's id: the two seats by colour plus the move counter, which
+  // separates repeated clashes between the same pair. The game is the hold map's
+  // key, so it is not repeated here.
+  private cardIdFor(attacker: PlayerColor, defender: PlayerColor, moveCounter: number): string {
+    return `${attacker}-${defender}-${moveCounter}`;
+  }
+
+  // Record the result card a client is about to show. `seats` are the two sides of
+  // the clash; their NON-BOT owners (by user id, so hotseat collapses to one) are the
+  // clients that may report. An empty set (bot against bot) keeps the short card.
+  private armCardHold(
+    state: GameState,
+    cardId: string,
+    seats: PlayerColor[],
+    midChain: boolean,
+  ): void {
+    const users = new Set<string>();
+    for (const color of seats) {
+      const seat = state.players.find((p) => p.color === color);
+      if (seat?.isBot) continue;
+      if (seat?.userId) users.add(seat.userId);
+    }
+    const ceiling = midChain ? CLASH_RESULT_MS : CLASH_RESULT_FREEZE_MS;
+    state.resultCardUntil = Math.min(
+      state.resultCardUntil ?? Number.MAX_SAFE_INTEGER,
+      Date.now() + (users.size === 0 ? CLASH_RESULT_MS : ceiling),
+    );
+    this.cardHolds.set(state.id, { id: cardId, users, ready: new Set(), midChain });
+  }
+
+  // A client's forecast for its own card ('I am done in holdMs'). Clamped, minimum
+  // only (a receipt can never extend the wait), and accepted only from a live user
+  // that owns a seat in THAT card. When every participating user has reported, the
+  // freeze is already the latest receipt, so the engine announces the release.
+  async holdCard(
+    gameId: string,
+    userId: string,
+    cardId: string,
+    holdMs: number,
+  ): Promise<boolean> {
+    let released = false;
+    let midChain = false;
+    await this.withGameLock(gameId, async () => {
+      const state = await this.store.loadGameState(gameId);
+      if (!state || state.status !== 'active') return;
+      const hold = this.cardHolds.get(gameId);
+      // A stale or unknown card (an old round, a resolved game, a crafted id) is
+      // dropped silently: the ceiling is still doing its job.
+      if (!hold || hold.id !== cardId) return;
+      // A HOTSEAT card has no user ids at all (join-manager leaves them undefined for
+      // local seats), so there is nobody to authorise: the card already runs on the
+      // short ceiling and a receipt for it is simply ignored. Without this guard every
+      // local client's receipt threw and logged, which is noise, not a failure.
+      if (hold.users.size === 0) return;
+      if (!hold.users.has(userId)) throw new Error('Not a participant of this clash');
+      hold.ready.add(userId);
+      const asked = Math.min(
+        Math.max(Math.round(holdMs) || 0, CARD_HOLD_MIN_MS),
+        CLASH_RESULT_FREEZE_MS,
+      );
+      const ceiling = state.resultCardUntil ?? Date.now() + asked;
+      state.resultCardUntil = Math.min(ceiling, Date.now() + asked);
+      await this.store.saveGameState(gameId, state);
+      if (![...hold.users].every((u) => hold.ready.has(u))) return;
+      this.cardHolds.delete(gameId);
+      released = true;
+      midChain = hold.midChain;
+      this.emit({ type: 'clash_card_released', gameId, resultCardUntil: state.resultCardUntil });
+    });
+    // A mid-chain card gates the next round through the stored gap, so the chain's
+    // one entry point re-arms against the shortened deadline. Outside the lock, and
+    // the gap timer it replaces is cancelled so the round cannot be started twice.
+    if (released && midChain) {
+      const timer = this.chainTimers.get(gameId);
+      if (timer) clearTimeout(timer);
+      this.chainTimers.delete(gameId);
+      setImmediate(() => void this.startNextRound(gameId).catch(() => undefined));
+    }
+    return released;
   }
 
   // Start the next round of a chain, from the ledger. This is the ONE entry point

@@ -541,7 +541,10 @@ export function Board({
   // Render engine-driven pieces on the actual track cell their step maps to.
   // Grouped by cell so pieces sharing a square (common near base/captures)
   // fan out into sub-positions instead of fully overlapping.
-  const byCell = new Map<string, Array<{ id: string; ck: ColorKey; isLegal: boolean; chain: number }>>();
+  const byCell = new Map<
+    string,
+    Array<{ id: string; ck: ColorKey; isLegal: boolean; chain: number; priced: boolean }>
+  >();
   for (const piece of pieces) {
     if (!activeColors.has(piece.color)) continue;
     const isAnimating = animating?.pieceId === piece.id;
@@ -555,9 +558,21 @@ export function Board({
     if (!cell) continue;
     const key = `${cell.r},${cell.c}`;
     const list = byCell.get(key) ?? [];
-    list.push({ id: piece.id, ck, isLegal: legalPieceIds.has(piece.id), chain: chainCounts.get(piece.id) ?? 0 });
+      list.push({
+        id: piece.id,
+        ck,
+        isLegal: legalPieceIds.has(piece.id),
+        chain: chainCounts.get(piece.id) ?? 0,
+        // Armed wall landings are token-priced, so the piece wears the price tag.
+        priced: bustPieceIds.has(piece.id),
+      });
     byCell.set(key, list);
   }
+
+// The wall break token glyph, mirrored from Game.tsx (BUSTER_GLYPH). A ×R badge on a
+// landing that SPENDS a token carries it, so the price of the tap is readable on the
+// piece itself; the base-piece tag already shows it for a prison exit.
+const BUSTER_GLYPH = '🧨';
 
   // Sub-cell offsets so up to 4 stacked pieces stay individually visible/clickable.
   const SUB_OFFSETS = [
@@ -685,9 +700,15 @@ export function Board({
           {p.chain >= 2 && (
             // ×R on the attacker: this move fights R defenders back to back, i.e.
             // R QTE rounds (the engine's captureCount). Pointer-events off so the
-            // piece underneath stays the click target.
+            // piece underneath stays the click target. A token-priced wall landing
+            // (armed Barrier Buster) carries the glyph, so the tap's price is visible
+            // on the piece itself, not only in the roster column.
             <span
-              title={t('board.chainBadgeTitle', { rounds: p.chain })}
+              title={
+                p.priced
+                  ? t('board.chainPricedBadgeTitle', { rounds: p.chain })
+                  : t('board.chainBadgeTitle', { rounds: p.chain })
+              }
               style={{
                 position: 'absolute',
                 top: -13,
@@ -708,7 +729,7 @@ export function Board({
                 textShadow: '0 0 6px var(--accent-yellow)',
               }}
             >
-              ×{p.chain}
+              {p.priced ? `${BUSTER_GLYPH} ×${p.chain}` : `×${p.chain}`}
             </span>
           )}
         </div>,

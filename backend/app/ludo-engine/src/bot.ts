@@ -189,6 +189,19 @@ export class LudoBot {
     if (state.currentTurn !== this.color) return false; // Not our turn
     if (state.turnPhase !== 'WAITING_FOR_ROLL') return false; // Wrong phase
 
+    // The bot arms whenever it holds a token. An unarmed seat is BLOCKED by a wall,
+    // so an unarmed bot would never even see the wall landings its pricing exists
+    // for; arming costs nothing by itself (only a wall landing spends a token) and
+    // selectBestMove still declines a bust whose odds do not cover the shadow price.
+    const botSeat = state.players.find((p) => p.color === this.color);
+    if (
+      state.clashMode === true &&
+      (botSeat?.barrierTokens ?? 0) > 0 &&
+      botSeat?.barrierArmed !== true
+    ) {
+      await this.engine.setBarrierArmed(this.gameId, this.color, true);
+    }
+
     // Roll dice : engine validates currentTurn again
     const { value: diceValue, legalMoves } = await this.engine.rollDice(this.gameId);
 

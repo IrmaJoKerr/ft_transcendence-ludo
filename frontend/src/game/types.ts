@@ -40,6 +40,10 @@ export interface PlayerMeta {
   // Display only: the engine owns the counter and re-reads it when a move spends
   // one, so the board can show the pip before the click but never decides it.
   barrierTokens?: number;
+  // The Barrier Buster arm switch, mirrored from the engine (clash mode only):
+  // armed means this seat may break a wall this turn (1 token per wall), disarmed
+  // means a wall blocks the landing. Server-owned; the UI renders it.
+  barrierArmed?: boolean;
 }
 
 export interface LegalMove {

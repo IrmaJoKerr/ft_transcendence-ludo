@@ -10,16 +10,27 @@ function isProtectedStar(state: GameState, pieceId: PieceId, step: number): bool
   return state.noSafeZones !== true && BoardMapper.isSafeZoneStep(pieceId, step);
 }
 
-// Breakable walls, PER SQUARE: clash mode opens a wall, and a star square keeps
-// its shield unless the hardcore mod removed it, so the gate reads
-// `clashMode && (noSafeZones || !isStarSquare)`. Clash mode ALONE opens a wall on
-// an ordinary square: the old board-wide form demanded clash AND `noSafeZones`
-// together everywhere, which left a clash-only room unable to attack a wall at
-// all. Strict `=== true` reads keep a state written before these rules existed
-// (both fields absent) blocking, which is the standard room, and a sloppy payload
-// (a string, a 1) from opening it.
+// The mover's token hand. Clash mode grants the OPPORTUNITY to break a wall, the arm
+// switch is the in-game decision to take it, and the token is what pays for it — so a
+// seat with an empty hand has no wall options at all (the wall blocks it exactly as the
+// standard room does). Strict reads keep a state written before the field existed at 0.
+function seatHoldsToken(state: GameState, pieceId: PieceId): boolean {
+  const { color } = BoardMapper.parsePieceId(pieceId);
+  return (state.players?.find((p) => p.color === color)?.barrierTokens ?? 0) > 0;
+}
+
+// Breakable walls, PER SQUARE: clash mode plus a token in hand opens a wall, and a star
+// square keeps its shield unless the hardcore mod removed it. The list is deliberately
+// the SAME whether or not the seat has armed: a wall landing is emitted and priced, the
+// client keeps priced moves hidden until the player arms (Board's filter), and the engine
+// refuses an unarmed attempt at move time. That is what lets the toggle be a local reveal
+// with no recompute and no round trip, while the server stays the authority.
 export function wallIsAttackable(state: GameState, pieceId: PieceId, step: number): boolean {
-  return state.clashMode === true && !isProtectedStar(state, pieceId, step);
+  return (
+    state.clashMode === true &&
+    seatHoldsToken(state, pieceId) &&
+    !isProtectedStar(state, pieceId, step)
+  );
 }
 
 // MoveValidator - determines legal moves, resolves captures, checks wins, and executes moves.
@@ -58,13 +69,17 @@ export class MoveValidator {
           const to = state.freeExit ? diceValue : 1;
           if (!this.blockadeBlocksPath(state, color, from, to, piece.id)) {
             const wallBreak = wallIsAttackable(state, piece.id, to);
+            const captureCount = this.captureCountAt(state, color, piece.id, to, wallBreak);
             moves.push({
               pieceId: piece.id,
               from,
               to,
-              isCapture: this.isCapturableTarget(state, color, piece.id, to, wallBreak),
+              isCapture: captureCount > 0,
               isHomeEntry: false,
-              captureCount: this.captureCountAt(state, color, piece.id, to, wallBreak),
+              captureCount,
+              // The exit lands where the roll lands, so a wall on that square is
+              // attacked by the same rule and costs the same token.
+              spendsBarrierToken: this.landingPaysToken(state, color, to, captureCount),
             });
             // A piece with a plain exit needs no rescue: the armed variant below
             // would only repeat the same roll, so an exit is offered at most once
@@ -88,10 +103,12 @@ export class MoveValidator {
 
       const isHomeEntry = to >= 52 && to <= 56;
       // The gate is read for THIS destination, not for the board: a wall on an
-      // ordinary square is attackable in a clash-only room, while a wall on a
-      // protected star stays a share.
+      // ordinary square is attackable while this seat is armed, a wall on a
+      // protected star stays a share, and an unarmed seat is blocked by the wall.
       const wallBreak = wallIsAttackable(state, piece.id, to);
-      const isCapture = this.isCapturableTarget(state, color, piece.id, to, wallBreak);
+      // 1 for a single defender, the wall's size under the gate, 0 for a plain move.
+      const captureCount = this.captureCountAt(state, color, piece.id, to, wallBreak);
+      const isCapture = captureCount > 0;
 
       moves.push({
         pieceId: piece.id,
@@ -99,8 +116,9 @@ export class MoveValidator {
         to,
         isCapture,
         isHomeEntry,
-        // 1 for a single defender, the wall's size under the gate, 0 for a plain move.
-        captureCount: this.captureCountAt(state, color, piece.id, to, wallBreak),
+        captureCount,
+        // A landing on a wall is the token's price, wherever the move came from.
+        spendsBarrierToken: this.landingPaysToken(state, color, to, captureCount),
       });
     }
 
@@ -175,6 +193,21 @@ export class MoveValidator {
       byColor.set(color, (byColor.get(color) ?? 0) + 1);
     }
     return [...byColor.values()].some((n) => n >= 2);
+  }
+
+  // The token price of a landing: a landing that attacks a WALL (2+ defenders of
+  // one opponent colour, the same reading armedExit uses) costs one Barrier Buster
+  // token, whatever square the move came from. A lone defender, or a mixed pair
+  // that is no barrier, is free. `captureCount` comes from the same gate the move
+  // stored, so a wall that is not attackable (a protected star, a disarmed seat)
+  // never reaches this with a positive count.
+  private static landingPaysToken(
+    state: GameState,
+    color: PlayerColor,
+    step: number,
+    captureCount: number,
+  ): boolean {
+    return captureCount >= 2 && this.isBarrier(this.squareDefenders(state, color, step));
   }
 
   // The armed exit (a Barrier Buster token): with clash mode on and a token in

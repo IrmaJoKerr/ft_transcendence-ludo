@@ -51,6 +51,7 @@ export type ServerEvents = {
   clash_phase: (e: { phase: ClashPhase; countdownDeadline: number; pressDeadline: number }) => void;
   clash_press: (e: { color: PlayerColor; presses: number }) => void;
   clash_result: (e: {
+    cardId?: string;
     winner: PlayerColor;
     loser: PlayerColor;
     winnerPresses: number;
@@ -61,6 +62,10 @@ export type ServerEvents = {
     defenderPieceId?: string;
     remainingDefenderIds?: string[];
   }) => void;
+  // The result card's hold ended: every participating client reported it was done, so
+  // the engine shortened the freeze and says the clash is over. The card itself stays
+  // the client's own presentation clock.
+  clash_card_released: (e: { gameId: string; resultCardUntil: number }) => void;
   game_started: (e: { gameId: string }) => void;
   game_ended: (e: { winner: PlayerColor; resultDetail: string }) => void;
   player_exited: (e: { color: PlayerColor }) => void;
@@ -91,7 +96,15 @@ export type ClientEvents = {
   skip_bust: () => void;
   // One press of this player's clash key. The server proves ownership and
   // applies the press cap; a decoy (touch pad) press is discarded there.
-  clash_input: (key: string) => void;
+  clash_input: (key: string, count?: number) => void;
+  // The Barrier Buster arm switch (clash mode only). The engine owns the flag:
+  // armed means this seat may break a wall this turn, and every wall landing
+  // spends one token.
+  arm_barrier: (armed: boolean) => void;
+  // The result-card release handshake: how long this client's own card will run
+  // (its forecast, not a state change). `cardId` is the id the engine put on the
+  // `clash_result` frame this receipt belongs to.
+  clash_card_hold: (cardId: string, holdMs: number) => void;
   player_ready: () => void;
   select_color: (color: PlayerColor) => void;
   update_modifiers: (rules: RoomRules) => void;

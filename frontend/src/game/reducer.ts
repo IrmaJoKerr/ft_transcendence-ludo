@@ -15,6 +15,9 @@ export type ClashResult = {
   continues?: boolean;
   defenderPieceId?: string;
   remainingDefenderIds?: string[];
+  // The engine's id for THIS card ("attacker-defender-moveCounter"), echoed back by
+  // the release handshake. Optional so a frame from an older engine still reads.
+  cardId?: string;
 };
 
 export type GameViewState = {
@@ -239,6 +242,11 @@ export function applyEvent(
       // its timer) instantly, leaving `clashResult` set forever, which locks
       // canRoll until a refresh.
       return { ...state, clashResult: event as unknown as ClashResult };
+    case 'clash_card_released':
+      // The engine's release: every participating client reported its card was done,
+      // so the clash is over (the server dropped it and shortened the freeze). Both
+      // slices go; the overlay's own timer is only the fallback for this frame.
+      return { ...state, clash: null, clashResult: null };
     case 'clash_press': {
       const e = event as unknown as { color: PlayerColor; presses: number };
       if (!state.clash) return state;

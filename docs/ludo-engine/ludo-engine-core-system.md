@@ -100,13 +100,15 @@ export interface PlayerMeta {
     barrierBreaks: number;     // Barriers torn down: token-priced exits that won their chain (achTearDownThisWall)
   };
   barrierTokens?: number;      // Barrier Buster tokens in hand (absent on a state written before the token = 0)
+  barrierArmed?: boolean;      // Barrier Buster arm switch for THIS turn (absent = disarmed, which is the safe default)
 }
 ```
 
-The two Barrier Buster fields are safe-by-default on purpose. A live room survives a redeploy
-in Redis, so a `GameState` written before the token existed can still be loaded mid-game; both
-fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) where `undefined - 1` is
-`NaN`, and a `NaN` seat would stay broken for the rest of the match. `RedisGameStore` normalizes
+The Barrier Buster fields are safe-by-default on purpose. A live room survives a redeploy
+in Redis, so a `GameState` written before the token existed can still be loaded mid-game; the two
+NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) where `undefined - 1` is
+`NaN`, and a `NaN` seat would stay broken for the rest of the match (the boolean `barrierArmed` has
+no arithmetic and is read as `=== true`, so absent is simply off). `RedisGameStore` normalizes
 them once at the only door the state comes back through (`withBarrierDefaults`, in
 [`redis.ts`](./ludo-engine-redis-system.md)), and every per-site read keeps a `?? 0` as belt and
 braces. `0` is also the honest reading: a room that old was never dealt a token and has not
@@ -366,10 +368,12 @@ move_piece(pieceId)
 
 ### Barrier Buster Path
 
-The Barrier Buster is the armed prison exit: one token per seat, dealt by `createGame`, that buys a
-LANDING on a wall the plain exit cannot reach. It never crosses a barrier and never waives the
-exit-roll gate: the roll still has to reach the wall's square exactly, which is why the token's room
-is the standard room (with the free exit on, the plain exit already plays that landing).
+The Barrier Buster is the token-priced LANDING: one token per seat, dealt by `createGame`, that pays
+for a fight on a wall the roll reaches exactly. It never crosses a barrier and never waives the
+exit-roll gate: the roll still has to reach the wall's square exactly. The route does not matter (an
+armed prison exit, an on-board landing and a free-exit landing all pay the same one token), so with
+the free exit on the plain exit REACHES the wall but still does not pay for it: the token is what
+turns the landing into a fight in every clash-mode room.
 
 ```
 armed_exit(pieceId)                                 // MoveValidator.armedExit
@@ -389,13 +393,19 @@ armed_exit(pieceId)                                 // MoveValidator.armedExit
       spendsBarrierToken: true } — no battle list: the one square is the whole fight
 ```
 
-**Arming and Skip.** Arming is client-local (`Board.tsx` owns the flag): the token-priced move is
-only ever SENT while the player has armed it, so a tap on a piece in prison can never spend a token
-by accident, and arming lasts one roll. The engine HOLDS the turn while a bust is on the table (a
-bust is a legal move, so `rollDice`'s no-move pass never fires for it), and `skipArmedBust`
-(`skip_bust` on the wire) is the other way out: a PASS that spends the dice, advances the turn and
-leaves the token in hand. Skip is offered on rolls 1 to 5 only, which needs no extra rule: no armed
-bust exists on a 6, because the room's own exit already plays that roll.
+**Arming and Skip.** The arm switch is engine-owned: `arm_barrier` calls `setBarrierArmed`, which
+stores `PlayerMeta.barrierArmed` for the current turn. Clash mode is the OPPORTUNITY to break a wall;
+the flag is the DECISION. The move LIST does not depend on it (option C): a wall landing is listed and
+priced whether or not the seat is armed, so a toggle costs one `state_update` and no recompute, and
+`movePiece` is what refuses a priced move when the seat is unarmed or holds no token. Arming an empty
+hand is refused, the flag is deleted from EVERY seat when the turn advances, and a spend that empties
+the hand clears it too (a capture re-rolls, so an ARMED badge over zero tokens must be impossible).
+The engine HOLDS the turn while a bust is on the table (a bust is a legal move, so `rollDice`'s
+no-move pass never fires for it), and `skipArmedBust` (`skip_bust` on the wire) is the other way out:
+a PASS that spends the dice, advances the turn and leaves the token in hand. Skip is single-purpose:
+it is refused unless EVERY pending move is priced (an ordinary move on the table means the roll is
+played, not skipped), there is no 6 carve-out (a 6 offers no priced move, so the gate already covers
+it), and the socket layer drops a refusal silently.
 
 **The economy.** Seed 1, cap `BUST_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
 inside the game lock and against the state it has just re-read, before the clash gate, so a replayed
