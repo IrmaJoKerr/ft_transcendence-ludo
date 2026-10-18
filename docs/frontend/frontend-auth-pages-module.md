@@ -23,7 +23,11 @@ These pages are the entry point to the app. They are:
 
 Both pages use the `RetroAuthLayout` container and share the same styling: the retro/cyber theme and the provider buttons.
 
+Login also carries the **Play as guest** button, which opens `/guest`: a stripped PvE setup with no session, no account and nothing saved. The guest path is documented in [`../guest-mode.md`](../guest-mode.md).
+
 Login shows the brand title and the tagline from `authExtra.brandTitle` and `authExtra.brandTagline`, so its header follows the selected language. The other auth pages keep their own headings.
+
+Login also carries the EN / MS / FR switch pinned inside the card's top-right corner, in the same segmented form as the legal pages. It is the shared `LanguageSwitcher` (`value` + `onChange`), wired to the store's `lang` / `setLang`, so the choice is persisted to `lr.lang` before an account exists and the whole form re-renders in place. `RetroAuthLayout` takes it through its optional `topRight` slot, which places the control 12px from the card's top and right edges: close enough to read as part of the box, with a clear margin from its 22px corner radius and its border. The other auth pages do not offer it: a player who needs another language picks one here first, and the choice carries into signup.
 
 
 ---
@@ -39,7 +43,8 @@ Login shows the brand title and the tagline from `authExtra.brandTitle` and `aut
 | `src/pages/TwoFactor.tsx` | 2FA code entry |
 | `src/pages/ForgotPassword.tsx` | Password reset — step 1 (request link) |
 | `src/pages/ResetPassword.tsx` | Password reset — step 2 (set new password) |
-| `src/components/RetroAuthLayout.tsx` | Layout wrapper — logo, tagline, centered card (imports `GRID_BACKGROUND` from `styles/tw.ts`); also exports `NeonCheck`, the terms-tick glyph |
+| `src/components/RetroAuthLayout.tsx` | Layout wrapper — logo, tagline, centered card (imports `GRID_BACKGROUND` from `styles/tw.ts`); optional `topRight` slot (the login's language switch); also exports `NeonCheck`, the terms-tick glyph |
+| `src/components/LanguageSwitcher.tsx` | Segmented EN/MS/FR switch (`value` + `onChange`), shared by Login and the legal pages |
 | `src/components/OAuthButtons.tsx` | 42, GitHub, Google provider buttons |
 | `src/components/PasswordInfo.tsx` | "i" badge beside a new-password label; explains the policy on hover and keyboard focus |
 | `src/components/FieldError.tsx` | Inline error slot for one field: reserves two lines on desktop (three or four as the card narrows), `role="alert"`, `id` for `aria-describedby`, empty until submit |

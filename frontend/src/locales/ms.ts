@@ -5,6 +5,7 @@ export const ms = {
     bot: 'Bot',
     back: 'KEMBALI',
     close: 'Tutup',
+    language: 'Bahasa',
     couldNotReachServer: 'Tidak dapat menghubungi pelayan',
     requestFailed: 'Permintaan gagal ({{status}})',
     // Notis sebelum permainan: permainan ini guna papan kekunci atau sentuhan,
@@ -93,6 +94,8 @@ export const ms = {
     VALIDATION_EMAIL_FORMAT: 'Masukkan alamat e-mel yang sah',
     VALIDATION_FRIEND_ID_FORMAT: 'ID rakan tidak sah',
     RATE_LIMITED: 'Terlalu banyak permintaan: cuba lagi kemudian',
+    GUEST_LIMITED: 'Anda telah menggunakan permainan tetamu: log masuk untuk terus bermain',
+    GUEST_CAPACITY: 'Permainan tetamu penuh: cuba lagi sebentar lagi',
     AUTH_PASSWORD_UPDATED: 'Kata laluan dikemas kini: peranti lain telah dilog keluar.',
   },
   nav: {
@@ -354,6 +357,14 @@ export const ms = {
     launchArenaMatch: '// LANCARKAN PERLAWANAN ARENA //',
     addPlayerToStart: '// TAMBAH PEMAIN UNTUK MULA //',
     addBotToStart: '// TAMBAH BOT UNTUK MULA //',
+  },
+  guest: {
+    playButton: 'MAIN SEBAGAI TETAMU',
+    playHint: 'Tiada akaun diperlukan: keputusan tidak disimpan.',
+    setupTitle: '// ARENA LATIHAN TETAMU //',
+    playerName: 'Tetamu',
+    backToLogin: 'KEMBALI KE LOG MASUK',
+    playAgainBtn: 'MAIN LAGI',
   },
   lobbyBrowser: {
     createFailed: 'Gagal menghoskan meja',
@@ -650,7 +661,7 @@ export const ms = {
 
   ludoLobbyPasses: {
     level1: '[ TAHAP 01 ]',
-    hostNewTable: 'BINA MEJA BAHARU',
+    hostNewTable: 'BINA ARENA PVP BAHARU',
     hostNewTableDesc: 'SEDIAKAN BILIK ARENA MULTIPLAYER AWAM ATAU PERIBADI',
     creating: 'MENCIPTA...',
     level2: '[ TAHAP 02 ]',
@@ -672,7 +683,9 @@ export const ms = {
     colHostCallsign: 'PANGGILAN HOS',
     colCapacity: 'KAPASITI',
     colStakes: 'TARUHAN',
+    colModes: 'MOD',
     colAction: 'TINDAKAN',
+    modeBase: 'PERMAINAN ASAS',
     noOpenRooms: 'TIADA BILIK PERTANDINGAN TERBUKA. BINA SATU GUNA PAS #01 DI ATAS!',
   },
   homeExtended: {

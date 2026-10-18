@@ -5,6 +5,7 @@ export const en = {
     bot: 'Bot',
     back: 'BACK',
     close: 'Close',
+    language: 'Language',
     couldNotReachServer: 'Could not reach the server',
     requestFailed: 'Request failed ({{status}})',
     // Unconditional pre-game notice: the game is keyboard or touch, so a phone
@@ -93,6 +94,8 @@ export const en = {
     VALIDATION_EMAIL_FORMAT: 'Enter a valid email address',
     VALIDATION_FRIEND_ID_FORMAT: 'Invalid friend id',
     RATE_LIMITED: 'Too many requests: try again later',
+    GUEST_LIMITED: 'You have used your guest games: sign in to keep playing',
+    GUEST_CAPACITY: 'Guest games are full: try again shortly',
     AUTH_PASSWORD_UPDATED: 'Password updated: other devices were signed out.',
   },
   nav: {
@@ -354,6 +357,14 @@ export const en = {
     launchArenaMatch: '// LAUNCH ARENA MATCH //',
     addPlayerToStart: '// ADD PLAYER TO START //',
     addBotToStart: '// ADD BOT TO START //',
+  },
+  guest: {
+    playButton: 'PLAY AS GUEST',
+    playHint: 'No account needed: the result is not saved.',
+    setupTitle: '// GUEST PRACTICE ARENA //',
+    playerName: 'Guest',
+    backToLogin: 'BACK TO LOGIN',
+    playAgainBtn: 'PLAY AGAIN',
   },
   lobbyBrowser: {
     createFailed: 'Failed to host a table',
@@ -654,7 +665,7 @@ export const en = {
 
   ludoLobbyPasses: {
     level1: '[ LEVEL 01 ]',
-    hostNewTable: 'HOST NEW TABLE',
+    hostNewTable: 'HOST NEW PVP ARENA',
     hostNewTableDesc: 'INITIALIZE A PUBLIC OR PRIVATE MULTIPLAYER ARENA ROOM',
     creating: 'CREATING...',
     level2: '[ LEVEL 02 ]',
@@ -676,7 +687,9 @@ export const en = {
     colHostCallsign: 'HOST CALLSIGN',
     colCapacity: 'CAPACITY',
     colStakes: 'STAKES',
+    colModes: 'MODES',
     colAction: 'ACTION',
+    modeBase: 'BASE GAME',
     noOpenRooms: 'NO OPEN COMBAT ROOMS FOUND. INITIALIZE ONE USING PASS #01 ABOVE!',
   },
   homeExtended: {

@@ -100,6 +100,10 @@ export type ActiveMatch = {
   inviteCode?: string;
   mode: 'pvp' | 'pve' | 'hotseat';
   playerCount: number;
+  // A guest mint (POST /api/match/guest). Never persisted to sessionStorage: a
+  // guest pressing Back must not re-enter a revoked room, and the exits branch
+  // on this flag ("Back to login" vs "Back to lobby").
+  isGuest?: boolean;
 } | null;
 
 function storedActiveMatch(): ActiveMatch {
@@ -133,6 +137,18 @@ export type LastResult = {
   /** True when the match was abandoned/expired: a different Results card (no winner/podium). */
   abandoned?: boolean;
 } | null;
+
+/** The guest setup payload, kept in memory so the end card's "Play again" can
+ * mint another room with the same seats and rules without re-walking the setup
+ * screen. Not persisted: a guest session dies with the tab. */
+export type GuestSetup = {
+  botCount: number;
+  botColors?: string[];
+  botNames?: string[];
+  clashEnabled: boolean;
+  noSafeZones: boolean;
+  freeExit: boolean;
+};
 
 type AppState = {
   user: AuthUser | null;
@@ -192,6 +208,8 @@ type AppState = {
   setPlaying: (playing: boolean) => void;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
+  guestSetup: GuestSetup | null;
+  setGuestSetup: (setup: GuestSetup | null) => void;
   lastResult: LastResult;
   setLastResult: (result: LastResult) => void;
 };
@@ -656,12 +674,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const [activeMatch, setActiveMatch] = useState<ActiveMatch>(storedActiveMatch);
+  const [guestSetup, setGuestSetup] = useState<GuestSetup | null>(null);
   const [lastResult, setLastResult] = useState<LastResult>(null);
 
   // Persist activeMatch + seats in sessionStorage so a page refresh can
-  // reconnect (hotseat needs the local seat names to rejoin every seat).
+  // reconnect (hotseat needs the local seat names to rejoin every seat). A
+  // guest match is deliberately NOT persisted: it lives in memory only.
   useEffect(() => {
-    if (activeMatch) sessionStorage.setItem(ACTIVE_MATCH_KEY, JSON.stringify(activeMatch));
+    if (activeMatch && !activeMatch.isGuest)
+      sessionStorage.setItem(ACTIVE_MATCH_KEY, JSON.stringify(activeMatch));
     else sessionStorage.removeItem(ACTIVE_MATCH_KEY);
   }, [activeMatch]);
 
@@ -710,6 +731,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPlaying,
       activeMatch,
       setActiveMatch,
+      guestSetup,
+      setGuestSetup,
       lastResult,
       setLastResult,
     }),
@@ -751,6 +774,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleTwoFactor,
       setPlaying,
       activeMatch,
+      guestSetup,
       lastResult,
     ],
   );

@@ -4,6 +4,7 @@ import { navigate, useRoute } from '../router';
 import { useApp, type Lang } from '../store';
 import { retroAudio } from '../utils/audio';
 import { MarkdownViewer } from '../components/MarkdownViewer';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,
@@ -128,26 +129,13 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
                 </div>
 
                 {/* Language Switcher */}
-                <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
-                  {(['en', 'ms', 'fr'] as const).map((l) => (
-                    <button
-                      key={l}
-                      type="button"
-                      className={`rounded px-2.5 py-1 font-mono text-xs font-bold transition-all ${
-                        docLang === l
-                          ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
-                          : 'text-[var(--text-muted)] hover:text-[#ffffff]'
-                      }`}
-                      onClick={() => {
-                        retroAudio.playUiBeep(880, 0.05);
-                        setDocLang(l);
-                        setLang(l);
-                      }}
-                    >
-                      {l.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+                <LanguageSwitcher
+                  value={docLang}
+                  onChange={(l) => {
+                    setDocLang(l);
+                    setLang(l);
+                  }}
+                />
               </div>
             </div>
           </header>

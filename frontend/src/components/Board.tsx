@@ -360,7 +360,7 @@ function Yard({
   );
 }
 
-/** Star/safe start cells, tinted the owner color. */
+/** The four start cells, tinted the owner color. Each is also a safe square (SAFE_STAR_CELLS). */
 const STARTS: Partial<Record<string, ColorKey>> = {
   '6,1': 'red',
   '1,8': 'green',
@@ -378,6 +378,55 @@ const SAFE_STAR_CELLS: Record<string, boolean> = (() => {
   }
   return m;
 })();
+
+/**
+ * The safe-zone star is drawn as TWO layers, not one color, because one color
+ * cannot clear all five cell fills. The core is white and the outline is black,
+ * and each layer covers exactly where the other one fails:
+ *
+ *   against #050515 (plain cell)  white core 20.2:1 — the black ring is invisible, the core carries it
+ *   against red #ff007f           core 3.8:1, ring 5.6:1   — both clear the 3:1 graphics threshold
+ *   against green #00ff88         core 1.3:1, ring 15.7:1  — the ring carries it
+ *   against yellow #ffe600        core 1.3:1, ring 16.6:1  — the ring carries it
+ *   against blue #00f0ff          core 1.4:1, ring 14.9:1  — the ring carries it
+ *
+ * A single deep indigo (#3c0fe6, the "most visible color" candidate) was measured
+ * and rejected: 2.3:1 against #050515, so it sinks into the dark cell, and only
+ * 2.3:1 against the red start cell, where the previous violet #b14aff looked pale
+ * for the same reason. The duplex star is immune to that, and it also matches how
+ * the pieces are already drawn: `Sphere` gives every invader a #000000 stroke, so
+ * an outlined star reads as part of the same board language.
+ */
+const SAFE_STAR_COLOR = '#ffffff';
+const SAFE_STAR_OUTLINE = '#000000';
+/** 10-point star, bbox 21.16 x 20.13 inside the 24 box, so the 2.2 stroke fits. */
+const SAFE_STAR_POINTS =
+  '12.00,1.93 14.63,9.44 22.58,9.62 16.25,14.45 18.54,22.07 12.00,17.54 5.46,22.07 7.75,14.45 1.42,9.62 9.37,9.44';
+
+/**
+ * The safe-zone star. One element for every star square (the four start cells
+ * and the four pre-start safe cells) so the eight markers are identical: the
+ * start cells used to draw a white star at 44% and the rest a yellow one at
+ * 40%, which is what made half the set look like a different feature. SVG rather
+ * than a clip-path div because the stroke has to be a real stroke: 2.2 units of
+ * the 24 box is ~1.1px at the ~12px the star occupies on a 450px board.
+ */
+function SafeStar() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      style={{ width: '44%', height: '44%', display: 'block' }}
+    >
+      <polygon
+        points={SAFE_STAR_POINTS}
+        fill={SAFE_STAR_COLOR}
+        stroke={SAFE_STAR_OUTLINE}
+        strokeWidth={2.2}
+        strokeLinejoin="miter"
+      />
+    </svg>
+  );
+}
 
 /** Home-stretch lane color for a track cell, or null for a plain cell. */
 function laneColor(r: number, c: number): string | null {
@@ -409,8 +458,10 @@ type BoardProps = {
   fx?: { color: string; to: number } | null;
   /**
    * Hardcore room rule, stored inverted (false = the variant is off, which is a
-   * standard room). While false the star squares keep their tint, because they
-   * still protect; while true they are plain cells, because they no longer do.
+   * standard room). While false all eight safe squares wear the violet star,
+   * because they still protect; while true every star is withheld — the four
+   * start squares as well as the four pre-start cells — because none of them
+   * protect any longer.
    */
   noSafeZones?: boolean;
   /**
@@ -492,31 +543,11 @@ export function Board({
       };
       let inner: ReactNode = null;
       if (startCol) {
-        inner = (
-          <div
-            style={{
-              width: '44%',
-              height: '44%',
-              clipPath:
-                'polygon(50% 0,61% 35%,100% 35%,68% 57%,79% 100%,50% 72%,21% 100%,32% 57%,0 35%,39% 35%)',
-              background: '#ffffff',
-              filter: 'drop-shadow(0 0 4px #ffffff)',
-            }}
-          />
-        );
+        // A start square is a safe square too, so the hardcore rule takes its
+        // star as well; the cell keeps its owner tint either way.
+        if (!noSafeZones) inner = <SafeStar />;
       } else if (SAFE_STAR_CELLS[key] && !noSafeZones) {
-        inner = (
-          <div
-            style={{
-              width: '40%',
-              height: '40%',
-              clipPath:
-                'polygon(50% 0,61% 35%,100% 35%,68% 57%,79% 100%,50% 72%,21% 100%,32% 57%,0 35%,39% 35%)',
-              background: '#ffe600',
-              filter: 'drop-shadow(0 0 5px #ffe600)',
-            }}
-          />
-        );
+        inner = <SafeStar />;
       } else if (!laneColor(r, c)) {
         inner = (
           <div

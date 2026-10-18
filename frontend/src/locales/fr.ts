@@ -5,6 +5,7 @@ export const fr = {
     bot: 'Bot',
     back: 'RETOUR',
     close: 'Fermer',
+    language: 'Langue',
     couldNotReachServer: 'Impossible de joindre le serveur',
     requestFailed: 'Échec de la requête ({{status}})',
     // Avertissement affiché partout avant la partie : le jeu se joue au clavier
@@ -95,6 +96,9 @@ export const fr = {
     VALIDATION_EMAIL_FORMAT: 'Saisissez une adresse e-mail valide',
     VALIDATION_FRIEND_ID_FORMAT: "Identifiant d'ami invalide",
     RATE_LIMITED: 'Trop de requêtes: réessayez plus tard',
+    GUEST_LIMITED:
+      'Vous avez épuisé vos parties en invité : connectez-vous pour continuer à jouer',
+    GUEST_CAPACITY: 'Les parties en invité sont complètes : réessayez bientôt',
     AUTH_PASSWORD_UPDATED: 'Mot de passe mis à jour : les autres appareils ont été déconnectés.',
   },
   nav: {
@@ -356,6 +360,14 @@ export const fr = {
     launchArenaMatch: '// LANCER LE MATCH D\'ARÈNE //',
     addPlayerToStart: '// AJOUTER UN JOUEUR POUR DÉMARRER //',
     addBotToStart: '// AJOUTER UN ROBOT POUR DÉMARRER //',
+  },
+  guest: {
+    playButton: 'JOUER EN INVITÉ',
+    playHint: 'Aucun compte requis : le résultat n’est pas enregistré.',
+    setupTitle: '// ARÈNE D’ENTRAÎNEMENT INVITÉ //',
+    playerName: 'Invité',
+    backToLogin: 'RETOUR À LA CONNEXION',
+    playAgainBtn: 'REJOUER',
   },
   lobbyBrowser: {
     createFailed: 'Échec de la création d\'une table',
@@ -656,7 +668,7 @@ export const fr = {
 
   ludoLobbyPasses: {
     level1: '[ NIVEAU 01 ]',
-    hostNewTable: 'CRÉER UNE TABLE',
+    hostNewTable: 'CRÉER UNE ARÈNE PVP',
     hostNewTableDesc: 'INITIALISER UN SALON MULTIJOUEUR PUBLIC OU PRIVÉ',
     creating: 'CRÉATION...',
     level2: '[ NIVEAU 02 ]',
@@ -678,7 +690,9 @@ export const fr = {
     colHostCallsign: 'HÔTE',
     colCapacity: 'CAPACITÉ',
     colStakes: 'ENJEUX',
+    colModes: 'MODES',
     colAction: 'ACTION',
+    modeBase: 'JEU DE BASE',
     noOpenRooms: 'AUCUN SALON OUVERT. CRÉEZ-EN UN DEPUIS LE PASS N°01 CI-DESSUS !',
   },
   homeExtended: {

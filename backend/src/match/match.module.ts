@@ -5,6 +5,7 @@ import { MatchCreatorService } from './match.creator.service';
 import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
 import { MatchPostgameService } from './match.postgame.service';
+import { GuestLimitService } from './guest-limit.service';
 import { PrismaService } from '../prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { AchievementsModule } from '../achievements/achievements.module';
@@ -20,6 +21,7 @@ import { NotificationModule } from '../notification/notification.module';
     MatchPlayerService,
     MatchQueryService,
     MatchPostgameService,
+    GuestLimitService,
     PrismaService,
   ],
   exports: [MatchService],

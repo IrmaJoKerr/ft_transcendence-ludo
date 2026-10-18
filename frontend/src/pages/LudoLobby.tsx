@@ -49,6 +49,10 @@ type Room = {
   mode: 'classic' | 'duel';
   /** True when the viewer holds a seat in this room, so the row is a REJOIN row. */
   mySeat?: boolean;
+  /** The room rules the room was created with (see backend room-rules.ts). */
+  clashEnabled: boolean;
+  noSafeZones: boolean;
+  freeExit: boolean;
 };
 
 type MatchResult = {
@@ -67,6 +71,82 @@ function hueForHost(host: string): string {
   let hash = 0;
   for (let i = 0; i < host.length; i++) hash = (hash * 31 + host.charCodeAt(i)) >>> 0;
   return ROOM_AVATAR_HUES[hash % ROOM_AVATAR_HUES.length];
+}
+
+// One track list for the header and the rows. `minmax(0, …)` keeps a long chip
+// from widening its own track, and the fixed action width keeps a JOIN button
+// from sizing that track differently than the ACTION label does; without both,
+// the two grids resolve their `fr` shares differently and the labels drift right
+// of the values they name.
+const ROOM_GRID_COLUMNS =
+  'minmax(0, 0.95fr) minmax(0, 1.45fr) minmax(0, 0.7fr) minmax(0, 0.85fr) minmax(0, 1.55fr) 104px';
+
+// The three room rules, in the same order and with the same icons/accents as the
+// create-screen toggles, so a chip in the list reads like the switch that made it.
+const ROOM_MODES = [
+  { key: 'clashEnabled', icon: '⚔️', label: 'game.clashMode', hue: '#ff007f' },
+  { key: 'noSafeZones', icon: '💀', label: 'game.noSafeZones', hue: '#00f0ff' },
+  { key: 'freeExit', icon: '🚪', label: 'game.freeExit', hue: '#ffe600' },
+] as const;
+
+// A room with no mutator is the "base game" category, not an empty cell.
+const BASE_MODE_HUE = '#b8a6e4';
+
+function modeChipStyle(hue: string): React.CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 3,
+    padding: '2px 5px',
+    borderRadius: 4,
+    border: `1px solid ${hue}66`,
+    background: `${hue}1f`,
+    color: hue,
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.58rem',
+    fontWeight: 'bold',
+    letterSpacing: '0.3px',
+    lineHeight: 1.35,
+    whiteSpace: 'nowrap',
+    textTransform: 'uppercase',
+  };
+}
+
+/**
+ * MODES cell: "Base Game" alone, or the active mutators only. The full names are
+ * also on the cell's `title`, so a chip clipped by a narrow column still resolves
+ * to something readable (a hover-only "i" would leave touch users with nothing).
+ */
+function RoomModes({ room }: { room: Room }) {
+  const { t } = useTranslation();
+  const active = ROOM_MODES.filter((mode) => room[mode.key]);
+  const summary = active.length
+    ? active.map((mode) => t(mode.label)).join(' · ')
+    : t('ludoLobbyPasses.modeBase');
+
+  return (
+    <div
+      title={summary}
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 4,
+        minWidth: 0,
+      }}
+    >
+      {active.length === 0 ? (
+        <span style={modeChipStyle(BASE_MODE_HUE)}>{t('ludoLobbyPasses.modeBase')}</span>
+      ) : (
+        active.map((mode) => (
+          <span key={mode.key} style={modeChipStyle(mode.hue)}>
+            <span aria-hidden="true">{mode.icon}</span>
+            {t(mode.label)}
+          </span>
+        ))
+      )}
+    </div>
+  );
 }
 
 export function LudoLobby() {
@@ -827,186 +907,209 @@ export function LudoLobby() {
                       overflow: 'hidden',
                     }}
                   >
-                    {/* Header Row */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1.5fr 0.8fr 1fr auto',
-                        gap: 8,
-                        padding: '10px 14px',
-                        background: 'rgba(25, 10, 56, 0.9)',
-                        borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
-                        fontSize: '0.68rem',
-                        fontWeight: 'bold',
-                        color: 'var(--accent-cyan)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      <div>{t('ludoLobbyPasses.colSectorCode')}</div>
-                      <div>{t('ludoLobbyPasses.colHostCallsign')}</div>
-                      <div>{t('ludoLobbyPasses.colCapacity')}</div>
-                      <div>{t('ludoLobbyPasses.colStakes')}</div>
-                      <div>{t('ludoLobbyPasses.colAction')}</div>
-                    </div>
+                    {/* Header and rows share one scroll box, so the scrollbar takes
+                        the same width from both and the tracks stay aligned. */}
+                    <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                      {/* Header Row */}
+                      <div
+                        style={{
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 1,
+                          display: 'grid',
+                          gridTemplateColumns: ROOM_GRID_COLUMNS,
+                          gap: 8,
+                          padding: '10px 14px',
+                          background: 'rgba(25, 10, 56, 0.98)',
+                          borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                          fontSize: '0.68rem',
+                          fontWeight: 'bold',
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colSectorCode')}
+                        </div>
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colHostCallsign')}
+                        </div>
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colCapacity')}
+                        </div>
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colStakes')}
+                        </div>
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colModes')}
+                        </div>
+                        <div style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {t('ludoLobbyPasses.colAction')}
+                        </div>
+                      </div>
 
-                    {/* Room Rows */}
-                    <div
-                      style={{
-                        maxHeight: 320,
-                        overflowY: 'auto',
-                        display: 'flex',
-                        flexDirection: 'column',
-                      }}
-                    >
-                      {rooms === null ? (
-                        <div
-                          style={{
-                            padding: '28px 0',
-                            textAlign: 'center',
-                            color: 'var(--accent-yellow)',
-                            fontSize: '0.78rem',
-                          }}
-                        >
-                          {t('ludoLobbyExtra.scanningOpenSectors')}
-                        </div>
-                      ) : filteredRooms.length === 0 ? (
-                        <div
-                          style={{
-                            padding: '28px 0',
-                            textAlign: 'center',
-                            color: 'var(--text-soft)',
-                            fontSize: 'calc(0.78rem + 1pt)',
-                          }}
-                        >
-                          {t('ludoLobbyPasses.noOpenRooms')}
-                        </div>
-                      ) : (
-                        filteredRooms.map((room) => {
-                          const isMySeat = room.mySeat ?? room.hostUsername === user?.username;
-                          const full = room.seats >= room.maxSeats;
-                          const hue = hueForHost(room.host);
-                          return (
-                            <div
-                              key={room.id}
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr 1.5fr 0.8fr 1fr auto',
-                                gap: 8,
-                                padding: '12px 14px',
-                                borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
-                                alignItems: 'center',
-                                background: isMySeat ? 'rgba(255, 0, 127, 0.12)' : 'transparent',
-                              }}
-                            >
+                      {/* Room Rows */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }}
+                      >
+                        {rooms === null ? (
+                          <div
+                            style={{
+                              padding: '28px 0',
+                              textAlign: 'center',
+                              color: 'var(--accent-yellow)',
+                              fontSize: '0.78rem',
+                            }}
+                          >
+                            {t('ludoLobbyExtra.scanningOpenSectors')}
+                          </div>
+                        ) : filteredRooms.length === 0 ? (
+                          <div
+                            style={{
+                              padding: '28px 0',
+                              textAlign: 'center',
+                              color: 'var(--text-soft)',
+                              fontSize: 'calc(0.78rem + 1pt)',
+                            }}
+                          >
+                            {t('ludoLobbyPasses.noOpenRooms')}
+                          </div>
+                        ) : (
+                          filteredRooms.map((room) => {
+                            const isMySeat = room.mySeat ?? room.hostUsername === user?.username;
+                            const full = room.seats >= room.maxSeats;
+                            const hue = hueForHost(room.host);
+                            return (
                               <div
+                                key={room.id}
                                 style={{
-                                  fontWeight: 'bold',
-                                  fontSize: '0.82rem',
-                                  color: '#ffe600',
-                                  fontFamily: 'var(--font-mono)',
-                                  letterSpacing: '0.5px',
+                                  display: 'grid',
+                                  gridTemplateColumns: ROOM_GRID_COLUMNS,
+                                  gap: 8,
+                                  padding: '12px 14px',
+                                  borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+                                  alignItems: 'center',
+                                  textAlign: 'left',
+                                  background: isMySeat ? 'rgba(255, 0, 127, 0.12)' : 'transparent',
                                 }}
                               >
-                                {room.roomCode}
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <UserAvatar
-                                  username={room.hostUsername ?? room.host}
-                                  userId={room.hostId}
-                                  hasAvatarPhoto={room.hasAvatarPhoto}
-                                  size={28}
-                                  fallbackStyle={{
-                                    width: 28,
-                                    height: 28,
-                                    flex: 'none',
-                                    borderRadius: 4,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.7rem',
-                                    color: '#0d0221',
-                                    background: hue,
-                                  }}
-                                  style={{ borderRadius: 4, border: `1px solid ${hue}` }}
-                                />
-                                <div style={{ minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontWeight: 'bold',
-                                      fontSize: '0.82rem',
-                                      color: '#ffffff',
-                                      fontFamily: 'var(--font-mono)',
-                                      whiteSpace: 'nowrap',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                    }}
-                                  >
-                                    {room.host}
-                                  </div>
-                                  <div style={{ color: 'var(--text-soft)', fontSize: '0.65rem' }}>
-                                    {room.maxSeats}P • {room.mode}
-                                  </div>
-                                </div>
-                              </div>
-                              <div
-                                style={{
-                                  fontWeight: 'bold',
-                                  fontSize: '0.82rem',
-                                  color: full ? '#ff0055' : '#00ff88',
-                                  fontFamily: 'var(--font-mono)',
-                                }}
-                              >
-                                {room.seats}/{room.maxSeats}
-                              </div>
-                              <div>
-                                <span style={badgeStyle('ranked')}>{t('lobbyBrowser.ranked')}</span>
-                              </div>
-                              <div>
-                                <button
-                                  className={RETRO_BTN}
-                                  onClick={() => {
-                                    if (isMySeat) void rejoinRoom(room);
-                                    else void joinRoom(room);
-                                  }}
-                                  disabled={
-                                    (!isMySeat && (full || lockedByActiveGame)) ||
-                                    joiningRoomId === room.id
-                                  }
-                                  title={
-                                    !isMySeat && lockedByActiveGame
-                                      ? t('lobbyBrowser.activeGameLockTooltip')
-                                      : undefined
-                                  }
+                                <div
                                   style={{
-                                    padding: '5px 12px',
-                                    fontSize: '0.7rem',
-                                    background: isMySeat ? 'var(--accent-pink)' : undefined,
-                                    opacity:
-                                      (!isMySeat && (full || lockedByActiveGame)) ||
-                                      joiningRoomId === room.id
-                                        ? 0.4
-                                        : 1,
-                                    cursor:
-                                      !isMySeat && (full || lockedByActiveGame)
-                                        ? 'not-allowed'
-                                        : 'pointer',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.82rem',
+                                    color: '#ffe600',
+                                    fontFamily: 'var(--font-mono)',
+                                    letterSpacing: '0.5px',
                                   }}
                                 >
-                                  {isMySeat
-                                    ? joiningRoomId === room.id
-                                      ? '...'
-                                      : t('lobbyBrowser.rejoinBtn')
-                                    : full
-                                      ? t('lobbyBrowser.fullBtn')
-                                      : joiningRoomId === room.id
+                                  {room.roomCode}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <UserAvatar
+                                    username={room.hostUsername ?? room.host}
+                                    userId={room.hostId}
+                                    hasAvatarPhoto={room.hasAvatarPhoto}
+                                    size={28}
+                                    fallbackStyle={{
+                                      width: 28,
+                                      height: 28,
+                                      flex: 'none',
+                                      borderRadius: 4,
+                                      display: 'grid',
+                                      placeItems: 'center',
+                                      fontWeight: 'bold',
+                                      fontSize: '0.7rem',
+                                      color: '#0d0221',
+                                      background: hue,
+                                    }}
+                                    style={{ borderRadius: 4, border: `1px solid ${hue}` }}
+                                  />
+                                  <div style={{ minWidth: 0 }}>
+                                    <div
+                                      style={{
+                                        fontWeight: 'bold',
+                                        fontSize: '0.82rem',
+                                        color: '#ffffff',
+                                        fontFamily: 'var(--font-mono)',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      {room.host}
+                                    </div>
+                                    <div style={{ color: 'var(--text-soft)', fontSize: '0.65rem' }}>
+                                      {room.maxSeats}P • {room.mode}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    fontWeight: 'bold',
+                                    fontSize: '0.82rem',
+                                    color: full ? '#ff0055' : '#00ff88',
+                                    fontFamily: 'var(--font-mono)',
+                                  }}
+                                >
+                                  {room.seats}/{room.maxSeats}
+                                </div>
+                                <div>
+                                  <span style={badgeStyle('ranked')}>{t('lobbyBrowser.ranked')}</span>
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                  <RoomModes room={room} />
+                                </div>
+                                <div>
+                                  <button
+                                    className={RETRO_BTN}
+                                    onClick={() => {
+                                      if (isMySeat) void rejoinRoom(room);
+                                      else void joinRoom(room);
+                                    }}
+                                    disabled={
+                                      (!isMySeat && (full || lockedByActiveGame)) ||
+                                      joiningRoomId === room.id
+                                    }
+                                    title={
+                                      !isMySeat && lockedByActiveGame
+                                        ? t('lobbyBrowser.activeGameLockTooltip')
+                                        : undefined
+                                    }
+                                    style={{
+                                      padding: '5px 12px',
+                                      fontSize: '0.7rem',
+                                      background: isMySeat ? 'var(--accent-pink)' : undefined,
+                                      opacity:
+                                        (!isMySeat && (full || lockedByActiveGame)) ||
+                                        joiningRoomId === room.id
+                                          ? 0.4
+                                          : 1,
+                                      cursor:
+                                        !isMySeat && (full || lockedByActiveGame)
+                                          ? 'not-allowed'
+                                          : 'pointer',
+                                    }}
+                                  >
+                                    {isMySeat
+                                      ? joiningRoomId === room.id
                                         ? '...'
-                                        : t('lobbyBrowser.joinBtn')}
-                                </button>
+                                        : t('lobbyBrowser.rejoinBtn')
+                                      : full
+                                        ? t('lobbyBrowser.fullBtn')
+                                        : joiningRoomId === room.id
+                                          ? '...'
+                                          : t('lobbyBrowser.joinBtn')}
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })
-                      )}
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

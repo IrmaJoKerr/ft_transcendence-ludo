@@ -11,7 +11,7 @@ import { SocketHandlers } from './socket-handlers';
 import { BotTurnScheduler } from './bot-scheduler';
 import { PostGameManager } from './post-game';
 import type { GameSocket } from './auth';
-import { verifyToken } from './auth';
+import { GUEST_EVENTS, GUEST_TOKEN_PREFIX, verifyToken } from './auth';
 import { LobbyManager } from '../lobby';
 import { teardownRoom } from '../player-handler';
 import type { PlayerColor } from '../types';
@@ -382,40 +382,99 @@ export class SocketServer {
     await this.idleLobby.refresh(gameId);
   }
 
+  // Guest settlement, exactly once per socket: price the abort against the
+  // address (the backend weights it at mint time) and give the concurrency
+  // slots back, then revoke the token. Runs after the room teardown on
+  // end_game, immediately on leave_game, and never disconnects the socket.
+  private async settleGuestExit(socket: GameSocket): Promise<void> {
+    if (!socket.data.isGuest || socket.data.guestSettled) return;
+    socket.data.guestSettled = true;
+    try {
+      await this.store.settleGuestAbort(socket.data.guestIpHash ?? '');
+      await this.store.revokeGuestToken(socket.data.guestTokenHash ?? '');
+    } catch (error) {
+      console.error(
+        'Guest settlement failed:',
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
   // Socket wiring (orchestration only)
   private setupSocketHandlers(): void {
-    this.io.use((socket: GameSocket, next) => {
-      const token = socket.handshake.auth?.token;
-      // A token is mandatory: bots are driven server-side and the SPA always
-      // supplies one.
-      if (!token) {
-        next(new Error('Authentication required'));
-        return;
-      }
+    this.io.use(async (socket: GameSocket, next) => {
+      try {
+        const token = socket.handshake.auth?.token;
+        // A token is mandatory: bots are driven server-side and the SPA always
+        // supplies one.
+        if (!token || typeof token !== 'string') {
+          next(new Error('Authentication required'));
+          return;
+        }
 
-      const payload = verifyToken(token);
-      if (!payload) {
-        next(new Error('Invalid token'));
-        return;
-      }
+        // Guest branch: an opaque `g_` token, resolved from the backend's
+        // registry. The record is the authority for the room, the seat and the
+        // mode - none of it is read from the client - and a forged token is
+        // simply "not found", never a signature the player branch must refuse.
+        if (token.startsWith(GUEST_TOKEN_PREFIX)) {
+          const guest = await this.store.getGuestSession(token);
+          if (!guest) {
+            next(new Error('Invalid token'));
+            return;
+          }
+          socket.data.userId = guest.userId;
+          // Display fallback only: the client may send its own localized name
+          // in join_game, which the join path prefers.
+          socket.data.username = 'Guest';
+          socket.data.displayName = 'Guest';
+          socket.data.gameId = guest.gameId;
+          socket.data.tokenGameId = guest.gameId;
+          socket.data.role = 'player';
+          socket.data.tokenColor = guest.color;
+          socket.data.mode = 'pve';
+          socket.data.isGuest = true;
+          socket.data.guestIpHash = guest.ipHash;
+          socket.data.guestTokenHash = guest.tokenHash;
+          // Same per-account cap as a player: a guest id is unique per mint, so
+          // this bounds one room's sockets, not the whole guest population.
+          if (!this.connections.acquire(guest.userId, MAX_SOCKETS_PER_USER)) {
+            next(new Error('Too many connections'));
+            return;
+          }
+          next();
+          return;
+        }
 
-      socket.data.userId = payload.userId;
-      socket.data.username = payload.username;
-      socket.data.displayName = payload.displayName;
-      socket.data.gameId = payload.gameId;
-      // Token-pinned match id: unlike gameId this survives detachSocket(), so a
-      // refused socket can never re-join a different game.
-      socket.data.tokenGameId = payload.gameId;
-      socket.data.role = payload.role as 'player';
-      socket.data.tokenColor = payload.color;
-      socket.data.mode = payload.mode as 'pvp' | 'pve' | 'hotseat' | undefined;
-      // Per-user socket cap. Refusing here reaches the client as `connect_error`, so a
-      // flood from one account never becomes dozens of live sockets.
-      if (!this.connections.acquire(payload.userId, MAX_SOCKETS_PER_USER)) {
-        next(new Error('Too many connections'));
-        return;
+        const payload = verifyToken(token);
+        if (!payload) {
+          next(new Error('Invalid token'));
+          return;
+        }
+
+        socket.data.userId = payload.userId;
+        socket.data.username = payload.username;
+        socket.data.displayName = payload.displayName;
+        socket.data.gameId = payload.gameId;
+        // Token-pinned match id: unlike gameId this survives detachSocket(), so a
+        // refused socket can never re-join a different game.
+        socket.data.tokenGameId = payload.gameId;
+        socket.data.role = payload.role as 'player';
+        socket.data.tokenColor = payload.color;
+        socket.data.mode = payload.mode as 'pvp' | 'pve' | 'hotseat' | undefined;
+        // Per-user socket cap. Refusing here reaches the client as `connect_error`, so a
+        // flood from one account never becomes dozens of live sockets.
+        if (!this.connections.acquire(payload.userId, MAX_SOCKETS_PER_USER)) {
+          next(new Error('Too many connections'));
+          return;
+        }
+        next();
+      } catch (error) {
+        console.error(
+          'Socket handshake failed:',
+          error instanceof Error ? error.message : error,
+        );
+        next(new Error('Authentication failed'));
       }
-      next();
     });
 
     this.io.on('connection', (socket: GameSocket) => {
@@ -436,6 +495,14 @@ export class SocketServer {
       // 110 ms cap can never close the socket mid-QTE (see CLASH_EVENT_LIMIT).
       const clashLimiter = new EventRateLimiter(CLASH_EVENT_LIMIT, CLASH_EVENT_WINDOW_MS);
       socket.use(([event], next) => {
+        // Guests get an allow-list, not a deny-list (auth.ts): a lobby-only
+        // event is logged and dropped, never a disconnect, so a stray event
+        // cannot close a socket mid-clash. Checked before the rate bucket, so
+        // a refused event does not spend the guest's budget either.
+        if (socket.data.isGuest && !GUEST_EVENTS.has(event)) {
+          console.warn(`Guest socket ${socket.id}: refused '${event}'.`);
+          return;
+        }
         const bucket = event === 'clash_input' ? clashLimiter : limiter;
         if (bucket.allow()) {
           next();
@@ -501,10 +568,24 @@ export class SocketServer {
       });
 
       socket.on('leave_game', () => {
+        // A guest leaving an ephemeral room is an abort in every sense: price it
+        // and revoke at once. The room teardown cannot refuse this socket's own
+        // later events, and a guest has nothing to reconnect to.
+        if (socket.data.isGuest) void this.settleGuestExit(socket);
         this.handlers.handleLeaveGame(socket);
       });
 
-      socket.on('end_game', () => this.postGame.handleEndGame(socket));
+      socket.on('end_game', () => {
+        // Guests: let the room tear down first, then price the abort and revoke
+        // the token. Revoking first would refuse an in-flight reconnect while
+        // the teardown is still running.
+        void this.postGame
+          .handleEndGame(socket)
+          .catch((error) => {
+            console.error('end_game failed:', error instanceof Error ? error.message : error);
+          })
+          .then(() => this.settleGuestExit(socket));
+      });
 
       socket.on('disconnect', () => {
         this.handlers.handleDisconnect(socket);

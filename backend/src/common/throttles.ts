@@ -54,6 +54,9 @@ export const MATCH_THROTTLE = {
   join: { default: { limit: 20, ttl: MINUTE } },
   pve: { default: { limit: 10, ttl: MINUTE } },
   create: { default: { limit: 10, ttl: MINUTE } },
+  // The guest door's burst backstop (nginx has the same budget one layer out).
+  // The budgets that price churn are the GuestLimitService counters, not this.
+  guest: { default: { limit: 20, ttl: MINUTE } },
   ready: { default: { limit: 60, ttl: MINUTE } },
   inviteFriend: { default: { limit: 20, ttl: MINUTE } },
   rejoin: { default: { limit: 60, ttl: MINUTE } },

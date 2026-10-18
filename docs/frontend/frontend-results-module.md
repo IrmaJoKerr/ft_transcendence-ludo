@@ -22,6 +22,7 @@ modal overlay (`ResultsModal`). It shows:
 1. **Match summary**: winner, final ranks, podium, per-player pieces in goal.
 2. **Outcome handling**: the right label for a victory, a defeat or an abandoned match.
 3. **Exit**: returns to the lobby or the home page after the game.
+4. **Guest exits**: `onPlayAgain`, `returnLabel` and `errorText` are optional props that only the guest path passes, for a fresh mint, the "Back to login" label and the refusal message.
 
 Results render through `src/components/ResultsModal.tsx`, which `Game.tsx` opens when the engine emits `game_ended`.
 

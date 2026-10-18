@@ -21,7 +21,7 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
 1. **Authentication session**: the `user` object, the `authReady` flag, and the `login`, `register` and `logout` actions.
 2. **Game setup state**: `playerCount` (2-4), the `seats` array (you/bot/player/empty), `dice`, `rolling` and `turn`.
 3. **Settings**: on/off switches (sound, music, auto-roll and others), each with a string key and a default value.
-4. **Real-time match**: `activeMatch` (the engine credentials from `POST /api/match/create`) and `lastResult` (the finished-match data for the `ResultsModal` overlay).
+4. **Real-time match**: `activeMatch` (the engine credentials from `POST /api/match/create`, or from `POST /api/match/guest` for a guest), `guestSetup` (the guest launch payload, kept in memory for Play again) and `lastResult` (the finished-match data for the `ResultsModal` overlay). Neither guest field is persisted: a reload drops both, by design. See [`../guest-mode.md`](../guest-mode.md).
 5. **Helpers**: `addBot`, `removeBot`, `addPlayer`, `removePlayer`, `startGame`, `roll`, `endTurn`, `settingOn`, `toggleSetting`.
 6. **Session keep-alive**: a presence heartbeat every 20 seconds (`PRESENCE_HEARTBEAT_MS` / `sendPresenceHeartbeat()`) while signed in, plus a `/api/auth/refresh` call every 14 minutes, so the 15-minute access token never expires while a request is still waiting for a response. This is the **client → server** direction only, and it shows that the browser session is still active; keeping the notification SSE stream alive runs the other way and is handled server-side (`SSE_HEARTBEAT_MS`). See [`../architecture.md`](../architecture.md) → Connection liveness (two-direction heartbeats).
 
@@ -152,8 +152,10 @@ type AppState = {
   theme: ThemeType  // Current theme (synthwave, persisted as retro_theme)
   setTheme: (t: ThemeType) => void  // Changes the theme
   // Real-time match
-  activeMatch: ActiveMatch  // The current match info
+  activeMatch: ActiveMatch  // The current match info (minted room or guest room)
   setActiveMatch: (m: ActiveMatch) => void  // Updates the current match
+  guestSetup: GuestSetup  // Guest launch payload, memory-only, for Play again
+  setGuestSetup: (s: GuestSetup) => void  // Stores or clears the guest setup
   lastResult: LastResult  // Finished match results
   setLastResult: (r: LastResult) => void  // Saves finished match results
   // Language

@@ -114,6 +114,7 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
 | `POST` | `/api/match/join/:code` | JWT | Join PvP match by invite code |
 | `POST` | `/api/match/pve` | JWT | Start PvE (vs bot) game |
 | `POST` | `/api/match/create` | JWT | Unified match creation (mode required: pvp/pve/hotseat) |
+| `POST` | `/api/match/guest` | public (CSRF + rate limited) | Anonymous, ephemeral PvE room behind a stripped setup screen; returns the same handoff with `isGuest: true` |
 | `POST` | `/api/game/:id/ready` | JWT | Signal player is ready |
 | `POST` | `/api/game/:id/exit` | JWT | Acknowledge leaving post-game |
 | `POST` | `/api/game/:id/abort` | JWT | Cancel unstarted game |
@@ -276,8 +277,61 @@ sequenceDiagram
 
 
 ---
----
+### 5. Guest PvE Game (public door)
 
+```mermaid
+sequenceDiagram
+    participant Guest
+    participant Site as SPA
+    participant Server as Backend
+    participant Engine
+
+    Guest->>Site: "Play as guest" on the login screen
+    Site-->>Guest: Stripped PvE setup (bots and room rules only)
+    Guest->>Site: Add bots, set rules, Launch
+    Site->>Server: POST /api/match/guest { botCount, botColors?, botNames?, rules }
+    Server->>Server: GuestLimitService gate + reserve (per address and global)
+    Server->>Server: createMatchLocked(guest-<hash>, pve, blue, [blue, ...botColors])
+    Server-->>Site: { gameId, token: g_…, color, mode, playerCount, rules, isGuest: true }
+    Site->>Engine: Socket.IO handshake with the opaque token
+    Engine->>Engine: guesttok:<sha256(token)> -> { gameId, color, mode, ip }
+    Engine-->>Site: game_joined for the token's room and seat
+```
+
+The full design, including the budgets, the registry keys and the settlement paths, is in
+[`../guest-mode.md`](../guest-mode.md).
+
+- **No account, no session.** The route has no `JwtAuthGuard`; CSRF and the
+  global throttler still apply, and nginx gives the exact location its own
+  `guest` zone (10 r/m, burst 5) instead of the generic `/api/` budget.
+- **The payload cannot widen the room.** `CreateGuestMatchDto` takes
+  `botCount` (1-3), optional `botColors`/`botNames` and the three rules; `mode`,
+  `playerCount`, `seatColors` and `gameId` are not accepted. The mode is forced
+  to `pve`, the human seat is blue, and the seat order is derived as
+  `['blue', ...botColors]` so sparse bot layouts are dealt as shown.
+- **The seat id is per mint:** `guest-<sha256(token)>`, never a per-IP id (a
+  shared NAT id would hand the second student a `MATCH_ACTIVE_GAME` refusal).
+  The create lock and the live-match scan are skipped: the id is unique, so
+  both are no-ops, and a full hash scan per anonymous mint is pure cost.
+- **Budgets** live in `GuestLimitService`'s single `GUEST_LIMITS` block:
+  per-address mints (soft 10 -> delay ladder, hard 40 / 6 h), aborts priced
+  double at the next mint, 3 live rooms per address and a global live-room
+  ceiling. The engine writes the abort/live counters from its own socket path;
+  the backend decides every limit.
+- **The engine trusts a registry, not a signature.** `guesttok:<sha256(token)>`
+  is written at mint with a 1 h TTL; the handshake branches on the `g_` prefix,
+  resolves the record and marks the socket `isGuest`. Guests may drive the
+  game events and `end_game`/`leave_game`, and are refused `player_ready`,
+  `select_color` and `update_modifiers` silently (an allow-list, so future
+  events are closed by default).
+- **Nothing is written at the end.** The match hash carries `isGuest=true`, so
+  the engine never calls `/api/game/end` or `/api/game/:id/started` for it: no
+  participant rows, counters or leaderboard, exactly like hotseat. An abort
+  instead prices the counter, frees the live-room slots and revokes the token;
+  a normal finish frees the slots without pricing an abort.
+
+
+---
 
 ## Logic Paths Summary
 
@@ -368,7 +422,9 @@ GET /api/games/rooms
   │   ├── hash status ACTIVE, or the engine has started the game → skip
   │   │   (a started room is visible only to its own reclaimable seats)
   │   └── room full → skip
-  └── Every row carries mySeat, so the lobby knows to rejoin instead of join
+  └── Every row carries mySeat, so the lobby knows to rejoin instead of join,
+      plus readRoomRules(hash): clashEnabled, noSafeZones, freeExit, which the
+      browser shows as the MODES cell (absent fields read as the standard room)
 ```
 
 

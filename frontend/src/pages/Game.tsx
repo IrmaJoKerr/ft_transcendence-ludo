@@ -118,8 +118,25 @@ const BUSTER_GLYPH = '🧨';
 
 export function Game() {
   const { t } = useTranslation();
-  const { user, activeMatch, seats, setPlaying, lastResult, setLastResult, setActiveMatch } =
-    useApp();
+  const {
+    user,
+    activeMatch,
+    seats,
+    setPlaying,
+    lastResult,
+    setLastResult,
+    setActiveMatch,
+    guestSetup,
+  } = useApp();
+  // Guests are a memory-only handoff. `activeMatch.isGuest` is what every exit
+  // and the end card branch on; it is NOT the same as mode === 'pve' (a
+  // signed-in player's PvE game is that too).
+  const isGuest = activeMatch?.isGuest === true;
+  // The name this guest appears under. A ref, like userRef, because the socket
+  // effect must not reconnect on a language change.
+  const guestNameRef = useRef(t('guest.playerName'));
+  guestNameRef.current = t('guest.playerName');
+  const [playAgainError, setPlayAgainError] = useState<string | null>(null);
   // The socket-connect effect keys on gameId/token only, so patching
   // activeMatch later can't reopen the socket; its handlers read this ref to
   // still see those patches (see the game docs, Implementation Notes).
@@ -430,7 +447,15 @@ export function Game() {
           socket.emit('join_game', current.gameId, ck, undefined, localNames[ck]);
         }
       }
-      socket.emit('join_game', current.gameId, current.color, me?.id, me?.displayName);
+      socket.emit(
+        'join_game',
+        current.gameId,
+        current.color,
+        me?.id,
+        // A guest has no `me`; the engine also defaults to 'Guest' when nothing
+        // arrives, so this only localizes the label.
+        me?.displayName ?? (current.isGuest ? guestNameRef.current : undefined),
+      );
     });
 
     socket.on('connect_error', (err: Error) => {
@@ -995,6 +1020,36 @@ export function Game() {
       abandoned: true,
     });
     setShowResultsModal(true);
+  };
+
+  // Guest "Play again": a fresh mint with the same seats and rules. The Game
+  // component is keyed on gameId in App, so the new room remounts this page
+  // cleanly instead of inheriting the finished board's local state.
+  const playAgain = async () => {
+    if (!guestSetup) {
+      navigate('/guest');
+      return;
+    }
+    setPlayAgainError(null);
+    try {
+      const res = await postApi<{
+        gameId: string;
+        token: string;
+        engineUrl: string;
+        color: PlayerColor;
+        mode: 'pvp' | 'pve' | 'hotseat';
+        playerCount: number;
+        isGuest?: boolean;
+      }>('/api/match/guest', guestSetup);
+      setLastResult(null);
+      setShowResultsModal(false);
+      setActiveMatch({ ...res, isGuest: true });
+      navigate(`/game?gameId=${res.gameId}`);
+    } catch (error) {
+      // GUEST_LIMITED / GUEST_CAPACITY arrive localized. The card stays open so
+      // the message is read, not flashed away by a navigation.
+      setPlayAgainError(error instanceof Error ? error.message : t('lobby.createFailed'));
+    }
   };
 
   // If no match credentials exist, redirect back to lobby
@@ -2252,7 +2307,10 @@ export function Game() {
                               <input
                                 type="checkbox"
                                 checked={rule.checked}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  // Same pair as the local table's rule toggles: ON reads
+                                  // like a seat added, OFF like one removed.
+                                  retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
                                   // One object each way: the toggle that moved is the
                                   // only field that changes, the other two are echoed.
                                   updateModifiers({
@@ -2264,8 +2322,8 @@ export function Game() {
                                         : view.noSafeZones,
                                     freeExit:
                                       rule.key === 'freeExit' ? e.target.checked : view.freeExit,
-                                  })
-                                }
+                                  });
+                                }}
                                 style={{
                                   accentColor: rule.accent,
                                   width: 15,
@@ -2636,7 +2694,7 @@ export function Game() {
                     setLastResult(null);
                     setShowResultsModal(false);
                     setActiveMatch(null);
-                    navigate('/gamelobby');
+                    navigate(isGuest ? '/login' : '/gamelobby');
                   }}
                   style={{
                     width: '100%',
@@ -2660,7 +2718,7 @@ export function Game() {
                   }}
                   title={t('game.returnToLobbyTooltip')}
                 >
-                  &lt; {t('game.returnToLobbyBtn')}
+                  &lt; {isGuest ? t('guest.backToLogin') : t('game.returnToLobbyBtn')}
                 </button>
               )}
 
@@ -3393,11 +3451,14 @@ export function Game() {
       {showResultsModal && lastResult && (
         <ResultsModal
           result={lastResult}
+          returnLabel={isGuest ? t('guest.backToLogin') : undefined}
+          errorText={isGuest ? playAgainError : undefined}
+          onPlayAgain={isGuest ? () => void playAgain() : undefined}
           onReturnToLobby={() => {
             setLastResult(null);
             setShowResultsModal(false);
             setActiveMatch(null);
-            navigate('/gamelobby');
+            navigate(isGuest ? '/login' : '/gamelobby');
           }}
           onClose={() => setShowResultsModal(false)}
         />

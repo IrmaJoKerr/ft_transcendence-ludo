@@ -6,7 +6,9 @@ _This project has been created as part of the 42 curriculum by bleow, liyu-her, 
 
 A browser-based multiplayer Ludo platform. Players register or sign in through an external
 provider, join a lobby, and play server-authoritative matches against remote opponents, a
-local hotseat partner, or an AI. Results feed a persistent profile, a leaderboard, and an
+local hotseat partner, or an AI. A guest can also drop straight into a PvE game from the
+login screen with no account, in which case the game runs on the server but the result is
+not saved. Results for signed-in players feed a persistent profile, a leaderboard, and an
 achievement system, and the whole interface is available in multiple languages.
 
 ### Key features
@@ -14,6 +16,9 @@ achievement system, and the whole interface is available in multiple languages.
 - **Server-authoritative Ludo** — dice rolls, turn order, captures, safe squares and home
   entry are all resolved on the server; the client renders, it does not decide
 - **Match formats** — Hotseat mode, vs Bot/AI (PVE) mode, vs Multiplayer (PVP) mode
+- **Guest play** — a "Play as guest" button on the login screen opens a stripped PvE setup
+  (bots and room rules, nothing else) and a server-hosted room with no account, no session
+  and no saved result
 - **Clash mode (QTE)** — with the rule on, an attack is not decided on the board: the
   defender and the attacker race to mash a key, and the loser goes to prison (even the
   attacker). Played with a keyboard or, on a tablet, by tapping the circle holding your
@@ -271,6 +276,7 @@ All project documentation lives under `docs/`, grouped by category. Each file is
 | [docs/architecture.md](docs/architecture.md)   | System topology, services, request paths, data layer, security & threat model, secrets, make targets, file structure |
 | [docs/API-list.md](docs/API-list.md)           | Complete HTTP + WebSocket API reference                                                                              |
 | [docs/avatar-system.md](docs/avatar-system.md) | Avatar storage, Redis metadata, caching and freshness, seat rendering                                                |
+| [docs/guest-mode.md](docs/guest-mode.md)       | Anonymous PvE door: opaque token registry, per-address budgets, settlement, frontend flow                            |
 | [docs/security_measures.md](docs/security_measures.md) | What the app implements to protect itself, layer by layer, and the threat each measure addresses |
 
 #### Deployment
@@ -418,6 +424,10 @@ material was reviewed and adapted by the team member responsible for that area.
   held in landscape. Phones and portrait tablets are out of scope.
 - Hotseat matches are demo-and-forget: the result is never posted to the backend, so they add no
   history, counters, or leaderboard rows.
+- Guest games are demo-and-forget as well — an ephemeral room, a server-issued opaque token and
+  no account, so nothing is recorded. They are bounded per client address (a mint budget that
+  prices aborts, and a three-room concurrency cap) and by a global live-room ceiling, so a shared
+  campus or mobile NAT can reach the per-address cap sooner than a single player would.
 - The ludo-engine is a single instance: live rooms and socket fan-out are in-process, so scaling
   out needs a shared adapter.
 - Verification is the green TypeScript builds plus the scripted engine and frontend harnesses;

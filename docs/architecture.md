@@ -288,6 +288,7 @@ Several distinct uses:
 - **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
 - **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, public profile) rewrite it from Postgres, so a missed write or an eviction converges on the next read. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
 - **Auth state** — `refresh:<tokenHash>` (refresh token → user, 7-day TTL) with the `sessions:<userId>` set that revoke-all walks, plus the single-use `verify:<tokenHash>`, `reset:<tokenHash>` and `2fa:<pendingTokenHash>` challenge keys, and the staged email-change pair `emailchange:<tokenHash>` / `emailchange:user:<userId>` (`SessionService`, `TwoFactorService`). The reverse pointer's TTL is the change deadline: its Redis key-expiry event is what `MailService` subscribes to in order to email the old address when a staged change lapses.
+- **Guest mode** — `guesttok:<sha256(token)>` = `{ gameId, color, mode, ip }` (1 h TTL) is how the engine resolves an anonymous seat, since a guest has no signed token. The budgets around it are the per-address counters `guest:mint:`, `guest:abort:` and `guest:live:` (all keyed by the hashed address) plus the global `guest:rooms:live`. The engine writes the abort count and frees the live slots; the backend decides every limit. See [guest-mode.md](./guest-mode.md).
 
 Redis runs on the internal port **6479** with `requirepass` sourced from the
 `REDIS_PASSWORD` env var (written into `/tmp/redis.conf` by `redis-init.sh`).
@@ -355,7 +356,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `LeaderboardModule` | `/api/leaderboard` | Rankings, Redis sorted sets (Postgres backfill when the set is empty; a Redis outage surfaces as an error) |
 | `AchievementsModule` | `/api/achievements` | 16 Ludo achievements |
 | `StatsModule` | `/api/stats` | Per-player aggregates |
-| `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle |
+| `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle, and the public guest door (`POST /api/match/guest`) |
 | `PresenceModule` | `/api/presence` | Online/offline/playing presence tracking |
 | `NotificationModule` | `/api/notifications` | Persisted notifications + SSE stream (Redis pub/sub) |
 
@@ -386,12 +387,17 @@ acts on live game state directly, so it is treated as a boundary rather than as 
 boundary rests on three properties:
 
 - **The engine is only reachable same-origin.** `ludo-engine` publishes `127.0.0.1:3001` only, and the browser connects to `/socket.io/` on its own origin, which nginx proxies: a loopback connection on its own is never enough to reach a game.
-- **Every socket is authenticated by a match token, and the token, not the client, names the room and the seat.** The backend mints that token only for a seat the caller still owns, in a game the engine has neither started nor finalized.
+- **Every socket holds a credential, and the credential, not the client, names the room and the seat.** A signed-in player presents a match token that the backend mints only for a seat the caller still owns, in a game the engine has neither started nor finalized; a guest presents the opaque `g_` token minted with its own room. Either way the client's `join_game` arguments are fallbacks only.
 - **The handshake is bounded before it is authenticated.** The engine answers only the origins on its `CORS_ORIGIN` allow-list (`FRONTEND_URL` + `NGROK_FRONTEND_URL`) and refuses to boot when that list is empty instead of falling back to `origin: '*'`; events are capped at 64 KB, one account may hold at most 4 sockets, the engine pings every 10 s and closes a socket that takes more than 15 s to answer, and a socket that drains its 20-events-per-5 s bucket is closed.
+
 ### Invariants to check
 
 - A session access token is bound to the API: it carries `iss: 'ft_transcendence'`, `aud: 'ft_transcendence-api'`, `HS256` and a string `sub`. An engine token (`aud: 'ludo-engine'`) or an oauth-link token (`aud: 'oauth-link'`) lacks that audience, so it never opens a `JwtAuthGuard` route; detail in [`backend/backend-auth-module.md`](backend/backend-auth-module.md) (Token scope).
 - A match token is signed with `ENGINE_JWT_SECRET`, carries `aud: 'ludo-engine'`, uses `HS256` and has a 24 h `exp`; the engine rejects anything else, including a session access token, which has neither the audience nor the signature.
+- A guest token is opaque (`g_…`), not a JWT: the engine resolves `guesttok:<sha256(token)>` from Redis and sets `socket.data.isGuest`; the token can open no `JwtAuthGuard` route, and the player branch is unreachable because the handshake branches on the prefix first.
+- `POST /api/match/guest` is public by design (no `JwtAuthGuard`), but the body is a DTO class, the mode is forced to `pve` and the seat is server-assigned; the route is bounded by the nginx `guest` zone, its own `@Throttle`, and the per-address and global counters in `GuestLimitService`.
+- A guest room writes nothing durable: `isGuest=true` in the match hash suppresses both engine callbacks, so no `Game`, `GameParticipant`, counter or leaderboard row exists. The abort path only increments `guest:abort:<sha256(ip)>` and frees the live slots.
+- A guest socket drives an allow-list (`GUEST_EVENTS`): the game events plus `join_game`, `end_game`, `leave_game` and `disconnect`; `player_ready`, `select_color`, `update_modifiers` and any future event are dropped without a disconnect.
 - `join_game` binds the socket to the room and colour named by the token (`tokenGameId`, `tokenColor`); the client's arguments are fallbacks only.
 - A socket holds a room and seat binding only while its join is accepted: a refusal or a takeover clears `socket.data.gameId` and `playerColor` (`detachSocket()`), so its later `disconnect` cannot disturb a live seat.
 - The backend mints a token only when the caller's seat is not `exited` in the engine state and the engine has not started the game; the `match:*` hash is never trusted on its own.
@@ -548,7 +554,10 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── match.postgame.service.ts  # POST /api/game/end handling
 │   │   │   ├── seat-finalization.ts       # terminal-seat lookup from engine state
 │   │   │   ├── engine-token.util.ts       # signEngineToken() — engine secret, aud, 24 h TTL
+│   │   │   ├── guest-limit.service.ts     # GUEST_LIMITS, hashed-address counters, delay ladder
+│   │   │   ├── guest-token.util.ts        # g_ token mint/hash, guesttok:<hash>, guest seat id
 │   │   │   ├── dto/invite-friend.dto.ts   # required-UUID body for the game-invite route
+│   │   │   ├── dto/create-guest-match.dto.ts # public guest body: bots + rules only
 │   │   │   └── match.module.ts
 │   │   ├── leaderboard/          # Rankings (Redis sorted sets, Postgres backfill when empty)
 │   │   │   ├── leaderboard.controller.ts     # GET /api/leaderboard
@@ -589,7 +598,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │       ├── bot.ts                # Heuristic bot AI
 │   │   │       ├── player-handler.ts     # Disconnect/reconnect/exit/ready
 │   │   │       ├── lobby.ts              # Lobby management (color selection)
-│   │   │       ├── redis.ts              # RedisGameStore (persistence)
+│   │   │       ├── redis.ts              # RedisGameStore (persistence, guest registry/counters)
 │   │   │       ├── types.ts              # GameState, PlayerColor, events
 │   │   │       └── socket/
 │   │   │           ├── server.ts             # SocketServer, event routing, wake pass
@@ -601,10 +610,10 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │           ├── room-context.ts       # RoomContext/RoomRegistry: in-memory room state
 │   │   │           ├── idle-lobby.ts         # Idle-lobby window (durable idleSince stamp)
 │   │   │           ├── post-game.ts          # End-of-game flow → result-submitter
-│   │   │           ├── auth.ts               # JWT middleware, GameSocket type
+│   │   │           ├── auth.ts               # JWT middleware, guest allow-list, GameSocket type
 │   │   │           ├── event-publisher.ts    # Redis pub/sub → Socket.IO bridge
 │   │   │           ├── redis-broadcaster.ts  # Room-based state broadcasts
-│   │   │           └── result-submitter.ts   # POST /api/game/end to backend
+│   │   │           └── result-submitter.ts   # POST /api/game/end to backend (skipped for guests)
 │   │   │
 │   │   ├── postgres_16_db/       # Custom PostgreSQL image
 │   │   │   ├── Dockerfile
@@ -638,7 +647,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── main.tsx              # React entry point
 │       ├── App.tsx               # Root component (routes + auth guard)
 │       ├── router.tsx            # Custom window.location router
-│       ├── store.tsx             # React context + API + game/settings state + presence heartbeat
+│       ├── store.tsx             # React context + API + game/settings state + guest setup + presence heartbeat
 │       ├── api.ts                # Typed fetch wrapper (refresh + retry, CSRF, ngrok, error-code translation)
 │       ├── socket.ts             # Socket.IO client types + connectSocket()
 │       ├── i18n.ts               # i18next init
@@ -676,6 +685,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
     ├── architecture.md           # Full architecture reference (this file)
     ├── API-list.md               # Complete HTTP + WebSocket API reference
     ├── avatar-system.md          # Avatar pipeline: storage, caching, freshness, seats
+    ├── guest-mode.md             # Anonymous PvE door: registry, budgets, settlement, frontend flow
     ├── Ludo_Rules.md             # Classic Ludo rules
     ├── security_measures.md      # Hardening measures layer by layer, and the threat each one answers
     ├── backend/                  # Backend module deep-dives

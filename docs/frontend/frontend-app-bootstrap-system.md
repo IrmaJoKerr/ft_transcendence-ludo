@@ -19,7 +19,7 @@
 The app bootstrap layer does four things:
 
 1. **Route maps** — `FULL_ROUTES` maps every path to its page; all routes render full-screen.
-2. **Authentication guard** — sends signed-out users to `/login` and signed-in users away from public routes. Account-action routes (email verification, password reset, 2FA (two-factor authentication)) are the exception: they must stay reachable even when another account is signed in.
+2. **Authentication guard** — sends signed-out users to `/login` and signed-in users away from public routes. Account-action routes (email verification, password reset, 2FA (two-factor authentication)) are the exception: they must stay reachable even when another account is signed in. `/guest` is public for the same reason: a visitor with no session starts there, and `/game` is public to a visitor only while a guest handoff is held in memory.
 3. **Session bootstrap** — `AppProvider` calls `/api/auth/me` on page load to see if the user is already logged in. The probe is skipped on the guest-facing public routes (`/`, `/login`, `/signup`), where there cannot be a session to restore.
 4. **full-screen rendering** — every route renders directly via `FULL_ROUTES`; there is no shell layout wrapper.
 
@@ -64,6 +64,7 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
   '/verify-email': () => <VerifyEmail />,
   '/gamelobby': () => <LudoLobby />,
   '/gamelobby/table': () => <Lobby />,
+  '/guest': () => <Lobby guest />,
   '/game': () => <Game />,
   '/privacy': () => <LegalPage initialDoc="privacy" />,
   '/terms': () => <LegalPage initialDoc="terms" />,
@@ -71,7 +72,7 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
 
 /** Public routes, can be reached without a session */
 const PUBLIC_ROUTES = new Set([
-  '/login', '/signup', '/2fa',
+  '/login', '/signup', '/2fa', '/guest',
   '/forgot-password', '/reset-password', '/verify-email',
   '/privacy', '/terms'
 ])
@@ -125,8 +126,10 @@ type AppState = {
   settingOn: (key: string) => boolean  // Checks if a setting is on
   toggleSetting: (key: string) => void  // Flips a setting
   // Real-time match
-  activeMatch: ActiveMatch | null   // from POST /api/match/create
+  activeMatch: ActiveMatch | null   // from POST /api/match/create, or /api/match/guest for a guest
   setActiveMatch: (m: ActiveMatch | null) => void  // Updates the current match
+  guestSetup: GuestSetup | null     // The guest launch payload, memory-only, for Play again
+  setGuestSetup: (s: GuestSetup | null) => void  // Stores or clears the guest setup
   lastResult: LastResult | null     // finished-match data for the ResultsModal overlay
   setLastResult: (r: LastResult | null) => void  // Saves finished match results
   // Theme

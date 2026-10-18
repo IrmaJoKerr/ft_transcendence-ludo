@@ -4,6 +4,7 @@ import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
 import { MatchPostgameService, type GameEndPayload } from './match.postgame.service';
 import type { RoomRules } from './room-rules';
+import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 export type { GameEndPayload } from './match.postgame.service';
 
 @Injectable()
@@ -46,6 +47,11 @@ export class MatchService {
   }
   async playBot(userId: string, playerCount: number = 2) {
     return this.creator.playBot(userId, playerCount);
+  }
+  // Guest creation: anonymous and ephemeral, so there is no userId. The IP is
+  // the only budget key an account-less caller has.
+  async createGuestMatch(ip: string, dto: CreateGuestMatchDto) {
+    return this.creator.createGuestMatch(ip, dto);
   }
   async joinByInvite(inviteCode: string, userId: string) {
     return this.creator.joinByInvite(inviteCode, userId, (gameId: string, uid: string) =>

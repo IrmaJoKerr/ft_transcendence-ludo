@@ -26,6 +26,20 @@ The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room scree
 
 > **Note:** The lobby communicates with the real backend. Creating a match returns engine credentials (`gameId`, `token`, `engineUrl`), which the Game page uses to connect through Socket.IO.
 
+**Guest mode.** `/guest` renders the same screen with the `guest` prop set: bots fill every other seat, there is no mode picker and no active-game poll, and the launch posts `POST /api/match/guest` instead of `POST /api/match/create`. The payload is kept in the store as `guestSetup` so the end card's **Play again** can mint the same room again, and the return button goes to `/login`. See [`../guest-mode.md`](../guest-mode.md).
+
+**Room browser.** The "OPEN QUANTUM ROOMS" window is a six-column table: sector code, host
+callsign, capacity, stakes, modes, and action. `GET /api/games/rooms` also returns the room's three
+rule flags, so the MODES cell names the variant before a player takes a seat: `BASE GAME` when no
+mutator is on, otherwise only the active ones (`CLASH MODE`, `NO SAFE ZONES`, `FREE EXIT`), with the
+same icons and accent colours as the create-screen toggles. The cell's `title` carries the full
+localized list, so a chip clipped by a narrow column still resolves without a hover-only "i" (which
+touch users could not reach). Header and rows live in one scroll box with a sticky header, and the
+shared template pins every track (`minmax(0, …)` for the flexible ones plus a fixed action width):
+a scrollbar on the rows alone, a long chip, or a wider JOIN/REJOIN button sizing only its own grid
+would otherwise resolve the two grids differently and leave each label a few pixels to the right of
+the value below it, worse from left to right.
+
 
 ---
 ---

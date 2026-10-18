@@ -7,6 +7,9 @@ import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { hasLiveMatch } from './active-game';
+import { GUEST_TOKEN_TTL_S, GuestLimitService, guestIpHash } from './guest-limit.service';
+import { guestTokenKey, guestUserId, mintGuestToken } from './guest-token.util';
+import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import {
   normalizeRoomRules,
   readRoomRules,
@@ -32,6 +35,10 @@ export interface MatchRoomHandoff {
   // of leaving it to assume the standard game. The engine's `game_joined` carries
   // the live flags too; this one is there before a socket exists.
   rules: RoomRules;
+  // Only ever true for a guest mint. The client must not infer it from
+  // `mode === 'pve'`: a signed-in player's PvE game is that too, and the exits
+  // ("Back to login" vs "Back to lobby") branch on this flag.
+  isGuest?: boolean;
 }
 
 function generateInviteCode(): string {
@@ -64,6 +71,10 @@ export class MatchCreatorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    // Guest budgets and the mint gate. Injected here because the endpoint's
+    // single job is to allocate a room, and a failed allocation must give the
+    // reserved slots back in the same call.
+    private readonly guests: GuestLimitService,
   ) {
     const host = process.env.REDIS_HOST ?? 'redis';
     const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
@@ -176,11 +187,19 @@ export class MatchCreatorService {
     // writes Redis. The default keeps a caller that has none on the standard room
     // (the public entry point normalizes, so it always passes one).
     rules: RoomRules = normalizeRoomRules(),
+    // Guest mints pass their opaque engine token here. Its presence marks the
+    // anonymous path: no account lookups (a `guest-` id has no user row) and no
+    // live-game scan (the id is unique per mint, so it can never match).
+    // The hashed address is written into the hash so the engine can release the
+    // concurrency slot when a guest game ends normally.
+    opts: { guestToken?: string; guestIpHash?: string } = {},
   ) {
     // Strict lock: a caller who is already in a live game must not open a second
     // room, whatever the mode. Checked before the idempotent PvP reuse below, so
     // a mid-game caller is refused instead of being handed any room at all.
-    if (await hasLiveMatch(this.redis, userId)) {
+    // Guests skip it: the per-mint id makes the answer always "no", and a scan
+    // of every match hash per anonymous mint is pure cost.
+    if (!opts.guestToken && (await hasLiveMatch(this.redis, userId))) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
         message: 'You already have an active game. Leave it before creating or joining a new match.',
@@ -273,20 +292,36 @@ export class MatchCreatorService {
     // afterwards only while the room is still WAITING.
     Object.assign(updates, roomRuleHashFields(rules));
 
+    if (opts.guestToken) {
+      // Read by the engine's ResultSubmitter and notifyGameStarted: a guest
+      // room never reaches /api/game/*. The address is stored hashed, like the
+      // counters, so a Redis dump holds no addresses.
+      updates.isGuest = 'true';
+      if (opts.guestIpHash) updates.guestIpHash = opts.guestIpHash;
+    }
+
     await this.redis.hset(`match:${gameId}`, updates);
     await this.redis.expire(`match:${gameId}`, 86400);
 
-    const username = await this.resolveUsername(userId);
-    const displayName = await this.resolveDisplayName(userId);
-    const token = signEngineToken(this.jwt, {
-      gameId,
-      playerId: userId,
-      username: username ?? undefined,
-      displayName,
-      role: 'player1',
-      mode,
-      color: player1Color,
-    });
+    // A guest gets the opaque token minted for it: no JWT, no account lookups
+    // (a `guest-` id has no user row), and the engine resolves it from the
+    // registry in Redis instead of verifying a signature.
+    let token: string;
+    if (opts.guestToken) {
+      token = opts.guestToken;
+    } else {
+      const username = await this.resolveUsername(userId);
+      const displayName = await this.resolveDisplayName(userId);
+      token = signEngineToken(this.jwt, {
+        gameId,
+        playerId: userId,
+        username: username ?? undefined,
+        displayName,
+        role: 'player1',
+        mode,
+        color: player1Color,
+      });
+    }
 
     // mode + playerCount are required: the frontend persists activeMatch for
     // refresh/reconnect and branches on mode. Without them a refresh makes
@@ -401,6 +436,71 @@ export class MatchCreatorService {
     }
     const botCount = playerCount - 1;
     return this.createMatch(userId, 'pve', playerCount, botCount);
+  }
+
+  // The guest door: an anonymous, ephemeral PvE room. Deliberately not
+  // createMatch(): mode is forced here (never read from the body), the
+  // account-shaped steps are skipped, and the per-address budgets are charged
+  // in this one call.
+  //
+  // `ip` is the real client address (controller -> @Ip(), trust-proxy set in
+  // main.ts). It keys the counters only; it is hashed before it reaches Redis.
+  async createGuestMatch(ip: string, dto: CreateGuestMatchDto): Promise<MatchRoomHandoff> {
+    const botCount = dto.botCount;
+    const playerCount = 1 + botCount;
+
+    // Gate + reserve. Throws GUEST_LIMITED / GUEST_CAPACITY before any key is
+    // written; past the soft limit the caller has already waited here.
+    await this.guests.acquire(ip);
+
+    const token = mintGuestToken();
+    const guestId = guestUserId(token);
+
+    let result: MatchRoomHandoff;
+    try {
+      // The seat order is the human's fixed blue plus the bot colours in the
+      // order the setup screen showed them, so a sparse layout (blue + green +
+      // yellow, no red) is dealt as-is instead of being re-densified to
+      // blue/red/green. The client still never chooses the human's colour, and a
+      // botColors/botCount mismatch stays `undefined` here so createMatchLocked
+      // reports its own MATCH_BOT_COLORS.
+      const seatColors =
+        dto.botColors && dto.botColors.length === botCount
+          ? ['blue', ...dto.botColors]
+          : undefined;
+      result = await this.createMatchLocked(
+        guestId,
+        'pve',
+        playerCount,
+        botCount,
+        dto.botColors,
+        dto.botNames,
+        seatColors,
+        normalizeRoomRules(dto),
+        { guestToken: token, guestIpHash: guestIpHash(ip) },
+      );
+    } catch (error) {
+      // Nothing was allocated: give the reserved slots back so a rejected
+      // payload costs the address no budget.
+      await this.guests.release(ip);
+      throw error;
+    }
+
+    await this.guests.recordMint(ip);
+    // The registry the engine's handshake resolves. Written only after the room
+    // exists, so a token never points at a hash that was never written. Fields
+    // are the design's four: the room, the seat, the mode and the address the
+    // abort counter is keyed by.
+    const entry = guestTokenKey(token);
+    await this.redis.hset(entry, {
+      gameId: result.gameId,
+      color: result.color,
+      mode: result.mode,
+      ip,
+    });
+    await this.redis.expire(entry, GUEST_TOKEN_TTL_S);
+
+    return { ...result, isGuest: true };
   }
 
   // Join a PvP room by its 6-character invite code.

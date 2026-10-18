@@ -6,6 +6,7 @@ import { railButtonStyle, railHoverHandlers } from './railButton';
 import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 import { UserAvatar } from './UserAvatar';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationBell } from './NotificationBell';
 import { useNotifications, type Notification } from '../hooks/useNotifications';
 import { getApi, postApi } from '../api';
@@ -475,74 +476,7 @@ export function RetroNavbar({
                       🌐 {t('navbar.languageLabel')}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: 6,
-                      background: 'rgba(0, 0, 0, 0.45)',
-                      padding: 4,
-                      borderRadius: 8,
-                      border: '1px solid rgba(0, 240, 255, 0.2)',
-                    }}
-                  >
-                    {[
-                      { code: 'en' as const, label: 'EN', full: 'ENGLISH' },
-                      { code: 'ms' as const, label: 'MS', full: 'MELAYU' },
-                      { code: 'fr' as const, label: 'FR', full: 'FRANÇAIS' },
-                    ].map((item) => {
-                      const isSelected = lang === item.code;
-                      return (
-                        <button
-                          key={item.code}
-                          type="button"
-                          onClick={() => {
-                            setLang(item.code);
-                            retroAudio.playUiBeep(880, 0.05);
-                          }}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '7px 4px',
-                            borderRadius: 6,
-                            border: isSelected
-                              ? '1.5px solid var(--accent-cyan)'
-                              : '1px solid transparent',
-                            background: isSelected
-                              ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.2))'
-                              : 'transparent',
-                            color: isSelected ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                            boxShadow: isSelected ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
-                            transition: 'all 0.18s ease',
-                            outline: 'none',
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: 'var(--font-display)',
-                              fontWeight: 900,
-                              fontSize: '0.88rem',
-                            }}
-                          >
-                            {item.label}
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.62rem',
-                              opacity: 0.85,
-                              marginTop: 2,
-                            }}
-                          >
-                            {item.full}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <LanguageSwitcher variant="tabs" value={lang} onChange={setLang} />
                 </div>
 
                 {/* 2. 2FA Security Toggle Option */}
