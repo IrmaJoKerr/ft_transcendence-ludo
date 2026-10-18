@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout, NeonCheck } from '../components/RetroAuthLayout';
@@ -24,6 +24,11 @@ import {
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
 
+// Errors are held as locale keys, not translated strings: switching language
+// then re-renders a live message instead of leaving the previous language on
+// screen. Both keys exist in en, fr and ms.
+type FieldMessage = 'passwordInfo.error' | 'auth.passwordMismatch' | null;
+
 export function Signup() {
   const { t } = useTranslation();
   const { register } = useApp();
@@ -34,13 +39,17 @@ export function Signup() {
   const [error, setError] = useState<string | null>(null);
   // Field-level slots: filled on submit, cleared as soon as that field is
   // edited, so the red text never nags while someone is still typing.
-  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
-  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<FieldMessage>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<FieldMessage>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [assigned, setAssigned] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
+  // The inputs point aria-describedby at these slots, so the message is tied to
+  // the field it belongs to even while the slot is empty.
+  const passwordErrorId = useId();
+  const confirmErrorId = useId();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -58,8 +67,8 @@ export function Signup() {
     // stays for the email, the checkbox and server errors.
     const policyOk = passwordMeetsPolicy(password);
     const matchOk = password === confirm;
-    setPasswordFieldError(policyOk ? null : t('passwordInfo.error'));
-    setConfirmFieldError(matchOk ? null : t('auth.passwordMismatch'));
+    setPasswordFieldError(policyOk ? null : 'passwordInfo.error');
+    setConfirmFieldError(matchOk ? null : 'auth.passwordMismatch');
     if (!policyOk || !matchOk) return;
     if (!agreed) {
       setError(t('auth.agreeRequired'));
@@ -144,7 +153,9 @@ export function Signup() {
             className={RETRO_AUTH_INPUT}
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Full width, one below the other: half of the card is too narrow for
+            the longest localized policy message to fit its reserved lines. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div
               className={RETRO_AUTH_LABEL}
@@ -164,9 +175,14 @@ export function Signup() {
               }}
               placeholder={t('auth.passwordPlaceholderSignup')}
               autoComplete="new-password"
+              aria-invalid={passwordFieldError !== null}
+              aria-describedby={passwordErrorId}
               className={RETRO_AUTH_INPUT}
             />
-            <FieldError message={passwordFieldError} />
+            <FieldError
+              id={passwordErrorId}
+              message={passwordFieldError ? t(passwordFieldError) : null}
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className={RETRO_AUTH_LABEL}>{t('auth.confirmLabel')}</div>
@@ -179,9 +195,14 @@ export function Signup() {
               }}
               placeholder="••••••••"
               autoComplete="new-password"
+              aria-invalid={confirmFieldError !== null}
+              aria-describedby={confirmErrorId}
               className={RETRO_AUTH_INPUT}
             />
-            <FieldError message={confirmFieldError} />
+            <FieldError
+              id={confirmErrorId}
+              message={confirmFieldError ? t(confirmFieldError) : null}
+            />
           </div>
         </div>
         {error && <div className={RETRO_AUTH_ERROR}>{error}</div>}

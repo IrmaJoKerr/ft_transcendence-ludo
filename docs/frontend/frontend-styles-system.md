@@ -17,7 +17,7 @@
 
 Styling is split between CSS files and TypeScript constants, with a clear rule for what belongs where:
 
-1. **`retrowave.css`** (561 lines) — the theme design system. Defines the Synthwave '84 color and font custom properties on `:root, [data-theme='synthwave']`, plus the scrollbar styles, `@keyframes` animations, and the few rules that must stay in CSS.
+1. **`retrowave.css`** (584 lines) — the theme design system. Defines the Synthwave '84 color and font custom properties on `:root, [data-theme='synthwave']`, plus the scrollbar styles, `@keyframes` animations, and the few rules that must stay in CSS.
 2. **`index.css`** (179 lines) — imports Tailwind, sets base element styles (`body`, `input`, `a`), and holds the Home page's layout rules with two responsive `@media (max-height: …)` breakpoints.
 3. **`styles/tw.ts`** — long Tailwind utility-class strings shared by several components. Each constant replaces one `retrowave.css` rule one-for-one; where a rule cannot be expressed as utilities (`@keyframes`, custom easing curves such as `--flicker`), it stays in `retrowave.css` and is referenced with `var()` or an arbitrary `animation:` value.
 
@@ -32,6 +32,7 @@ These rules stay in CSS because no utility expresses them:
 | Rule | Why it stays in CSS |
 |------|---------------------|
 | `.crt-screen` | `body:has(.game-page)` targets the class by name, so it also has to stay on the element in the JSX. |
+| `.field-error` | Reserves the error slot's height per breakpoint; an inline `style` cannot express a `@media` query. |
 | `@keyframes arcade-start-pulse` | Applied the same way. It animates `scale` only: Tailwind's `-translate-x-1/2` sets the standalone `translate` property, which composes with `transform`, so a keyframe `translateX` would add a second -50 percent shift. |
 
 
@@ -110,4 +111,4 @@ sequenceDiagram
 | `store.tsx` | `theme` / `setTheme` state; persists `retro_theme` and sets the `data-theme` attribute |
 | `styles/tw.ts` | Consumes the tokens through Tailwind arbitrary values; documented separately |
 | Tailwind CSS | Imported by `index.css` (`@import 'tailwindcss'`) |
-| Google Fonts | `Atkinson Hyperlegible Next` (headings, UI, body) and `Atkinson Hyperlegible Mono` (tabular/mono text), requested in `index.html` and at the top of `retrowave.css` |
+| Google Fonts | `Atkinson Hyperlegible Next` (headings, UI, body) and `Atkinson Hyperlegible Mono` (tabular/mono text), requested once in `index.html` |

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { deleteApi, patchApi } from '../api';
@@ -10,6 +10,15 @@ import { navigate } from '../router';
 import { RETRO_BTN } from '../styles/tw';
 
 type Step = 'confirm' | 'setPassword';
+
+// Errors are held as locale keys, not translated strings: switching language
+// then re-renders a live message instead of leaving the previous language on
+// screen. All three keys exist in en, fr and ms.
+type FieldMessage =
+  | 'passwordInfo.error'
+  | 'profileEdit.newPasswordRequired'
+  | 'profileEdit.passwordMismatch'
+  | null;
 
 function fieldLabel(style: CSSProperties): CSSProperties {
   return {
@@ -53,8 +62,12 @@ export function DeleteAccountModal({
   const [confirmPassword, setConfirmPassword] = useState('');
   // Reserved slots under the two password fields: filled on submit, cleared as
   // soon as that field is edited, so they never nag mid-typing.
-  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
-  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<FieldMessage>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<FieldMessage>(null);
+  // The inputs point aria-describedby at these slots, so the message is tied to
+  // the field it belongs to even while the slot is empty.
+  const passwordErrorId = useId();
+  const confirmErrorId = useId();
   const [currentPassword, setCurrentPassword] = useState('');
   const [acknowledge, setAcknowledge] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -86,9 +99,9 @@ export function DeleteAccountModal({
     const policyOk = passwordMeetsPolicy(newPassword);
     const matchOk = newPassword === confirmPassword;
     setPasswordFieldError(
-      policyOk ? null : newPassword ? t('passwordInfo.error') : t('profileEdit.newPasswordRequired'),
+      policyOk ? null : newPassword ? 'passwordInfo.error' : 'profileEdit.newPasswordRequired',
     );
-    setConfirmFieldError(matchOk ? null : t('profileEdit.passwordMismatch'));
+    setConfirmFieldError(matchOk ? null : 'profileEdit.passwordMismatch');
     if (!policyOk || !matchOk) {
       setBusy(false);
       return;
@@ -182,8 +195,13 @@ export function DeleteAccountModal({
                 }}
                 placeholder={t('profileEdit.newPasswordPlaceholder')}
                 autoComplete="new-password"
+                aria-invalid={passwordFieldError !== null}
+                aria-describedby={passwordErrorId}
               />
-              <FieldError message={passwordFieldError} />
+              <FieldError
+                id={passwordErrorId}
+                message={passwordFieldError ? t(passwordFieldError) : null}
+              />
               <label style={fieldLabel({ color: 'var(--text-muted)' })}>
                 {t('profileEdit.confirmPassword')}
               </label>
@@ -197,8 +215,13 @@ export function DeleteAccountModal({
                 }}
                 placeholder={t('profileEdit.confirmPasswordPlaceholder')}
                 autoComplete="new-password"
+                aria-invalid={confirmFieldError !== null}
+                aria-describedby={confirmErrorId}
               />
-              <FieldError message={confirmFieldError} />
+              <FieldError
+                id={confirmErrorId}
+                message={confirmFieldError ? t(confirmFieldError) : null}
+              />
               <div
                 style={{
                   fontSize: '0.64rem',
