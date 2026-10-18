@@ -32,33 +32,26 @@ import {
   POST_GAME_TIMEOUT_MS,
 } from '../timing';
 
-// Every delay lives in ../timing. These are the limits that are about socket wiring
-// rather than pacing, so they stay here and are exported for the contract harness.
-//
-// Largest inbound event socket.io buffers and parses. 64 KB is the OWASP WebSocket
-// guidance for a message cap; the biggest legitimate payload (join_game carrying the
-// lobby's bot names) is a few KB.
+// Every delay lives in ../timing; these are socket-wiring limits, exported for the
+// contract harness. MAX_EVENT_BYTES is the largest inbound event socket.io buffers
+// and parses: 64 KB per OWASP guidance, well above the few-KB join_game payload.
 export const MAX_EVENT_BYTES = 64 * 1024;
-// One account may hold a handful of sockets. The arithmetic: one ACTIVE socket per
-// device, one STALE socket while a refresh reconnects (the old one is reaped by the 15 s
-// ping timeout, so it can coexist briefly), one for a clash pipe if that architecture
-// ever ships, and one slack (a second device for a minute). More than one tab is
-// pointless, and a flood from one account is not a player. 3 would be brittle the day a
-// pipe is added; 4 covers a reconnect and stays tight.
+// One account may hold a handful of sockets: one active per device, one stale while a
+// refresh reconnects, one for a clash pipe if that ever ships, and one slack. Four
+// covers a reconnect and stays tight; three would break the day a pipe is added.
 export const MAX_SOCKETS_PER_USER = 4;
 // Inbound event budget per socket: 20 events, refilled over 5 s. The SPA sends a few
 // events per turn, so only a loop or a flood drains the bucket, and that socket is
 // closed instead of served.
 const EVENT_LIMIT = 20;
-// Clash presses spend their own bucket: a mash at the 110 ms press cap (timing.ts) is
-// about 9 presses/s per side, so the shared bucket would close the socket mid-race.
-// 25 presses/s sustained keeps the press cap and the phase checks as the real bound,
-// while a socket that loops faster still gets closed.
+// Clash presses spend their own bucket: a mash at the 110 ms press cap is about
+// 9 presses/s per side, so the shared bucket would close the socket mid-race. 25
+// presses/s sustained keeps the press cap and phase checks as the real bound.
 const CLASH_EVENT_LIMIT = 125;
 
 // The Origin gate, in one testable place. A browser origin must match the allow-list
 // exactly. `undefined` means a non-browser client (curl, the probes) or a same-origin
-// navigation, which has no cross-site origin to hijack, so it is allowed.
+// navigation, which has no cross-site origin to target, so it is allowed.
 export function originAllowed(origin: string | undefined, allowed: string[]): boolean {
   if (!origin) return true;
   return allowed.includes(origin);
@@ -150,10 +143,9 @@ export class SocketServer {
         this.postGame.onGameEnded(event.gameId);
         void this.resultSubmitter.submitGameResult(event.gameId);
       } else if (event.type === 'player_exited') {
-        // Every departure path (waiting-room leave, live leave, End Game, grace
-        // expiry, prune) funnels through this event, so the idle window is
-        // re-evaluated here instead of by a periodic lobby scan. Refills cancel
-        // it in JoinManager.
+        // Every departure path funnels through this event, so the idle window is
+        // re-evaluated here instead of by a periodic lobby scan. Refills cancel it in
+        // JoinManager.
         void this.idleLobby.refresh(event.gameId);
       } else if (event.type === 'game_started') {
         this.botScheduler.schedule(event.gameId, BOT_THINK_MS);
@@ -177,10 +169,9 @@ export class SocketServer {
         // no-move roll gets.
         this.botScheduler.schedule(event.gameId, BOT_THINK_MS);
       } else if (event.type === 'clash_start') {
-        // No bot turn while the QTE runs. The source freed bots only to the
-        // announce deadline (1500 ms), which left the countdown and the press
-        // race unguarded; freezing to the press deadline covers all three phases
-        // and matches that comment's intent.
+        // No bot turn while the QTE runs. Freezing to the press deadline covers the
+        // announce, countdown and press phases; freezing to the announce deadline left
+        // the countdown and press race unguarded.
         this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
       } else if (event.type === 'clash_result') {
         // Stay frozen through the result card, then let the bot resume.
@@ -207,7 +198,7 @@ export class SocketServer {
       process.exit(1);
     }
     // Without the key the backend rejects every game-result callback, so a
-    // missing value is a boot failure rather than a silent per-game error.
+    // missing value is a boot failure rather than a per-game error.
     if (!process.env.ENGINE_API_KEY) {
       console.error('ENGINE_API_KEY is not set: refusing to start');
       process.exit(1);
@@ -215,11 +206,9 @@ export class SocketServer {
 
     await this.store.connect();
 
-    // Wake trigger: a Redis reconnect. The engine stays alive through a Redis
-    // container rebuild, but its room timers do not, and a bot whose turn comes
-    // up would never resume (LudoBot.takeTurn swallows a failed state load and is
-    // never retried). The durable deadlines in the data survive, so the wake pass
-    // replays them. The boot connection calls the same pass below.
+    // Wake trigger: a Redis reconnect. The engine stays alive through a container
+    // rebuild, but its room timers do not, so a bot turn would never resume. The
+    // durable deadlines survive, so the wake pass replays them.
     this.store.onReady(() => {
       void this.wake('redis reconnect');
     });
@@ -495,10 +484,9 @@ export class SocketServer {
       // 110 ms cap can never close the socket mid-QTE (see CLASH_EVENT_LIMIT).
       const clashLimiter = new EventRateLimiter(CLASH_EVENT_LIMIT, CLASH_EVENT_WINDOW_MS);
       socket.use(([event], next) => {
-        // Guests get an allow-list, not a deny-list (auth.ts): a lobby-only
-        // event is logged and dropped, never a disconnect, so a stray event
-        // cannot close a socket mid-clash. Checked before the rate bucket, so
-        // a refused event does not spend the guest's budget either.
+        // Guests get an allow-list, not a deny-list: a lobby-only event is logged and
+        // dropped, never a disconnect, so a stray event cannot close a socket mid-clash.
+        // Checked before the rate bucket, so a refused event spends no budget.
         if (socket.data.isGuest && !GUEST_EVENTS.has(event)) {
           console.warn(`Guest socket ${socket.id}: refused '${event}'.`);
           return;

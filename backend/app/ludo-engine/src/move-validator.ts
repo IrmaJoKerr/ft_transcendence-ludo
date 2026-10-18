@@ -2,29 +2,24 @@ import type { GameState, PlayerColor, LegalMove, PieceId, MoveResult } from './t
 import { BoardMapper } from './board-mapper';
 import { orderDefenderIds } from './clash';
 
-// A protected star square: the shield is on and this step is one of the eight
-// safe tracks. Its barriers neither block the path nor can be attacked, which is
-// the game's existing default and why a wall parked on a start square is a
-// non-issue in such a room.
+// A protected star square: the shield is on and this step is one of the eight safe
+// tracks. Its barriers neither block nor can be attacked, which is the default and
+// why a wall on a start square does not matter in such a room.
 function isProtectedStar(state: GameState, pieceId: PieceId, step: number): boolean {
   return state.noSafeZones !== true && BoardMapper.isSafeZoneStep(pieceId, step);
 }
 
-// The mover's token hand. Clash mode grants the OPPORTUNITY to break a wall, the arm
-// switch is the in-game decision to take it, and the token is what pays for it — so a
-// seat with an empty hand has no wall options at all (the wall blocks it exactly as the
-// standard room does). Strict reads keep a state written before the field existed at 0.
+// The mover's token hand. Clash mode grants the chance to break a wall, the arm
+// switch takes it and the token pays for it, so an empty hand has no wall options.
+// Strict reads keep a state written before the field existed at 0.
 function seatHoldsToken(state: GameState, pieceId: PieceId): boolean {
   const { color } = BoardMapper.parsePieceId(pieceId);
   return (state.players?.find((p) => p.color === color)?.barrierTokens ?? 0) > 0;
 }
 
-// Breakable walls, PER SQUARE: clash mode plus a token in hand opens a wall, and a star
-// square keeps its shield unless the hardcore mod removed it. The list is deliberately
-// the SAME whether or not the seat has armed: a wall landing is emitted and priced, the
-// client keeps priced moves hidden until the player arms (Board's filter), and the engine
-// refuses an unarmed attempt at move time. That is what lets the toggle be a local reveal
-// with no recompute and no round trip, while the server stays the authority.
+// Breakable walls, per square: clash mode plus a token in hand opens a wall, and a star
+// square keeps its shield unless hardcore removed it. The list is the same armed or not;
+// the client hides priced moves until the player arms.
 export function wallIsAttackable(state: GameState, pieceId: PieceId, step: number): boolean {
   return (
     state.clashMode === true &&
@@ -35,10 +30,9 @@ export function wallIsAttackable(state: GameState, pieceId: PieceId, step: numbe
 
 // MoveValidator - determines legal moves, resolves captures, checks wins, and executes moves.
 export class MoveValidator {
-  // All legal moves for `color` given the dice roll: prison exits (a 6, or any
-  // roll under the free exit, plus the armed Barrier Buster exit), normal track
-  // moves with blockade checks, home entries. Used by LudoEngine.rollDice to
-  // build pendingLegalMoves.
+  // All legal moves for `color` given the roll: prison exits, track moves with
+  // blockade checks, home entries. Used by LudoEngine.rollDice to build
+  // pendingLegalMoves.
   static getLegalMoves(state: GameState, color: PlayerColor, diceValue: number): LegalMove[] {
     const moves: LegalMove[] = [];
 
@@ -51,22 +45,9 @@ export class MoveValidator {
       // Skip if already finished (step === 57)
       if (from === 57) continue;
 
-      // LANDING RULE (see the core doc): a move fights ONLY the square it lands on. A
-      // single defender there is the capture, a wall there is the chain, and nothing is
-      // attacked on a square the piece passes over, on any route (an exit included).
-      // Prison exit rule: a piece leaves prison on a 6, and that 6 lands it on
-      // step 1 (the remaining 5 steps are not applied). Under the free exit room
-      // rule any roll opens the prison and the first step out counts as part of
-      // the roll, so `to` is diceValue itself: a 5 walks out to step 5, a 6 to
-      // step 6 and still grants its bonus roll. Either way the exit is an
-      // ORDINARY move from step 0: it fights only the square it LANDS on, and a
-      // barrier it would have to cross blocks it exactly as it blocks any other
-      // move, so the door fight needs an exact roll (a 1 with the free exit on,
-      // a 6 with it off) — the wall on step k is attacked only by a move that
-      // lands on k. A barrier parked on a protected star is neither fought nor
-      // blocking: the exit passes it and shares the landing. The Barrier Buster
-      // token below buys the same landing on a barrier the plain exit cannot
-      // reach, and buys nothing else.
+      // Landing rule: a move fights only the square it lands on; passing squares are
+      // untouched. A prison exit is an ordinary move from step 0, so a wall on step k
+      // is attacked only by a move that lands on k.
       if (from === 0) {
         if (diceValue === 6 || state.freeExit === true) {
           const to = state.freeExit ? diceValue : 1;
@@ -138,10 +119,9 @@ export class MoveValidator {
     to: number,
     pieceId: PieceId,
   ): boolean {
-    // Moves that never touch the main track can't be blocked. A prison exit is
-    // `from` 0 (an exited piece is negative and never moves), so it is checked
-    // from step 1 on: a wall on the square an exit LANDS on is the destination
-    // case below, not a crossing.
+    // Moves that never touch the main track cannot be blocked. A prison exit is
+    // checked from step 1 on, since a wall on the landing square is the destination
+    // case, not a crossing.
     if (from < 0 || to < 1) return false;
 
     // Opponents' blockades only matter; own pieces never physically block the mover.
@@ -149,15 +129,9 @@ export class MoveValidator {
       (c) => c !== moverColor,
     ) as PlayerColor[];
 
-    // Walk the mover's own-step path, but only main-track steps (1-51) participate.
-    // When the move ends in the home stretch/goal (to > 51), still check the
-    // intermediate track cells (e.g. step 51) the piece crosses before entering home.
-    // The destination is exempt from the walk only when a wall THERE is attackable
-    // (that landing is a fight, not a block); otherwise landing on a barrier is
-    // blocked like crossing it. No square becomes passable: every square before the
-    // destination still blocks, and a home entry keeps checking 51 (a wall on the
-    // last track square still closes the way in). Hence `to - 1` rather than
-    // `Math.min(to, 51) - 1`, which would open 51 to home entries.
+    // Walk the mover's own-step path, main-track steps only. When the move ends in the
+    // home stretch, still check the track cells it crosses. The destination is exempt
+    // only when a wall there is attackable; every square before it still blocks.
     const lastTrackStep =
       to <= 51 && wallIsAttackable(state, pieceId, to) ? to - 1 : Math.min(to, 51);
     for (let step = from + 1; step <= lastTrackStep; step++) {
@@ -198,12 +172,9 @@ export class MoveValidator {
     return [...byColor.values()].some((n) => n >= 2);
   }
 
-  // The token price of a landing: a landing that attacks a WALL (2+ defenders of
-  // one opponent colour, the same reading armedExit uses) costs one Barrier Buster
-  // token, whatever square the move came from. A lone defender, or a mixed pair
-  // that is no barrier, is free. `captureCount` comes from the same gate the move
-  // stored, so a wall that is not attackable (a protected star, a disarmed seat)
-  // never reaches this with a positive count.
+  // The token price of a landing: attacking a wall (2+ defenders of one colour, the
+  // reading armedExit uses) costs one token, whatever square the move came from. A
+  // lone defender or a mixed pair is free.
   private static landingPaysToken(
     state: GameState,
     color: PlayerColor,
@@ -213,19 +184,9 @@ export class MoveValidator {
     return captureCount >= 2 && this.isBarrier(this.squareDefenders(state, color, step));
   }
 
-  // The armed exit (a Barrier Buster token): with clash mode on and a token in
-  // hand, a piece still in prison may spend it to LAND on the barrier the roll
-  // reaches exactly, which is the only way through a wall the plain exit cannot
-  // reach. It is offered only when the plain exit is NOT legal (see getLegalMoves),
-  // so a piece never carries two exits to the same square.
-  //
-  // The locked rule: the token buys a LANDING, never a crossing. `to` is the roll,
-  // the landing square must itself be a barrier, the exit-roll gate is not waived,
-  // and a barrier anywhere behind the landing blocks exactly as it blocks any
-  // other move, so the wall has to stand exactly `diceValue` squares out. A
-  // barrier on a protected star is never attacked and never blocks, so the plain
-  // exit already shares it and this variant is never reached for that square. The
-  // chain is the ordinary chain: one round per defender of that one square.
+  // The armed exit: with clash mode and a token, a piece in prison may land on the
+  // barrier the roll reaches exactly. The token buys a landing, never a crossing, so
+  // the wall must stand `diceValue` squares out.
   private static armedExit(
     state: GameState,
     color: PlayerColor,
@@ -261,15 +222,9 @@ export class MoveValidator {
     };
   }
 
-  // The one decision behind "can the mover capture on targetStep, and how big is
-  // that capture?": both the legality flag and the count the bot/UI rank by come
-  // from here, which is what stops a landing on a wall from being legal but not a
-  // capture (the piece would share the wall instead of breaking it). Main track
-  // only; safe zones are never capturable unless the hardcore rule removed them;
-  // a 2+ same-colour stack is a share rather than a capture unless `wallBreak` (the
-  // breakable-wall gate) says it can be attacked. 0 = nothing captured (every
-  // prison exit landing on a wall included), 1 = a single defender, R = the wall's
-  // size, i.e. the number of clash rounds the attack costs.
+  // The one decision behind "can the mover capture on targetStep, and how big is that
+  // capture?": both the legality flag and the count the bot ranks by come from here.
+  // 0 = nothing, 1 = one defender, R = the wall size in clash rounds.
   static captureCountAt(
     state: GameState,
     moverColor: PlayerColor,

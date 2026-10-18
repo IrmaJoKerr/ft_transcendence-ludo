@@ -103,11 +103,9 @@ const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 // wall-break cell draws exactly this many glyph slots, so an empty hand reads as
 // empty rather than as a row that vanished.
 const BUST_CAP = 3;
-// The wall break tokens panel: its width and the gap in front of it. That span is
-// exactly how much further the roster box overhangs its grid track in clash mode; a
-// smaller CARD_ROOM_OVERHANG is always added on top, so a standard room overhangs
-// less and the player cards come out the SAME width in both rooms (the panel is the
-// only difference between them), with room for the display names either way.
+// The wall break tokens panel: its width and the gap in front of it. That span is how
+// much further the roster box overhangs its grid track in clash mode; a smaller
+// CARD_ROOM_OVERHANG is always added, so the cards come out the same width.
 const BUSTER_PANEL_W = 96;
 const BUSTER_PANEL_GAP = 10;
 const CARD_ROOM_OVERHANG = 46;
@@ -132,7 +130,7 @@ export function Game() {
   // and the end card branch on; it is NOT the same as mode === 'pve' (a
   // signed-in player's PvE game is that too).
   const isGuest = activeMatch?.isGuest === true;
-  // The name this guest appears under. A ref, like userRef, because the socket
+  // The name this guest appears under. A ref, as with userRef, because the socket
   // effect must not reconnect on a language change.
   const guestNameRef = useRef(t('guest.playerName'));
   guestNameRef.current = t('guest.playerName');
@@ -262,15 +260,9 @@ export function Game() {
   // is captured. Set at the end of the mover's walk and cleared after the burst
   // plays out, so it is visual only and never touches game state.
   const [captureFx, setCaptureFx] = useState<{ color: string; to: number } | null>(null);
-  // Barrier Buster: the token-priced exit is armed EXPLICITLY by the player, so a
-  // tap on a piece in prison can never spend a token by accident. The engine offers
-  // that move only when the roll lands exactly on a wall, so its presence in the
-  // list is also the "the token can be spent now" signal the controls read.
-  // The Barrier Buster arm switch lives on the SERVER (`PlayerMeta.barrierArmed`):
-  // clash mode is the opportunity to break a wall, arming is the in-game decision
-  // to take it, and the engine is what blocks an unarmed seat at a wall (the wall
-  // simply blocks the landing). The seat holding the turn is the one whose switch
-  // matters, and the engine clears it when the turn moves on.
+  // Barrier Buster: the token-priced exit is armed explicitly, so a tap in prison can
+  // never spend a token by accident. The arm switch lives on the server
+  // (`PlayerMeta.barrierArmed`), and the engine blocks an unarmed seat at a wall.
   const bustMoves = useMemo(
     () => (view.legalMoves ?? []).filter((m) => m.spendsBarrierToken),
     [view.legalMoves],
@@ -306,12 +298,9 @@ export function Game() {
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
-  // Desktop board placement: instead of centring, the board first yields the roster panel's
-  // overhang and then takes 20% of the space that leaves as a right margin, so the gap to the
-  // right column is 40% of the even split it used to get and the left gutter holds the panel.
-  // The min() clamps the margin to 0 when the track is too narrow for a 40% gap to fit,
-  // which is what keeps the panel off the board at every desktop width. `100%` is the
-  // board's own track (the grid area).
+  // Desktop board placement: the board yields the roster panel's overhang and takes
+  // 20% of the space left as a right margin, so the left gutter holds the panel. The
+  // min() clamps the margin to 0 when the track is too narrow.
   const boardSlack = `100% - min(650px, 66vh, 100% - ${rosterOverhang}px)`;
   const boardMaxWidth = desktopLayout
     ? `min(650px, 66vh, 100% - ${rosterOverhang}px)`

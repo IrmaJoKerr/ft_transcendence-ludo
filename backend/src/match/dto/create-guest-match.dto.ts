@@ -14,14 +14,9 @@ import {
 
 const COLORS = ['blue', 'red', 'green', 'yellow'];
 
-// The guest setup screen's create body. This route takes a DTO class (unlike
-// /api/match/create, whose @Body('x') params leave the global ValidationPipe
-// with no metatype to run on), so every rule here fails at the HTTP boundary,
-// before any Redis key is written.
-//
-// Deliberately absent: `mode` (forced to 'pve' server-side), `playerCount`
-// (derived from botCount), `seatColors` (the server assigns the human seat) and
-// `gameId` (generated). A guest cannot ask for a PvP room or pick its own seat.
+// The guest setup screen's create body. This route takes a DTO class, so every rule
+// fails at the HTTP boundary before any Redis key is written. Deliberately absent:
+// `mode`, `playerCount`, `seatColors` and `gameId`.
 export class CreateGuestMatchDto {
   // Required, not optional: a guest has no session to default against and a
   // bot-less "PvE" room is meaningless. 1-3 mirrors createMatch's PvE checks

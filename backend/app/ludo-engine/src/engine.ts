@@ -21,12 +21,9 @@ import type { LobbyManager } from './lobby';
 import { ClashManager, orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
 
-// The room rules as they arrive from the wire, turned into domain truth: only a
-// literal `true` turns a rule on, so `"false"`, `1`, `{}` and an absent field all
-// mean the default (off). The socket layer hands over whatever the client sent,
-// and this is where a payload stops being a payload: without the strict check the
-// string "false" would reach the match hash and the engine state and be read as
-// truthy, turning a rule ON for the rest of the room's life.
+// Room rules from the wire, turned into domain truth: only a literal `true` turns
+// a rule on, so `"false"`, `1`, `{}` and an absent field all mean off. Without the
+// strict check the string "false" would read as truthy in the match hash.
 function normalizeRoomRules(raw: unknown): RoomRules {
   const input = (raw ?? {}) as Partial<RoomRules>;
   return {
@@ -143,8 +140,8 @@ export class LudoEngine {
         throw new Error('Game is paused: waiting for player to reconnect');
       }
 
-      // Result-card freeze: the clash just resolved and the client is showing
-      // the outcome, so no roll may land on top of it.
+      // Result-card freeze: the clash resolved and the client is showing the
+      // outcome, so no roll may land on top of it.
       if (state.resultCardUntil && Date.now() < state.resultCardUntil) {
         throw new Error('Clash result in progress : wait for the card to clear');
       }
@@ -231,12 +228,9 @@ export class LudoEngine {
     });
   }
 
-  // Move a piece: validate against pendingLegalMoves (server-authoritative),
-  // apply using the stored pendingDiceValue, and return result + state.
-  // `to` names WHICH move of that piece, for a caller that already knows its
-  // landing square. It is optional, and a piece's move list never holds two
-  // entries with the same `to` (the plain exit and the armed Barrier Buster exit
-  // exclude each other for one roll), so sending the piece alone is enough.
+  // Move a piece: validate against pendingLegalMoves (server-authoritative) and
+  // apply the stored pendingDiceValue. `to` names which move of that piece and is
+  // optional, since a piece never has two moves to the same square.
   async movePiece(gameId: string, pieceId: PieceId, to?: number): Promise<MovePieceOutput> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
@@ -282,20 +276,14 @@ export class LudoEngine {
       const moverWasArmed =
         state.players.find((p) => p.color === moverColor)?.barrierArmed === true;
 
-      // A Barrier Buster move pays its token here, inside the game lock and against
-      // the freshly loaded state, exactly once: the snapshot is cleared as the move
-      // is applied below, so a replayed or duplicated emit finds no such move and is
-      // rejected before it can spend a second token. The re-read is what makes the
-      // counter authoritative — the client's copy is display only. The debit is the
-      // ATTEMPT: a chain that repulses the attacker keeps the token spent, and a
-      // rejected or illegal execution never reaches this line. `Math.max` keeps a
-      // state written before the field existed from going negative.
+      // A Barrier Buster move pays its token here, inside the game lock and once: the
+      // pending move is cleared below, so a replay finds nothing and cannot spend a
+      // second token. The debit is the attempt; a lost chain keeps the token spent.
       if (pendingMove.spendsBarrierToken) {
         const mover = state.players.find((p) => p.color === moverColor);
-        // The arm switch is the player's consent, and this is where the engine enforces
-        // it: the move list carries every priced wall landing whatever the switch says (so
-        // a client can reveal it the instant it is toggled), which makes an unarmed
-        // attempt a refusal instead of a silent token spend.
+        // The arm switch is the player's consent and the engine enforces it here: the
+        // move list carries every priced landing whatever the switch says, so an
+        // unarmed attempt is refused instead of spending a token.
         if (mover?.barrierArmed !== true) {
           throw new Error('Barrier breaker is not armed');
         }
@@ -312,12 +300,9 @@ export class LudoEngine {
       // Clash gate: a capture is deferred to the QTE and applied only once that
       // resolves, so no piece moves yet.
       if (state.clashMode && pendingMove.isCapture) {
-        // The defenders of the landing square, the ONE square any move fights. The
-        // square is found via the SHARED track position, because comparing
-        // per-colour steps would be wrong across colours, and the order WITHIN it
-        // is named by piece id rather than read off `state.pieces`, so it stays
-        // stable if that array is ever rebuilt and two runs of the same board
-        // fight the same order.
+        // The defenders of the landing square, the only square a move fights. The
+        // square is found by shared track position and ordered by piece id, so the
+        // order survives a rebuild and two runs fight the same way.
         const defenderIds = orderDefenderIds(
           MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to),
         );
@@ -423,19 +408,17 @@ export class LudoEngine {
         timestamp: Date.now(),
       });
 
-      // Apply the move outcome: sync piece mirrors, bump the counter, run the
-      // win check, update stats/bonus, and hand off the turn (or re-roll on a
-      // 6/capture). Returns the winner if the game just finished. `attackerWon`
-      // is true here: this path is a normal, already-resolved move.
+      // Apply the move outcome: sync piece mirrors, bump the counter, run the win
+      // check, update stats and hand off the turn. Returns the winner if the game
+      // finished; `attackerWon` is true for an already-resolved move.
       const winner = applyMoveOutcome(state, result, diceValue, true);
 
       await this.store.saveGameState(gameId, state);
 
       this.emit({ type: 'piece_moved', gameId, result });
-      // A wall landing spends a token, and ANY turn change clears the arm switch, so the
-      // HUD's token column gets a full-state frame whenever either happened: the count and
-      // the switch ride players[], and waiting for the next unrelated frame would leave them
-      // showing a token the seat no longer holds, or an arm it no longer has.
+      // A token spend or any turn change sends a full-state frame: the count and the
+      // arm switch ride players[], and a stale frame would show a token or an arm the
+      // seat no longer holds.
       if (pendingMove.spendsBarrierToken || moverWasArmed) {
         this.emit({ type: 'state_update', gameId, state });
       }
@@ -447,12 +430,9 @@ export class LudoEngine {
     });
   }
 
-  // The Skip button on a held turn: every move the roll offers is token-priced, so the
-  // seat either spends a token (by arming and taking the wall landing) or forfeits the turn
-  // and keeps the token for a better board. A PASS, not a re-roll: the dice are spent, the
-  // turn advances and the token stays in hand. Reachable only in that one situation, which
-  // is also the only one the hold exists for: rollDice's no-move pass never fires for it,
-  // because a priced move IS a legal move.
+  // Skip on a held turn: every offered move is token-priced, so the seat spends a
+  // token or forfeits the turn and keeps it. A pass, not a re-roll: the dice are
+  // spent and the turn advances.
   async skipArmedBust(gameId: string): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
@@ -465,11 +445,9 @@ export class LudoEngine {
       if (state.turnPhase !== 'WAITING_FOR_MOVE') {
         throw new Error('Invalid turn phase: expected WAITING_FOR_MOVE');
       }
-      // Skip exists for exactly one situation: the roll can only reach a wall, i.e. EVERY
-      // pending move is token-priced. With an ordinary move on the table the player plays
-      // that instead, so a Skip is refused here (and the socket layer drops the refusal
-      // silently). No 6 carve-out: a 6 pre-empts the prison-exit variant, but an on-board
-      // piece can still have a wall as its only destination.
+      // Skip is valid only when every pending move is token-priced; with an ordinary
+      // move available it is refused. A 6 is no exception: an on-board piece can still
+      // have a wall as its only destination.
       const priced = state.pendingLegalMoves.filter((m) => m.spendsBarrierToken);
       if (priced.length === 0 || priced.length !== state.pendingLegalMoves.length) {
         throw new Error('Nothing to skip: an ordinary move is available');
@@ -489,12 +467,9 @@ export class LudoEngine {
     });
   }
 
-  // The Barrier Buster arm switch: clash mode grants the OPPORTUNITY to break a
-  // wall, and this is the seat's in-game decision to take it. The engine owns the
-  // flag because the rule it gates is enforced here (an armed landing on a wall,
-  // which spends a token): the client's copy is display only. Refused with an
-  // empty hand, refused out of turn, cleared when the turn moves on
-  // (advanceTurnInState), and refused entirely in a room without clash mode.
+  // Barrier Buster arm switch: clash mode grants the chance to break a wall and this
+  // is the seat's decision to take it. Refused with an empty hand or out of turn,
+  // cleared when the turn moves on, and refused without clash mode.
   async setBarrierArmed(gameId: string, color: PlayerColor, armed: boolean): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
@@ -516,10 +491,9 @@ export class LudoEngine {
       }
       if (armed) meta.barrierArmed = true;
       else delete meta.barrierArmed;
-      // No recompute: the move list is the same whether or not the seat is armed (a wall
-      // landing is always emitted and priced, and this switch only decides whether the
-      // engine will accept it). The frame below is what tells the clients the switch moved,
-      // and each client reveals or hides the priced moves it already holds.
+      // No recompute: the move list is the same armed or not; this switch only decides
+      // whether the engine accepts a landing. The frame below tells each client to
+      // reveal or hide the priced moves it already holds.
       await this.store.saveGameState(gameId, state);
       // The switch and the hand ride players[], so a full-state frame is what
       // refreshes every client's token column.
@@ -560,11 +534,9 @@ export class LudoEngine {
     return this.clashEngine.holdCard(gameId, userId, cardId, holdMs);
   }
 
-  // Settle a mid-clash disconnect immediately by meters (tie goes to the
-  // attacker, the same rule as the timeout). Inside a chain this settles the
-  // ROUND: a round the attacker takes continues the chain, a round it loses
-  // repels the attack and ends the move. Called by socket-handlers AFTER the
-  // disconnect's own lock has released, so it cannot re-enter that lock.
+  // Settle a mid-clash disconnect by meters, tie to the attacker, as on timeout. In a
+  // chain this settles the round: a win continues, a loss repels the attack. Called
+  // after the disconnect lock releases, so it cannot re-enter it.
   async resolveClashOnDisconnect(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state?.clash) return;
@@ -604,10 +576,9 @@ export class LudoEngine {
     const revived = await this.withGameLock(gameId, () =>
       handlePlayerReconnect(this.store, gameId, color, displayName),
     );
-    // A chain resumes on the seat that dropped: a disconnect froze the game
-    // mid-chain, so the reconnect is what starts the round the pause swallowed.
-    // Called AFTER the lock above is released: startNextRound takes the game lock
-    // itself and a re-entrant self-lock would deadlock.
+    // A chain resumes on the seat that dropped: the reconnect starts the round the
+    // pause interrupted. Called after the lock above releases, since startNextRound
+    // takes it and a re-entrant lock would deadlock.
     if (revived) {
       await this.clashEngine.startNextRound(gameId);
     }
@@ -658,12 +629,9 @@ export class LudoEngine {
     await this.emitLobbyUpdate(gameId);
   }
 
-  // Host-only live update of the room rules. One object in (see RoomRules),
-  // normalized right here: this façade is the boundary where a wire payload
-  // becomes state, so a sloppy or hostile client cannot write a non-boolean.
-  // LobbyManager mirrors the result into the match hash and the engine state;
-  // the broadcast then carries what was actually persisted, not what the
-  // caller asked for.
+  // Host-only live update of the room rules. Normalized here, at the boundary where a
+  // payload becomes state. LobbyManager mirrors the result and the broadcast carries
+  // what was persisted, not what the caller asked for.
   async handleUpdateModifiers(gameId: string, userId: string, raw: unknown): Promise<void> {
     if (!this.lobbyManager) {
       throw new Error('Lobby manager not initialized');

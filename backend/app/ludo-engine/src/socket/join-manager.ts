@@ -97,13 +97,9 @@ export class JoinManager {
           const seatColors: PlayerColor[] = matchData.seatColors
             ? (matchData.seatColors.split(',') as PlayerColor[])
             : SLOT_COLORS.slice(0, playerCount);
-          // The room rules travel with the match hash (the host's lobby toggles,
-          // written by the backend's create payload and by lobby.ts) instead of
-          // being hardcoded here: the engine's movePiece gate checks
-          // state.clashMode, the star-square checks check state.noSafeZones, and
-          // a prison exit checks state.freeExit. Only a literal 'true' turns a
-          // rule on, so a hash without the fields keeps the standard room: clash
-          // off, free exit off, star squares protecting.
+          // The room rules travel with the match hash instead of being hardcoded: the
+          // move gate checks clashMode, the star checks noSafeZones and a prison exit
+          // checks freeExit. Only a literal 'true' turns a rule on.
           await this.store.createGame(
             effectiveGameId,
             matchData.clashEnabled === 'true',
@@ -131,7 +127,7 @@ export class JoinManager {
             // later disconnect must not mark a seated player as disconnected.
             this.detachSocket(socket, effectiveGameId);
             // An exited seat belongs to a player removed from the match, so tell
-            // the client the seat is gone instead of leaving it on a dead board.
+            // the client the seat is gone instead of leaving it on a stale board.
             if (seat?.status === 'exited') {
               socket.emit('seat_expired', { gameId: effectiveGameId, color: effectiveColor });
             } else {
@@ -233,10 +229,9 @@ export class JoinManager {
           delete state.pausedReason;
           await this.store.saveGameState(effectiveGameId, state);
         }
-        // A bot seat holding the turn is re-armed from the persisted state, so a
-        // client rejoin no longer has to carry the in-memory seat map with it
-        // (the map is empty after a restart). The wake pass covers rooms no
-        // client rejoins at all.
+        // A bot seat holding the turn is re-armed from the persisted state, so a client
+        // rejoin no longer has to carry the in-memory seat map. The wake pass covers
+        // rooms that no client rejoins at all.
         if (state?.status === 'active' && isBotSeat(state, state.currentTurn)) {
           this.scheduleBotTurn?.(effectiveGameId);
         }

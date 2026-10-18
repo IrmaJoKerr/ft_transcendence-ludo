@@ -14,12 +14,9 @@ export class LobbyManager {
     private publisher: EventPublisher,
   ) {}
 
-  // Assign (or swap) a seat color for a player in a waiting room, keeping the
-  // match hash and the live engine GameState in sync. Used by
-  // LudoEngine.handlePlayerSelectColor.
-  // Throws carry i18n codes, not prose: socket-handlers.ts forwards the message
-  // on the engine `error` event and the client resolves it (errors.<CODE> in the
-  // frontend locales). MATCH_NOT_PLAYER reuses the existing backend code.
+  // Assign (or swap) a seat color in a waiting room, keeping the match hash and the
+  // live engine state in sync. Thrown messages carry i18n codes, not prose: the socket
+  // forwards the code and the client resolves errors.<CODE>.
   async handleSelectColor(gameId: string, userId: string, color: PlayerColor): Promise<void> {
     const data = await this.store.getMatchData(gameId);
     if (data?.status !== 'WAITING') {

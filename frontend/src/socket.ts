@@ -44,8 +44,8 @@ export type ServerEvents = {
     forfeited?: boolean;
   }) => void;
   piece_moved: (e: MoveResult) => void;
-  // A held turn passed by Skip: no piece moved, the turn simply advanced, and the
-  // engine names the seat that takes over.
+  // A held turn passed by Skip: no piece moved, the turn advanced, and the engine
+  // names the seat that takes over.
   turn_skipped: (e: { gameId: string; currentTurn: PlayerColor }) => void;
   clash_start: (e: ClashStartEvent) => void;
   clash_phase: (e: { phase: ClashPhase; countdownDeadline: number; pressDeadline: number }) => void;

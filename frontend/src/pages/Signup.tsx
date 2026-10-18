@@ -61,10 +61,9 @@ export function Signup() {
       setError(t('errors.VALIDATION_EMAIL_FORMAT'));
       return;
     }
-    // Mirror the backend rule (RegisterDto) so weak passwords fail instantly
-    // rather than round-tripping to a 400. The server still re-checks. Each
-    // message gets its own slot under the field; the form-level box below
-    // stays for the email, the checkbox and server errors.
+    // Mirror the backend rule (RegisterDto) so weak passwords fail instantly rather
+    // than round-tripping to a 400. The server still re-checks. Each message gets its
+    // own slot under the field; the form-level box stays for server errors.
     const policyOk = passwordMeetsPolicy(password);
     const matchOk = password === confirm;
     setPasswordFieldError(policyOk ? null : 'passwordInfo.error');

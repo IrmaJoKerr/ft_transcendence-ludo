@@ -837,20 +837,18 @@ export const en = {
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:
       'The eight star squares stop protecting, so a piece can be captured anywhere on the track — your own start square included. Only the home lane still shields you.',
-    // Hardcore's second half: stars also stop being exempt for stacks (a stack
-    // there blocks the path). The breakable-wall gate is PER SQUARE now — clash
-    // mode opens an ordinary square on its own, while a star needs hardcore — so
-    // the copy names both halves instead of promising it takes the two together.
+    // Hardcore's second half: stars also stop being exempt for stacks (a stack there
+    // blocks the path). The breakable-wall gate is per square: clash mode opens an
+    // ordinary square, while a star needs hardcore.
     rulesPage7Body2:
       'Without safe zones the stars are no exemption for stacks either: two pieces on one square — a star included — form a wall that blocks the path. A wall on an ordinary square is already breakable under clash mode alone: land on it and fight one clash per defender. With the stars off, a wall parked on a star is breakable too.',
     rulesPage8Header: '// FREE EXIT',
     rulesPage8Title: '🚪 Leave prison on any roll',
     rulesPage8Body:
       'A piece in prison normally needs a 6 to come out. With free exit on, any roll opens the door and the exit is part of the move itself: the piece walks out and stops on the step it rolled — a 5 puts it on step 5, a 6 on step 6.',
-    // The free exit is an ORDINARY move from step 0: it fights only the square it
-    // lands on and a barrier on the way (the landing square included) blocks it,
-    // exactly like any other move. Breaking the barrier it LANDS on is the token's
-    // job (page 9, one wall per token), so the copy splits the two.
+    // The free exit is an ordinary move from step 0: it fights only the square it lands
+    // on, and a barrier on the way blocks it. Breaking the landing barrier is the
+    // token's job, so the copy splits the two.
     rulesPage8Body2:
       'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece LANDS on the step it rolled, and it fights only that square. A wall before the landing square blocks the exit outright, and clash mode does not help there; a wall exactly ON the landing square is the one clash mode lets the piece fight, one clash per defender. A wall parked on a protected star is simply passed.',
     rulesPage9Header: '// BARRIER BUSTER',

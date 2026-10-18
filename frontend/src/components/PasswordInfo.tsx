@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Visually hidden, but still in the accessibility tree: the trigger points
-// aria-describedby at it so the policy is announced, not just hovered.
+// aria-describedby at it so the policy is announced, not only hovered.
 const SR_ONLY = {
   position: 'absolute',
   width: 1,
@@ -16,16 +16,7 @@ const SR_ONLY = {
 } as const;
 
 /**
- * Hover/focus "i" badge that reveals the localised password policy beside a
- * field that CREATES a password (signup, reset, change-password). Fields that
- * merely verify an existing password do not use it: the policy would be
- * misleading there.
- *
- * It has no click behaviour. It is still focusable so keyboard and
- * screen-reader users get the same text instead of a hover-only affordance.
- * Put it at the end of a field's label row, and make that row
- * `position: relative`: the tooltip is anchored to the row, left-aligned with
- * the field and capped at the row's width, so it cannot overflow the form.
+ * "i" badge that reveals the localised password policy on password-create fields.
  */
 export function PasswordInfo() {
   const { t } = useTranslation();

@@ -85,7 +85,7 @@ export class UserController {
     if (!result) {
       // "No photo" is a normal state, not something to retry, so mark it
       // uncacheable: with an ETag, Express would answer a later revalidation 304
-      // and pin the missing photo in place.
+      // and keep the missing photo in place.
       res.set('Cache-Control', 'no-store');
       res
         .status(404)

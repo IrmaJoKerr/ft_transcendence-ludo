@@ -53,10 +53,9 @@ const formatVerifiedAt = (date: Date) =>
     timeStyle: 'short',
   }).format(date);
 
-// Columns an OAuth strategy may consume after validateOAuthLogin: the session
-// needs id/username/language, the 2FA branch needs email/twoFactorEnabled, and
-// the create branch seeds avatarMeta from avatarStyle. Selecting these instead of
-// the whole row means `password_hash` can never reach a strategy or a session.
+// Columns an OAuth strategy may consume after validateOAuthLogin: the session needs
+// id/username/language, the 2FA branch needs email/twoFactorEnabled and the create
+// branch seeds avatarMeta. Selecting these keeps `password_hash` out of reach.
 const OAUTH_USER_FIELDS = {
   id: true,
   username: true,

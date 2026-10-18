@@ -1,11 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
 
-// Guest tokens are opaque, not JWTs. The engine's handshake branches on the
-// `g_` prefix, hashes the token and looks the hash up in Redis
-// (`guesttok:<sha256>`); a forged token is simply "not found" rather than a
-// signature that must be kept from validating in the player branch. Revocation
-// is a DEL, and the token is stored hashed, like every other token at rest in
-// this repo. The engine keeps its own copy of the prefix and the key shape.
+// Guest tokens are opaque, not JWTs. The engine branches on the `g_` prefix, hashes
+// the token and looks the hash up in Redis (`guesttok:<sha256>`); a forged token is
+// "not found". Revocation is a DEL.
 export const GUEST_TOKEN_PREFIX = 'g_';
 
 export function mintGuestToken(): string {

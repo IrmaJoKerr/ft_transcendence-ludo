@@ -36,11 +36,9 @@ export class EventPublisher {
         );
         break;
 
-      // A held turn passed without a move: the Skip on an armed Barrier Buster
-      // exit. Carries the seat that takes over, because the clients have no other
-      // way to learn it: without this case the engine advanced the turn in Redis
-      // while every client kept rendering the skipped turn and its armed move
-      // (the SPA's reducer and its skip log line both wait on this frame).
+      // A held turn passed without a move: the Skip on an armed Barrier Buster exit.
+      // Carries the seat that takes over, because the clients have no other way to
+      // learn it; without this frame they keep rendering the skipped turn.
       case 'turn_skipped':
         void this.store.publish(
           gameId,
@@ -103,13 +101,9 @@ export class EventPublisher {
             pressDeadline: event.pressDeadline,
             attackerPresses: event.attackerPresses,
             defenderPresses: event.defenderPresses,
-            // Chain fields: which round this is, how many the attack costs, and
-            // the defenders standing on the square (the round's defender first).
-            // `info` is always supplied on the engine's capture path, so these
-            // reach the client for every clash; a single-defender clash reads
-            // 1/1 and the client shows no round badge. Defaults rather than
-            // omission (null / [] instead of undefined) keep the frame's field
-            // set CONSTANT, which is what the clash probe asserts.
+            // Chain fields: the round, the rounds the attack costs and the defenders
+            // standing (the round's defender first). A single-defender clash reads 1/1.
+            // Null and [] defaults keep the frame's field set constant.
             round: event.round ?? 1,
             totalRounds: event.totalRounds ?? 1,
             defenderPieceId: event.defenderPieceId ?? null,
@@ -153,11 +147,9 @@ export class EventPublisher {
             loser: event.loser,
             winnerPresses: event.winnerPresses,
             loserPresses: event.loserPresses,
-            // Chain fields: the round that just ended, whether the square still
-            // holds defenders (the client then keeps the boards up for the next
-            // round), the defender that lost it and who is left standing. A
-            // single clash publishes 1/1 with continues false, so the client
-            // reads one shape.
+            // Chain fields: the round that ended, whether the square still holds
+            // defenders, the defender that lost and who is left standing. A single
+            // clash publishes 1/1 with continues false.
             round: event.round ?? 1,
             totalRounds: event.totalRounds ?? 1,
             continues: event.continues ?? false,
@@ -167,11 +159,9 @@ export class EventPublisher {
         );
         break;
 
-      // The result card's hold ended: the clients' own forecasts (clamped) shortened
-      // the freeze, so the engine says "the clash is over" and hands the new deadline
-      // over. Without this case the release would never reach a client (the same gap
-      // `turn_skipped` had), and a client that lost its card timer would keep a stale
-      // clash object forever.
+      // The result card's hold ended: the clients' own forecasts shortened the freeze,
+      // so the engine hands the new deadline over. Without this frame a client that lost
+      // its card timer would keep a stale clash forever.
       case 'clash_card_released':
         void this.store.publish(
           gameId,
@@ -200,7 +190,7 @@ export class EventPublisher {
 
       // Room teardown (quorum lost, single-instance disconnect expiry, idle
       // lobby). Emitted by teardownRoom so every surviving client leaves the
-      // dead room cleanly.
+      // closed room cleanly.
       case 'game_expired':
         void this.store.publish(
           gameId,

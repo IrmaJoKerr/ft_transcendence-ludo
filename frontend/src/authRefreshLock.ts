@@ -1,21 +1,6 @@
-// Cross-tab coordination for POST /api/auth/refresh.
-//
-// The refresh token is one httpOnly cookie shared by every tab, and
-// SessionService.rotate() consumes it (delete, then issue). Two tabs refreshing
-// inside the same window therefore send the same token, the first one rotates
-// it, and the second gets a 401 that reads as "signed out": the presence
-// heartbeat calls setUser(null) and a tab logs out for no reason. api.ts's
-// in-flight dedupe is per page, so it cannot see the other tab.
-//
-// So one tab refreshes and the others reuse its result. The claim is a
-// localStorage record every tab can see; the result travels over
-// BroadcastChannel. The cookies are shared at browser level, so once the winner
-// has rotated them a retry already carries the new access token.
-//
-// Both primitives are best effort: localStorage has no compare-and-set and can
-// be blocked, and a tab can die mid-refresh, so a tab that hears nothing
-// refreshes anyway. api.ts's /me probe keeps that duplicate's 401 from reading
-// as a logout.
+// Cross-tab coordination for POST /api/auth/refresh. The refresh token is one
+// httpOnly cookie shared by every tab, and rotation consumes it, so two tabs
+// refreshing together leave the second with a 401 that reads as signed out.
 
 /** How this tab took part in one refresh round. */
 export type RefreshLease<T> =
@@ -100,10 +85,9 @@ export function createRefreshLock(): RefreshLock {
     return { role: 'follower', awaitResult: () => awaitResult<T>(lock.ts) };
   }
 
-  // Claim the refresh. localStorage has no atomic compare-and-set, so write and
-  // then read back: if another tab wrote after us, its record is the one we see
-  // and it keeps the claim. Both tabs read after both writes, so of two racing
-  // claims at most one survives.
+  // Claim the refresh. localStorage has no atomic compare-and-set, so write and read
+  // back: if another tab wrote after us, its record is the one we see and it keeps the
+  // claim. Of two racing claims at most one survives.
   function claim(): LockRecord | null {
     const mine: LockRecord = { tab: tabId, ts: Date.now() };
     writeLock(mine);
@@ -125,7 +109,7 @@ export function createRefreshLock(): RefreshLock {
       return null;
     }
     // Remember the latest announcement: a follower can start waiting a moment
-    // after the message fired, and last-wins is cheaper than a listener per wait.
+    // after the message fired, and the latest record is cheaper than a listener per wait.
     channel.addEventListener('message', (event: MessageEvent) => {
       const data = event.data as Partial<Announcement> | null;
       if (typeof data?.lockTs !== 'number') return;

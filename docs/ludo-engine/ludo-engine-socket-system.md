@@ -312,6 +312,12 @@ a no-op.
 Steady state has **no periodic scans**. Each room arms its own timer from the event that created its
 deadline (a join, a departure, a game end), and the wake pass is the only scan.
 
+The clash QTE is the one exception: `ClashEngine` runs a 5 s recovery sweep
+(`CLASH_SWEEP_INTERVAL_MS`) over active games that still hold a clash. A timer armed for round N
+does nothing once the live round is N+1, a press deadline that has passed is resolved on the next
+tick, and a chain between rounds is picked up by the sweep after its gap timer or a reconnect. A
+paused chain is left alone, since only that seat's reconnect starts the next round.
+
 
 ---
 ---

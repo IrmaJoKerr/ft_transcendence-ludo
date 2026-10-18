@@ -30,7 +30,7 @@ const VALIDATION_CODES: Record<string, string> = {
 const CONSTRAINT_PRIORITY = ['isLength', 'minLength', 'maxLength', 'matches', 'isEmail', 'isUuid'];
 
 // Turns class-validator failures into { code?, message } so DTO validation errors
-// are localized like the rest. Unmapped constraints keep Nest's default shape.
+// are localized as the rest are. Unmapped constraints keep Nest's default shape.
 function validationExceptionFactory(errors: ValidationError[]): BadRequestException {
   const messages = errors.flatMap((e) => (e.constraints ? Object.values(e.constraints) : []));
   const message = messages.length > 0 ? messages : ['Invalid request payload'];

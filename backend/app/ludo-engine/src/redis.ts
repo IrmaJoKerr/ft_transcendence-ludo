@@ -5,11 +5,8 @@ import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } f
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
 // --- Guest counters: mirrored from backend/src/match/guest-limit.service.ts ---
-// The engine WRITES counts and decides no limit: the backend reads them at mint
-// time, so retuning the ladder stays a backend edit. The key shape, the counter
-// names and the window are the wire between the two processes (they share Redis
-// db 0), so both copies must agree. Hash the address: a Redis dump must hold no
-// addresses, and the backend keys its counters the same way.
+// The engine writes counts and decides no limit: the backend reads them at mint
+// time. The key shape, counter names and window are shared by both copies.
 const GUEST_ABORT_WINDOW_S = 6 * 60 * 60;
 const GUEST_ROOMS_LIVE = 'guest:rooms:live';
 

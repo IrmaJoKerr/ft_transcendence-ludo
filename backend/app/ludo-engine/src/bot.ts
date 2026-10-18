@@ -24,37 +24,26 @@ export function getOrCreateBot(
   return gameBots.get(color);
 }
 
-// Is this seat a bot? Read from the persisted state, never from the in-memory
-// seat map: the map is empty after a restart, and gating bot turns on it is what
-// froze every bot game (todo P1: engine restart recovery). `isBot` is the
-// authoritative flag; the `bot-<color>` username keeps pre-flag states readable.
+// Bot seat check. Read `isBot` from the persisted state, not the in-memory seat
+// map: the map is empty after a restart. The `bot-<color>` name keeps older
+// states readable. See docs/ludo-engine/ludo-engine-bot-module.md.
 export function isBotSeat(state: GameState | null | undefined, color: PlayerColor): boolean {
   const player = state?.players.find((p) => p.color === color);
   if (!player) return false;
   return player.isBot === true || player.username?.startsWith(BOT_PREFIX) === true;
 }
 
-// Move-selection scale. No positional score reaches 1560 (a home entry: 1000 +
-// 10 x 56), and a capture's credit is CAPTURE_CREDIT discounted by its clash odds
-// (see captureOdds), which keeps every old decision in place and adds the chain
-// rule: with no QTE standing in the way the credit is the full 7000, a lone
-// defender is still taken against a human (7000 x 0.25 = 1750) or a bot (3500),
-// while a wall of 2 or more falls below the positional moves (7000 x 0.25 ** 2 =
-// 437): a chain the bot probably loses is not worth walking into.
+// Move-selection scale: no positional move scores above 1560 and a capture is
+// worth CAPTURE_CREDIT times its clash odds. A 2+ defender wall falls below the
+// best positional move, so the bot declines it. The bot doc has the worked values.
 const CAPTURE_CREDIT = 7000;
-// What a Barrier Buster token is worth while it stays in hand, i.e. the rescue it
-// buys later. A bust's score is its discounted capture credit minus this shadow,
-// so the bot spends the token when the attack still beats the shadow: against a
-// mirror bot a 2-deep wall (half chance per round) is worth the attempt at
-// 1750 - 1400 = 350, while the same wall against a human (a quarter per round,
-// 437) and anything deeper fall below it and the bot declines instead (Skip
-// scores 0). A lone defender is not a bust at all: a token only ever fights a
-// barrier.
+// Value of a Barrier Buster token kept in hand. A bust scores its capture credit
+// minus this shadow, so the bot spends the token only when the attack still
+// clears that value.
 const BUST_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
-// On a roll of 6 freeing a piece from jail is the tempo play the old priority
-// list took before any scoring. The bonus keeps that order: a jail exit with
-// every other bonus (100 + 10 x 7 + 500 = 670) plus this lands at 1670, above the
-// best positional move (1560) and below the cheapest capture the bot takes (1750).
+// A jail exit on a 6 keeps the old tempo priority: with every other bonus it
+// scores 1670, above the best positional move and below the cheapest capture the
+// bot takes.
 const JAIL_EXIT_BONUS = 1000;
 
 // Server-side Ludo Bot with heuristic move selection. One instance per
@@ -73,14 +62,9 @@ export class LudoBot {
     this.store = store;
   }
 
-  // Select the best move on one scale, captures included: a capture's credit
-  // carries the odds the bot wins its clash (see captureOdds), so a chain it
-  // expects to lose ranks below a safe alternative instead of being taken on
-  // sight. Skip scores 0 and is the fallback: a list whose best score is not
-  // positive comes back as null, which is how the bot declines a Barrier Buster
-  // bust whose odds do not cover the token's shadow price (takeTurnUnsafe turns
-  // that null into the engine's pass). Every plain move and every ordinary capture
-  // scores above 0, so a null is only ever a declined bust.
+  // Rank captures on the same scale and include their clash odds, so a chain the
+  // bot expects to lose ranks below a safe move. Skip scores 0; a null result
+  // means the bot declined a token-priced bust.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
 
@@ -98,10 +82,9 @@ export class LudoBot {
 
   // Score a move on one scale. Higher score = better move.
   private scoreMove(move: LegalMove, state: GameState, diceValue: number): number {
-    // A capture is worth what it is likely to win, and carries no positional bonus
-    // on top: the credit already dwarfs them, and adding progress back would undo
-    // the chain discount (a 4 deep wall against a human is worth 219, while plain
-    // progress alone pays up to 570).
+    // A capture scores its odds-weighted credit and no positional bonus: adding
+    // progress back would undo the chain discount (a 4-deep wall against a human
+    // is worth 219, while plain progress alone pays up to 570).
     if (move.isCapture) {
       const credit = CAPTURE_CREDIT * this.captureOdds(state, move);
       // A Barrier Buster bust is a capture that also spends a token, so it pays
@@ -117,10 +100,9 @@ export class LudoBot {
       score += 1000;
     }
 
-    // Safe zone bonus: only for a move that ENTERS one on the track. A prison exit
-    // starts on step 0 (no square) and its landing is the occupied start square, so
-    // the bonus is off for it — the same reason the validator refuses a star bonus
-    // on an exit's landing.
+    // Safe zone bonus: only for a move that enters one on the track. A prison exit
+    // lands on the occupied start square, so it gets no bonus here or from the
+    // validator.
     if (move.from > 0 && BoardMapper.isSafeZoneStep(move.pieceId, move.to)) {
       score += 500;
     }
@@ -139,20 +121,14 @@ export class LudoBot {
     return score;
   }
 
-  // Odds the bot takes the landing square. With no QTE standing between the move
-  // and the capture (clash mode off, so the capture just applies) they are
-  // certain. Under clash mode each round's winner is drawn independently and
-  // pre-rolled against the same constants the bot pressers use, so a landing that
-  // costs one round is `p` and a wall of R defenders, one round each, is `p ** R`.
-  // The defender's seat picks p: another bot is a coin flip, a human beats this
-  // bot three times out of four.
+  // Odds the bot takes the landing square. With clash mode off the capture always
+  // applies. Under clash mode each round is an independent draw: one round scores
+  // `p`, a wall of R defenders scores `p ** R`. See the bot doc for p per seat.
   private captureOdds(state: GameState, move: LegalMove): number {
     if (!state.clashMode) return 1;
-    // The defenders' colour comes from the landing square, the ONE square the move
-    // fights (an armed bust lands on the wall it attacks), and is read through the
-    // helper the validator counts a barrier with, so the two can never disagree
-    // about who is standing in round one. A wall's depth is already inside
-    // `move.captureCount`, one round per defender.
+    // The defender colour comes from the landing square, the only square the move
+    // fights, read through the same helper the validator uses. The wall depth is
+    // already in `move.captureCount`, one round per defender.
     const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
     const defenderColor = defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
     const perRound =
@@ -172,7 +148,7 @@ export class LudoBot {
       return await this.takeTurnUnsafe();
     } catch (err) {
       // Engine calls throw when the game ended or the turn moved on during the gaps
-      // between our state checks: a normal race, not a bug. Swallow it, because the
+      // between our state checks: a normal race, not a bug. Ignore it, because the
       // caller does not await this promise and an unhandled rejection ends the process.
       console.error(
         `[bot] takeTurn aborted for game ${this.gameId} (${this.color}):`,

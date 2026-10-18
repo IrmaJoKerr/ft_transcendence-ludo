@@ -1,11 +1,9 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
-// Global rate-limit guard. The library's default rejection body is a lone
-// English string ("ThrottlerException: Too Many Requests"), which api.ts would
-// surface untranslated. We swap in the same { code, message } shape used by
-// every other error so the frontend localizes it via errors.RATE_LIMITED.
-// ThrottlerException only accepts a string, so we throw a plain HttpException.
+// Global rate-limit guard. The library's rejection body is a lone English string,
+// which would surface untranslated. We throw a plain HttpException with the same
+// { code, message } shape as every other error, so the client localizes it.
 @Injectable()
 export class CodedThrottlerGuard extends ThrottlerGuard {
   protected async throwThrottlingException(): Promise<void> {

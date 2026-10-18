@@ -73,16 +73,14 @@ function hueForHost(host: string): string {
   return ROOM_AVATAR_HUES[hash % ROOM_AVATAR_HUES.length];
 }
 
-// One track list for the header and the rows. `minmax(0, …)` keeps a long chip
-// from widening its own track, and the fixed action width keeps a JOIN button
-// from sizing that track differently than the ACTION label does; without both,
-// the two grids resolve their `fr` shares differently and the labels drift right
-// of the values they name.
+// One track list for the header and the rows. `minmax(0, …)` keeps a long chip from
+// widening its track, and the fixed action width keeps a JOIN button from sizing it
+// differently than the ACTION label does.
 const ROOM_GRID_COLUMNS =
   'minmax(0, 0.95fr) minmax(0, 1.45fr) minmax(0, 0.7fr) minmax(0, 0.85fr) minmax(0, 1.55fr) 104px';
 
 // The three room rules, in the same order and with the same icons/accents as the
-// create-screen toggles, so a chip in the list reads like the switch that made it.
+// create-screen toggles, so a chip in the list reads as the switch that made it.
 const ROOM_MODES = [
   { key: 'clashEnabled', icon: '⚔️', label: 'game.clashMode', hue: '#ff007f' },
   { key: 'noSafeZones', icon: '💀', label: 'game.noSafeZones', hue: '#00f0ff' },

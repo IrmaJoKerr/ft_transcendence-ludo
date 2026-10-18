@@ -1,10 +1,9 @@
 import type { RedisGameStore } from '../redis';
 import type { RoomRegistry } from './room-context';
 
-// Seats the match hash counts as occupied right now. A seat is seated only while
-// its player is present: a reserved slot (`player<N>_left`) keeps its row so the
-// owner can reclaim the colour, but it must not hold the idle window open, or an
-// abandoned room never expires.
+// Seats the match hash counts as occupied right now. A seat is seated only while its
+// player is present: a reserved slot keeps its row so the owner can reclaim the
+// colour, but it must not hold the idle window open.
 export function seatedCount(match: Record<string, string>): number {
   return [1, 2, 3, 4].filter((n) => match[`player${n}_id`] && !match[`player${n}_left`]).length;
 }

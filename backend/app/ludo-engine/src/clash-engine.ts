@@ -28,11 +28,9 @@ import type {
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
 import { CLASH_SWEEP_INTERVAL_MS } from './timing';
 
-// The chain, read out of a deferred capture as plain arrays so one round can be
-// resolved without touching the persisted object's shape. A capture written
-// before the chain existed carries no ledger: it resolves as a single round
-// (R = 1) that sends the whole recorded stack home, which is exactly what that
-// state meant when it was written.
+// The chain ledger, read from a deferred capture as plain arrays so one round
+// resolves without changing the persisted shape. A capture written before the
+// chain has no ledger and resolves as one round that sends the stack home.
 type ChainLedger = {
   round: number;
   totalRounds: number;
@@ -49,21 +47,18 @@ function chainLedgerOf(pc: PendingCapture): ChainLedger {
   };
 }
 
-// ClashEngine owns the clash QTE: the phase timers, the boot recovery (re-arm
-// plus sweep), bot pressers, press recording, and the deferred-capture
-// resolution. LudoEngine injects the game lock and the emit hook, so
-// serialization and the event stream stay single-owned.
+// ClashEngine owns the clash QTE: phase timers, boot recovery, bot pressers,
+// presses and deferred-capture resolution. LudoEngine injects the game lock and
+// emit hook, so serialization and the event stream stay single-owned.
 export class ClashEngine {
   // One timeout per live clash: resolves by most presses once the window ends.
   private clashTimers = new Map<string, ReturnType<typeof setTimeout>>();
   // One timer per game for a chain's inter-round gap: while a round's result card
   // shows there is no live clash, so this is the timer that starts the next one.
   private chainTimers = new Map<string, ReturnType<typeof setTimeout>>();
-  // The result-card release handshake (option 1, 2026-10-17): the card a client is
-  // showing, which USERS may report on it, and who already has. Keyed by game, one
-  // card at a time; the stored `resultCardUntil` is the ceiling and a receipt can
-  // only shorten it. In memory on purpose: a restart drops the handshake and the
-  // ceiling takes over, which is the same degradation as a client that never reports.
+  // Result-card release handshake: the card, the users allowed to report on it and
+  // who already did. Keyed by game; a receipt can only shorten `resultCardUntil`.
+  // Memory only, so a restart drops the handshake and the ceiling takes over.
   private cardHolds = new Map<
     string,
     { id: string; users: Set<string>; ready: Set<string>; midChain: boolean }
@@ -121,11 +116,9 @@ export class ClashEngine {
     void this.store.loadClashState(gameId).then((clash) => {
       if (!clash) return;
       const now = Date.now();
-      // The round these timers belong to. A chain writes a NEW clash for every
-      // round, so a timer armed for round N must never act on round N+1: the
-      // callbacks below bail when the live round is no longer theirs. Without
-      // this a phase timer left over from a round resolved inside its own
-      // announce window would land in the next round and skip its countdown.
+      // The round these timers belong to. A chain writes a new clash every round,
+      // so a timer armed for round N must not act on round N+1. Each callback
+      // bails when the live round is no longer its own.
       const armedRound = clash.round ?? 1;
       const schedule = (delay: number, fn: () => void) => {
         if (delay > 0) {
@@ -203,10 +196,9 @@ export class ClashEngine {
     });
   }
 
-  // Boot-time re-arm: rebuild the exact phase timers from the persisted
-  // deadlines of every active game that still holds a clash. This is the clash
-  // half of the engine's wake pass: the containers restart, Redis keeps the
-  // window, and the QTE resumes where it stopped.
+  // Boot-time re-arm: rebuild the phase timers from the persisted deadlines of
+  // every active game with a clash. This is the clash half of the wake pass, so
+  // the QTE resumes where it stopped.
   private async reArmClashTimers(): Promise<void> {
     try {
       const keys = await this.store.scanGameKeys();
@@ -242,10 +234,9 @@ export class ClashEngine {
             try {
               const st = await this.store.loadGameState(gameId);
               if (!st || st.status !== 'active') continue;
-              // A chain between rounds (no live clash, ledger left): the sweep is
-              // the backstop for a gap timer that never fired, and it is also what
-              // picks a chain up once a paused seat reconnects. A paused chain is
-              // left alone: the reconnect starts it.
+              // A chain between rounds has no live clash but keeps its ledger. The
+              // sweep is the backstop for a gap timer that never fired, and it picks
+              // the chain up after a paused seat reconnects.
               if (!st.clash) {
                 if (st.pendingCapture && !st.paused) await this.startNextRound(gameId);
                 continue;
@@ -280,12 +271,9 @@ export class ClashEngine {
     setInterval(tick, CLASH_SWEEP_INTERVAL_MS);
   }
 
-  // Timeout fallback: most presses wins, and a tie goes to the attacker (one
-  // rule for both clients, so neither side can claim a tie-break edge). The
-  // routine early returns are silent: the 5s sweep would otherwise log noise for
-  // clashes that are simply not due yet. `armedRound` (the round the timer was
-  // armed for, absent when the sweep calls us) makes a timer left over from an
-  // earlier round a no-op instead of an early resolve of the current one.
+  // Timeout fallback: most presses wins; a tie goes to the attacker. Routine early
+  // returns log nothing so the 5 s sweep stays quiet. `armedRound` makes a leftover
+  // timer a no-op instead of an early resolve.
   private async resolveClashOnTimeout(gameId: string, armedRound?: number): Promise<void> {
     try {
       const state = await this.store.loadGameState(gameId);
@@ -294,14 +282,9 @@ export class ClashEngine {
       if (!clash) return;
       if (armedRound !== undefined && (clash.round ?? 1) !== armedRound) return;
       if (clash.phase !== 'pressing') return;
-      // The armed press-deadline timer can fire a millisecond BEFORE the stamp it
-      // was scheduled for: its delay is `deadline - now` with both read off
-      // Date.now(), but the timer expires on the event loop's own millisecond
-      // clock, which can be a tick ahead of that. Returning here would drop the
-      // round quietly and leave the QTE frozen in front of both players until the
-      // 15s sweep (up to ~20s) or a reconnect, so a timer-armed call re-arms the
-      // remainder instead. The sweep passes no round and retries on its own
-      // cadence, so it simply returns.
+      // The press-deadline timer can fire a tick before its stamp: the delay uses
+      // Date.now() while the timer runs on the event loop clock, which can be ahead.
+      // A timer-armed call re-arms the remainder; the sweep passes no round.
       const earlyBy = clash.pressDeadline - Date.now();
       if (earlyBy > 0) {
         if (armedRound !== undefined) this.armResolveAtDeadline(gameId, armedRound, earlyBy);

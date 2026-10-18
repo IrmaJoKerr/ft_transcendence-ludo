@@ -33,11 +33,9 @@ export const CLASH_TAP_COUNT_MAX = 2;
 export const CLASH_BOT_VS_BOT_WIN_CHANCE = 0.5; // bot vs bot: coin flip
 export const CLASH_BOT_VS_HUMAN_WIN_CHANCE = 0.25; // bot vs human: bot win chance
 
-// A wall is fought in ascending piece-id order, so a chain is deterministic: the
-// same board always fights `red-0` before `red-3`, whatever order the pieces
-// happen to sit in the state array (which is rebuilt from Redis on every load).
-// Ids are `{color}-{index}` (see PieceId); a malformed id sorts last, and a tie
-// is broken by the id itself so the order never depends on the input order.
+// Fight a wall in ascending piece-id order so a chain is deterministic across
+// loads and state rebuilds. Ids are `{color}-{index}`; a malformed id sorts last,
+// and the id breaks ties.
 export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   const indexOf = (id: PieceId): number => {
     const suffix = Number(id.slice(id.lastIndexOf('-') + 1));
@@ -46,21 +44,18 @@ export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
-// ClashManager owns one clash QTE's lifecycle: start it, validate and count
-// presses, publish the result and clear it. Phase timers, the recovery sweep and
-// bot pressers live in clash-engine.ts; the clash itself is persisted inside the
-// game state (see redis.ts), so a restart can replay it.
+// ClashManager owns one clash QTE: start, validate and count presses, publish the
+// result, then clear it. Timers, the recovery sweep and bot pressers live in
+// clash-engine.ts; the clash is persisted inside the game state.
 export class ClashManager {
   constructor(
     private store: RedisGameStore,
     private publisher: EventPublisher,
   ) {}
 
-  // Start a clash: pick one key per side, stamp the absolute phase deadlines,
-  // persist them, then announce. Deadlines are absolute timestamps rather than
-  // delays, which is what lets a restarted engine re-arm the same window. `info`
-  // carries the chain's counters and the defender of this round: absent means a
-  // single-defender clash, the R = 1 case of the same shape.
+  // Start a clash: pick one key per side, stamp absolute phase deadlines, persist
+  // them, then announce. `info` carries the chain counters and this round's
+  // defender; absent means one defender, the R = 1 case of the same shape.
   async startClash(
     gameId: string,
     attacker: PlayerColor,
@@ -116,10 +111,9 @@ export class ClashManager {
     });
   }
 
-  // Record one press. Rejected (returns 0, stores nothing) when the press phase
-  // has not started, the deadline has passed, the key is not this player's, or
-  // the press falls inside the per-side cap. Bots skip the key check because
-  // they press their own side programmatically.
+  // Record one press. Return 0 and store nothing when the press phase has not
+  // started, the deadline has passed, the key is not this player's or the press
+  // falls inside the per-side cap. Bots skip the key check.
   async recordPress(
     gameId: string,
     color: PlayerColor,
@@ -146,10 +140,9 @@ export class ClashManager {
     const last = clash.lastPressAt?.[color];
     if (typeof last === 'number' && Date.now() - last < CLASH_PRESS_CAP_MS) return 0;
 
-    // The tablet's tap weight: one tap on the touch pad is worth this many
-    // presses, because tapping a circle is slower and less repeatable than
-    // holding a key down. Clamped here, on the server, so the wire can ask for
-    // nothing heavier than the documented weight.
+    // Tablet tap weight: one tap counts as several presses because tapping is
+    // slower than holding a key. Clamp it here, on the server, so the wire cannot
+    // ask for more than the documented weight.
     const weight = Math.min(CLASH_TAP_COUNT_MAX, Math.max(1, Math.floor(count) || 1));
     const meter = await this.store.recordClashPress(gameId, color, weight);
     // Broadcast the live count to the whole room so both HUDs stay in step. The

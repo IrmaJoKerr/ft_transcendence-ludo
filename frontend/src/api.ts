@@ -14,11 +14,9 @@ function withNgrokHeader(init?: RequestInit): RequestInit {
   return { ...init, headers };
 }
 
-// CSRF: the backend requires a signed double-submit token on every mutating
-// /api request (same-host Origin allow-list + X-CSRF-Token). The token lives in
-// a script-readable cookie, so this wrapper reads it, bootstraps it from
-// GET /api/auth/csrf when absent, and echoes it in the header. Raw fetch() calls
-// that mutate must go through this too.
+// CSRF: the backend requires a signed double-submit token on every mutating /api
+// request. The token lives in a script-readable cookie, so this wrapper reads it,
+// bootstraps it from GET /api/auth/csrf when absent, and echoes the header.
 const CSRF_COOKIE = 'csrf_token';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 

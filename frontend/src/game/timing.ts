@@ -1,12 +1,6 @@
-// The delays the client shows, in one place. The names shared with the engine must keep
-// the same value as `backend/app/ludo-engine/src/timing.ts`: the engine-unit
-// `timing-contract` harness asserts it, so a one-sided edit fails there and not on a
-// tablet.
-//
-// The clash windows below are presentation only (the server sends absolute deadlines and
-// the client derives its phases from them). The result card, the board step and the dice
-// spin are a real contract: the hold forecast is measured against CLASH_RESULT_MS, and
-// the engine paces bots with the same step and dice numbers.
+// The delays the client shows, in one place. The names shared with the engine must
+// match `backend/app/ludo-engine/src/timing.ts`; the timing contract harness asserts
+// it. The clash windows are presentation only, since the server sends deadlines.
 
 export const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("CLASH!") 
 export const CLASH_COUNTDOWN_MS = 3000; // GET READY, then 3-2-1

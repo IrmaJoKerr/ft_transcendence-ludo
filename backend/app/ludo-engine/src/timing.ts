@@ -1,10 +1,6 @@
-// Every delay the engine owns, in one place, so a change is one edit instead of a
-// hunt. The client mirrors the SHARED subset in `frontend/src/game/timing.ts`, and
-// `Test-harnesses/engine-unit/timing-contract-harness.ts` asserts the two agree, so a
-// one-sided change fails there instead of drifting silently.
-//
-// Shared with the client (pinned by that harness): the clash windows, the result
-// card, the board step and the dice spin. Engine-only: bot pacing, budgets, presence.
+// Every delay the engine owns, in one place. The client mirrors the shared subset in
+// `frontend/src/game/timing.ts`, and the timing contract harness asserts the two
+// agree, so a one-sided change fails there instead of drifting unnoticed.
 
 // --- clash QTE ----------------------------------------------------------------
 export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden

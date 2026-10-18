@@ -10,16 +10,7 @@ const LANGS: readonly { code: Lang; short: string; full: string }[] = [
   { code: 'fr', short: 'FR', full: 'FRANÇAIS' },
 ];
 
-/**
- * Segmented EN / MS / FR switch, shared by the legal pages, the login card and the
- * navbar account popover, so all three offer the same control in the same visual
- * language. The caller owns the active language: the legal pages keep their
- * document language in local state, while the login and the navbar write straight
- * to the store.
- *
- * Two renderings: `pill` is the compact one-line control of the auth surfaces;
- * `tabs` is the taller two-line tab set of the account popover.
- */
+/** Segmented EN / MS / FR switch; the caller owns the active language. */
 export function LanguageSwitcher({
   value,
   onChange,

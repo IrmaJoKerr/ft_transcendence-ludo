@@ -151,10 +151,9 @@ model GameParticipant {
 
 // ─── Friendship ──────────────────────────────────────────────────────────────
 
-// One row per unordered user pair (a "superset" row). Each direction carries
-// its own status (user1Status = user1's action toward user2), so a block on one
-// side can never be silently rewritten from the other side. pairKey is the
-// sorted "min:max" id pair and enforces one row per pair.
+// One row per unordered user pair. Each direction carries its own status, so a
+// block on one side cannot be rewritten from the other. pairKey is the sorted
+// "min:max" id pair and enforces one row per pair.
 model Friendship {
   id      String @id
   pairKey String @unique
@@ -182,9 +181,8 @@ model Friendship {
 }
 
 // ─── Notification ────────────────────────────────────────────────────────────
-// Persisted so the bell icon can show missed notifications from when the user
-// was offline. The SSE stream pushes new ones in real time; this table is the
-// source of truth for the unread list on page load.
+// Persisted so the bell icon shows missed notifications from offline time. The SSE
+// stream pushes new ones; this table is the source of truth for the unread list.
 
 model Notification {
   id        String   @id @default(uuid())
