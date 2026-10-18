@@ -1,8 +1,11 @@
 import { Controller, Get, Patch, Post, Param, Sse, UseGuards, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { NOTIFICATION_THROTTLE } from '../common/throttles';
 import { Observable, map, finalize, interval, merge } from 'rxjs';
 import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { NotificationPayload } from './notification.service';
+
 
 // NestJS's Sse decorator expects each emission to be a MessageEvent :
 // the shape { data: ... } that the browser's EventSource API understands.
@@ -27,6 +30,7 @@ export class NotificationController {
   // Opened once on login; one JSON event per notification via Redis Pub/Sub.
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(NOTIFICATION_THROTTLE.stream)
   @Sse('api/notifications/stream')
   stream(@Request() req: { user: { id: string } }): Observable<MessageEvent> {
     const userId = req.user.id;
@@ -69,6 +73,7 @@ export class NotificationController {
   // Mark a single notification as read : called when the user clicks on a
   // notification in the dropdown or interacts with a toast.
   @UseGuards(JwtAuthGuard)
+  @Throttle(NOTIFICATION_THROTTLE.markRead)
   @Patch('api/notifications/:id/read')
   markRead(@Request() req: { user: { id: string } }, @Param('id') notificationId: string) {
     return this.notifications.markRead(notificationId, req.user.id);
@@ -77,6 +82,7 @@ export class NotificationController {
   // Mark all notifications as read : called when the user clicks
   // "Mark all as read" in the bell dropdown.
   @UseGuards(JwtAuthGuard)
+  @Throttle(NOTIFICATION_THROTTLE.markAllRead)
   @Post('api/notifications/read-all')
   markAllRead(@Request() req: { user: { id: string } }) {
     return this.notifications.markAllRead(req.user.id);

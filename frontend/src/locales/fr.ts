@@ -13,6 +13,12 @@ export const fr = {
     landscapeNotice:
       "Jouable uniquement en mode paysage sur un appareil de la taille d'une tablette (iOS ou Android) ou sur un ordinateur avec un clavier. Google Chrome est recommandé.",
   },
+  passwordInfo: {
+    label: 'Exigences du mot de passe',
+    hint: '12–72 caractères, majuscule, minuscule, chiffre, caractère spécial.',
+    error:
+      'Erreur : le mot de passe doit contenir 12–72 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.',
+  },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mail déjà enregistré. Utilisez un autre e-mail',
     AUTH_EMAIL_SEND_FAILED: "Impossible d'envoyer l'e-mail : réessayez plus tard",
@@ -24,6 +30,10 @@ export const fr = {
     AUTH_CODE_RESEND_LOCKED: 'Trop de demandes de code: réessayez plus tard.',
     AUTH_NOT_AUTHENTICATED: 'Non authentifié',
     AUTH_SESSION_EXPIRED: 'Session expirée : veuillez vous reconnecter',
+    AUTH_SESSION_REUSED: 'Échec du contrôle de sécurité de la session : veuillez vous reconnecter',
+    CSRF_TOKEN_INVALID: 'Votre jeton de sécurité a expiré : rechargez la page et réessayez',
+    CSRF_ORIGIN_REJECTED: 'Cette requête a été bloquée pour des raisons de sécurité',
+    NOTIFICATION_STREAM_LIMIT: 'Trop de flux de notifications ouverts',
     AUTH_DISPLAY_NAME_TAKEN: 'Nom d\'affichage déjà pris',
     AUTH_DISPLAY_NAME_RESERVED: 'Le nom d\'affichage ne peut pas commencer par « bot- »',
     AUTH_CURRENT_PASSWORD_INCORRECT: 'Le mot de passe actuel est incorrect',
@@ -610,7 +620,6 @@ export const fr = {
     newPasswordPlaceholder: 'Entrez le nouveau mot de passe',
     confirmPassword: 'Confirmer le nouveau mot de passe',
     confirmPasswordPlaceholder: 'Ressaisissez le nouveau mot de passe',
-    passwordHint: 'EXIGENCES : 12+ caractères, majuscule, minuscule, chiffre, caractère spécial.',
     newPasswordRequired: 'Entrez un nouveau mot de passe.',
     passwordMismatch: 'Les mots de passe ne correspondent pas.',
     oauthMethods: 'Méthodes de connexion',
@@ -626,6 +635,7 @@ export const fr = {
     resend: 'Renvoyer',
     emailResent: 'E-mail de confirmation renvoyé.',
     emailPasswordRequired: "Saisissez votre mot de passe actuel pour changer d'e-mail.",
+    passwordConfirmRequired: 'Saisissez votre mot de passe actuel pour confirmer cette modification.',
     emailSetPasswordFirst: 'Définissez un mot de passe avant de changer votre e-mail.',
     emailChangeSeparateSave: "Définissez d'abord votre mot de passe (Enregistrer), puis changez votre e-mail.",
     emailChangedNotice: 'E-mail mis à jour.',
@@ -688,6 +698,9 @@ export const fr = {
     accountMenuAria: 'Paramètres du compte, langue et 2FA',
     accountMenuTitle: 'Paramètres du compte, langue et 2FA',
     toggle2fa: "Activer/désactiver l'authentification à deux facteurs",
+    twoFactorPasswordPrompt: 'Entrez votre mot de passe actuel pour modifier la 2FA',
+    confirm: 'CONFIRMER',
+    cancel: 'ANNULER',
     toggleAudio: 'Activer/désactiver tout le son du jeu (musique + effets sonores)',
     languageLabel: 'LANGUE // LANGUAGE',
     twoFactorLabel: 'AUTH 2FA',
@@ -706,7 +719,7 @@ export const fr = {
   },
   authExtra: {
     brandTitle: 'LUDO RÉTRO',
-    brandTagline: 'LANCEZ LANCEZ LANCEZ LANCEZ',
+    brandTagline: 'Que les dés soient avec vous.',
     twoFactorAuthTitle: 'AUTHENTIFICATION À DEUX FACTEURS',
     verifyEnterArenaBtn: "VÉRIFIER ET ENTRER DANS L'ARÈNE",
   },

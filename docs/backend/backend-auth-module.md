@@ -151,6 +151,7 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `POST` | `/api/auth/register` | None | Create account, send verification email (no session set) |
+| `GET` | `/api/auth/csrf` | None | Return the signed CSRF token and set the `csrf_token` cookie |
 | `POST` | `/api/auth/verify-email` | None | Redeem a signup or email-change link (token in the body, never the URL); returns `{ result }` for the SPA to route on |
 | `POST` | `/api/auth/resend-verification` | None | Resend a signup verification link (generic response, throttled 3/h) |
 | `POST` | `/api/auth/profile/resend-email-change` | JWT | Resend the pending email-change link (throttled 5/h) |
@@ -163,11 +164,11 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])
 | `POST` | `/api/auth/logout` | None | Revoke refresh token, clear both cookies |
 | `GET` | `/api/auth/me` | JWT | Return current user from cookie |
 | `GET` | `/api/auth/profile` | JWT | Full profile for the Edit-Profile card (email, providers, hasPassword) |
-| `PATCH` | `/api/auth/profile` | JWT | Update profile (display name, email, 2FA, OAuth). Email changes are verify-then-commit |
+| `PATCH` | `/api/auth/profile` | JWT | Update profile (display name, email, 2FA, OAuth). Email changes are verify-then-commit; sensitive fields need `currentPassword` |
 | `PATCH` | `/api/auth/profile/password` | JWT | Change password while logged in (needs current password) |
 | `DELETE` | `/api/auth/profile` | JWT | Permanently delete the account (password-verified) |
 | `GET` | `/api/auth/2fa` | JWT | Get current user's 2FA preference |
-| `PATCH` | `/api/auth/2fa` | JWT | Toggle the user's 2FA preference |
+| `PATCH` | `/api/auth/2fa` | JWT | Toggle the user's 2FA preference (needs `currentPassword` on a password account) |
 | `GET` | `/api/auth/google` | None | Redirect to Google OAuth |
 | `GET` | `/api/auth/google/callback` | None | Google OAuth callback |
 | `GET` | `/api/auth/github` | None | Redirect to GitHub OAuth |
@@ -196,7 +197,8 @@ no `GET` variant: links minted before this change 404 by design (see
 ### Rate limits
 
 The controller sets a per-IP limit on the routes below; every other route falls back to the global
-throttler default (300 requests per 60 s, installed in `app.module.ts`).
+throttler default (300 requests per 60 s, installed in `app.module.ts`). All route limits, including
+the non-auth controllers', are declared in `backend/src/common/throttles.ts`.
 
 | Route | Limit |
 |-------|-------|
@@ -204,9 +206,14 @@ throttler default (300 requests per 60 s, installed in `app.module.ts`).
 | `POST /api/auth/login` | 5 per minute, per address (plus the per-account lockout below) |
 | `POST /api/auth/2fa/verify` | 5 per minute |
 | `POST /api/auth/2fa/resend` | 5 per hour (+ 3 per hour per user) |
+| `PATCH /api/auth/2fa` | 10 per hour |
 | `POST /api/auth/refresh` | 30 per minute |
 | `POST /api/auth/forgot-password` | 3 per hour |
 | `POST /api/auth/reset-password` | 5 per 15 minutes |
+| `PATCH /api/auth/profile` | 10 per hour |
+| `POST /api/auth/profile/resend-email-change` | 5 per hour |
+| `PATCH /api/auth/profile/password` | 5 per hour |
+| `DELETE /api/auth/profile` | 5 per hour |
 
 The counted address is the client's own: `main.ts` trusts internal hops only, so a client-sent
 `X-Forwarded-For` cannot move a request into a different bucket.
@@ -246,6 +253,11 @@ Two httpOnly cookies are used:
 | secure | `true` in production | `true` in production |
 | path | `/` | `/api/auth` |
 | maxAge | 15 minutes (`ACCESS_MAX_AGE_MS`) | 7 days (`REFRESH_MAX_AGE_MS` / `REFRESH_TTL_S`) |
+
+**CSRF cookie:** `csrf_token` is the one script-readable cookie (httpOnly `false`, `SameSite=Lax`,
+`Secure` in production, path `/`, 7 days). It holds `nonce.HMAC` and must be echoed in
+`X-CSRF-Token` on every mutating `/api` call; `common/csrf.ts` enforces it together with an
+Origin/Referer allow-list, and `GET /api/auth/csrf` reissues it. It carries no authority on its own.
 
 ### Token scope
 
@@ -412,6 +424,14 @@ sequenceDiagram
         Site->>Site: Send the user to the login page
     end
 ```
+
+Rotation is atomic: `SessionService.rotate` consumes the old hash with Redis `GETDEL`, so two
+callers presenting the same token cannot both mint a session. The consumed hash is written to
+`refresh-used:<hash>` (TTL = refresh lifetime) with the replacement's hash and a timestamp. A replay
+within 15 s whose replacement is still live is the two-tab race described in
+`frontend/src/authRefreshLock.ts` and is answered as `AUTH_SESSION_EXPIRED` without revoking
+anything; a replay outside that window is treated as theft — every session of the user is revoked
+and the response is `401 AUTH_SESSION_REUSED`.
 
 ### 5. Forgot / Reset Password Flow
 

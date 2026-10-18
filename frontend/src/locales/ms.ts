@@ -12,6 +12,12 @@ export const ms = {
     landscapeNotice:
       'Hanya boleh dimainkan dalam mod landskap pada peranti bersaiz tablet (iOS atau Android) atau pada komputer dengan papan kekunci. Google Chrome disyorkan.',
   },
+  passwordInfo: {
+    label: 'Keperluan kata laluan',
+    hint: '12–72 aksara, huruf besar, huruf kecil, nombor, aksara khas.',
+    error:
+      'Ralat: Kata laluan mesti 12–72 aksara dengan huruf besar, huruf kecil, nombor dan aksara khas.',
+  },
   errors: {
     AUTH_EMAIL_TAKEN: 'E-mel sudah didaftarkan. Gunakan e-mel lain',
     AUTH_EMAIL_SEND_FAILED: 'E-mel tidak dapat dihantar: cuba lagi kemudian',
@@ -23,6 +29,10 @@ export const ms = {
     AUTH_CODE_RESEND_LOCKED: 'Terlalu banyak permintaan kod: cuba lagi kemudian.',
     AUTH_NOT_AUTHENTICATED: 'Tidak disahkan',
     AUTH_SESSION_EXPIRED: 'Sesi tamat: sila log masuk semula',
+    AUTH_SESSION_REUSED: 'Semakan keselamatan sesi gagal: sila log masuk semula',
+    CSRF_TOKEN_INVALID: 'Token keselamatan anda telah tamat: muat semula halaman dan cuba lagi',
+    CSRF_ORIGIN_REJECTED: 'Permintaan ini disekat atas sebab keselamatan',
+    NOTIFICATION_STREAM_LIMIT: 'Terlalu banyak strim notifikasi terbuka',
     AUTH_DISPLAY_NAME_TAKEN: 'Nama paparan sudah digunakan',
     AUTH_DISPLAY_NAME_RESERVED: 'Nama paparan tidak boleh bermula dengan "bot-"',
     AUTH_CURRENT_PASSWORD_INCORRECT: 'Kata laluan semasa tidak betul',
@@ -604,7 +614,6 @@ export const ms = {
     newPasswordPlaceholder: 'Masukkan kata laluan baharu',
     confirmPassword: 'Sahkan kata laluan baharu',
     confirmPasswordPlaceholder: 'Masukkan semula kata laluan baharu',
-    passwordHint: 'KEPERLUAN: 12+ aksara, huruf besar, huruf kecil, nombor, aksara khas.',
     newPasswordRequired: 'Masukkan kata laluan baharu.',
     passwordMismatch: 'Kata laluan tidak sepadan.',
     oauthMethods: 'Kaedah log masuk',
@@ -620,6 +629,7 @@ export const ms = {
     resend: 'Hantar semula',
     emailResent: 'E-mel pengesahan dihantar semula.',
     emailPasswordRequired: 'Masukkan kata laluan semasa anda untuk menukar e-mel.',
+    passwordConfirmRequired: 'Masukkan kata laluan semasa anda untuk mengesahkan perubahan ini.',
     emailSetPasswordFirst: 'Tetapkan kata laluan sebelum menukar e-mel anda.',
     emailChangeSeparateSave: 'Tetapkan kata laluan anda dahulu (Simpan), kemudian tukar e-mel anda.',
     emailChangedNotice: 'E-mel dikemas kini.',
@@ -682,6 +692,9 @@ export const ms = {
     accountMenuAria: 'Tetapan Akaun, Bahasa dan 2FA',
     accountMenuTitle: 'Tetapan Akaun, Bahasa & 2FA',
     toggle2fa: 'Togol Pengesahan Dua Faktor',
+    twoFactorPasswordPrompt: 'Masukkan kata laluan semasa anda untuk menukar 2FA',
+    confirm: 'SAHKAN',
+    cancel: 'BATAL',
     toggleAudio: 'Togol semua audio permainan (muzik + kesan bunyi)',
     languageLabel: 'BAHASA // LANGUAGE',
     twoFactorLabel: 'AUTH 2FA',
@@ -700,7 +713,7 @@ export const ms = {
   },
   authExtra: {
     brandTitle: 'LUDO RETRO',
-    brandTagline: 'GULING GULING GULING GULING',
+    brandTagline: 'Semoga dadu bersama anda.',
     twoFactorAuthTitle: 'PENGESAHAN DUA FAKTOR',
     verifyEnterArenaBtn: 'SAHKAN & MASUK ARENA',
   },

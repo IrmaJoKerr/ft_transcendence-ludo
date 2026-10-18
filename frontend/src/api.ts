@@ -14,6 +14,77 @@ function withNgrokHeader(init?: RequestInit): RequestInit {
   return { ...init, headers };
 }
 
+// CSRF: the backend requires a signed double-submit token on every mutating
+// /api request (same-host Origin allow-list + X-CSRF-Token). The token lives in
+// a script-readable cookie, so this wrapper reads it, bootstraps it from
+// GET /api/auth/csrf when absent, and echoes it in the header. Raw fetch() calls
+// that mutate must go through this too.
+const CSRF_COOKIE = 'csrf_token';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function readCookie(name: string): string | null {
+  const prefix = `${name}=`;
+  const row = document.cookie.split('; ').find((entry) => entry.startsWith(prefix));
+  return row ? decodeURIComponent(row.slice(prefix.length)) : null;
+}
+
+let csrfRequest: Promise<string | null> | null = null;
+
+function ensureCsrfToken(force = false): Promise<string | null> {
+  if (!force) {
+    const existing = readCookie(CSRF_COOKIE);
+    if (existing) return Promise.resolve(existing);
+  }
+  if (csrfRequest) return csrfRequest;
+  csrfRequest = (async () => {
+    try {
+      // The response sets the cookie; the body is not needed.
+      const res = await fetch('/api/auth/csrf', withNgrokHeader({ credentials: 'include' }));
+      return res.ok ? readCookie(CSRF_COOKIE) : null;
+    } catch {
+      return null;
+    } finally {
+      csrfRequest = null;
+    }
+  })();
+  return csrfRequest;
+}
+
+async function sendWithToken(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  token: string,
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set('X-CSRF-Token', token);
+  return fetch(input, { ...init, headers });
+}
+
+// fetch() that satisfies the CSRF check. A 403 CSRF_TOKEN_INVALID (stale token
+// after a backend restart, or two tabs bootstrapping at once) is retried once
+// with a freshly minted token, so only a real cross-site attempt fails.
+export async function fetchWithCsrf(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const base = withNgrokHeader(init);
+  if (!MUTATING_METHODS.has(method)) return fetch(input, base);
+
+  const token = await ensureCsrfToken();
+  if (!token) return fetch(input, base);
+
+  let res = await sendWithToken(input, base, token);
+  if (res.status === 403) {
+    const body = (await res.clone().json().catch(() => null)) as { code?: string } | null;
+    if (body?.code === 'CSRF_TOKEN_INVALID') {
+      const fresh = await ensureCsrfToken(true);
+      if (fresh && fresh !== token) res = await sendWithToken(input, base, fresh);
+    }
+  }
+  return res;
+}
+
 // Refresh outcomes: 'ok' → retry the call; 'expired' → signed out; 'blocked' →
 // refresh failed (rate limit/server/offline), keeping its status/retryAfter so
 // callers don't mistake it for a logout.
@@ -65,9 +136,7 @@ async function coordinatedRefresh(): Promise<RefreshResult> {
 
 // Ask the server to rotate the session cookies.
 async function postRefresh(): Promise<RefreshResult> {
-  const res = await fetch('/api/auth/refresh', withNgrokHeader({ method: 'POST' })).catch(
-    () => null,
-  );
+  const res = await fetchWithCsrf('/api/auth/refresh', { method: 'POST' }).catch(() => null);
   if (!res) return { outcome: 'blocked', status: 503, retryAfter: null };
   if (res.ok) return { outcome: 'ok' };
   if (res.status !== 401 && res.status !== 403) {
@@ -104,12 +173,11 @@ async function probeSession(): Promise<RefreshResult> {
 // Expired refresh returns the 401 (signed out); blocked refresh returns its own
 // status. Retries reuse `init`, so keep bodies as plain values, not streams.
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const finalInit = withNgrokHeader(init);
-  const res = await fetch(input, finalInit);
+  const res = await fetchWithCsrf(input, init);
   if (res.status !== 401) return res;
 
   const result = await refreshOnce();
-  if (result.outcome === 'ok') return fetch(input, finalInit);
+  if (result.outcome === 'ok') return fetchWithCsrf(input, init);
   if (result.outcome === 'expired') return res;
 
   return new Response(null, {

@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout } from '../components/RetroAuthLayout';
+import { PasswordInfo } from '../components/PasswordInfo';
+import { FieldError } from '../components/FieldError';
 import { navigate } from '../router';
 import { useApp } from '../store';
-import { passwordError } from '../validatePassword';
+import { passwordMeetsPolicy } from '../validatePassword';
 import '../styles/retrowave.css';
 import {
   RETRO_AUTH_BTN,
@@ -34,6 +36,10 @@ export function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Field-level slots: filled on submit, cleared as soon as that field is
+  // edited, so the red text never nags while someone is still typing.
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -71,15 +77,11 @@ export function ResetPassword() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (submitting) return;
-    const pwError = passwordError(password);
-    if (pwError) {
-      setError(pwError);
-      return;
-    }
-    if (password !== confirm) {
-      setError(t('auth.passwordMismatch'));
-      return;
-    }
+    const policyOk = passwordMeetsPolicy(password);
+    const matchOk = password === confirm;
+    setPasswordFieldError(policyOk ? null : t('passwordInfo.error'));
+    setConfirmFieldError(matchOk ? null : t('auth.passwordMismatch'));
+    if (!policyOk || !matchOk) return;
     setSubmitting(true);
     setError(null);
     const err = await resetPassword(token, password);
@@ -103,27 +105,43 @@ export function ResetPassword() {
           <div className={RETRO_AUTH_SUBTITLE}>{t('auth.newPasswordDesc')}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <div className={RETRO_AUTH_LABEL}>{t('auth.newPasswordLabel')}</div>
+          <div
+            className={RETRO_AUTH_LABEL}
+            style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
+          >
+            <span>{t('auth.newPasswordLabel')}</span>
+            <PasswordInfo />
+          </div>
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setPasswordFieldError(null);
+              // The pair changed, so a mismatch note is stale too.
+              setConfirmFieldError(null);
+            }}
             placeholder={t('auth.passwordPlaceholderSignup')}
             autoComplete="new-password"
             autoFocus
             className={RETRO_AUTH_INPUT}
           />
+          <FieldError message={passwordFieldError} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <div className={RETRO_AUTH_LABEL}>{t('auth.confirmPasswordLabel')}</div>
           <input
             type="password"
             value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
+            onChange={(e) => {
+              setConfirm(e.target.value);
+              setConfirmFieldError(null);
+            }}
             placeholder="••••••••"
             autoComplete="new-password"
             className={RETRO_AUTH_INPUT}
           />
+          <FieldError message={confirmFieldError} />
         </div>
         {error && <div className={RETRO_AUTH_ERROR}>{error}</div>}
         <button type="submit" disabled={submitting} className={RETRO_AUTH_BTN}>

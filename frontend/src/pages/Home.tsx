@@ -324,7 +324,7 @@ export function Home() {
         ctx.ellipse(p.x, p.y + 12, 15, 5, 0, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.font = '8.5px "Press Start 2P", monospace';
+        ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(p.label, p.x, p.y - 13 + pulse);
         ctx.restore();
@@ -332,7 +332,7 @@ export function Home() {
 
       // 6. Marquee Title on Top of Screen
       ctx.save();
-      ctx.font = '12px "Press Start 2P", monospace';
+      ctx.font = '13px "Atkinson Hyperlegible Next", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = cfg.marqueeColor;
       ctx.shadowColor = cfg.marqueeColor;

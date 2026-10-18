@@ -18,6 +18,11 @@ input {
   font-family: inherit;
 }
 
+/* The whole UI uses the low-vision Atkinson faces; Mono has its own token. */
+body {
+  font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+}
+
 input::placeholder {
   color: #7a6c56;
 }

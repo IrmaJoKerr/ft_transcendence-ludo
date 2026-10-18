@@ -41,7 +41,9 @@ Login shows the brand title and the tagline from `authExtra.brandTitle` and `aut
 | `src/pages/ResetPassword.tsx` | Password reset — step 2 (set new password) |
 | `src/components/RetroAuthLayout.tsx` | Layout wrapper — logo, tagline, centered card (imports `GRID_BACKGROUND` from `styles/tw.ts`); also exports `NeonCheck`, the terms-tick glyph |
 | `src/components/OAuthButtons.tsx` | 42, GitHub, Google provider buttons |
-| `src/validatePassword.ts` | Client-side password-policy check (`passwordError`) |
+| `src/components/PasswordInfo.tsx` | "i" badge beside a new-password label; explains the policy on hover and keyboard focus |
+| `src/components/FieldError.tsx` | Inline error slot for one field: reserves two lines, `role="alert"`, empty until submit |
+| `src/validatePassword.ts` | Client-side password-policy check (`passwordMeetsPolicy`) |
 | `src/validateEmail.ts` | Loose client-side email-format check (`isValidEmail`) |
 
 
@@ -70,6 +72,8 @@ const [username, setUsername] = useState('')
 const [email, setEmail] = useState('')
 const [password, setPassword] = useState('')
 const [confirm, setConfirm] = useState('')
+const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null)
+const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null)
 const [error, setError] = useState<string | null>(null)
 const [submitting, setSubmitting] = useState(false)
 const [agreed, setAgreed] = useState(false)
@@ -82,9 +86,11 @@ const [legalOpen, setLegalOpen] = useState(false)
 |-------|------|
 | Username | Required. The backend enforces 3-20 chars, alphanumeric + underscore only; the signup form does not validate it client-side. |
 | Email | Required, valid email format (`isValidEmail`, a loose mirror of the backend `@IsEmail()`; used for verification and 2FA) |
-| Password | Required, 12-72 chars, must contain uppercase, lowercase, number, and special character (`passwordError`) |
+| Password | Required, 12-72 chars, must contain uppercase, lowercase, number, and special character (`passwordMeetsPolicy`) |
 | Confirm | Must match password |
 | Agree | Must be ticked before the form submits; its link opens the legal popup |
+
+Policy and confirmation failures are per-field: `FieldError` renders them under the password and confirm inputs using `passwordInfo.error` and `auth.passwordMismatch`, filled only on submit and cleared as soon as that field is edited. The form-level `error` stays for email-format, terms and backend errors.
 
 
 ---
@@ -199,8 +205,9 @@ onSubmit(e)
   ├── e.preventDefault()
   ├── If submitting → return
   ├── If !isValidEmail(email) → setError(the email-format message); return
-  ├── If passwordError(password) → setError(the password rule message); return
-  ├── If password !== confirm → setError('Passwords do not match'); return
+  ├── policyOk = passwordMeetsPolicy(password); setPasswordFieldError(policyOk ? null : t('passwordInfo.error'))
+  ├── matchOk = password === confirm; setConfirmFieldError(matchOk ? null : t('auth.passwordMismatch'))
+  ├── If !policyOk or !matchOk → return  (each message sits under its own input)
   ├── If !agreed → setError(the terms message); return
   ├── register(username, password, email)
   │   ├── POST /api/auth/register

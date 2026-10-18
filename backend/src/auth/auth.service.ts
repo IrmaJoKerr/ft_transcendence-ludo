@@ -512,6 +512,13 @@ export class AuthService implements OnModuleDestroy {
         message: 'Not authenticated',
       });
     const rotated = await this.session.rotate(refreshToken);
+    // A token that was already rotated and came back outside the race window:
+    // the session store has revoked every session of that user already.
+    if (rotated && 'reused' in rotated)
+      throw new UnauthorizedException({
+        code: 'AUTH_SESSION_REUSED',
+        message: 'Refresh token reuse detected : all sessions were revoked',
+      });
     if (!rotated)
       throw new UnauthorizedException({
         code: 'AUTH_SESSION_EXPIRED',
@@ -594,8 +601,26 @@ export class AuthService implements OnModuleDestroy {
     return { twoFactorEnabled: user.twoFactorEnabled };
   }
 
-  // Turn email-code 2FA on or off for the user.
-  async setTwoFactorSetting(userId: string, enabled: boolean) {
+  // Turn email-code 2FA on or off for the user. Turning it off weakens the
+  // account, so a password account must confirm its current password first;
+  // OAuth-only accounts are trusted through the active session.
+  async setTwoFactorSetting(userId: string, enabled: boolean, currentPassword?: string) {
+    const user = await this.prisma.db.user.findUnique({
+      where: { id: userId },
+      select: { password_hash: true, twoFactorEnabled: true },
+    });
+    if (!user)
+      throw new UnauthorizedException({ code: 'USER_NOT_FOUND', message: 'User not found' });
+
+    if (enabled !== user.twoFactorEnabled && user.password_hash) {
+      const matches = await bcrypt.compare(currentPassword ?? '', user.password_hash);
+      if (!matches)
+        throw new UnauthorizedException({
+          code: 'AUTH_CURRENT_PASSWORD_INCORRECT',
+          message: 'Current password is incorrect',
+        });
+    }
+
     await this.prisma.db.user.update({
       where: { id: userId },
       data: { twoFactorEnabled: enabled },
@@ -632,6 +657,34 @@ export class AuthService implements OnModuleDestroy {
     // (see below), so it is deliberately not collected here.
     const changedItems: string[] = [];
 
+    // Re-auth gate for the changes that can weaken or repoint the account:
+    // email, the 2FA toggle and OAuth linking/unlinking. One current-password
+    // check covers whichever of them this request asks for. OAuth-only accounts
+    // have no password to confirm and are trusted through the active session
+    // (an email change still requires setting a password first, below).
+    const requestedEmail = dto.email !== undefined ? normalizeEmail(dto.email) : undefined;
+    const pendingEmail =
+      requestedEmail !== undefined
+        ? (await this.twoFactor.peekEmailChange(userId))?.newEmail
+        : undefined;
+    const emailChanging =
+      requestedEmail !== undefined &&
+      requestedEmail !== user.email &&
+      requestedEmail !== pendingEmail;
+    const twoFactorChanging =
+      dto.twoFactorEnabled !== undefined && dto.twoFactorEnabled !== user.twoFactorEnabled;
+    const oauthChanging = dto.oauthToAdd !== undefined || dto.oauthToRemove !== undefined;
+
+    if (user.password_hash && (emailChanging || twoFactorChanging || oauthChanging)) {
+      const passwordOk = await bcrypt.compare(dto.currentPassword ?? '', user.password_hash);
+      if (!passwordOk) {
+        throw new UnauthorizedException({
+          code: 'AUTH_CURRENT_PASSWORD_INCORRECT',
+          message: 'Current password is incorrect',
+        });
+      }
+    }
+
     if (dto.displayName !== undefined && dto.displayName !== user.displayName) {
       // No masquerading as a bot.
       if (isReservedBotName(dto.displayName)) {
@@ -651,41 +704,31 @@ export class AuthService implements OnModuleDestroy {
       data.displayName = dto.displayName;
     }
 
-    if (dto.email !== undefined) {
-      const email = normalizeEmail(dto.email);
-      const pendingEmail = (await this.twoFactor.peekEmailChange(userId))?.newEmail;
-      if (email !== user.email && email !== pendingEmail) {
-        // A password is required to change the address; OAuth-only accounts must
-        // set one first (mirrors deleteAccount).
-        if (!user.password_hash) {
-          throw new BadRequestException({
-            code: 'AUTH_EMAIL_CHANGE_SET_PASSWORD',
-            message: 'Set a password before changing your email',
-          });
-        }
-        const passwordOk = await bcrypt.compare(dto.currentPassword ?? '', user.password_hash);
-        if (!passwordOk) {
-          throw new UnauthorizedException({
-            code: 'AUTH_CURRENT_PASSWORD_INCORRECT',
-            message: 'Current password is incorrect',
-          });
-        }
-        // Per-user cap on address changes (separate from the route-level throttle).
-        await this.enforceEmailChangeLimit(userId);
-        const emailTaken = await this.prisma.db.user.findUnique({ where: { email } });
-        if (emailTaken) {
-          throw new ConflictException({
-            code: 'AUTH_EMAIL_TAKEN',
-            message: 'Email already registered. Use a different email',
-          });
-        }
-        // Stage the change (verify-then-commit): the row email is NOT touched
-        // yet. The token + pending payload live in Redis with a 15-min TTL; the
-        // reverse pointer is what the expiry listener watches.
-        changeToken = await this.twoFactor.createEmailChangeToken(userId, email);
-        emailChanged = true;
-        newEmail = email;
+    if (emailChanging && requestedEmail !== undefined) {
+      // A password is required to change the address; OAuth-only accounts must
+      // set one first (mirrors deleteAccount). The password was checked in the
+      // re-auth gate above when the account has one.
+      if (!user.password_hash) {
+        throw new BadRequestException({
+          code: 'AUTH_EMAIL_CHANGE_SET_PASSWORD',
+          message: 'Set a password before changing your email',
+        });
       }
+      // Per-user cap on address changes (separate from the route-level throttle).
+      await this.enforceEmailChangeLimit(userId);
+      const emailTaken = await this.prisma.db.user.findUnique({ where: { email: requestedEmail } });
+      if (emailTaken) {
+        throw new ConflictException({
+          code: 'AUTH_EMAIL_TAKEN',
+          message: 'Email already registered. Use a different email',
+        });
+      }
+      // Stage the change (verify-then-commit): the row email is NOT touched
+      // yet. The token + pending payload live in Redis with a 15-min TTL; the
+      // reverse pointer is what the expiry listener watches.
+      changeToken = await this.twoFactor.createEmailChangeToken(userId, requestedEmail);
+      emailChanged = true;
+      newEmail = requestedEmail;
     }
 
     if (dto.twoFactorEnabled !== undefined) {

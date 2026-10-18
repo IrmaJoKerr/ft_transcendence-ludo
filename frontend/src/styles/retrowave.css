@@ -2,8 +2,6 @@
    RETRO WAVE ARCADE & OS - MAIN STYLESHEET
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-
 /* --------------------------------------------------------------------------
    THEME DESIGN SYSTEM TOKENS
    -------------------------------------------------------------------------- */
@@ -24,9 +22,13 @@
   --text-soft: #d4caef;
   --border-color: #ff007f;
   --box-shadow: 0 0 15px rgba(255, 0, 127, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.2);
-  --font-heading: 'Press Start 2P', cursive;
-  --font-display: 'Orbitron', sans-serif;
-  --font-mono: 'Share Tech Mono', monospace;
+  /* Both halves of the Atkinson Hyperlegible family from the Braille
+     Institute, which is designed for low-vision legibility. Next is the
+     proportional UI face; Mono is its companion for the old monospace token,
+     so tabular readouts and room codes keep their fixed-width alignment. */
+  --font-heading: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-display: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace;
   --grid-line-color: rgba(255, 0, 127, 0.35);
   --grid-bg-glow: rgba(157, 0, 255, 0.2);
   --btn-bg: linear-gradient(135deg, #ff007f, #9d00ff);
@@ -183,11 +185,6 @@ canvas#snakeCanvas {
    CUSTOM RETRO FIELDSET & COLOR SCHEME COMPONENT
    ========================================================================== */
 
-@font-face {
-  src: url('https://assets.codepen.io/2392/Silkscreen-Regular.woff2');
-  font-family: 'Silkscreen';
-}
-
 /* Base Theme Variable Mapping */
 :root {
   --fs-border: #ff007f;
@@ -211,7 +208,7 @@ canvas#snakeCanvas {
   outline-offset: 2px;
   filter: drop-shadow(0 0 8px var(--fs-glow));
 
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   letter-spacing: -0.05ch;
   text-rendering: geometricprecision;

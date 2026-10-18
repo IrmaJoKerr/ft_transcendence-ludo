@@ -34,8 +34,8 @@ section itself lists them in full.
   - ↳ threats: clickjacking, MIME sniffing, referrer leakage, inline script execution from any injection point, and data exfiltration through an image or a `fetch`
 - [Rate limiting](#rate-limiting): the nginx per-address zones and connection caps, the address each listener trusts, the API throttler, and the per-account login lockout
   - ↳ threats: credential brute force and distributed credential stuffing, verification and reset mail spam, repeated 2FA guessing, and one client holding connections open to exhaust worker connections — at the stated cost of a 15-minute denial for a real user
-- [Sessions and authentication](#sessions-and-authentication): cookie shape, token lifetimes, rotation and revocation, bcrypt, 2FA
-  - ↳ threats: session theft by an injected script, cross-site request forgery through a form post, reuse of a captured refresh token, and offline cracking of stored passwords
+- [Sessions and authentication](#sessions-and-authentication): cookie shape, CSRF and re-auth controls, token lifetimes, rotation and replay detection, bcrypt, 2FA
+  - ↳ threats: session theft by an injected script, cross-site request forgery, reuse of a captured refresh token, escalation of a stolen session into email/2FA/OAuth changes, and offline cracking of stored passwords
 - [Emailed link tokens](#emailed-link-tokens): what the app emails, each token's lifetime, and the single-use rule
   - ↳ threats: replay of an emailed link, a stale link remaining valid after a newer one was issued, and token exposure through a dump or a backup of the data store
 - [Emailed links cannot reach a log](#emailed-links-cannot-reach-a-log): why an emailed token never reaches a proxy access log
@@ -277,7 +277,9 @@ Throttling is only as good as the address it keys on, so the two listeners diffe
 
 ### In the API (NestJS throttler)
 
-A global default of 300 requests per minute per client, plus per-route overrides:
+A global default of 300 requests per minute per client, plus per-route overrides. Every override lives
+in one table, `backend/src/common/throttles.ts`, grouped by controller, so the coverage can be audited
+in a single place; `app.module.ts` installs the guard.
 
 | Route | Limit |
 |---|---|
@@ -285,20 +287,37 @@ A global default of 300 requests per minute per client, plus per-route overrides
 | `POST /api/auth/login` | 5 per minute |
 | `POST /api/auth/2fa/verify` | 5 per minute |
 | `POST /api/auth/2fa/resend` | 5 per hour |
+| `PATCH /api/auth/2fa` | 10 per hour |
 | `POST /api/auth/refresh` | 30 per minute (kept in step with the nginx zone) |
 | `POST /api/auth/forgot-password` | 3 per hour |
 | `POST /api/auth/reset-password` | 5 per 15 minutes |
 | `POST /api/auth/resend-verification` | 3 per hour |
 | `PATCH /api/auth/profile` | 10 per hour |
 | `POST /api/auth/profile/resend-email-change` | 5 per hour |
+| `PATCH /api/auth/profile/password` | 5 per hour |
+| `DELETE /api/auth/profile` | 5 per hour |
+| Friends writes (`request`, `block`, `unblock`, invite) | 20 per minute |
+| Friends writes (`accept`, `decline`, `remove`, `dismiss`) | 30–60 per minute |
+| Match creation (`create`, `pve`, `pvp/invite`) | 10 per minute |
+| Match actions (`join`, `invite`, `exit`, `abort`) | 20–30 per minute |
+| Match ready / rejoin | 60 per minute |
+| `GET /api/notifications/stream` | 60 connections per minute |
+| Notification reads (`markRead`) / `read-all` | 120 / 30 per minute |
+| Presence heartbeat / logout clear | 60 / 10 per minute |
+| Avatar upload / delete | 10 per hour each |
+| `POST /api/achievements/check` | 30 per hour |
+
+The notification SSE stream additionally caps **5 open streams per user** (F-11): the sixth answers
+`429 NOTIFICATION_STREAM_LIMIT` before it registers a Subject or a Redis subscription, so one account
+cannot grow the process's stream list without bound.
 
 Per-account limits complement the per-address ones: at most 3 email-change links per hour per user (a
 Redis counter with a rolling window), at most 3 resends of a 2FA code per hour, and 5 wrong 2FA
 codes invalidate the challenge outright.
 
 **Mitigates:** credential brute force, verification and reset mail spam (which also turns the app
-into a nuisance mail sender aimed at a victim's inbox), repeated 2FA code guessing, and scripted
-hammering of the API.
+into a nuisance mail sender aimed at a victim's inbox), repeated 2FA code guessing, scripted
+hammering of the API and of the heavy mutating routes, and SSE-subscription exhaustion.
 
 ### Per-account login lockout
 
@@ -347,11 +366,31 @@ account recovers on its own.
   `SameSite=Lax` (a cross-site form post does not carry them) and `Secure` in production. The access
   cookie is scoped to `path=/`; the refresh cookie is scoped to `path=/api/auth`, so the browser only
   sends it to the refresh and logout routes.
+- **CSRF:** every mutating request under `/api` must satisfy two independent checks (`common/csrf.ts`,
+  mounted before the routes in `main.ts`). The `Origin` header (or `Referer` when `Origin` is absent)
+  must name this host or a published frontend origin (`FRONTEND_URL`, `NGROK_FRONTEND_URL`, the LAN
+  origin, or the Vite dev origin), and the `csrf_token` cookie — script-readable, `SameSite=Lax`,
+  `Secure` in production — must be echoed in `X-CSRF-Token`. The cookie is `nonce.HMAC` with a key
+  derived from `JWT_SECRET`, so a subdomain that can write cookies still cannot mint a valid pair; a
+  missing or mismatched pair is `403 CSRF_TOKEN_INVALID`, a foreign origin `403 CSRF_ORIGIN_REJECTED`.
+  `GET /api/auth/csrf` bootstraps the cookie and `api.ts` retries once with a fresh token. The two
+  engine callbacks are exempt: they are authenticated by `x-engine-key` and carry no browser session.
+- **Re-authentication for sensitive profile changes:** changing the email, toggling 2FA, or
+  unlinking an OAuth provider (and the API's `oauthToAdd` field) requires `currentPassword` on an
+  account that has one (`AUTH_CURRENT_PASSWORD_INCORRECT` otherwise). The SPA's "Add a sign-in
+  method" button opens the provider's login instead, which is itself a fresh authentication.
+  OAuth-only accounts have no password to confirm and are trusted through the active session; their
+  email change still requires setting a password first. The SPA asks for the password in the
+  Edit-Profile card and in the navbar 2FA control.
 - **Refresh token:** 32 random bytes, 7 days, stored in Redis only as a SHA-256 hash
-  (`refresh:<hash>` maps to the user id). Every refresh consumes the old token and issues a new one
-  in the same step, so a token that has already been used cannot be used again. Each hash is also
-  indexed under `sessions:<userId>`, which lets logout revoke one session while a password reset or
-  an account deletion revokes every session at once.
+  (`refresh:<hash>` maps to the user id). Every refresh consumes the old token atomically (`GETDEL`)
+  and issues a new one in the same step, so two simultaneous callers cannot both redeem it. The
+  consumed hash is remembered for the refresh lifetime (`refresh-used:<hash>`): a replay inside the
+  15 s grace window whose replacement is still live is the documented two-tab race and is answered as
+  expired without revoking anything, while a later replay revokes **every** session of that user and
+  returns `401 AUTH_SESSION_REUSED`. Each hash is also indexed under `sessions:<userId>`, which lets
+  logout revoke one session while a password reset or an account deletion revokes every session at
+  once.
 - **Logout** revokes the refresh token server-side and clears both cookies, repeating the path each
   cookie was set with.
 - **Passwords:** bcrypt with cost 10. The policy is at least 12 characters with an upper-case letter,
@@ -367,10 +406,12 @@ account recovers on its own.
   `ngrok`, so a local client and a tunnelled client can sign in at the same time without crossing
   over.
 
-**Mitigates:** session theft by an injected script (httpOnly), cross-site request forgery through a
-form post (SameSite), long-lived credential theft (short access token plus rotation), reuse of a
-captured refresh token, offline cracking of stored passwords (bcrypt), silent truncation of long
-passwords, 2FA code guessing, and confusion between session and OAuth tokens.
+**Mitigates:** session theft by an injected script (httpOnly), cross-site request forgery from another
+site (SameSite plus the signed double-submit token and origin allow-list), session-riding of a stale
+refresh token (atomic rotation with replay revocation), long-lived credential theft (short access token
+plus rotation), password-less escalation of a stolen session into email/2FA/OAuth changes (re-auth),
+offline cracking of stored passwords (bcrypt), silent truncation of long passwords, 2FA code guessing,
+and confusion between session and OAuth tokens.
 
 
 ---

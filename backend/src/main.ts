@@ -6,6 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma.service';
+import { csrfProtection } from './common/csrf';
 
 // Maps a failing validation (property + class-validator constraint) to a stable
 // code the frontend localizes (errors.<CODE>). Constraints without an entry keep
@@ -66,6 +67,12 @@ async function bootstrap() {
 
   // JwtStrategy reads the token from req.cookies; without this it's undefined.
   app.use(cookieParser());
+
+  // CSRF: same-host Origin allow-list plus a signed double-submit token echoed
+  // in X-CSRF-Token on every mutating /api route (see common/csrf.ts). Mounted
+  // after cookieParser so the token cookie is readable, and before the routes so
+  // nothing reaches a controller without both checks.
+  app.use(csrfProtection);
 
   // Enforce the class-validator decorators on register/login DTOs, localizing
   // the mapped validation failures (see validationExceptionFactory).

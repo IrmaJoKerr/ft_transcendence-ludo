@@ -371,6 +371,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 6. Browser is redirected to `{frontend-url}/home` (`https://localhost:8443/home` locally).
 7. `JwtStrategy` reads the access token from `req.cookies` — `cookieParser()` in `main.ts` is required for this.
 8. When the access token expires, the SPA calls `POST /api/auth/refresh` with the `refresh_token` cookie to silently rotate the session.
+9. Every mutating `/api` call (including the refresh and logout) carries `X-CSRF-Token` matching the script-readable `csrf_token` cookie and must come from an allowed origin (`common/csrf.ts`); the SPA bootstraps the cookie from `GET /api/auth/csrf` and retries once if the token rotated.
 
 
 ---
@@ -638,7 +639,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── App.tsx               # Root component (routes + auth guard)
 │       ├── router.tsx            # Custom window.location router
 │       ├── store.tsx             # React context + API + game/settings state + presence heartbeat
-│       ├── api.ts                # Typed fetch wrapper (refresh + retry, ngrok, error-code translation)
+│       ├── api.ts                # Typed fetch wrapper (refresh + retry, CSRF, ngrok, error-code translation)
 │       ├── socket.ts             # Socket.IO client types + connectSocket()
 │       ├── i18n.ts               # i18next init
 │       ├── theme.ts              # Shared style constants + bot pool

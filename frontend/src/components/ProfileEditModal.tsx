@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, patchApi, postApi, translateErrorCode } from '../api';
-import { passwordError } from '../validatePassword';
+import { passwordMeetsPolicy } from '../validatePassword';
 import { isValidEmail } from '../validateEmail';
 import { useApp } from '../store';
 import { DeleteAccountModal } from './DeleteAccountModal';
+import { PasswordInfo } from './PasswordInfo';
+import { FieldError } from './FieldError';
 import { RETRO_BTN } from '../styles/tw';
 
 const OTP = { '42': '/forty_two.png', github: '/github.png', google: '/google.png' } as const;
@@ -92,6 +94,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  // Reserved slots under the two password fields: filled on save, cleared as
+  // soon as that field is edited, so they never nag mid-typing.
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
   const [providers, setProviders] = useState<Providers>([]);
   const [busy, setBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -138,6 +144,11 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   const emailBaseline = initialEmail ?? user?.email ?? null;
   const emailChanging = emailBaseline !== null && !!email.trim() && email.trim() !== emailBaseline;
   const displayNameBaseline = initialDisplayName ?? user?.displayName ?? user?.username ?? '';
+  // Same judgement for the 2FA toggle: only an actual change counts.
+  const twoFactorChanging = initialTwoFactor !== null && twoFactorEnabled !== initialTwoFactor;
+  // Which password block an error belongs under: the change-password section
+  // only when that flow is being attempted, otherwise the confirm field above.
+  const passwordChangeAttempt = !!(currentPassword || newPassword || confirmPassword);
 
   const handleSave = async () => {
     setBusy(true);
@@ -181,22 +192,32 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
       body.currentPassword = emailPassword;
     }
     // Send the toggle only when it changed and the real value is known, so an
-    // unrelated save cannot write a stale state over it.
-    if (initialTwoFactor !== null && twoFactorEnabled !== initialTwoFactor) {
-      body.twoFactorEnabled = twoFactorEnabled;
-    }
-    if (isPasswordChange) {
-      const pwErr = newPassword ? passwordError(newPassword) : t('profileEdit.newPasswordRequired');
-      if (pwErr) {
+    // unrelated save cannot write a stale state over it. It is a sensitive
+    // change, so a password account confirms the password once for whichever
+    // sensitive field this save touches.
+    if (twoFactorChanging) {
+      if (hasPassword && !emailPassword) {
         setBusy(false);
         setErrorField('password');
-        setError(pwErr);
+        setError(t('profileEdit.passwordConfirmRequired'));
         return;
       }
-      if (newPassword !== confirmPassword) {
+      body.twoFactorEnabled = twoFactorEnabled;
+      if (hasPassword) body.currentPassword = emailPassword;
+    }
+    if (isPasswordChange) {
+      const policyOk = passwordMeetsPolicy(newPassword);
+      const matchOk = newPassword === confirmPassword;
+      setPasswordFieldError(
+        policyOk
+          ? null
+          : newPassword
+            ? t('passwordInfo.error')
+            : t('profileEdit.newPasswordRequired'),
+      );
+      setConfirmFieldError(matchOk ? null : t('profileEdit.passwordMismatch'));
+      if (!policyOk || !matchOk) {
         setBusy(false);
-        setErrorField('password');
-        setError(t('profileEdit.passwordMismatch'));
         return;
       }
     }
@@ -242,6 +263,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setEmailPassword('');
     } catch (e) {
       const err = e as { code?: string; message?: string } | null | undefined;
       // `request()` (api.ts) already localizes a coded error into `message`, so
@@ -281,10 +303,18 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   };
 
   const removeOAuth = async (provider: string) => {
+    if (hasPassword && !emailPassword) {
+      setErrorField('oauth');
+      setError(t('profileEdit.passwordConfirmRequired'));
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      await patchApi<ProfileResp>('/api/auth/profile', { oauthToRemove: provider });
+      await patchApi<ProfileResp>('/api/auth/profile', {
+        oauthToRemove: provider,
+        ...(hasPassword ? { currentPassword: emailPassword } : {}),
+      });
       setProviders((p) => p.filter((x) => x !== provider));
     } catch (e) {
       const err = e as { code?: string; message?: string } | null | undefined;
@@ -307,7 +337,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   };
   const panel: CSSProperties = {
     width: 'min(92vw, 560px)',
-    maxHeight: '94vh',
+    // Taller than the old 94vh: the password section now keeps a two-line
+    // error slot under each input, so the panel needs ~70px more room before
+    // it starts scrolling.
+    maxHeight: 'calc(100vh - 16px)',
     overflowY: 'auto',
     borderRadius: 10,
     background: 'var(--bg-card)',
@@ -402,7 +435,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t('profileEdit.emailPlaceholder')}
           />
-          {emailChanging && hasPassword && (
+          {hasPassword && (
             <>
               <label style={fieldLabel({ color: 'var(--text-muted)' })}>
                 {t('profileEdit.currentPassword')}
@@ -415,6 +448,17 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
                 placeholder={t('profileEdit.currentPasswordPlaceholder')}
                 autoComplete="current-password"
               />
+              <div
+                style={{
+                  fontSize: '0.64rem',
+                  color: 'var(--text-muted)',
+                  margin: '-6px 0 12px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {t('profileEdit.passwordConfirmRequired')}
+              </div>
+              {!passwordChangeAttempt && errorFor(['password'])}
             </>
           )}
           {emailChanging && !hasPassword && (
@@ -515,40 +559,47 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
                 />
               </>
             )}
-            <label style={fieldLabel({ color: 'var(--text-muted)' })}>
-              {t('profileEdit.newPassword')}
+            <label
+              style={{
+                ...fieldLabel({ color: 'var(--text-muted)' }),
+                display: 'flex',
+                alignItems: 'center',
+                position: 'relative',
+              }}
+            >
+              <span>{t('profileEdit.newPassword')}</span>
+              <PasswordInfo />
             </label>
             <input
-              style={inputStyle()}
+              style={{ ...inputStyle(), marginBottom: 0 }}
               type="password"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                setPasswordFieldError(null);
+                // The pair changed, so a mismatch note is stale too.
+                setConfirmFieldError(null);
+              }}
               placeholder={t('profileEdit.newPasswordPlaceholder')}
               autoComplete="new-password"
             />
+            <FieldError message={passwordFieldError} />
             <label style={fieldLabel({ color: 'var(--text-muted)' })}>
               {t('profileEdit.confirmPassword')}
             </label>
             <input
-              style={inputStyle()}
+              style={{ ...inputStyle(), marginBottom: 0 }}
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setConfirmFieldError(null);
+              }}
               placeholder={t('profileEdit.confirmPasswordPlaceholder')}
               autoComplete="new-password"
             />
-            {errorFor(['password'])}
-            <div
-              style={{
-                fontSize: '0.64rem',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-mono)',
-                lineHeight: 1.5,
-                marginBottom: 12,
-              }}
-            >
-              {t('profileEdit.passwordHint')}
-            </div>
+            <FieldError message={confirmFieldError} />
+            {passwordChangeAttempt && errorFor(['password'])}
           </div>
 
           <div

@@ -1,8 +1,11 @@
 import { Body, Controller, Delete, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { PRESENCE_THROTTLE } from '../common/throttles';
 import { Request } from 'express';
 import { PresenceService } from './presence.service';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
 
 @UseGuards(JwtAuthGuard)
 @Controller('api/presence')
@@ -13,6 +16,7 @@ export class PresenceController {
 
   // Called every ~20s while the app is open; `playing` flips the status to
   // "playing" instead of plain "online" while inside a match.
+  @Throttle(PRESENCE_THROTTLE.heartbeat)
   @Post('heartbeat')
   @HttpCode(200)
   async heartbeat(@Req() req: Request, @Body() dto: HeartbeatDto) {
@@ -28,6 +32,7 @@ export class PresenceController {
 
   // Called on logout (before the auth cookie is cleared) so a signed-out user
   // reads as offline immediately instead of waiting out the heartbeat TTL.
+  @Throttle(PRESENCE_THROTTLE.clear)
   @Delete('heartbeat')
   @HttpCode(200)
   async clear(@Req() req: Request) {

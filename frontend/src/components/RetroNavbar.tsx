@@ -142,7 +142,7 @@ export function RetroNavbar({
 
     measure();
     window.addEventListener('resize', measure);
-    // Re-measure with the real Orbitron metrics once the web font loads.
+    // Re-measure with the real Atkinson metrics once the web font loads.
     void document.fonts.ready.then(measure).catch(() => {});
     return () => {
       window.removeEventListener('resize', measure);
@@ -159,6 +159,12 @@ export function RetroNavbar({
 
   const [isAccountPopoverOpen, setIsAccountPopoverOpen] = useState(false);
   const [soundMuted, setSoundMuted] = useState(retroAudio.muted);
+  // 2FA is a sensitive change: password accounts confirm it inline before the
+  // PATCH is sent (the backend rejects an unconfirmed toggle).
+  const [twoFactorPrompt, setTwoFactorPrompt] = useState(false);
+  const [twoFactorPassword, setTwoFactorPassword] = useState('');
+  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+  const [twoFactorError, setTwoFactorError] = useState('');
   const accountPopoverRef = useRef<HTMLDivElement>(null);
   const accountPopoverContentRef = useRef<HTMLDivElement>(null);
   const [accountPopoverPos, setAccountPopoverPos] = useState({ top: 0, left: 0 });
@@ -171,6 +177,23 @@ export function RetroNavbar({
       retroAudio.playUiBeep(520, 0.06);
     }
   };
+  // Confirm the 2FA toggle with the account password (an OAuth-only account has
+  // none: the backend trusts its active session and ignores the field).
+  const submitTwoFactor = async () => {
+    setTwoFactorBusy(true);
+    setTwoFactorError('');
+    const failure = await toggleTwoFactor(user?.hasPassword === false ? undefined : twoFactorPassword);
+    setTwoFactorBusy(false);
+    if (failure) {
+      setTwoFactorError(failure);
+      return;
+    }
+    retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
+    setTwoFactorPrompt(false);
+    setTwoFactorPassword('');
+  };
+
+
 
   const fetchActiveGame = useCallback(() => {
     if (!user) {
@@ -523,6 +546,7 @@ export function RetroNavbar({
                 </div>
 
                 {/* 2. 2FA Security Toggle Option */}
+                <div>
                 <div
                   style={{
                     display: 'flex',
@@ -537,8 +561,16 @@ export function RetroNavbar({
                     transition: 'all 0.18s ease',
                   }}
                   onClick={() => {
-                    toggleTwoFactor();
-                    retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
+                    // OAuth-only accounts have no password to confirm; the server
+                    // trusts their active session.
+                    if (user?.hasPassword === false) {
+                      void toggleTwoFactor();
+                      retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
+                      return;
+                    }
+                    setTwoFactorPrompt((open) => !open);
+                    setTwoFactorPassword('');
+                    setTwoFactorError('');
                   }}
                   title={t('navbar.toggle2fa')}
                 >
@@ -571,6 +603,72 @@ export function RetroNavbar({
                   >
                     {twoFactor ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}
                   </span>
+                </div>
+                {twoFactorPrompt && (
+                  <div style={{ padding: '8px 12px 2px' }}>
+                    <div
+                      style={{
+                        fontSize: '0.6rem',
+                        color: 'var(--text-muted)',
+                        marginBottom: 6,
+                        fontFamily: 'var(--font-mono)',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {t('navbar.twoFactorPasswordPrompt')}
+                    </div>
+                    <input
+                      type="password"
+                      value={twoFactorPassword}
+                      onChange={(e) => setTwoFactorPassword(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void submitTwoFactor();
+                      }}
+                      autoComplete="current-password"
+                      autoFocus
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '6px 8px',
+                        borderRadius: 4,
+                        background: 'rgba(0,0,0,0.4)',
+                        color: 'var(--text-main)',
+                        border: '1px solid var(--border-color)',
+                        outline: 'none',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.72rem',
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <button
+                        className={RETRO_BTN}
+                        type="button"
+                        disabled={twoFactorBusy}
+                        onClick={() => void submitTwoFactor()}
+                        style={{ flex: 1, padding: '3px 8px', fontSize: '0.62rem', color: 'var(--accent-cyan)' }}
+                      >
+                        {t('navbar.confirm')}
+                      </button>
+                      <button
+                        className={RETRO_BTN}
+                        type="button"
+                        disabled={twoFactorBusy}
+                        onClick={() => {
+                          setTwoFactorPrompt(false);
+                          setTwoFactorError('');
+                        }}
+                        style={{ padding: '3px 8px', fontSize: '0.62rem' }}
+                      >
+                        {t('navbar.cancel')}
+                      </button>
+                    </div>
+                    {twoFactorError && (
+                      <div style={{ fontSize: '0.62rem', color: '#ff0055', marginTop: 6 }}>
+                        {twoFactorError}
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
 
                 {/* 3. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),

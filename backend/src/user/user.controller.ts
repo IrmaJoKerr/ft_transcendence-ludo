@@ -13,10 +13,13 @@ import {
   Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { USER_THROTTLE } from '../common/throttles';
 import { Response } from 'express';
 import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { isImageValid } from '../avatar/image-signature.util';
+
 
 // User routes: public profile/history plus authenticated avatar upload, fetch and
 // delete. Avatars are cacheable but revalidated (no-cache + ETag).
@@ -46,6 +49,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(USER_THROTTLE.avatarUpload)
   @Post('avatar')
   @UseInterceptors(FileInterceptor('avatar', { limits: { fileSize: 2 * 1024 * 1024 } })) //Max 2Mb
   async uploadAvatar(
@@ -97,6 +101,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(USER_THROTTLE.avatarDelete)
   @Delete('avatar')
   async deleteAvatar(@Request() req: { user: { id: string } }) {
     return this.userService.deleteAvatar(req.user.id);

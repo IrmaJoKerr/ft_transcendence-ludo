@@ -4,6 +4,15 @@ import { createHash, randomBytes } from 'node:crypto';
 import { secret } from '../secrets';
 
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // refresh tokens live 7 days
+// A consumed token presented again this soon, while its replacement is still
+// live, is the documented two-tab race, not theft: both tabs posted the same
+// cookie before either response landed. Older replays revoke every session.
+const REUSE_GRACE_MS = 15_000;
+
+export type RotateResult =
+  | { userId: string; newToken: string }
+  | { reused: true }
+  | null;
 
 @Injectable()
 // Refresh-token session store in Redis: minting, rotation and revocation of
@@ -44,17 +53,52 @@ export class SessionService implements OnModuleDestroy {
   }
 
   // Verify a refresh token and rotate it: the old token is consumed and a
-  // fresh one issued in the same step. Returns userId + new token, or null.
-  async rotate(oldToken: string): Promise<{ userId: string; newToken: string } | null> {
+  // fresh one issued in the same step. Returns userId + new token, null for an
+  // unknown/expired token, or { reused: true } when a token that was already
+  // rotated came back from outside the race window (theft): every session of
+  // that user has been revoked by then.
+  async rotate(oldToken: string): Promise<RotateResult> {
     const oldHash = this.hash(oldToken);
-    const userId = await this.redis.get(`refresh:${oldHash}`);
-    if (!userId) return null;
+    // GETDEL consumes the token atomically, so two simultaneous callers cannot
+    // both redeem it and each mint a session.
+    const userId = await this.redis.getdel(`refresh:${oldHash}`);
+    if (!userId) return this.handleUnknownToken(oldHash);
 
-    await this.redis.del(`refresh:${oldHash}`);
     await this.redis.srem(`sessions:${userId}`, oldHash);
 
     const newToken = await this.issue(userId);
+    // Remember the consumed token for a full refresh lifetime: it is what tells
+    // a benign duplicate apart from a replay.
+    await this.redis.set(
+      `refresh-used:${oldHash}`,
+      JSON.stringify({ userId, newHash: this.hash(newToken), at: Date.now() }),
+      'EX',
+      REFRESH_TTL_S,
+    );
     return { userId, newToken };
+  }
+
+  // A token that is not live may have been rotated already. A recent rotation
+  // whose replacement is still live is the cross-tab race (return null so the
+  // client probes /me); anything else is reuse, so fail closed and sign the
+  // account out everywhere.
+  private async handleUnknownToken(oldHash: string): Promise<RotateResult> {
+    const raw = await this.redis.get(`refresh-used:${oldHash}`);
+    if (!raw) return null;
+    let record: { userId?: string; newHash?: string; at?: number };
+    try {
+      record = JSON.parse(raw) as typeof record;
+    } catch {
+      return null;
+    }
+    if (!record.userId || !record.newHash || typeof record.at !== 'number') return null;
+
+    const replacementLive = await this.redis.exists(`refresh:${record.newHash}`);
+    if (replacementLive && Date.now() - record.at <= REUSE_GRACE_MS) return null;
+
+    await this.revokeAll(record.userId);
+    console.warn(`[session] refresh token reuse detected for user ${record.userId}: all sessions revoked`);
+    return { reused: true };
   }
 
   // Revoke a single session (logout on this device).

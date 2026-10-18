@@ -4,7 +4,7 @@ export const RETRO_BTN =
   'inline-flex items-center gap-1.5 px-4 py-2.5 uppercase cursor-pointer outline-none text-[0.7rem] text-[var(--text-main)] bg-[var(--btn-bg)] border-2 border-[var(--accent-cyan)] shadow-[var(--box-shadow)] [font-family:var(--font-heading)] [transition:all_0.2s_ease] hover:-translate-y-0.5 hover:shadow-[var(--btn-hover-shadow)] active:translate-y-px';
 
 export const THEME_TRIGGER_BTN_BASE =
-  "font-['Press_Start_2P',cursive] text-[0.65rem] h-[38px] w-[125px] px-2.5 box-border inline-flex items-center justify-between rounded gap-1 relative shrink-0 cursor-pointer outline-none [transition:background_0.2s_ease,border-color_0.2s_ease,box-shadow_0.2s_ease,color_0.2s_ease]";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] text-[0.65rem] h-[38px] w-[125px] px-2.5 box-border inline-flex items-center justify-between rounded gap-1 relative shrink-0 cursor-pointer outline-none [transition:background_0.2s_ease,border-color_0.2s_ease,box-shadow_0.2s_ease,color_0.2s_ease]";
 
 export const THEME_POPOVER_MENU_BASE =
   'absolute top-[calc(100%+10px)] right-0 z-[10001] bg-[var(--fs-bg)] border-2 border-[var(--fs-border)] shadow-[0_14px_40px_rgba(0,0,0,.9),0_0_25px_var(--fs-glow)] p-2.5 rounded-md min-w-[240px] [transform-origin:top_right] backdrop-blur-[10px]';
@@ -24,25 +24,25 @@ export const RETRO_FLOATING_DOCK =
 // Auth form element styles (Login/Signup/ForgotPassword/ResetPassword/
 // TwoFactor).
 export const RETRO_AUTH_TITLE =
-  "font-['Orbitron',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,#00f0ff_0%,#ff007f_50%,#9d00ff_100%)] bg-clip-text text-transparent";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,#00f0ff_0%,#ff007f_50%,#9d00ff_100%)] bg-clip-text text-transparent";
 
 export const RETRO_AUTH_SUBTITLE =
-  "text-[rgba(184,166,228,.8)] text-base mt-2.5 font-['Share_Tech_Mono',monospace]";
+  "text-[rgba(184,166,228,.8)] text-base mt-2.5 font-['Atkinson_Hyperlegible_Mono',monospace]";
 
 export const RETRO_AUTH_LABEL =
-  "font-['Orbitron',sans-serif] text-xs font-bold tracking-[1.5px] text-[rgba(0,240,255,.75)] uppercase";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] text-xs font-bold tracking-[1.5px] text-[rgba(0,240,255,.75)] uppercase";
 
 export const RETRO_AUTH_INPUT =
-  "w-full [border:1.5px_solid_rgba(0,240,255,.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Share_Tech_Mono',monospace] text-white bg-[rgba(0,0,0,.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-[#00f0ff] focus:shadow-[0_0_18px_rgba(0,240,255,.35),inset_0_0_8px_rgba(0,240,255,.1)] focus:bg-[rgba(0,0,0,.6)]";
+  "w-full [border:1.5px_solid_rgba(0,240,255,.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-white bg-[rgba(0,0,0,.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-[#00f0ff] focus:shadow-[0_0_18px_rgba(0,240,255,.35),inset_0_0_8px_rgba(0,240,255,.1)] focus:bg-[rgba(0,0,0,.6)]";
 
 export const RETRO_AUTH_BTN =
-  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Orbitron',sans-serif] tracking-[1.8px] text-white cursor-pointer bg-[linear-gradient(135deg,#ff007f,#9d00ff)] shadow-[0_0_22px_rgba(255,0,127,.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgba(255,0,127,.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgba(0,240,255,.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
+  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-white cursor-pointer bg-[linear-gradient(135deg,#ff007f,#9d00ff)] shadow-[0_0_22px_rgba(255,0,127,.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgba(255,0,127,.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgba(0,240,255,.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
 
 export const RETRO_AUTH_BTN_OUTLINE =
-  "[border:1.5px_solid_rgba(0,240,255,.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Share_Tech_Mono',monospace] text-[rgba(255,255,255,.88)] cursor-pointer bg-[rgba(0,240,255,.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-[#00f0ff] hover:bg-[rgba(0,240,255,.15)] hover:shadow-[0_0_16px_rgba(0,240,255,.3)] hover:text-white";
+  "[border:1.5px_solid_rgba(0,240,255,.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Atkinson_Hyperlegible_Mono',monospace] text-[rgba(255,255,255,.88)] cursor-pointer bg-[rgba(0,240,255,.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-[#00f0ff] hover:bg-[rgba(0,240,255,.15)] hover:shadow-[0_0_16px_rgba(0,240,255,.3)] hover:text-white";
 
 export const RETRO_AUTH_DIVIDER =
-  "flex items-center gap-3.5 text-[rgba(184,166,228,.45)] [font:700_11px_'Orbitron',sans-serif] tracking-[2px]";
+  "flex items-center gap-3.5 text-[rgba(184,166,228,.45)] [font:700_11px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[2px]";
 
 export const RETRO_AUTH_DIVIDER_LINE =
   'flex-1 h-px bg-[linear-gradient(90deg,transparent,rgba(0,240,255,.2),transparent)]';
@@ -51,13 +51,13 @@ export const RETRO_AUTH_LINK =
   'text-[#00f0ff] cursor-pointer font-bold no-underline [transition:color_0.18s_ease,text-shadow_0.18s_ease] hover:text-[#ff007f] hover:[text-shadow:0_0_10px_rgba(255,0,127,.5)]';
 
 export const RETRO_AUTH_ERROR =
-  "text-[#ff4081] text-[13px] leading-[1.4] font-['Share_Tech_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]";
+  "text-[#ff4081] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]";
 
 export const RETRO_AUTH_SUCCESS =
-  "text-[#33ff88] text-[13px] leading-[1.4] font-['Share_Tech_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(51,255,136,.08)] border border-[rgba(51,255,136,.2)]";
+  "text-[#33ff88] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(51,255,136,.08)] border border-[rgba(51,255,136,.2)]";
 
 export const RETRO_AUTH_MUTED =
-  "text-[rgba(184,166,228,.6)] text-[13px] font-['Share_Tech_Mono',monospace]";
+  "text-[rgba(184,166,228,.6)] text-[13px] font-['Atkinson_Hyperlegible_Mono',monospace]";
 
 // Shared "page shell"
 export const CRT_SCREEN = 'relative z-10 min-h-screen';
@@ -187,7 +187,7 @@ export const CYBER_MODAL_GLITCH =
 
 // **CyberButton**
 export const CYBER_BTN_BASE =
-  "group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,'Orbitron',sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[#0d0221] focus-visible:text-[#0d0221]";
+  "group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[#0d0221] focus-visible:text-[#0d0221]";
 
 export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink,#ff007f)] ![--btn-shadow:#9d00ff]';
 
@@ -242,7 +242,7 @@ export const TICKET_PAPER_WRAPPER =
   'w-[80%] mt-[70px] mx-auto relative z-10 flex flex-col items-center box-border [clip-path:inset(0px_-50px_-10000px_-50px)]';
 
 export const RESULTS_INVOICE =
-  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Share_Tech_Mono',sans-serif] bg-[rgba(18,7,42,.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgba(0,0,0,.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
+  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgba(18,7,42,.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgba(0,0,0,.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
 
 const TICKET_NOTCH_BASE = 'absolute top-[55px] w-4 h-4 rounded-full z-[6] bg-(--bg-primary)';
 
@@ -257,7 +257,7 @@ export const INVOICE_AMOUNT =
   'flex items-center justify-between text-[1.05rem] mb-[0.6em] [font-family:var(--font-display)]';
 
 export const INVOICE_VALUE =
-  "font-extrabold text-(--accent-cyan) text-[1.1rem] [font-family:'VT323',monospace]";
+  "font-extrabold text-(--accent-cyan) text-[1.1rem] [font-family:'Atkinson_Hyperlegible_Mono',monospace]";
 
 export const PAYERS_LIST = 'list-none my-[0.8em]';
 

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { deleteApi, patchApi } from '../api';
-import { passwordError } from '../validatePassword';
+import { passwordMeetsPolicy } from '../validatePassword';
+import { FieldError } from './FieldError';
+import { PasswordInfo } from './PasswordInfo';
 import { useApp } from '../store';
 import { navigate } from '../router';
 import { RETRO_BTN } from '../styles/tw';
@@ -49,6 +51,10 @@ export function DeleteAccountModal({
   const [step, setStep] = useState<Step>(hasPassword ? 'confirm' : 'setPassword');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  // Reserved slots under the two password fields: filled on submit, cleared as
+  // soon as that field is edited, so they never nag mid-typing.
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [acknowledge, setAcknowledge] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,15 +83,14 @@ export function DeleteAccountModal({
   const handleSetPassword = async () => {
     setBusy(true);
     setError('');
-    const pwErr = newPassword ? passwordError(newPassword) : t('profileEdit.newPasswordRequired');
-    if (pwErr) {
+    const policyOk = passwordMeetsPolicy(newPassword);
+    const matchOk = newPassword === confirmPassword;
+    setPasswordFieldError(
+      policyOk ? null : newPassword ? t('passwordInfo.error') : t('profileEdit.newPasswordRequired'),
+    );
+    setConfirmFieldError(matchOk ? null : t('profileEdit.passwordMismatch'));
+    if (!policyOk || !matchOk) {
       setBusy(false);
-      setError(pwErr);
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setBusy(false);
-      setError(t('profileEdit.passwordMismatch'));
       return;
     }
     try {
@@ -154,28 +159,46 @@ export function DeleteAccountModal({
               >
                 {t('profileEdit.deleteAccountNeedPassword')}
               </div>
-              <label style={fieldLabel({ color: 'var(--text-muted)' })}>
-                {t('profileEdit.deleteAccountSetPasswordLabel')}
+              <label
+                style={{
+                  ...fieldLabel({ color: 'var(--text-muted)' }),
+                  display: 'flex',
+                  alignItems: 'center',
+                  position: 'relative',
+                }}
+              >
+                <span>{t('profileEdit.deleteAccountSetPasswordLabel')}</span>
+                <PasswordInfo />
               </label>
               <input
-                style={inputStyle()}
+                style={{ ...inputStyle(), marginBottom: 0 }}
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setPasswordFieldError(null);
+                  // The pair changed, so a mismatch note is stale too.
+                  setConfirmFieldError(null);
+                }}
                 placeholder={t('profileEdit.newPasswordPlaceholder')}
                 autoComplete="new-password"
               />
+              <FieldError message={passwordFieldError} />
               <label style={fieldLabel({ color: 'var(--text-muted)' })}>
                 {t('profileEdit.confirmPassword')}
               </label>
               <input
-                style={inputStyle()}
+                style={{ ...inputStyle(), marginBottom: 0 }}
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setConfirmFieldError(null);
+                }}
                 placeholder={t('profileEdit.confirmPasswordPlaceholder')}
                 autoComplete="new-password"
               />
+              <FieldError message={confirmFieldError} />
               <div
                 style={{
                   fontSize: '0.64rem',
