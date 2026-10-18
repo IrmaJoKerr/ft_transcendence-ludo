@@ -130,7 +130,7 @@ session cookies on the network, and plaintext capture of the first request.
 default-src 'self';
 script-src  'self';
 style-src   'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
-font-src    'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://assets.codepen.io;
+font-src    'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com;
 img-src     'self' data:;
 connect-src 'self';
 object-src  'none';

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout } from '../components/RetroAuthLayout';
@@ -19,6 +19,11 @@ import {
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
 
+// Errors are held as locale keys, not translated strings: switching language
+// then re-renders a live message instead of leaving the previous language on
+// screen. Both keys exist in en, fr and ms.
+type FieldMessage = 'passwordInfo.error' | 'auth.passwordMismatch' | null;
+
 /**
  * Reset step 2 for an emailed link: `/reset-password#token=<resetToken>`. The
  * token is in the URL fragment, which the browser never sends, so it cannot
@@ -38,9 +43,13 @@ export function ResetPassword() {
   const [error, setError] = useState<string | null>(null);
   // Field-level slots: filled on submit, cleared as soon as that field is
   // edited, so the red text never nags while someone is still typing.
-  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
-  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<FieldMessage>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<FieldMessage>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The inputs point aria-describedby at these slots, so the message is tied to
+  // the field it belongs to even while the slot is empty.
+  const passwordErrorId = useId();
+  const confirmErrorId = useId();
 
   useEffect(() => {
     // Strip the fragment before anything can use the URL, so the token cannot
@@ -79,8 +88,8 @@ export function ResetPassword() {
     if (submitting) return;
     const policyOk = passwordMeetsPolicy(password);
     const matchOk = password === confirm;
-    setPasswordFieldError(policyOk ? null : t('passwordInfo.error'));
-    setConfirmFieldError(matchOk ? null : t('auth.passwordMismatch'));
+    setPasswordFieldError(policyOk ? null : 'passwordInfo.error');
+    setConfirmFieldError(matchOk ? null : 'auth.passwordMismatch');
     if (!policyOk || !matchOk) return;
     setSubmitting(true);
     setError(null);
@@ -124,9 +133,14 @@ export function ResetPassword() {
             placeholder={t('auth.passwordPlaceholderSignup')}
             autoComplete="new-password"
             autoFocus
+            aria-invalid={passwordFieldError !== null}
+            aria-describedby={passwordErrorId}
             className={RETRO_AUTH_INPUT}
           />
-          <FieldError message={passwordFieldError} />
+          <FieldError
+            id={passwordErrorId}
+            message={passwordFieldError ? t(passwordFieldError) : null}
+          />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <div className={RETRO_AUTH_LABEL}>{t('auth.confirmPasswordLabel')}</div>
@@ -139,9 +153,14 @@ export function ResetPassword() {
             }}
             placeholder="••••••••"
             autoComplete="new-password"
+            aria-invalid={confirmFieldError !== null}
+            aria-describedby={confirmErrorId}
             className={RETRO_AUTH_INPUT}
           />
-          <FieldError message={confirmFieldError} />
+          <FieldError
+            id={confirmErrorId}
+            message={confirmFieldError ? t(confirmFieldError) : null}
+          />
         </div>
         {error && <div className={RETRO_AUTH_ERROR}>{error}</div>}
         <button type="submit" disabled={submitting} className={RETRO_AUTH_BTN}>

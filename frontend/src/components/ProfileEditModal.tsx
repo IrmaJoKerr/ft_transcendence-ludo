@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, patchApi, postApi, translateErrorCode } from '../api';
@@ -33,6 +33,15 @@ interface ProfileResp {
 }
 
 type ErrorField = 'displayName' | 'email' | 'password' | 'oauth' | 'form';
+
+// Errors are held as locale keys, not translated strings: switching language
+// then re-renders a live message instead of leaving the previous language on
+// screen. All three keys exist in en, fr and ms.
+type FieldMessage =
+  | 'passwordInfo.error'
+  | 'profileEdit.newPasswordRequired'
+  | 'profileEdit.passwordMismatch'
+  | null;
 
 // Which field a backend error code belongs under.
 const ERROR_FIELD: Record<string, ErrorField> = {
@@ -96,8 +105,12 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   // Reserved slots under the two password fields: filled on save, cleared as
   // soon as that field is edited, so they never nag mid-typing.
-  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
-  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<FieldMessage>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<FieldMessage>(null);
+  // The inputs point aria-describedby at these slots, so the message is tied to
+  // the field it belongs to even while the slot is empty.
+  const passwordErrorId = useId();
+  const confirmErrorId = useId();
   const [providers, setProviders] = useState<Providers>([]);
   const [busy, setBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -209,13 +222,9 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
       const policyOk = passwordMeetsPolicy(newPassword);
       const matchOk = newPassword === confirmPassword;
       setPasswordFieldError(
-        policyOk
-          ? null
-          : newPassword
-            ? t('passwordInfo.error')
-            : t('profileEdit.newPasswordRequired'),
+        policyOk ? null : newPassword ? 'passwordInfo.error' : 'profileEdit.newPasswordRequired',
       );
-      setConfirmFieldError(matchOk ? null : t('profileEdit.passwordMismatch'));
+      setConfirmFieldError(matchOk ? null : 'profileEdit.passwordMismatch');
       if (!policyOk || !matchOk) {
         setBusy(false);
         return;
@@ -582,8 +591,13 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
               }}
               placeholder={t('profileEdit.newPasswordPlaceholder')}
               autoComplete="new-password"
+              aria-invalid={passwordFieldError !== null}
+              aria-describedby={passwordErrorId}
             />
-            <FieldError message={passwordFieldError} />
+            <FieldError
+              id={passwordErrorId}
+              message={passwordFieldError ? t(passwordFieldError) : null}
+            />
             <label style={fieldLabel({ color: 'var(--text-muted)' })}>
               {t('profileEdit.confirmPassword')}
             </label>
@@ -597,8 +611,13 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
               }}
               placeholder={t('profileEdit.confirmPasswordPlaceholder')}
               autoComplete="new-password"
+              aria-invalid={confirmFieldError !== null}
+              aria-describedby={confirmErrorId}
             />
-            <FieldError message={confirmFieldError} />
+            <FieldError
+              id={confirmErrorId}
+              message={confirmFieldError ? t(confirmFieldError) : null}
+            />
             {passwordChangeAttempt && errorFor(['password'])}
           </div>
 

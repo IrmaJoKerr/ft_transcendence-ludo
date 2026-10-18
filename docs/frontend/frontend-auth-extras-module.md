@@ -37,7 +37,7 @@ All four are full-screen routes (no side rail) and are public, so no session is 
 | `src/pages/VerifyEmail.tsx` | Emailed-link landing page: reads the token from the URL fragment, strips it, redeems it |
 | `src/components/RetroAuthLayout.tsx` | Layout container for all auth pages |
 | `src/components/PasswordInfo.tsx` | "i" badge beside a new-password label; explains the policy on hover and keyboard focus |
-| `src/components/FieldError.tsx` | Inline per-field error slot (two reserved lines, `role="alert"`); used by ResetPassword |
+| `src/components/FieldError.tsx` | Inline per-field error slot (reserved lines that grow as the card narrows, `role="alert"`, `id` for `aria-describedby`); used by ResetPassword |
 | `src/store.tsx` | `verify2fa`, `resend2fa`, `forgotPassword`, `resetPassword`, `verifyEmail` actions |
 | `src/validatePassword.ts` | Client-side password validation (same rules as the backend policy) |
 
