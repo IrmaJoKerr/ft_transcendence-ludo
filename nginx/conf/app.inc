@@ -89,6 +89,20 @@ location /api/auth/ {
 # ═══════════════════════════════════════════════════════
 # API PROXY: forwards /api/* requests to backend
 # ═══════════════════════════════════════════════════════
+# Exact match, so it must sit above /api/: the public guest allocator has its
+# own rate zone instead of the generic api burst. Kept in step with the 20/min
+# @Throttle on the route and the counters in GuestLimitService.
+location = /api/match/guest {
+    limit_req zone=guest burst=5 nodelay;
+    set $backend_upstream http://backend:3000;
+    proxy_pass $backend_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
 location /api/ {
     # The generic prefix had no limit at all: everything under /api/ that is
     # not matched by a more specific location above (user, friends, game,

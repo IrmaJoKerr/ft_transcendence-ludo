@@ -7,6 +7,7 @@ import {
   Param,
   Get,
   Headers,
+  Ip,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { Throttle } from '@nestjs/throttler';
 import { MATCH_THROTTLE } from '../common/throttles';
 import { MatchService, type GameEndPayload } from './match.service';
 import { InviteFriendDto } from './dto/invite-friend.dto';
+import { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { verifySecret } from '../secrets';
 
@@ -48,6 +50,17 @@ export class MatchController {
   @Post('api/match/join/:code')
   joinInvite(@Request() req: { user: { id: string } }, @Param('code') code: string) {
     return this.match.joinByInvite(code, req.user.id);
+  }
+
+  // Guest: anonymous, ephemeral PvE room. The one public door into match
+  // creation: no JwtAuthGuard, and `mode` is never read from the body (forced
+  // 'pve' in the creator). A DTO class, unlike /api/match/create, so the global
+  // ValidationPipe validates and whitelists the payload; the per-address
+  // budgets are charged in MatchCreatorService.createGuestMatch.
+  @Throttle(MATCH_THROTTLE.guest)
+  @Post('api/match/guest')
+  guest(@Ip() ip: string, @Body() dto: CreateGuestMatchDto) {
+    return this.match.createGuestMatch(ip, dto);
   }
 
   // PvE: Human vs Bot (1 - 3 bots)

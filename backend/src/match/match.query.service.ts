@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
+import { readRoomRules } from './room-rules';
 
 const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 
@@ -36,6 +37,9 @@ export class MatchQueryService {
       seats: number;
       maxSeats: number;
       mySeat: boolean;
+      clashEnabled: boolean;
+      noSafeZones: boolean;
+      freeExit: boolean;
     }> = [];
     do {
       const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', 'match:*', 'COUNT', 100);
@@ -70,6 +74,11 @@ export class MatchQueryService {
           seats,
           maxSeats,
           mySeat: slotIndex !== -1,
+          // The room rules the hash was created with (readRoomRules defaults an
+          // old hash to clash off, free exit off, safe zones ON). The lobby
+          // renders them as the row's MODES cell, so a player can see what
+          // variant they are joining before they take a seat.
+          ...readRoomRules(data),
         });
       }
     } while (cursor !== '0');
@@ -98,6 +107,9 @@ export class MatchQueryService {
         // True when the viewer holds a seat in this room: the UI turns the row
         // into a REJOIN row instead of a join row.
         mySeat: r.mySeat,
+        clashEnabled: r.clashEnabled,
+        noSafeZones: r.noSafeZones,
+        freeExit: r.freeExit,
       };
     });
   }

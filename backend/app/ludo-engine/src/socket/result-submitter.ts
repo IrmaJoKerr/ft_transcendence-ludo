@@ -31,13 +31,20 @@ export class ResultSubmitter {
       const state = await this.engine.getGameState(gameId);
       if (!state) return;
 
-      // Hotseat is demo-and-forget: the result is NEVER submitted to the
-      // backend : no game/participant rows, no counters, no leaderboard.
+      // Hotseat is demo-and-forget, and so is a guest room (the backend writes
+      // `isGuest=true` into the match hash at mint): the result is NEVER
+      // submitted - no game/participant rows, no counters, no leaderboard.
+      // A guest room also gives its concurrency slots back here: a game that
+      // ends normally (the guest won) never takes the abort path.
       const matchData = await this.store.getMatchData(gameId);
-      if (matchData?.gameType === 'HOTSEAT') {
-        console.log(`Game ${gameId} is HOTSEAT : skipping backend submission (demo-and-forget)`);
+      if (matchData?.gameType === 'HOTSEAT' || matchData?.isGuest === 'true') {
+        const kind = matchData?.isGuest === 'true' ? 'GUEST' : 'HOTSEAT';
+        console.log(`Game ${gameId} is ${kind} : skipping backend submission (demo-and-forget)`);
         state.resultSubmitted = true;
         await this.store.saveGameState(gameId, state);
+        if (matchData?.isGuest === 'true' && matchData.guestIpHash) {
+          await this.store.releaseGuestRoom(matchData.guestIpHash);
+        }
         return;
       }
 
@@ -122,6 +129,11 @@ export class ResultSubmitter {
   // WAITING to ACTIVE : otherwise it keeps appearing in "open rooms" mid-game.
   async notifyGameStarted(gameId: string): Promise<void> {
     try {
+      // The backend never even hears about a guest room: it is ACTIVE from
+      // creation, so there is no lobby transition to record.
+      const matchData = await this.store.getMatchData(gameId);
+      if (matchData?.isGuest === 'true') return;
+
       const engineApiKey = getEngineApiKey();
       await fetch(`${BACKEND_URL}/api/game/${gameId}/started`, {
         method: 'POST',

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout } from '../components/RetroAuthLayout';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { navigate, useRoute } from '../router';
 import { useApp } from '../store';
 import '../styles/retrowave.css';
@@ -22,7 +23,7 @@ import {
 
 export function Login() {
   const { t } = useTranslation();
-  const { login, resendVerification } = useApp();
+  const { login, resendVerification, lang, setLang } = useApp();
   const { query } = useRoute();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -75,7 +76,18 @@ export function Login() {
   }
 
   return (
-    <RetroAuthLayout tag={t('auth.loginTag')}>
+    <RetroAuthLayout
+      tag={t('auth.loginTag')}
+      topRight={
+        <LanguageSwitcher
+          value={lang}
+          onChange={setLang}
+          // Pinned on the card's corner, so an opaque fill stops the card's own
+          // cyan border from showing through the switch's translucent background.
+          style={{ backgroundColor: 'rgba(13, 2, 33, 0.94)' }}
+        />
+      }
+    >
       <form
         onSubmit={(e) => {
           void onSubmit(e);
@@ -143,6 +155,22 @@ export function Login() {
         <button type="submit" disabled={submitting} className={RETRO_AUTH_BTN}>
           {submitting ? t('auth.enteringBtn') : t('auth.signInBtn')}
         </button>
+
+        {/* Guest: straight into a stripped PvE setup, no account, nothing saved. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <button
+            type="button"
+            className={RETRO_AUTH_BTN_OUTLINE}
+            onClick={() => {
+              navigate('/guest');
+            }}
+          >
+            {t('guest.playButton')}
+          </button>
+          <div className={RETRO_AUTH_MUTED} style={{ textAlign: 'center', fontSize: '11.5px' }}>
+            {t('guest.playHint')}
+          </div>
+        </div>
 
         {/* OR divider */}
         <div className={RETRO_AUTH_DIVIDER}>

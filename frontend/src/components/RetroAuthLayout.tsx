@@ -38,8 +38,20 @@ export function LandscapeNotice() {
 
 /**
  * Full-bleed retrowave auth shell: shared cityscape background plus a glass card.
+ * `topRight` is an optional control pinned 12px inside the card's top-right corner:
+ * the login uses it for the language switch. Anchoring it in the card (rather than
+ * in the page flow above it) keeps the switch attached to the box it translates
+ * and costs no vertical space, so the card still fits a short landscape screen.
  */
-export function RetroAuthLayout({ tag, children }: { tag?: string; children: ReactNode }) {
+export function RetroAuthLayout({
+  tag,
+  topRight,
+  children,
+}: {
+  tag?: string;
+  topRight?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div
       style={{
@@ -80,12 +92,18 @@ export function RetroAuthLayout({ tag, children }: { tag?: string; children: Rea
         <div
           className="w-full max-w-155 rounded-[22px] bg-[rgba(13,2,33,0.78)] px-13 py-12 shadow-[0_0_45px_rgba(0,240,255,0.18),0_0_90px_rgba(255,0,127,0.12),0_28px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl backdrop-saturate-[1.8] [border:1.5px_solid_rgba(0,240,255,0.35)]"
           style={{
+            position: 'relative',
             width: '100%',
             maxWidth: 'calc(620px + 2vw)',
             padding: 'calc(3rem + 1vh) 3.25rem',
             boxSizing: 'border-box',
           }}
         >
+          {/* Language switch (login): 12px inside the card's top-right corner. */}
+          {topRight && (
+            <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>{topRight}</div>
+          )}
+
           {children}
         </div>
 

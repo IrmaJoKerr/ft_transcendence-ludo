@@ -17,7 +17,7 @@
 
 There is **no dedicated settings page** — account settings are distributed across the surfaces that need them:
 
-1. **Language selector** — in the `RetroNavbar` account popover and on `LegalPage`; switches between `en`, `ms` and `fr` via `setLang` from the store.
+1. **Language selector** — the shared `LanguageSwitcher`: the `tabs` rendering in the `RetroNavbar` account popover, the `pill` rendering on the login card and on `LegalPage`. It switches between `en`, `ms` and `fr` via `setLang` from the store.
 2. **2FA (two-factor authentication) toggle** — in the `ProfileEditModal` on the Profile page; saves through the profile update request (`PATCH /api/auth/profile` with `twoFactorEnabled`).
 3. **Sign out** — in the `RetroNavbar` account popover; calls `POST /api/auth/logout`, then navigates to `/login`.
 4. **Game preference toggles** (sound, music, auto-roll, fast animations, move hints, friend invites, weekly recap) live in `store.tsx` as `SETTING_DEFAULTS`; no dedicated settings page exposes them yet.

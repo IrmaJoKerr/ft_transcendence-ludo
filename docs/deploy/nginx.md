@@ -167,6 +167,7 @@ delay. The zones and the locations that spend them:
 | `refresh` | 30 r/m | 15 | `= /api/auth/refresh` | `apiFetch` fires this automatically on any 401, so several tabs resuming at once burst legitimately. Kept in step with the route's `@Throttle` in `auth.controller.ts` |
 | `auth` | 60 r/m | 20 | `/api/auth/` prefix, which covers `/api/auth/me` and `/api/auth/logout` | The SPA calls these on every page load and in every tab; at the earlier 10 r/m a handful of tabs spent the bucket and got a 503 mid-session |
 | `api` | 600 r/m | 100 | `/api/` prefix — everything not matched above (user, friends, game, notifications, stats) | Deliberately loose: one SPA page load fans out across several of these, so it is a ceiling on hammering rather than a usage quota |
+| `guest` | 10 r/m | 5 | `= /api/match/guest` | The only account-less room allocator. The loose `api` budget would let one address mint rooms in a burst; the six-hour budgets in `GuestLimitService` sit behind this zone |
 
 `limit_req_status 429;` makes a throttled request answer `429 Too Many Requests`,
 matching the NestJS throttler. nginx's default is `503`, which reads as a broken
@@ -182,9 +183,10 @@ throttled request. Both the `limit_req` and the `limit_conn` zones are declared 
 
 Location precedence matters here, because nginx matches exact (`=`) locations before
 prefixes: `/api/auth/login` is handled by the `login` zone rather than the `auth`
-prefix, and `/api/leaderboard` never reaches the generic `/api/` block (it also
-rejects every method but `GET` with a 405). Everything else under `/api/` falls
-through to the loose `api` zone.
+prefix, `/api/match/guest` by the `guest` zone rather than the `api` prefix, and
+`/api/leaderboard` never reaches the generic `/api/` block (it also rejects every
+method but `GET` with a 405). Everything else under `/api/` falls through to the loose
+`api` zone.
 
 
 ---

@@ -33,6 +33,9 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
   '/verify-email': () => <VerifyEmail />,
   '/gamelobby': () => <LudoLobby />,
   '/gamelobby/table': () => <Lobby />,
+  // The guest setup screen: the same seat/bot/rules controls, no session, and
+  // its launch posts the public guest endpoint instead of /api/match/create.
+  '/guest': () => <Lobby guest />,
   '/game': () => <Game />,
   '/privacy': () => <LegalPage initialDoc="privacy" />,
   '/terms': () => <LegalPage initialDoc="terms" />,
@@ -42,6 +45,7 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
 const PUBLIC_ROUTES = new Set([
   '/login',
   '/signup',
+  '/guest',
   '/2fa',
   '/forgot-password',
   '/reset-password',
@@ -57,10 +61,14 @@ const ACCOUNT_ACTION_ROUTES = new Set(['/verify-email', '/reset-password']);
 
 function Screen() {
   const { path, query } = useRoute();
-  const { user, authReady } = useApp();
+  const { user, authReady, activeMatch } = useApp();
   const { toasts, dismissToast } = useNotifications();
   const known = path in FULL_ROUTES;
-  const isPublic = PUBLIC_ROUTES.has(path);
+  // /game is public only for a guest handoff held in memory. A guest has no
+  // session, so the usual "must be signed in" gate would bounce them to /login
+  // one render after the mint.
+  const isPublic =
+    PUBLIC_ROUTES.has(path) || (path === '/game' && activeMatch?.isGuest === true);
   // Account-action arrivals (verified/reset/error/token) belong to a specific
   // account action, not the session, so a logged-in user must still see them.
   const hasNotice =
@@ -74,14 +82,14 @@ function Screen() {
     if (!known) navigate(user ? '/home' : '/login', { replace: true });
     else if (!user && !isPublic) navigate('/login', { replace: true });
     else if (user && isPublic && !hasNotice) navigate('/home', { replace: true });
-  }, [authReady, known, user, isPublic, hasNotice]);
+  }, [authReady, known, user, isPublic, hasNotice, activeMatch?.isGuest]);
 
   if (!authReady) return null;
   if (!known || (!user && !isPublic) || (user && isPublic && !hasNotice)) return null;
 
   return (
     <>
-      {FULL_ROUTES[path]()}
+      {path === '/game' ? <Game key={query.get('gameId') ?? 'game'} /> : FULL_ROUTES[path]()}
       {user && <NotificationToasts toasts={toasts} onDismiss={dismissToast} />}
     </>
   );

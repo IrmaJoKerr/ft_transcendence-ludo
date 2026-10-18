@@ -39,7 +39,9 @@ const SEAT_HUES: Record<ColorKey, string> = {
   blue: '#00f0ff',
 };
 
-export function Lobby() {
+// `guest` renders the same config screen without a session: bots only, no
+// state-lock poll, and its launch posts the public guest endpoint.
+export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const { t } = useTranslation();
   const { query } = useRoute();
   const {
@@ -52,6 +54,7 @@ export function Lobby() {
     renamePlayer,
     resetSeats,
     setActiveMatch,
+    setGuestSetup,
   } = useApp();
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -70,10 +73,13 @@ export function Lobby() {
   // this screen may launch. One fetch on mount is enough for a config screen; the
   // persisted activeMatch is deliberately not trusted (it outlives a closed tab).
   useEffect(() => {
+    // A guest has no account, so /api/games/mine is a guaranteed 401 and there
+    // is no state lock to mirror. The per-address budgets are server-side.
+    if (guest) return;
     getApi<Array<{ id: string }>>('/api/games/mine')
       .then((data) => setHasActiveGame(data.length > 0))
       .catch(() => {});
-  }, []);
+  }, [guest]);
 
   const [crtEnabled] = useState(() => {
     return localStorage.getItem('crt_enabled') !== 'false';
@@ -84,8 +90,10 @@ export function Lobby() {
   }, [resetSeats]);
 
   const playerCount = (Number(query.get('mode')) || 4) as PlayerCount;
-  const allowAddPlayers = query.get('bots') !== '0';
-  const isLocal = query.get('local') === '1';
+  // Guests always fill with bots (there is nobody else to seat) and never pick
+  // the local-hotseat variant.
+  const allowAddPlayers = guest || query.get('bots') !== '0';
+  const isLocal = !guest && query.get('local') === '1';
 
   const visible = seats.slice(0, playerCount);
   const botCount = visible.filter((s) => s.type === 'bot').length;
@@ -97,7 +105,7 @@ export function Lobby() {
 
   // Strict state lock, mirrored from the backend: with a live game on the books,
   // this screen cannot launch another one until the player leaves that game.
-  const lockedByActiveGame = hasActiveGame;
+  const lockedByActiveGame = !guest && hasActiveGame;
   const canLaunch = canStart && !lockedByActiveGame;
 
   const onStart = async () => {
@@ -111,6 +119,42 @@ export function Lobby() {
     setStartError(null);
     setStarting(true);
     try {
+      // Guest launch: PvE only, and none of mode/playerCount/seatColors come
+      // from here - the server forces the mode, derives the count and seats the
+      // human as blue. The exact bot colours travel so the seats shown here are
+      // the seats dealt (the server expands them to [blue, ...botColors]).
+      if (guest) {
+        // Named apart from the non-guest `botCount` below: that one is declared
+        // later in this same try block, so reading it here would hit its TDZ.
+        const botsSeated = visible.filter((s) => s.type === 'bot').length;
+        const botColors = visible
+          .map((s, i) => (s.type === 'bot' ? SEAT_COLORS[i] : null))
+          .filter((c): c is ColorKey => c !== null);
+        const botNames = visible
+          .map((s) => (s.type === 'bot' ? s.name : null))
+          .filter((n): n is string => n !== null);
+        const setup = {
+          botCount: botsSeated,
+          botColors: botColors.length > 0 ? botColors : undefined,
+          botNames: botNames.length > 0 ? botNames : undefined,
+          clashEnabled,
+          noSafeZones,
+          freeExit,
+        };
+        const res = await postApi<{
+          gameId: string;
+          token: string;
+          engineUrl: string;
+          color: PlayerColor;
+          mode: 'pvp' | 'pve' | 'hotseat';
+          playerCount: number;
+          isGuest?: boolean;
+        }>('/api/match/guest', setup);
+        setGuestSetup(setup);
+        setActiveMatch({ ...res, isGuest: true });
+        navigate(`/game?gameId=${res.gameId}`);
+        return;
+      }
       const gameMode = allowAddPlayers ? 'pve' : isLocal || playerCount === 2 ? 'hotseat' : 'pvp';
       const filledCount = visible.filter((s) => s.type === 'you' || s.type === 'player').length;
       const botCount = allowAddPlayers ? visible.filter((s) => s.type === 'bot').length : 0;
@@ -210,7 +254,7 @@ export function Lobby() {
                 className={HERO_TITLE}
                 style={{ fontSize: '1.75rem', marginBottom: 4, textAlign: 'center' }}
               >
-                {t('lobby.arenaMatchConfig')}
+                {guest ? t('guest.setupTitle') : t('lobby.arenaMatchConfig')}
               </h1>
 
               {/* Live Pill Announcement Bar */}
@@ -414,11 +458,12 @@ export function Lobby() {
                                       whiteSpace: 'nowrap',
                                     }}
                                     title={
-                                      (user?.displayName ?? user?.username ?? '') || t('common.you')
+                                      (user?.displayName ?? user?.username ?? '') ||
+                                      (guest ? t('guest.playerName') : t('common.you'))
                                     }
                                   >
                                     {(user?.displayName ?? user?.username ?? '').toUpperCase() ||
-                                      t('common.you')}
+                                      (guest ? t('guest.playerName') : t('common.you'))}
                                   </div>
                                   <div
                                     style={{
@@ -793,10 +838,15 @@ export function Lobby() {
                 }}
                 onClick={() => {
                   retroAudio.playUiBeep(440, 0.05);
+                  if (guest) {
+                    setActiveMatch(null);
+                    navigate('/login');
+                    return;
+                  }
                   navigate('/gamelobby');
                 }}
               >
-                {t('lobby.returnToGameLobby')}
+                {guest ? t('guest.backToLogin') : t('lobby.returnToGameLobby')}
               </button>
             </div>
 

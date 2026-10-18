@@ -1,7 +1,36 @@
 import Redis from 'ioredis';
+import { createHash } from 'node:crypto';
 import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } from './types';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// --- Guest counters: mirrored from backend/src/match/guest-limit.service.ts ---
+// The engine WRITES counts and decides no limit: the backend reads them at mint
+// time, so retuning the ladder stays a backend edit. The key shape, the counter
+// names and the window are the wire between the two processes (they share Redis
+// db 0), so both copies must agree. Hash the address: a Redis dump must hold no
+// addresses, and the backend keys its counters the same way.
+const GUEST_ABORT_WINDOW_S = 6 * 60 * 60;
+const GUEST_ROOMS_LIVE = 'guest:rooms:live';
+
+function guestHashIp(ip: string): string {
+  return createHash('sha256').update(ip).digest('hex');
+}
+
+function guestCounter(kind: 'abort' | 'live', ipHash: string): string {
+  return `guest:${kind}:${ipHash}`;
+}
+
+// Clamp at zero: the backend rolls a reservation back when a create fails, and
+// that can race this decrement.
+const GUEST_DROP_SLOT = `
+local left = redis.call('DECR', KEYS[1])
+if left <= 0 then
+  redis.call('DEL', KEYS[1])
+  return 0
+end
+return left
+`;
 
 // The Barrier Buster fields were added after the first rooms were written, and a
 // live room survives a redeploy in Redis, so a state created before the token
@@ -327,6 +356,61 @@ export class RedisGameStore {
   // Delete the engine-side game state/moves for a match.
   async deleteGame(gameId: string): Promise<void> {
     await this.client.del(this.gameKey(gameId), this.movesKey(gameId));
+  }
+
+  // Resolve a guest handshake token. The record written by the backend is the
+  // authority for the room, the seat and the mode; nothing comes from the
+  // client. Unknown, expired or malformed records are refused, as is any mode
+  // other than pve (guests are PvE only).
+  async getGuestSession(token: string): Promise<{
+    userId: string;
+    gameId: string;
+    color: PlayerColor;
+    ipHash: string;
+    tokenHash: string;
+  } | null> {
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const data = await this.client.hgetall(`guesttok:${tokenHash}`);
+    if (!data.gameId || !data.color || data.mode !== 'pve') return null;
+    if (!COLORS.includes(data.color as PlayerColor)) return null;
+
+    return {
+      // The same per-mint id the backend seated: unique, so the per-account
+      // socket cap and every seat lookup behave normally.
+      userId: `guest-${tokenHash}`,
+      gameId: data.gameId,
+      color: data.color as PlayerColor,
+      // The abort counter is keyed by the hashed address, exactly as the
+      // backend keys the mint budget.
+      ipHash: data.ip ? guestHashIp(data.ip) : '',
+      tokenHash,
+    };
+  }
+
+  // Price one guest abort against the address (the backend weights it at mint
+  // time) and give its slots back.
+  async settleGuestAbort(ipHash: string): Promise<void> {
+    if (!ipHash) return;
+    const key = guestCounter('abort', ipHash);
+    const aborts = await this.client.incr(key);
+    if (aborts === 1) await this.client.expire(key, GUEST_ABORT_WINDOW_S);
+    await this.releaseGuestRoom(ipHash);
+  }
+
+  // The room is over (an abort, or a game that finished): free the address's
+  // concurrency slot and the global live-room slot. Both counters self-heal by
+  // TTL, so a missed call cannot wedge an address forever.
+  async releaseGuestRoom(ipHash: string): Promise<void> {
+    if (!ipHash) return;
+    await this.client.eval(GUEST_DROP_SLOT, 1, guestCounter('live', ipHash));
+    await this.client.eval(GUEST_DROP_SLOT, 1, GUEST_ROOMS_LIVE);
+  }
+
+  // Revocation is a DEL. Capabilities are already bound to the connected
+  // socket, so this only stops the next handshake.
+  async revokeGuestToken(tokenHash: string): Promise<void> {
+    if (!tokenHash) return;
+    await this.client.del(`guesttok:${tokenHash}`);
   }
 
   private matchKey(gameId: string): string {

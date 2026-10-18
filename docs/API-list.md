@@ -190,6 +190,7 @@ An error response has one of two shapes:
    - [`POST /api/match/join/:code`](#post-apimatchjoincode) — Join a private PvP room using an invite code
    - [`POST /api/match/pve`](#post-apimatchpve) — Start a single-player game against bots
    - [`POST /api/match/create`](#post-apimatchcreate) — Create any game (PvP / PvE / hotseat) with full options
+   - [`POST /api/match/guest`](#post-apimatchguest) — Start an anonymous PvE room (bots and rules only, no account, nothing saved)
 
 7. **[Game Actions — Room](#7-game-actions--room)** — Ready, exit, abort, rejoin, invite
    - [`POST /api/game/:id/ready`](#post-apigameidready) — Mark yourself ready in a room so the game can start
@@ -1122,7 +1123,7 @@ Delete the current user's custom avatar.
 
 ### 6. Match — Matchmaking
 
-Match responses share a handoff shape: `{ gameId, token, engineUrl, color, mode, playerCount }`, plus `inviteCode` for invite games.
+Match responses share a handoff shape: `{ gameId, token, engineUrl, color, mode, playerCount }`, plus `inviteCode` for invite games. The guest route adds `isGuest: true` and returns an opaque `g_` token instead of a JWT.
 
 - `gameId`: UUID of the new/pending match
 - `token`: JWT to use when connecting to ludo-engine via Socket.IO
@@ -1319,6 +1320,55 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
 ---
 
 
+#### `POST /api/match/guest`
+
+**Source:** `backend/src/match/match.controller.ts` — MatchModule
+
+Start an anonymous PvE game. This is the public door behind the login screen's **Play as guest** button.
+
+**Headers:** public (no session cookie). The write still carries CSRF, and it is limited twice: nginx's `guest` zone (10 r/m, burst 5) and the route's own throttler (20/min).  
+**Body:** `botCount` is required; everything else is optional.
+
+```json
+{
+  "botCount": 2,
+  "botColors": ["green", "red"],
+  "botNames": ["Siri", "Alexa"],
+  "clashEnabled": false,
+  "noSafeZones": false,
+  "freeExit": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "gameId": "uuid",
+  "token": "g_…",
+  "engineUrl": "wss://localhost:8443",
+  "color": "blue",
+  "mode": "pve",
+  "playerCount": 3,
+  "rules": { "clashEnabled": false, "noSafeZones": false, "freeExit": false },
+  "isGuest": true
+}
+```
+
+**Errors:** 400 on a bad body (a `botCount` outside 1-3, or a duplicate or unknown bot colour); 429 `GUEST_LIMITED` when the address has spent its 6 h budget or already holds 3 live rooms; 429 `GUEST_CAPACITY` when the deployment holds 50 live guest rooms.
+
+**Notes:**
+- The mode is forced to `pve` and the human seat is always `blue`. `mode`, `playerCount`, `seatColors` and `gameId` are not accepted fields.
+- `token` is an opaque `g_` token, not a JWT: the engine resolves it from Redis (`guesttok:<sha256>`) and it opens no backend route. It lives for 1 h and is revoked when the room is aborted.
+- The seat id is `guest-<sha256(token)>`, unique per mint, so a shared campus address never receives another guest's `MATCH_ACTIVE_GAME` refusal.
+- Nothing is saved: no `Game`, `GameParticipant`, counter, achievement or leaderboard row. The response has no `inviteCode`, and the room accepts no join.
+- Limits, settlement and the frontend flow are documented in [guest-mode.md](guest-mode.md).
+
+
+---
+---
+
+
 ### 7. Game Actions — Room
 
 
@@ -1466,7 +1516,11 @@ decides whether a game has started (see `isEngineGameStarted` in `backend-match-
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:** Array of room summaries — `id`, `roomCode`, `hostId`, `host`, `hostUsername`,
-`hasAvatarPhoto`, `seats`, `maxSeats`, `mode`, and `mySeat`.
+`hasAvatarPhoto`, `seats`, `maxSeats`, `mode`, `mySeat`, and the room's three rules as
+`clashEnabled`, `noSafeZones`, and `freeExit`. The rules are read from the same `match:*` hash fields
+the create route wrote (`readRoomRules`), so a room created before the fields existed reads as the
+standard room: `false`, `false`, `false` (clash off, free exit off, safe zones protecting — the
+safe-zone flag is stored inverted). The lobby renders them as the room browser's MODES cell.
 
 
 ---
@@ -2324,6 +2378,8 @@ JWT payload structure:
 
 Every token is signed with the engine-dedicated `ENGINE_JWT_SECRET` (not the session `JWT_SECRET`) and carries `aud: "ludo-engine"`; the engine rejects a token signed with any other key or missing the audience, so a session access token cannot be replayed as a match token.
 
+A guest has no account, so `POST /api/match/guest` returns an opaque `g_<32 random bytes base64url>` token instead of a JWT. The engine branches on the `g_` prefix, hashes the token and reads `guesttok:<sha256(token)>` from Redis (`{ gameId, color, mode, ip }`, 1 h TTL). The record names the room and the seat, so a guest handshake carries no claims at all; an unknown, expired or non-`pve` record is refused with `Invalid token`. Guests may emit only the `GUEST_EVENTS` allow-list (see §20).
+
 **Health endpoint on the engine:** `GET http://localhost:3001/health` returns `{ "status": "ok", "uptime": 12345.67 }`.
 
 
@@ -2332,6 +2388,8 @@ Every token is signed with the engine-dedicated `ENGINE_JWT_SECRET` (not the ses
 
 
 ### 20. Client → Server Events (emit)
+
+A guest socket (`g_` token) may emit only the events in `GUEST_EVENTS`: `join_game`, `roll_dice`, `move_piece`, `skip_bust`, `arm_barrier`, `clash_card_hold`, `clash_input`, `leave_game`, `end_game` and `disconnect`. Any other event is dropped and logged, and the socket stays open. See [guest-mode.md](guest-mode.md).
 
 
 ---

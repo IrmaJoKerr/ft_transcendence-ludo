@@ -37,9 +37,21 @@ type ResultsModalProps = {
   result: NonNullable<LastResult>;
   onReturnToLobby: () => void;
   onClose?: () => void;
+  // Guests only: a fresh mint with the same setup, and the label their exit
+  // carries. Both are optional so every existing call site is unchanged.
+  onPlayAgain?: () => void;
+  returnLabel?: string;
+  errorText?: string | null;
 };
 
-export function ResultsModal({ result, onReturnToLobby, onClose }: ResultsModalProps) {
+export function ResultsModal({
+  result,
+  onReturnToLobby,
+  onClose,
+  onPlayAgain,
+  returnLabel,
+  errorText,
+}: ResultsModalProps) {
   const { t } = useTranslation();
   const { user } = useApp();
 
@@ -261,6 +273,33 @@ export function ResultsModal({ result, onReturnToLobby, onClose }: ResultsModalP
                     marginTop: '1.2em',
                   }}
                 >
+                  {errorText && (
+                    <div
+                      role="alert"
+                      style={{
+                        color: '#ff0055',
+                        fontSize: '0.78rem',
+                        fontFamily: 'var(--font-mono)',
+                        textAlign: 'center',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {errorText}
+                    </div>
+                  )}
+
+                  {onPlayAgain && (
+                    <button
+                      className={PAY_NOW_BTN}
+                      onClick={() => {
+                        retroAudio.playUiBeep(720, 0.05);
+                        onPlayAgain();
+                      }}
+                    >
+                      {t('guest.playAgainBtn')}
+                    </button>
+                  )}
+
                   <button
                     className={PAY_NOW_BTN}
                     onClick={() => {
@@ -268,7 +307,7 @@ export function ResultsModal({ result, onReturnToLobby, onClose }: ResultsModalP
                       onReturnToLobby();
                     }}
                   >
-                    {t('results.returnToLobbyBtn')}
+                    {returnLabel ?? t('results.returnToLobbyBtn')}
                   </button>
 
                   {onClose && (

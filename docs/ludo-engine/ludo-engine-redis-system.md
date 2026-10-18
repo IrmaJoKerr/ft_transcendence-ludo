@@ -56,6 +56,12 @@ class RedisGameStore {
   onReady(handler: () => void): void                                      // Run on every Redis `ready`, including the first connect (the wake trigger)
   async getAvatarMeta(userId: string): Promise<{ has: boolean; style?: string } | null>  // Read the cached avatar facts
 
+  // Guest mode (registry + budgets, see docs/guest-mode.md)
+  async getGuestSession(token: string): Promise<GuestSession | null>      // Resolve guesttok:<sha256>; refuse non-pve records
+  async settleGuestAbort(ipHash: string): Promise<void>                   // INCR guest:abort + free both live slots
+  async releaseGuestRoom(ipHash: string): Promise<void>                   // Free both live slots only
+  async revokeGuestToken(tokenHash: string): Promise<void>                // DEL guesttok:<sha256>
+
   // Main state (hash field "state")
   async createGame(gameId: string, activeColors?: PlayerColor[]): Promise<void>   // Create a fresh game with all 16 pieces in prison
   async loadGameState(gameId: string): Promise<GameState | null>                                       // Load the full GameState (single HGET)
@@ -409,6 +415,8 @@ model already *is* the occupancy map: **16 nodes with a `step` field answer
 | `game:{gameId}` | Hash | 86400s (24h) | One field `state` = serialized GameState JSON |
 | `game:{gameId}:moves` | List | — | Move history, trimmed to 200 entries |
 | `match:{gameId}` | Hash | 3600s (aborted) | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_left`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot). **Co-owned** — mutated by both the engine (via `RedisGameStore` helpers) and Nest (via `match/*.service.ts`). The backend reads `game:{gameId}` state through `isSeatFinalized()` only to check seat liveness; it never writes to `game:*`. |
+| `guesttok:{sha256(token)}` | Hash | 3600s (1h) | Guest handshake registry, written by the backend: `gameId`, `color`, `mode`, `ip`. The engine reads it at handshake and deletes it on abort settlement; the record is the authority for the room and the seat. |
+| `guest:abort:{sha256(ip)}`, `guest:live:{sha256(ip)}`, `guest:rooms:live` | Counter | 21600s, 3600s self-heal | Guest-mode budgets, **co-owned** with the backend. The engine increments the abort counter and frees both live slots when a guest aborts or finishes. See [guest-mode.md](../guest-mode.md). |
 
 ### Value Format
 

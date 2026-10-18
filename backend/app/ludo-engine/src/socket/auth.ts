@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import type { PlayerColor } from '../types';
 
 export const BOT_PREFIX = 'bot-';
@@ -7,6 +7,36 @@ export const BOT_PREFIX = 'bot-';
 export function isBotUserId(userId: string | undefined): boolean {
   return !!userId && userId.startsWith(BOT_PREFIX);
 }
+
+// Guest tokens are opaque, looked up in Redis, and in their own namespace: a
+// forged one is "not found" rather than a signature that must not validate in
+// the player branch. The backend mints them (backend/src/match/guest-token.util.ts
+// keeps the same prefix and hash); the engine only reads the record.
+export const GUEST_TOKEN_PREFIX = 'g_';
+
+export function hashGuestToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+// The whole surface a guest socket may drive. An allow-list, not a deny-list:
+// an event added later is refused for guests until it is added here on purpose.
+// The three lobby actions (player_ready, select_color, update_modifiers) are
+// absent: a PvE room is ACTIVE from creation, colours are assigned at creation
+// and the rules are frozen at creation, so no guest has a legitimate target for
+// them. A refused event is logged and dropped, never a disconnect: a stray
+// lobby event must not close a socket mid-clash.
+export const GUEST_EVENTS = new Set([
+  'join_game', // pinned by the registry's gameId
+  'roll_dice',
+  'move_piece',
+  'skip_bust',
+  'arm_barrier',
+  'clash_card_hold',
+  'clash_input',
+  'leave_game',
+  'end_game',
+  'disconnect',
+]);
 
 // Audience carried by every engine match token. A token without it is rejected,
 // so a session access token can never be used here.
@@ -93,6 +123,15 @@ export interface SocketData {
   displayName?: string;
   role?: 'player';
   mode?: 'pvp' | 'pve' | 'hotseat';
+  // Set only by the guest handshake branch. `isGuest` gates the event
+  // allow-list; the two guest fields are what abort settlement needs (the
+  // address's counters and the token to revoke).
+  isGuest?: boolean;
+  guestIpHash?: string;
+  guestTokenHash?: string;
+  // Exactly-once guard for settlement: a guest can leave and then abort from
+  // the end card, and must not be charged twice or decrement a slot twice.
+  guestSettled?: boolean;
 }
 
 // Custom socket wrapper to provide typed data

@@ -18,7 +18,7 @@
 
 ## Overview
 
-The ludo-engine exposes a Socket.IO server on port 3001. All game communication happens through events. The engine requires JWT authentication in the handshake `auth` object.
+The ludo-engine exposes a Socket.IO server on port 3001. All game communication happens through events. The engine requires an engine-issued credential in the handshake `auth` object: an HS256 match token for a signed-in player, or an opaque `g_` guest token resolved from Redis (guest mode).
 
 The server is started by `index.ts` which calls `SocketServer.start(3001)`. The `SocketServer` class in `socket/server.ts` registers all event handlers and holds the `engine` (game state machine) and the `store` (`RedisGameStore`, persistence).
 
@@ -155,6 +155,30 @@ The JWT payload (issued by `MatchService`) contains:
 `playerId` is the account id, which the engine reads as `userId`. `color` always identifies the seat and becomes the socket's seat colour. `mode` is present only on tokens minted when the match is created; tokens from `joinMatch` and `rejoin` omit it, and the engine derives the mode from the match record instead.
 
 Every one of these tokens is signed with the engine-dedicated `ENGINE_JWT_SECRET` — **not** the session `JWT_SECRET` — and carries `aud: "ludo-engine"`.
+
+#### Guest tokens (opaque, not JWT)
+
+A guest has no account and therefore no signed match token. The backend mints
+`g_<32 random bytes base64url>` and stores `guesttok:<sha256(token)>` →
+`{ gameId, color, mode, ip }` with a 1 h TTL. The handshake branches on the prefix,
+looks the hash up, and sets `socket.data.isGuest` plus `guestIpHash`/`guestTokenHash`
+besides the usual room and seat fields; an unknown or expired record is simply
+`Invalid token`, so a forged guest token cannot reach the player branch at all.
+Revocation is a `DEL` (on abort); capabilities are bound to the live socket, so
+deleting a record stops the *next* handshake, not an open one.
+
+A guest socket is a full seat for its room, but it drives an allow-list
+(`GUEST_EVENTS` in `socket/auth.ts`): the game events, `join_game`,
+`end_game`/`leave_game` and `disconnect`. `player_ready`, `select_color` and
+`update_modifiers` are dropped and logged, never a disconnect. The abort path also
+settles the backend's budgets from this process: `INCR guest:abort:<sha256(ip)>`
+(weighted at the next mint) and the live-room decrements, then the token is revoked.
+The counter names, the key shape and the 6 h window are duplicated from
+`backend/src/match/guest-limit.service.ts`; the engine writes counts and decides no
+limit.
+
+The full design, including the limits, the registry keys and the settlement paths, is in
+[`../guest-mode.md`](../guest-mode.md).
 
 
 ---

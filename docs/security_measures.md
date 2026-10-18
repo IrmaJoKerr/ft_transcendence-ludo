@@ -229,6 +229,7 @@ or a location.
 | `auth` | 60 r/m | 20 | the `/api/auth/` prefix (`/me`, `/logout` and the rest of the auth flows) |
 | `leaderboard` | 30 r/m | 20 | `= /api/leaderboard`, which also rejects every method but `GET` with a `405` |
 | `api` | 600 r/m | 100 | every other `/api/` route (user, friends, game, notifications, stats) |
+| `guest` | 10 r/m | 5 | `= /api/match/guest`, the only account-less room allocator |
 
 - `limit_req_status 429` makes a throttled request answer `429 Too Many Requests`, matching the
   NestJS throttler. nginx's default `503` reads as a broken server, so clients retry it and
@@ -238,6 +239,10 @@ or a location.
   tighter zone matched never reaches the loose `api` zone.
 - The `api` zone is deliberately loose: one SPA page load fans out across several endpoints, so it is
   a ceiling on hammering rather than a usage quota.
+- The `guest` zone fronts `= /api/match/guest`, the only account-less room allocator. Two more layers
+  sit behind it: the route's own `@Throttle` (20/min) and the six-hour per-address budgets in
+  `GuestLimitService` (mint ladder to 40, 3 live rooms per address, 50 live rooms overall). See
+  [guest-mode.md](guest-mode.md).
 
 ### Connection cap (nginx `limit_conn`)
 
@@ -483,12 +488,18 @@ another user's link.
 - **The engine is not reachable directly.** It publishes on loopback only, and the SPA connects to
   `/socket.io/` on its own origin, which nginx proxies over TLS. A loopback connection on its own is
   never enough to reach a game.
-- **Every socket is authenticated by a match token** signed with a dedicated secret
-  (`ENGINE_JWT_SECRET`) that is separate from the session secret. The engine refuses to boot without
-  it, and the backend entrypoint preflight aborts when it is missing.
-- **The engine accepts only `HS256`**, requires the `aud: ludo-engine` claim, compares the signature
-  with `timingSafeEqual` (constant time) and honours `exp`. A session access token fails all three
-  checks.
+- **Every socket is authenticated by an engine-issued credential.** A match token is signed with a
+  dedicated secret (`ENGINE_JWT_SECRET`) that is separate from the session secret; the engine refuses
+  to boot without it, and the backend entrypoint preflight aborts when it is missing. A guest token
+  is the opaque registry entry described in the next bullet.
+- **A guest socket is authenticated by an opaque token, not a JWT.** `POST /api/match/guest` mints
+  `g_<32 random bytes>` and stores `guesttok:<sha256(token)>` in Redis with a 1 h TTL. The engine
+  branches on the `g_` prefix, resolves the record and takes the room and seat from it; a forged or
+  expired token is simply not found. Guests also drive an allow-list (`GUEST_EVENTS`) and cannot
+  reach the account-shaped events. See [guest-mode.md](guest-mode.md).
+- **A signed match token must be `HS256`**, must carry the `aud: ludo-engine` claim, its signature is
+  compared with `timingSafeEqual` (constant time) and its `exp` is honoured. A session access token
+  fails all three checks.
 - **The token, not the client, names the room and the seat.** The engine keeps the token's match id
   and colour as authoritative; the argument a client passes to `join_game` is only a fallback. A
   refused join leaves the room and clears the socket's binding, so its later disconnect cannot mark a
