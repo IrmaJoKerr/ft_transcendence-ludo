@@ -22,6 +22,8 @@ What protects these routes (edge headers, throttling, cookie and token scope) is
 
 > **CSRF note:** every mutating request (`POST`, `PATCH`, `DELETE`) under `/api` must echo the signed `csrf_token` cookie in the `X-CSRF-Token` header. The SPA bootstraps the cookie with `GET /api/auth/csrf` (its `fetchWithCsrf` wrapper does this automatically) and the server also rejects a request whose `Origin`/`Referer` is neither this host nor a published frontend URL (`403 CSRF_ORIGIN_REJECTED`). A missing, stale or mismatched token is `403 CSRF_TOKEN_INVALID`; `api.ts` retries once with a fresh token. The two 🤖 engine callbacks are exempt because they authenticate with `x-engine-key` and carry no browser session.
 
+> **Success note:** a success body carries data and, where the SPA branches on it, a `code`. It carries no `message`: the copy the user reads lives in the SPA locale files (`frontend/src/locales/*`), so the server never ships English UI text. `message` exists on error bodies only, as the developer fallback described below.
+
 
 ---
 ---
@@ -326,7 +328,8 @@ Create a new user account and send a verification email. This call sets no sessi
 
 ```json
 {
-  "message": "Account created : check your email to verify your address."
+  "code": "AUTH_ACCOUNT_CREATED",
+  "username": "string"
 }
 
 ```
@@ -377,7 +380,7 @@ Public. Resends a signup verification link if the address exists and is still un
 { "email": "user@example.com" }
 ```
 
-**Response:** `200 { "message": "If that address needs verification, a new link is on its way." }`
+**Response:** `200 { "code": "AUTH_VERIFICATION_RESENT" }`
 
 
 ---
@@ -425,8 +428,7 @@ Authenticate. With 2FA enabled, returns a `pendingToken` and emails a code; with
 
 ```json
 {
-  "code": "AUTH_EMAIL_NOT_VERIFIED",
-  "message": "Verify your email address before signing in"
+  "code": "AUTH_EMAIL_NOT_VERIFIED"
 }
 
 ```
@@ -486,7 +488,8 @@ Re-issue the 2FA login code for a live challenge (same `pendingToken`; the previ
 { "pendingToken": "string (64-char hex)" }
 ```
 
-**Response:** `200 { "code": "AUTH_CODE_RESENT", "message": "A new code is on its way." }`  
+**Response:** `200 { "code": "AUTH_CODE_RESENT" }`
+
 **Errors:** `400 AUTH_CODE_EXPIRED` if the challenge lapsed; `429 AUTH_CODE_RESEND_LOCKED` if the per-user resend cap is hit.
 
 
@@ -597,7 +600,7 @@ Email a password-reset link. Response is identical whether or not the email is r
 
 ```json
 {
-  "message": "If that email is registered, a reset link is on its way."
+  "code": "AUTH_RESET_LINK_SENT"
 }
 
 ```
@@ -630,7 +633,7 @@ The emailed link points at the SPA (`/reset-password#token=…`), so the token t
 
 ```json
 {
-  "message": "Password updated : you can log in with it now."
+  "code": "AUTH_PASSWORD_RESET"
 }
 
 ```
@@ -747,12 +750,11 @@ Change the password while logged in (requires the current password).
 
 ```
 
-**Response:** a localized notice; changing the password also signs out every other device.
+**Response:** changing the password also signs out every other device (the SPA shows a localized notice).
 
 ```json
 {
-  "code": "AUTH_PASSWORD_UPDATED",
-  "message": "Password updated : other devices were signed out."
+  "code": "AUTH_PASSWORD_UPDATED"
 }
 
 ```
@@ -784,7 +786,7 @@ change-password flow).
 **Response:** clears both session cookies, so the browser ends logged out.
 
 ```json
-{ "message": "Account permanently deleted" }
+{ "code": "AUTH_ACCOUNT_DELETED" }
 
 ```
 
@@ -1065,7 +1067,6 @@ Upload an avatar image (max 2 MB, PNG/JPEG/GIF/WebP).
 
 ```json
 {
-  "message": "Avatar uploaded",
   "contentType": "image/png"
 }
 
@@ -1109,7 +1110,7 @@ Delete the current user's custom avatar.
 
 ```json
 {
-  "message": "Avatar deleted"
+  "ok": true
 }
 
 ```
@@ -1338,7 +1339,6 @@ Signal that the current player is ready.
 
 ```json
 {
-  "message": "Player ready",
   "gameId": "uuid",
   "readyCount": 1,
   "totalPlayers": 2,
@@ -1368,7 +1368,6 @@ Acknowledge leaving the game (after game has ended).
 
 ```json
 {
-  "message": "Exited game",
   "gameId": "uuid"
 }
 ```
@@ -1395,7 +1394,6 @@ Cancel an unstarted game (while still in WAITING state).
 
 ```json
 {
-  "message": "Game cancelled",
   "gameId": "uuid"
 }
 
@@ -1427,7 +1425,6 @@ Invite a friend into a WAITING PvP room.
 
 ```json
 {
-  "message": "Invite sent",
   "gameId": "uuid"
 }
 ```
@@ -1849,7 +1846,7 @@ Decline a friend request.
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:requestId` = request UUID  
 **Body:** None  
-**Response:** `{ "message": "Friend request declined" }`
+**Response:** `{ "ok": true }`
 
 **Errors:** 404 `FRIEND_REQUEST_NOT_FOUND` when the pair row does not exist or the caller has no live
 inbound request.
@@ -1913,7 +1910,7 @@ Remove a friend.
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:friendId` = friend's user ID  
 **Body:** None  
-**Response:** `{ "message": "Friend removed" }`
+**Response:** `{ "ok": true }`
 
 
 ---
@@ -1956,7 +1953,9 @@ Block a user.
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:userId` = user ID to block  
 **Body:** None  
-**Response:** Returns the blocked friendship object with user and friend details.
+**Response:** `{ "ok": true }` when the user is newly blocked or already blocked; `{ "id": "<blocked-record-id>" }` when the block row is created.
+
+The SPA refetches the blocked list either way, so it never reads these bodies.
 
 
 ---
@@ -2003,7 +2002,7 @@ Unblock a user.
 **Response:**
 
 ```json
-{ "message": "User unblocked" }
+{ "ok": true }
 
 ```
 
@@ -2032,7 +2031,6 @@ Invite a friend to a PvP game. Creates a match room and seats the friend; pushes
 
 ```json
 {
-  "message": "Invite sent",
   "gameId": "game-id",
   "token": "<jwt>",
   "engineUrl": "wss://localhost:8443",
@@ -2072,7 +2070,7 @@ Dismiss the current user's pending game invite.
 **Response:**
 
 ```json
-{ "message": "Dismissed" }
+{ "ok": true }
 
 ```
 

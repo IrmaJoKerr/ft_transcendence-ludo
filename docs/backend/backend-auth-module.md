@@ -342,7 +342,7 @@ sequenceDiagram
     else Free
         Server->>DB: Save the account (password scrambled, never stored as plain text)
         Server->>Server: Create a one-time email verification link
-        Server-->>Site: "Account created"
+        Server-->>Site: 200 { code: 'AUTH_ACCOUNT_CREATED', username }
         Site-->>User: "Check your email to verify your account"
     end
 ```
@@ -445,7 +445,7 @@ sequenceDiagram
     User->>Site: Click "Forgot password" and type the email
     Site->>Server: POST /api/auth/forgot-password
     Server->>Server: Email a one-time reset link (only if the email exists)
-    Server-->>Site: "If that email is registered, a reset link is on its way"
+    Server-->>Site: 200 { code: 'AUTH_RESET_LINK_SENT' }
     Site-->>User: Show the same message either way (never reveals which emails exist)
 
     Note over User,Server: Step 2 — Reset password
@@ -456,7 +456,7 @@ sequenceDiagram
         Site-->>User: "Link expired, request a new one"
     else Link valid
         Server->>Server: Save the new password
-        Server-->>Site: Done
+        Server-->>Site: 200 { code: 'AUTH_PASSWORD_RESET' }
         Site-->>User: Go to login and sign in with the new password
     end
 ```
@@ -548,7 +548,7 @@ POST /api/auth/register
   ├── Prisma user.create() — with nested achievement.create (1:1 flags row)
   ├── TwoFactorService.createVerifyToken(userId)
   ├── MailService.sendVerification(email, ...)
-  └── Return { message: 'Account created : check your email to verify your address.' }
+  └── Return { code: 'AUTH_ACCOUNT_CREATED', username }
 ```
 
 ### Login Path
@@ -600,7 +600,7 @@ POST /api/auth/forgot-password
   ├── If user has password_hash:
   │   ├── TwoFactorService.createResetToken(userId)
   │   └── MailService.sendPasswordReset(email, ...)
-  └── Return generic { message } (always identical)
+  └── Return generic { code: 'AUTH_RESET_LINK_SENT' } (always identical)
 ```
 
 ### Reset Password Path
@@ -613,7 +613,7 @@ POST /api/auth/reset-password
   │   └── Valid → bcrypt.hash(newPassword)
   ├── Prisma user.update({ password_hash, emailVerified: now })  // the link proves inbox control
   ├── SessionService.revokeAll(userId)
-  └── Return { message: 'Password updated...' }
+  └── Return { code: 'AUTH_PASSWORD_RESET' }
 ```
 
 ### OAuth Path (Google / GitHub / 42)

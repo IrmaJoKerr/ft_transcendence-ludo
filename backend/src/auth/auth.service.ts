@@ -209,11 +209,7 @@ export class AuthService implements OnModuleDestroy {
       user.language,
       user.username,
     );
-    return {
-      code: 'AUTH_ACCOUNT_CREATED',
-      message: 'Account created : check your email to verify your address.',
-      username,
-    };
+    return { code: 'AUTH_ACCOUNT_CREATED', username };
   }
 
   // Redeems a signup verification link. Returns false for unknown/expired tokens.
@@ -337,10 +333,7 @@ export class AuthService implements OnModuleDestroy {
         user.username,
       );
     }
-    return {
-      code: 'AUTH_RESET_LINK_SENT',
-      message: 'If that email is registered, a reset link is on its way.',
-    };
+    return { code: 'AUTH_RESET_LINK_SENT' };
   }
 
   // Step two: redeem the link's token and set the new password.
@@ -372,10 +365,7 @@ export class AuthService implements OnModuleDestroy {
       .notify(userId, 'profile_updated', { items: ['password'] })
       .catch(() => {});
 
-    return {
-      code: 'AUTH_PASSWORD_RESET',
-      message: 'Password updated : you can log in with it now.',
-    };
+    return { code: 'AUTH_PASSWORD_RESET' };
   }
 
   // Resend a signup verification link. Always resolves the same way (no account
@@ -383,7 +373,7 @@ export class AuthService implements OnModuleDestroy {
   async resendSignupVerification(
     rawEmail: string,
     baseUrl: string,
-  ): Promise<{ code: string; message: string }> {
+  ): Promise<{ code: string }> {
     const email = normalizeEmail(rawEmail);
     const user = await this.prisma.db.user.findUnique({ where: { email } });
     if (user?.emailVerified === null && user.email) {
@@ -397,10 +387,7 @@ export class AuthService implements OnModuleDestroy {
         )
         .catch(() => {});
     }
-    return {
-      code: 'AUTH_VERIFICATION_RESENT',
-      message: 'If that address needs verification, a new link is on its way.',
-    };
+    return { code: 'AUTH_VERIFICATION_RESENT' };
   }
 
   // Resend the pending email-change link: rotates the token (invalidating the
@@ -439,7 +426,7 @@ export class AuthService implements OnModuleDestroy {
   }
 
   // Re-issue the 2FA login code for a live challenge (same pendingToken).
-  async resendTwoFactor(pendingToken: string): Promise<{ code: string; message: string }> {
+  async resendTwoFactor(pendingToken: string): Promise<{ code: string }> {
     const result = await this.twoFactor.resendChallenge(pendingToken);
     if (result === 'expired') {
       throw new BadRequestException({
@@ -462,7 +449,7 @@ export class AuthService implements OnModuleDestroy {
         .send2faCode(user.email, result.code, user.language, user.username)
         .catch(() => {});
     }
-    return { code: 'AUTH_CODE_RESENT', message: 'A new code is on its way.' };
+    return { code: 'AUTH_CODE_RESENT' };
   }
 
   // Factor two of 2FA login: check the emailed code against the pending
@@ -857,10 +844,7 @@ export class AuthService implements OnModuleDestroy {
       .notify(userId, 'profile_updated', { items: ['password'] })
       .catch(() => {});
 
-    return {
-      code: 'AUTH_PASSWORD_UPDATED',
-      message: 'Password updated : other devices were signed out.',
-    };
+    return { code: 'AUTH_PASSWORD_UPDATED' };
   }
 
   // Permanently delete the user's account. Requires `confirm: true` and a
@@ -907,7 +891,7 @@ export class AuthService implements OnModuleDestroy {
     //    leaderboard entry is already removed by clearUserRedisState above.
     await this.prisma.db.user.delete({ where: { id: userId } });
 
-    return { code: 'AUTH_ACCOUNT_DELETED', message: 'Account permanently deleted' };
+    return { code: 'AUTH_ACCOUNT_DELETED' };
   }
 
   // Mark every WAITING/ACTIVE match the user is seated in as ABORTED (1h TTL).

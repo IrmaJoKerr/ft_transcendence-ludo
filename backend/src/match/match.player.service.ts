@@ -258,7 +258,7 @@ export class MatchPlayerService {
       playerCount: parseInt(data.playerCount || '4', 10),
     });
 
-    return { message: 'Invite sent', gameId: friendSeat.gameId };
+    return { gameId: friendSeat.gameId };
   }
 
   // Toggle the ready flag for a player in a WAITING match.
@@ -296,7 +296,6 @@ export class MatchPlayerService {
     ].filter(Boolean).length;
 
     return {
-      message: 'Player ready',
       gameId,
       readyCount,
       totalPlayers,
@@ -337,7 +336,7 @@ export class MatchPlayerService {
     current.delete(userId);
     await this.redis.set(readyKey, JSON.stringify(Array.from(current)), 'EX', 86400);
 
-    return { message: 'Exited game', gameId };
+    return { gameId };
   }
 
   // Cancel (abort) a match, setting its status to ABORTED. Quitting stays
@@ -364,7 +363,7 @@ export class MatchPlayerService {
     // Notify the other human players that the match was aborted.
     await this.notifyMatchAbort(gameId, data, userId);
 
-    return { message: 'Game cancelled', gameId };
+    return { gameId };
   }
 
   // Notify the other human players when a match is aborted. The payload keeps
@@ -424,7 +423,7 @@ export class MatchPlayerService {
     await this.redis.hset(`match:${gameId}`, 'status', 'ENDED');
     await this.redis.expire(`match:${gameId}`, 3600);
 
-    return { message: 'Game ended', gameId };
+    return { gameId };
   }
 
   private async resolveUsername(userId: string): Promise<string | null> {

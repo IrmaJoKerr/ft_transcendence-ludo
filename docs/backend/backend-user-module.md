@@ -169,7 +169,7 @@ sequenceDiagram
     Site->>Server: POST /api/user/avatar (upload the image)
     Server->>Server: Check the size, the declared type and the actual image bytes
     Server->>Server: Save the picture on the profile, then update the shared avatar record
-    Server-->>Site: "Avatar uploaded"
+    Server-->>Site: 200 { contentType }
     Site-->>User: Show the new avatar
 ```
 
@@ -202,7 +202,7 @@ sequenceDiagram
     User->>Site: Click "Remove my avatar"
     Site->>Server: DELETE /api/user/avatar
     Server->>Server: Delete the saved picture, then set has: false in the shared record
-    Server-->>Site: "Avatar deleted"
+    Server-->>Site: 200 { ok: true }
     Site->>Site: Set hasAvatarPhoto = false
     Site-->>User: Show the default avatar again (no photo request)
 ```
@@ -236,7 +236,7 @@ GET /api/user/:username/games?page=&limit=
 POST /api/user/avatar (JWT)
   ├── FileInterceptor('avatar') — max 2MB, allowed: png/jpeg/gif/webp
   ├── user.update({ avatarPhoto: buffer, avatarPhotoContentType: mime })
-  └── 200 { message: 'Avatar uploaded', contentType }
+  └── 200 { contentType }
 ```
 
 ### Get Avatar Path
@@ -273,7 +273,7 @@ avatar:<userId>  →  { has: '0'|'1', style: '<dicebear style>', v: '<epoch ms>'
 ```
 DELETE /api/user/avatar (JWT)
   ├── user.update({ avatarPhoto: null, avatarPhotoContentType: null })
-  └── 200 { message: 'Avatar deleted' }
+  └── 200 { ok: true }
 ```
 
 

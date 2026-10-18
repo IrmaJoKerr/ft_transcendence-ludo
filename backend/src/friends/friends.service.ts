@@ -98,7 +98,6 @@ export class FriendsService {
     // room immediately : the host must be seated before the friend can accept,
     // otherwise the friend's accept could create/join the room alone.
     return {
-      message: 'Invite sent',
       gameId: match.gameId,
       token: match.token,
       engineUrl: match.engineUrl,
@@ -114,7 +113,7 @@ export class FriendsService {
 
   async dismissInvite(userId: string) {
     await this.redis.del(`invite:${userId}`);
-    return { message: 'Dismissed' };
+    return { ok: true };
   }
 
   // Create a pending friend request (with duplicate/block checks) and notify
@@ -329,7 +328,7 @@ export class FriendsService {
     // Notify the original sender that their request was declined.
     await this.notifyFriendDeclined(isUser1 ? pair.user2Id : pair.user1Id, userId);
 
-    return { message: 'Friend request declined' };
+    return { ok: true };
   }
 
   // Delete an accepted friendship and notify the removed friend. Used by
@@ -361,7 +360,7 @@ export class FriendsService {
       fromUsername: remover?.username ?? 'A pilot',
     });
 
-    return { message: 'Friend removed' };
+    return { ok: true };
   }
 
   // Accepted friends of a user (optionally looked up by username instead of
@@ -505,13 +504,13 @@ export class FriendsService {
           user2Status: 'none',
         },
       });
-      return { message: 'User blocked', id: created.id };
+      return { id: created.id };
     }
 
     const isUser1 = pair.user1Id === userId;
     // Idempotent: the caller already blocked this user.
     if ((isUser1 ? pair.user1Status : pair.user2Status) === 'blocked') {
-      return { message: 'User blocked' };
+      return { ok: true };
     }
 
     // Clear the other direction (pending/accepted/declined), but never
@@ -532,7 +531,7 @@ export class FriendsService {
           },
     });
 
-    return { message: 'User blocked' };
+    return { ok: true };
   }
 
   // Clear the caller's own block. The other side is reset to none as well,
@@ -566,7 +565,7 @@ export class FriendsService {
           },
     });
 
-    return { message: 'User unblocked' };
+    return { ok: true };
   }
 
   // All users the caller has blocked. Used by GET /api/friends/blocked.

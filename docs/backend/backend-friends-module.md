@@ -247,7 +247,7 @@ sequenceDiagram
         Site-->>User: Show the error
     else Found
         Server->>DB: Set your side "declined" and clear the sender's "pending"
-        Server-->>Site: "Friend request declined"
+        Server-->>Site: 200 { ok: true }
         Site-->>User: Show "request declined"
     end
 ```
@@ -284,7 +284,7 @@ sequenceDiagram
     Site->>Server: DELETE /api/friends/remove/{friendId}
     Server->>DB: Delete the friendship link between you two
     DB-->>Server: Deleted
-    Server-->>Site: "Friend removed"
+    Server-->>Site: 200 { ok: true }
     Site-->>User: Show the updated friends list
 ```
 
@@ -444,7 +444,7 @@ POST /api/friends/decline/{requestId} (JWT required)
   ├── Load row by id; caller must have a live inbound 'pending' → 404
   ├── Caller's direction := 'declined' (starts the sender's 1h cooldown)
   ├── Sender's direction := 'none'
-  └── 200 { message: 'Friend request declined' }; notifies the sender friend_declined
+  └── 200 { ok: true }; notifies the sender friend_declined
 ```
 
 ### List Friends Path
@@ -461,7 +461,7 @@ GET /api/friends (JWT required)
 DELETE /api/friends/remove/{friendId} (JWT required)
   ├── Load pair by pairKey; must be friends (both 'accepted') → 404 FRIEND_NOT_FOUND
   ├── Reset both directions to 'none' (row kept as a log)
-  └── 200 { message: 'Friend removed' }; notifies the friend friend_removed
+  └── 200 { ok: true }; notifies the friend friend_removed
 ```
 
 ### Block User Path
@@ -472,7 +472,7 @@ POST /api/friends/block/{userId} (JWT required)
   ├── Caller already 'blocked' → idempotent 200
   ├── Set caller's direction 'blocked'; reset the other side to 'none'
   │   unless the other side is itself 'blocked'
-  └── 200 { message: 'User blocked' }
+  └── 200 { ok: true } ({ id } when the block row is created)
 ```
 
 ### Unblock User Path
@@ -481,7 +481,7 @@ POST /api/friends/unblock/{userId} (JWT required)
   ├── Load pair by pairKey; the caller's own direction must be 'blocked' → 404
   ├── Set caller's direction 'none'; reset the other side to 'none'
   │   unless the other side is itself 'blocked'
-  └── 200 { message: 'User unblocked' } (friendship is not restored)
+  └── 200 { ok: true } (friendship is not restored)
 ```
 
 
