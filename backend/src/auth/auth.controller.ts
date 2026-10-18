@@ -106,10 +106,7 @@ export class AuthController {
     const result = await this.authService.login(dto);
     // 200 with a code, so the browser logs no error for this normal state.
     if ('emailNotVerified' in result) {
-      return {
-        code: 'AUTH_EMAIL_NOT_VERIFIED',
-        message: 'Verify your email address before signing in',
-      };
+      return { code: 'AUTH_EMAIL_NOT_VERIFIED' };
     }
     if (result.twoFactorRequired) {
       return { twoFactorRequired: true, pendingToken: result.pendingToken };
@@ -248,11 +245,11 @@ export class AuthController {
     @Body() dto: DeleteAccountDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.authService.deleteAccount((req.user as { id: string }).id, dto);
+    const result = await this.authService.deleteAccount((req.user as { id: string }).id, dto);
     // Drop both session cookies so the (now-deleted) browser ends logged out.
     res.clearCookie(ACCESS_COOKIE, { path: '/' });
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
-    return { message: 'Account permanently deleted' };
+    return result;
   }
 
   // 2FA preference (logged-in user toggles their own)

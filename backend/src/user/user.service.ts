@@ -94,7 +94,7 @@ export class UserService {
       })
       .catch(() => {});
 
-    return { message: 'Avatar uploaded', contentType };
+    return { contentType };
   }
 
   // The stored photo by immutable id; null when there is none, and the caller
@@ -143,7 +143,7 @@ export class UserService {
       })
       .catch(() => {});
 
-    return { message: 'Avatar deleted' };
+    return { ok: true };
   }
 
   // One page of a user's finished games with per-game participants and
