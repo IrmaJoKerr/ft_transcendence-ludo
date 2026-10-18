@@ -76,9 +76,6 @@ export class MatchService {
   async exitGame(gameId: string, userId: string) {
     return this.player.exitGame(gameId, userId);
   }
-  async gameEnd(gameId: string, userId: string) {
-    return this.player.gameEnd(gameId, userId);
-  }
   async cancelGame(gameId: string, userId: string) {
     return this.player.cancelGame(gameId, userId);
   }

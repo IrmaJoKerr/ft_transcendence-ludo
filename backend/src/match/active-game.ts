@@ -6,9 +6,9 @@ import { isEngineGameStarted } from './seat-finalization';
 // A live game is one the match:* hash still tracks as in progress: either the
 // hash says ACTIVE, or the engine has already started the game in that room (the
 // hash can lag behind the engine). Statuses that mean the room is over
-// (ABORTED, set by an abort or by the engine's expiry teardown, and ENDED, set
-// by the game-end callback) never count, so a room that is done cannot keep its
-// players locked out while its hash lingers for the rest of its TTL.
+// (ABORTED, set by an abort or by the engine's expiry teardown, and the legacy
+// ENDED value an older build wrote) never count, so a room that is done cannot
+// keep its players locked out while its hash lingers for the rest of its TTL.
 //
 // Enforcement is backend-authoritative because the backend owns the match:*
 // state: every create/join/rejoin path checks it through here. The frontend only
@@ -16,7 +16,10 @@ import { isEngineGameStarted } from './seat-finalization';
 //
 // The full rule is in docs/backend/backend-match-module.md.
 
-// Hash statuses that mean the room is over: not a live game for anyone.
+// Hash statuses that mean the room is over: not a live game for anyone. ENDED is
+// no longer written (the game-end callback deletes the hash); it stays listed so
+// a hash left behind by an older build cannot lock its players out for the rest
+// of its TTL.
 const ENDED_MATCH_STATUSES = ['ABORTED', 'ENDED'];
 
 // The four seat ids of a match hash, in slot order.
