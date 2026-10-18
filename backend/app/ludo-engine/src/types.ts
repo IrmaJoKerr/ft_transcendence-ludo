@@ -50,18 +50,13 @@ export interface PlayerMeta {
     // existed.
     barrierBreaks: number;
   };
-  // The Barrier Buster arm switch for this seat, clash mode only. Clash mode is
-  // the OPPORTUNITY to break a wall; this flag is the in-game decision to use it.
-  // While it is on, this seat may attack a wall (2+ defenders of one colour) and
-  // every such landing spends one token; while it is off the wall blocks the
-  // landing like any other blockade. Never settable with an empty hand, and
-  // cleared when the turn leaves the seat, so a later roll cannot inherit it.
-  // Optional so a state written before the switch existed reads as off.
+  // Barrier Buster arm switch, clash mode only. While on, this seat may attack a wall
+  // and every such landing spends a token; while off the wall blocks. Never settable
+  // with an empty hand, and cleared when the turn leaves. Absent reads as off.
   barrierArmed?: boolean;
-  // Barrier Buster tokens in hand for this seat: one is dealt at game start, one
-  // is spent per token-bought exit, and one is earned back per clash won against
-  // exactly one defender (see BUST_CAP). Optional so a state written before the
-  // token existed reads as 0 (spend nothing, offer nothing).
+  // Barrier Buster tokens in hand: one at game start, one spent per token-bought
+  // exit, one earned per clash won against exactly one defender (see BUST_CAP).
+  // Absent reads as 0.
   barrierTokens?: number;
 }
 
@@ -82,19 +77,16 @@ export interface ClashState {
   attackerPresses: number;
   defenderPresses: number;
   lastPressAt?: Partial<Record<PlayerColor, number>>; // press-cap per side
-  // Clash CHAINS: a wall of N defenders costs N rounds, one defender per round.
-  // `round` is the round in progress (1-based) and `totalRounds` the size of the
-  // wall as stamped when the attack began. Both are 1 (or absent, on a state
-  // written before the chain existed) for a single-defender clash: the chain is
-  // the R = 1 case of the same shape, never a second code path.
+  // Clash chains: a wall of N defenders costs N rounds, one per defender. `round` is
+  // the round in progress and `totalRounds` the wall size when the attack began. A
+  // single defender is the R = 1 case, not a second path.
   round?: number;
   totalRounds?: number;
 }
 
-// The Barrier Buster hand is capped here: the seed is 1 (redis.ts) and a clash won
-// against exactly one defender pays one back, so a seat banks at most three
-// attempts in a game. A won barrier never pays, so a wall cannot feed the token
-// that breaks walls.
+// The Barrier Buster hand is capped here: the seed is 1 and a clash won against one
+// defender pays one back, so a seat banks at most three attempts. A won barrier never
+// pays, so a wall cannot feed the token that breaks walls.
 export const BUST_CAP = 3;
 
 // A capture deferred until the clash resolves: the move is held here instead of
@@ -108,21 +100,16 @@ export interface PendingCapture {
   defender: PlayerColor;
   capturedPieceIds: PieceId[];
   enteredHome: boolean;
-  // Chain ledger. `remainingDefenderIds` holds every defender still standing (the
-  // round's defender first) and `beatenDefenderIds` the ones already sent home by
-  // earlier rounds, so the final application can send the whole ledger home without
-  // re-deriving it from the board. `round` is the round in progress, `totalRounds`
-  // the defender count stamped at move time. The move fights exactly ONE square,
-  // the landing square, whose stack is the whole ledger; the ledger is persisted
-  // with the state, so a restart replays the chain exactly where it stopped.
+  // Chain ledger. `remainingDefenderIds` holds every defender still standing and
+  // `beatenDefenderIds` the ones already sent home, so the final apply needs no
+  // re-derivation. The ledger is persisted with the state, so a restart replays it.
   round?: number;
   totalRounds?: number;
   remainingDefenderIds?: PieceId[];
   beatenDefenderIds?: PieceId[];
-  // 1 when the landing square stood 2 or more defenders, else 0. Stamped at move
-  // time because the wall is gone from the board once the chain has sent its
-  // pieces home: a won chain credits that many barrierBreaks to the attacker
-  // (achTearDownThisWall). A lone defender pays nothing.
+  // 1 when the landing square stood 2 or more defenders, else 0. Stamped at move time
+  // because the wall is gone once the chain resolves; a won chain credits that many
+  // barrierBreaks. A lone defender pays nothing.
   barrierBattles?: number;
 }
 
@@ -142,11 +129,9 @@ export interface DisconnectState {
   reconnectDeadline: number;
 }
 
-// The three room rules as ONE object, in both directions of the wire: the host's
-// rules panel sends them and `modifiers_updated` broadcasts them, in the same
-// shape the create body carries, the match hash stores and a full `state_update`
-// carries. A fourth rule is a field here, not a fifth positional boolean at the
-// four call sites that would each have to agree on it.
+// The three room rules as one object, in both directions of the wire: the host's
+// rules panel sends them and `modifiers_updated` broadcasts them, in the shape the
+// create body, match hash and full `state_update` all carry.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
@@ -211,20 +196,13 @@ export interface LegalMove {
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
   isHomeEntry: boolean; // move enters the home stretch (52)
-  // How many defenders that capture sends home: 1 for a single piece, the barrier's
-  // size (2-4) when the landing attacks a breakable barrier, 0 when nothing is
-  // captured at all (a plain move, a shared square). It is the clash rounds the
-  // move costs, one per defender. The bot ranks a capture by it and the client
-  // labels the clash "x N" from it.
+  // How many defenders the capture sends home: 1 for a single piece, the barrier size
+  // (2-4) for a breakable barrier, 0 when nothing is captured. It is also the clash
+  // rounds the move costs. The bot ranks by it and the client labels "x N" from it.
   captureCount: number;
-  // True on the Barrier Buster variant of a prison exit: the move costs one token
-  // from the mover's hand, and it LANDS on the barrier the roll reaches exactly
-  // (never a crossing, never a waiver of the exit-roll gate: see
-  // MoveValidator.armedExit, which is reached only when the plain exit is
-  // illegal). A piece is offered at most ONE exit per roll, so it never carries
-  // two moves the same `pieceId` cannot tell apart. The client arms this variant
-  // with an explicit control and then sends the piece alone; the engine keys the
-  // debit off this flag, so the client's choice is the whole mechanism.
+  // True on the Barrier Buster variant of a prison exit: the move costs one token and
+  // lands on the barrier the roll reaches exactly, never a crossing. A piece is offered
+  // at most one exit per roll. The engine keys the debit off this flag.
   spendsBarrierToken?: boolean;
 }
 
@@ -248,10 +226,9 @@ export type GameEvent =
   // A held turn passed without a move: the armed exit was declined (Skip), so no
   // token was spent and the turn moves on. Carries the seat that takes over.
   | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor }
-  // The result card's hold ended: every participating client reported it was done
-  // (or there was none to wait for), so the engine shortened `resultCardUntil` and
-  // says the clash is over. Clients clear the live clash on this frame; the card
-  // itself is their own presentation clock.
+  // The result card's hold ended: every participating client reported it was done, so
+  // the engine shortened `resultCardUntil`. Clients clear the live clash on this frame;
+  // the card itself is their own presentation clock.
   | { type: 'clash_card_released'; gameId: string; resultCardUntil: number }
   | { type: 'game_ended'; gameId: string; winner: PlayerColor; resultDetail: string }
   | { type: 'game_started'; gameId: string }
@@ -315,18 +292,12 @@ export type GameEvent =
       winnerPresses: number;
       loserPresses: number;
       // Chain fields. A chain reuses this frame for every round: `continues` says
-      // whether the square still holds defenders, `defenderPieceId` the defender
-      // that just lost this round, and `remainingDefenderIds` the defenders left
-      // standing AFTER it (what the board re-renders, excluding the beaten one).
-      // `continues` false means the move is complete: this frame follows a
-      // `piece_moved`, or a repulse, on the round the chain ended.
+      // whether the square still holds defenders, `defenderPieceId` the defender that
+      // lost, and `remainingDefenderIds` the defenders left standing after it.
       round?: number;
       // The result card's identity for the release handshake: "attacker-defender-
-      // moveCounter" (`blue-red-41`). The colours name the two seats and the counter
-      // separates repeated clashes; the GAME is the hold map's key and the socket's
-      // own game id, so it is not repeated here. A client echoes it back and a
-      // receipt for any other card is dropped. Optional: a frame that predates the
-      // handshake (or a legacy publisher) simply leaves the ceiling in charge.
+      // moveCounter" (`blue-red-41`). A client echoes it back and a receipt for any
+      // other card is dropped. Absent leaves the ceiling in charge.
       cardId?: string;
       totalRounds?: number;
       continues?: boolean;

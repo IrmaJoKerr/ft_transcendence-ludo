@@ -1,20 +1,10 @@
 # ═══════════════════════════════════════════════════════════
-# Shared server body: security headers, SPA routing and all proxying.
-#
-# Included by BOTH TLS listeners in nginx.conf so the two cannot drift:
-#   :443  direct clients (localhost / LAN), remote_addr is the peer
-#   :444  tunnel clients via ngrok, remote_addr is resolved from
-#         X-Forwarded-For by the real_ip module (see nginx.conf)
-#
-# Every rate-limit zone used below keys on $binary_remote_addr, so each
-# listener limits on whatever its own block established as the client
-# address. Nothing here needs to know which mode it is serving.
+# Shared server body: security headers, SPA routing and proxying.
 # ═══════════════════════════════════════════════════════════
 
 # Security headers, all with `always` so error responses carry them too.
-# CSP keeps style-src 'unsafe-inline' (React inline styles and Tailwind need it)
-# and allows the Google Fonts, FontAwesome and Codepen font origins only.
-# HSTS is not here: it is set per listener in nginx.conf, next to each host.
+# CSP allows inline styles plus the Google Fonts, FontAwesome and Codepen origins.
+# HSTS is set per listener in nginx.conf, next to each host.
 add_header X-Frame-Options "SAMEORIGIN" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -26,16 +16,14 @@ root /usr/share/nginx/html;
 index index.html;
 
 # ═══════════════════════════════════════════════════════
-# SPA ROUTING: all non-file requests serve index.html
-# so React Router handles the frontend navigation
+# SPA ROUTING: all non-file requests serve index.html.
 # ═══════════════════════════════════════════════════════
 location / {
     try_files $uri $uri/ /index.html;
 }
 
 # ═══════════════════════════════════════════════════════
-# LEADERBOARD API: GET-only, per-IP throttled. Exact match
-# wins over the generic /api/ prefix below.
+# LEADERBOARD API: GET-only, per-IP throttled.
 # ═══════════════════════════════════════════════════════
 location = /api/leaderboard {
     if ($request_method !~ ^(GET)$) {
@@ -51,9 +39,7 @@ location = /api/leaderboard {
 }
 
 # ═══════════════════════════════════════════════════════
-# AUTH API: per-IP throttled, tighter than the generic /api/
-# prefix below. Exact match on /api/auth/login wins over the
-# broader /api/auth/ prefix, which wins over /api/.
+# AUTH API: per-IP throttled, tighter than the generic /api/ prefix.
 # ═══════════════════════════════════════════════════════
 location = /api/auth/login {
     limit_req zone=login burst=5 nodelay;
@@ -86,12 +72,8 @@ location /api/auth/ {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
-# ═══════════════════════════════════════════════════════
-# API PROXY: forwards /api/* requests to backend
-# ═══════════════════════════════════════════════════════
-# Exact match, so it must sit above /api/: the public guest allocator has its
-# own rate zone instead of the generic api burst. Kept in step with the 20/min
-# @Throttle on the route and the counters in GuestLimitService.
+# API PROXY: forwards /api/* to backend. The guest allocator has its own zone,
+# in step with its @Throttle and the counters in GuestLimitService.
 location = /api/match/guest {
     limit_req zone=guest burst=5 nodelay;
     set $backend_upstream http://backend:3000;
@@ -104,10 +86,9 @@ location = /api/match/guest {
 }
 
 location /api/ {
-    # The generic prefix had no limit at all: everything under /api/ that is
-    # not matched by a more specific location above (user, friends, game,
-    # notifications, stats) was unthrottled. Deliberately loose, since the SPA
-    # is chatty and a single page load fans out across several of these.
+    # The generic prefix had no limit before: everything under /api/ not matched
+    # above (user, friends, game, notifications, stats) was unthrottled. Loose on
+    # purpose, since one page load fans out across several of these.
     limit_req zone=api burst=100 nodelay;
     set $backend_upstream http://backend:3000;
     proxy_pass $backend_upstream;
@@ -116,12 +97,9 @@ location /api/ {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
-    # /api/notifications/stream is a long-lived SSE connection that can
-    # sit idle for minutes between notifications. nginx's 60s default
-    # proxy_read_timeout was cutting it mid-chunk (client sees
-    # ERR_INCOMPLETE_CHUNKED_ENCODING) even though the connection was
-    # still healthy: match the timeout /socket.io/ already uses below,
-    # and disable buffering so SSE events flush immediately.
+    # /api/notifications/stream is a long-lived SSE connection that can sit idle
+    # for minutes. The 60 s default cut it mid-chunk, so match /socket.io/ and
+    # disable buffering so events flush immediately.
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     proxy_buffering off;
@@ -136,11 +114,7 @@ location = /api/health {
 }
 
 # ═══════════════════════════════════════════════════════
-# ENGINE WEBSOCKET PROXY: forwards Socket.IO traffic to the
-# ludo-engine over the same secure origin (wss://<host>/socket.io/).
-# Gives the browser a same-origin, TLS path to the engine so it
-# never has to reach ludo-engine:3001 directly (blocked as mixed
-# content, and unresolvable from the host anyway).
+# ENGINE WEBSOCKET PROXY: same-origin wss://<host>/socket.io/ to ludo-engine.
 # ═══════════════════════════════════════════════════════
 location /socket.io/ {
     set $engine_upstream http://ludo-engine:3001;

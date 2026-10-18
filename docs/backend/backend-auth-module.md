@@ -433,6 +433,12 @@ within 15 s whose replacement is still live is the two-tab race described in
 anything; a replay outside that window is treated as theft — every session of the user is revoked
 and the response is `401 AUTH_SESSION_REUSED`.
 
+The client side of that race lives in the same file. One tab claims the refresh with a timestamped
+`localStorage` record (write, then read back, since there is no compare-and-set) and posts the result
+over `BroadcastChannel`; the other tabs reuse it. Both primitives can fail: a blocked `localStorage`
+or a tab that dies mid-refresh makes the waiting tabs post as well, and the `/me` probe keeps a
+duplicate's 401 from reading as a logout.
+
 ### 5. Forgot / Reset Password Flow
 
 ```mermaid

@@ -56,10 +56,9 @@ export interface LegalMove {
   // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
   // ×R badge reads it, so the price of an attack is visible before the click.
   captureCount?: number;
-  // The Barrier Buster variant of a prison exit: this move costs one token and
-  // lands on the barrier the roll reaches exactly. The player arms it with an
-  // explicit control (the board marks the piece only while armed), and a piece
-  // carries at most one exit, so a click still names the piece alone.
+  // The Barrier Buster variant of a prison exit: one token, landing on the barrier
+  // the roll reaches exactly. The player arms it explicitly, and a piece carries at
+  // most one exit, so a click names the piece alone.
   spendsBarrierToken?: boolean;
 }
 
@@ -150,10 +149,9 @@ export interface GameState {
   pausedReason?: string;
   clash?: ClashState; // live clash QTE, absent when none is running
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
-  // Safe zones, stored INVERTED so the three room rules are uniform (false =
-  // the variant is off). A standard room is false/false/false, and an absent
-  // key (a match hash written before this field existed) reads as false, which
-  // is today's default: safe zones on.
+  // Safe zones, stored inverted so the three room rules are uniform (false = the
+  // variant is off). A standard room is false/false/false, and an absent key reads
+  // as false: safe zones on.
   noSafeZones: boolean; // star squares capture-immune when false
   freeExit?: boolean; // any roll leaves prison (absent reads as false)
   pendingCapture?: PendingCapture; // capture held until its clash resolves

@@ -30,7 +30,7 @@ export class PostGameManager {
   }
 
   // Definitive termination via the "End Game" button. PvE/hotseat: abort the
-  // whole instance. PvP: prune just this player; if fewer than 2 humans
+  // whole instance. PvP: prune only this player; if fewer than 2 humans
   // remain, the room is aborted and cleaned up. No result is posted.
   async handleEndGame(socket: GameSocket): Promise<void> {
     const gameId = socket.data.gameId;

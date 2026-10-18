@@ -119,11 +119,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
               setToasts((prev) => [notification, ...prev]);
               return;
             }
-            // Avatar photo changes are SHORT-LIVED/TRANSIENT state updates: no bell entry,
-            // no toast. The backend pushes them to the owner alone (notifyTransient),
-            // so this is what keeps the owner's OTHER tabs in step: the tab that
-            // uploaded already set the new state locally. Other accounts are never
-            // told and pick the change up on their next profile/roster fetch.
+            // Avatar changes are transient: no bell entry, no toast. The backend pushes
+            // them to the owner alone, which keeps the owner's other tabs in step. Other
+            // accounts pick the change up on their next profile or roster fetch.
             if (notification.type === 'avatar_changed') {
               const p = notification.payload;
               const userId = typeof p.userId === 'string' ? p.userId : '';

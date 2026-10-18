@@ -14,8 +14,7 @@ export type ColorKey = keyof typeof COL;
 export const SEAT_COLORS: ColorKey[] = ['blue', 'red', 'green', 'yellow'];
 
 /**
- * Bot assistant names, shown as-is because they need no translation. Three is
- * enough: seat 0 is always you, so a 4-seat table holds at most 3 bots.
+ * Bot assistant names, shown as-is; seat 0 is always you, so 3 bots is enough.
  */
 export const BOT_POOL = ['Siri', 'Alexa', 'Cortana'];
 

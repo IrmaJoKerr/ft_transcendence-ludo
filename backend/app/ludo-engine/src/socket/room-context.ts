@@ -1,16 +1,12 @@
 import type { GameState, PlayerColor } from '../types';
 
-// RoomContext is the engine's in-memory owner of ONE awake room: the human seat
-// bindings plus the room-scoped timers (the idle-lobby window and the post-game
-// teardown). Redis stays the system of record for everything else (turn, seats,
-// pieces, deadlines), so this object is a cache with timers: the wake pass in
-// server.ts rebuilds it at boot and after a Redis reconnect, and dispose()
-// drops it when a room leaves the process.
+// RoomContext is the engine's in-memory owner of one awake room: the human seat
+// bindings and the room-scoped timers. Redis stays the system of record for turn,
+// seats, pieces and deadlines. The wake pass rebuilds it at boot.
 export class RoomContext {
-  // Seat identity per colour, for HUMAN seats only. A bot seat is identified
-  // from the persisted state (`players[].isBot`), never from here: this map is
-  // empty after a restart, and reading it to detect bots is what froze bot
-  // games (todo P1: engine restart recovery).
+  // Seat identity per colour, for human seats only. A bot seat is identified from the
+  // persisted state (`players[].isBot`), never from here: this map is empty after a
+  // restart, and reading it to detect bots is what froze bot games.
   readonly seats = new Map<PlayerColor, string>();
 
   private idleTimer?: NodeJS.Timeout;

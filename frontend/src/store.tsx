@@ -543,10 +543,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, [user]);
 
-  // Persist the toggle. Turning 2FA on or off is a sensitive change, so a
-  // password account confirms its password; `undefined` is correct for an
-  // OAuth-only account (the server trusts the active session). Resolves null on
-  // success or a localized error message.
+  // Persist the toggle. Turning 2FA on or off is sensitive, so a password account
+  // confirms its password; `undefined` is correct for an OAuth-only account. Resolves
+  // null on success or a localized error message.
   const toggleTwoFactor = useCallback(
     async (currentPassword?: string): Promise<string | null> => {
       const next = !twoFactor;

@@ -146,9 +146,9 @@ export async function handlePlayerDisconnect(
   // 'disconnected' so the host sees "Reconnecting…" : player_exited fires
   // only on genuine permanent exit.
   emit({ type: 'player_disconnected', gameId, color });
-  // If the game just froze on this seat, push the paused state out so every
-  // client shows the pause banner immediately instead of waiting for the
-  // next unrelated event to sync them.
+  // If the game froze on this seat, push the paused state out so every client
+  // shows the pause banner immediately instead of waiting for the next unrelated
+  // event to sync them.
   if (state.paused && state.status === 'active') {
     emit({ type: 'state_update', gameId, state });
   }

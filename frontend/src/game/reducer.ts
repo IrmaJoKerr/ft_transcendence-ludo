@@ -1,6 +1,6 @@
 // Reduces engine Socket.IO events into a renderable GameViewState.
 // The reducer is a renderer: it never decides outcomes.
-// The engine is authoritative; the reducer just keeps the UI in sync.
+// The engine is authoritative; the reducer keeps the UI in sync.
 
 import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
 
@@ -45,11 +45,7 @@ export type GameViewState = {
   clashMode: boolean;
   /** Room rule, inverted: true is hardcore, i.e. star squares no longer protect. */
   noSafeZones: boolean;
-  /**
-   * Room rule: any roll leaves prison instead of only a 6. Declared now so the
-   * host panel and the create body carry the third rule; the engine starts
-   * sending it in the free-exit pass, and until then it stays false.
-   */
+  /** Any roll leaves prison instead of only a 6; false until the engine sends it. */
   freeExit: boolean;
   /** Engine timestamp until which the clash result card freezes input. */
   resultCardUntil?: number;
@@ -236,11 +232,9 @@ export function applyEvent(
       };
     }
     case 'clash_result':
-      // KEEP the clash object through the result card: the overlay renders only
-      // while `view.clash` is truthy, and its onComplete timer is what eventually
-      // fires `clash_clear`. Nulling `clash` here would unmount the overlay (and
-      // its timer) instantly, leaving `clashResult` set forever, which locks
-      // canRoll until a refresh.
+      // Keep the clash object through the result card: the overlay renders only while
+      // `view.clash` is truthy, and its onComplete timer fires `clash_clear`. Nulling it
+      // here would unmount the overlay and leave `clashResult` set forever.
       return { ...state, clashResult: event as unknown as ClashResult };
     case 'clash_card_released':
       // The engine's release: every participating client reported its card was done,
@@ -256,12 +250,9 @@ export function applyEvent(
       return { ...state, clash };
     }
     case 'clash_clear':
-      // A chain's rounds are 2s apart, which is exactly how long the overlay's
-      // result-card timer runs: if that timer fires just after the NEXT round's
-      // clash_start, a blind clear would take the new clash down with the old
-      // card (the overlay unmounts and the round plays out unseen). `clash_start`
-      // already nulled clashResult, so a clear that arrives against a null card
-      // is a leftover and changes nothing.
+      // A chain's rounds are 2s apart, exactly the overlay's result-card timer: if that
+      // timer fires immediately after the next `clash_start`, a blind clear would take
+      // the new clash down. `clash_start` nulls `clashResult`, so a null card is leftover.
       if (!state.clashResult) return state;
       return { ...state, clash: null, clashResult: null };
     case 'player_exited':
@@ -311,9 +302,8 @@ export function applyEvent(
 
 function applyMove(state: GameViewState, move: MoveResult): GameViewState {
   const pieces = state.pieces.map((p) => {
-    // CAPTURED-FIRST precedence: a repelled clash sends the MOVER (which the
-    // engine also lists in capturedPieceIds) to prison instead of the landing
-    // square. A normal move never lists its own mover as captured, so
+    // Captured-first precedence: a repelled clash sends the mover to prison instead of
+    // the landing square. A normal move never lists its own mover as captured, so
     // non-clash behaviour is unchanged.
     if (move.captured && move.capturedPieceIds?.includes(p.id))
       return { ...p, step: 0, isInGoal: false, isInBase: true };

@@ -67,10 +67,9 @@ export class UserService {
       data: { avatarPhoto: Uint8Array.from(data), avatarPhotoContentType: contentType },
     });
 
-    // Self-confirmation (persisted): "You have updated your profile: Avatar".
-    // `notify()` publishes to `notify:<userId>` and writes a row owned by that
-    // user, so the bell entry and the toast exist in the actor's own account
-    // only: an avatar change is never announced to anyone else.
+    // Self-confirmation: "You have updated your profile: Avatar". `notify()` writes a
+    // row owned by the actor and publishes to `notify:<userId>`, so the bell entry and
+    // toast exist in the actor's own account only.
     await this.notifications
       .notify(userId, 'profile_updated', { items: ['avatar'] })
       .catch(() => {});
@@ -79,10 +78,9 @@ export class UserService {
     // Redis-first could leave has=1 with no bytes behind it.
     const avatarV = await this.avatarMeta.set(userId, { has: true, style: user.avatarStyle });
 
-    // The event carries the new state plus the stamp, so the user's other tabs
-    // switch to the photo with no request of their own (the tab that uploaded
-    // already set it locally). Targeted at the owner: no other account is told.
-    // Transient: no bell entry.
+    // The event carries the new state plus the stamp, so the user's other tabs switch
+    // to the photo with no request of their own. Targeted at the owner and transient:
+    // no bell entry.
     await this.notifications
       .notifyTransient(userId, 'avatar_changed', {
         userId: user.id,

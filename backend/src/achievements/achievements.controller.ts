@@ -6,8 +6,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 
 @Controller('api/achievements')
-// HTTP routes for achievements: the progress report for the dashboard and a
-// silent re-check endpoint. Delegates to AchievementsService.
+// HTTP routes for achievements: the progress report for the dashboard and a re-check
+// endpoint that sends no notification. Delegates to AchievementsService.
 export class AchievementsController {
   constructor(private readonly achievements: AchievementsService) {}
 
@@ -23,8 +23,8 @@ export class AchievementsController {
     return achievements;
   }
 
-  // POST /api/achievements/check : silent re-evaluation for the current
-  // user. Returns { unlocked: string[] }.
+  // POST /api/achievements/check : re-evaluation for the current user, with no
+  // notification. Returns { unlocked: string[] }.
   @UseGuards(JwtAuthGuard)
   @Throttle(ACHIEVEMENTS_THROTTLE.check)
   @Post('check')

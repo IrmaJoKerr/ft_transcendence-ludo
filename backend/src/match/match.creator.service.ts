@@ -30,10 +30,9 @@ export interface MatchRoomHandoff {
   mode: string;
   playerCount: number;
   inviteCode?: string;
-  // The room's rules as they sit in the match hash, so every handoff (create,
-  // reused room, join, rejoin) tells the client which room it is entering instead
-  // of leaving it to assume the standard game. The engine's `game_joined` carries
-  // the live flags too; this one is there before a socket exists.
+  // The room's rules as they sit in the match hash, so every handoff (create, reused
+  // room, join, rejoin) tells the client which room it is entering. The engine's
+  // `game_joined` carries the live flags too; this one is there before a socket exists.
   rules: RoomRules;
   // Only ever true for a guest mint. The client must not infer it from
   // `mode === 'pve'`: a signed-in player's PvE game is that too, and the exits

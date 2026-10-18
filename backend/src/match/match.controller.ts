@@ -33,10 +33,9 @@ export class MatchController {
   @Post('api/match/pvp/invite')
   pvpInvite(
     @Request() req: { user: { id: string } },
-    // The room rules, read one body param at a time like every other field on
-    // these create routes (no DTO, so no ValidationPipe: room-rules.ts normalizes
-    // and defaults them). The room browser sends the standard rules and the host
-    // flips them from the room's panel.
+    // The room rules, read one body param at a time as on every other create route
+    // (no DTO, so no ValidationPipe: room-rules.ts normalizes them).
+    // The room browser sends the standard rules and the host flips them.
     @Body('clashEnabled') clashEnabled?: boolean,
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,
@@ -52,11 +51,9 @@ export class MatchController {
     return this.match.joinByInvite(code, req.user.id);
   }
 
-  // Guest: anonymous, ephemeral PvE room. The one public door into match
-  // creation: no JwtAuthGuard, and `mode` is never read from the body (forced
-  // 'pve' in the creator). A DTO class, unlike /api/match/create, so the global
-  // ValidationPipe validates and whitelists the payload; the per-address
-  // budgets are charged in MatchCreatorService.createGuestMatch.
+  // Guest: anonymous, ephemeral PvE room. The one public door into match creation:
+  // no JwtAuthGuard, and `mode` is forced to 'pve'. A DTO class, so the global
+  // ValidationPipe validates and whitelists the payload.
   @Throttle(MATCH_THROTTLE.guest)
   @Post('api/match/guest')
   guest(@Ip() ip: string, @Body() dto: CreateGuestMatchDto) {
@@ -83,11 +80,9 @@ export class MatchController {
     @Body('botColors') botColors?: string[],
     @Body('botNames') botNames?: string[],
     @Body('seatColors') seatColors?: string[],
-    // The host's room rules ride the same body as the seats, so a room is created
-    // with its rules in ONE call (no second transaction, no window where a room
-    // exists without them). Read as separate params because this route has no DTO
-    // class, so the global ValidationPipe never runs on it and nothing would strip
-    // or transform a rules object: room-rules.ts coerces the raw values instead.
+    // The host's room rules ride the same body as the seats, so a room is created with
+    // its rules in one call. Read as separate params because this route has no DTO, so
+    // the ValidationPipe never runs and room-rules.ts coerces the raw values.
     @Body('clashEnabled') clashEnabled?: boolean,
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,

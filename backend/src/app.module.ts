@@ -31,11 +31,9 @@ import { NotificationModule } from './notification/notification.module';
   ],
   providers: [
     PrismaService,
-    // APP_GUARD applies the guard to every route. It has to be registered as a
-    // provider rather than via app.useGlobalGuards() so Nest's DI container can
-    // construct it : ThrottlerGuard needs its storage and options injected.
-    // CodedThrottlerGuard subclasses it to emit a localizable { code, message }
-    // 429 body instead of the library's English default.
+    // APP_GUARD applies the guard to every route. It must be a provider so Nest's DI
+    // can construct it: ThrottlerGuard needs its storage and options injected.
+    // CodedThrottlerGuard emits a localizable { code, message } 429 body.
     { provide: APP_GUARD, useClass: CodedThrottlerGuard },
   ],
   exports: [PrismaService],

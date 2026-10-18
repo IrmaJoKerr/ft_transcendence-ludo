@@ -43,7 +43,7 @@ export function Login() {
     'add-email-2fa': t('auth.errorAddEmail2FA'),
   };
 
-  // One-shot notices arriving via redirect (email verified / password reset / OAuth errors).
+  // Single-use notices arriving via redirect (email verified / password reset / OAuth errors).
   const queryError = QUERY_ERRORS[query.get('error') ?? ''];
   const justVerified = query.get('verified') === '1';
   const justReset = query.get('reset') === '1';

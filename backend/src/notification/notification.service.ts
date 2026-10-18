@@ -31,11 +31,9 @@ export interface NotificationPayload {
   read: boolean;
   createdAt: string; // ISO string
 }
-// Service
-// SSE stream cap: a user may hold several tabs open, but an unbounded number
-// of streams is a one-socket memory and Redis-subscription drain (security
-// review F-11). Five covers normal multi-tab use; the sixth stream is refused
-// with a localizable 429 instead of being registered.
+// SSE stream cap: a user may hold several tabs, but an unbounded number of streams
+// is a one-socket memory and Redis-subscription drain (security review F-11). Five
+// covers multi-tab use; the sixth is refused with a localizable 429.
 const MAX_SSE_STREAMS_PER_USER = 5;
 
 @Injectable()
@@ -130,7 +128,7 @@ export class NotificationService implements OnModuleDestroy {
 
     const existing = this.clients.get(userId);
     if (existing) {
-      // Another tab already open : just add this Subject.
+      // Another tab already open : add this Subject.
       existing.push(subject);
     } else {
       // First tab : subscribe to the Redis channel.

@@ -1,25 +1,13 @@
 import type Redis from 'ioredis';
 import { isEngineGameStarted } from './seat-finalization';
 
-// The strict per-player game-state lock: at most one live game per player.
-//
-// A live game is one the match:* hash still tracks as in progress: either the
-// hash says ACTIVE, or the engine has already started the game in that room (the
-// hash can lag behind the engine). Statuses that mean the room is over
-// (ABORTED, set by an abort or by the engine's expiry teardown, and the legacy
-// ENDED value an older build wrote) never count, so a room that is done cannot
-// keep its players locked out while its hash lingers for the rest of its TTL.
-//
-// Enforcement is backend-authoritative because the backend owns the match:*
-// state: every create/join/rejoin path checks it through here. The frontend only
-// mirrors it as a UI hint (greyed-out create/join buttons).
-//
-// The full rule is in docs/backend/backend-match-module.md.
+// The strict per-player game-state lock: at most one live game per player. A live
+// game is ACTIVE or already started by the engine; ABORTED and legacy ENDED never
+// count, so a done room cannot keep its players locked out. Full rule in the docs.
 
-// Hash statuses that mean the room is over: not a live game for anyone. ENDED is
-// no longer written (the game-end callback deletes the hash); it stays listed so
-// a hash left behind by an older build cannot lock its players out for the rest
-// of its TTL.
+// Hash statuses that mean the room is over: not a live game for anyone. ENDED is no
+// longer written; it stays listed so a hash left by an older build cannot lock its
+// players out for the rest of its TTL.
 const ENDED_MATCH_STATUSES = ['ABORTED', 'ENDED'];
 
 // The four seat ids of a match hash, in slot order.

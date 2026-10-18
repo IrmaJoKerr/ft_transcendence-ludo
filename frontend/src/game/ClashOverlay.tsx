@@ -23,21 +23,13 @@ const CLASH_TARGET = 42; // must mirror engine CLASH_TARGET
 const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
-// Sized in CSS lengths so the pad scales with the device rather than the
-// viewport: 3 cm per circle is about 312 px at 264 ppi, ~4.4x Apple's 44 pt
-// minimum, and bigger than Material's 48 dp several times over. The 1 cm edge
-// buffer is deliberately small: with circles this large the pad's mass sits
-// near the middle of each half, which is where two thumbs rest. The gap is
-// inert dead space (a near miss must not land on a decoy); the buffer is
-// ADDITIVE to the safe-area inset, so a resting thumb never sits on the
-// home-indicator gesture.
+// Sized in CSS lengths so the pad scales with the device: 3 cm per circle, with a
+// 1 cm edge buffer added to the safe-area inset. The gap is inert empty space.
 const TOUCH_BUTTON = '3cm';
 const TOUCH_GAP = '1cm';
 const TOUCH_EDGE_BUFFER = '1cm';
-// One tap is worth this many presses (the engine clamps it to
-// CLASH_TAP_COUNT_MAX): tapping a circle is slower and less repeatable than
-// holding a key down, and the per-side cap still gates the event rate, so this
-// only makes each accepted tap heavier.
+// One tap is worth this many presses (the engine clamps it to CLASH_TAP_COUNT_MAX):
+// tapping is slower than holding a key, and the per-side cap still gates the rate.
 const TOUCH_TAP_COUNT = 2;
 
 // The two key sets, mirrored from the engine (clash.ts ATTACKER_KEYS /
@@ -101,7 +93,7 @@ type Props = {
   allowBothSides?: boolean;
 };
 
-/** Chunky bar — black track that fills with the side's color, whole pixels per press. */
+/** Chunky bar: black track that fills with the side's color, whole pixels per press. */
 function Bar({ color, presses, target }: { color: PlayerColor; presses: number; target: number }) {
   const fullAt = Math.max(1, target);
   const safe = Number.isFinite(presses) ? presses : 0;

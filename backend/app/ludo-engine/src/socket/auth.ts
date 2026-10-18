@@ -8,23 +8,18 @@ export function isBotUserId(userId: string | undefined): boolean {
   return !!userId && userId.startsWith(BOT_PREFIX);
 }
 
-// Guest tokens are opaque, looked up in Redis, and in their own namespace: a
-// forged one is "not found" rather than a signature that must not validate in
-// the player branch. The backend mints them (backend/src/match/guest-token.util.ts
-// keeps the same prefix and hash); the engine only reads the record.
+// Guest tokens are opaque, looked up in Redis, and in their own namespace: a forged
+// one is "not found" rather than a signature that must not validate in the player
+// branch. The backend mints them; the engine only reads the record.
 export const GUEST_TOKEN_PREFIX = 'g_';
 
 export function hashGuestToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
-// The whole surface a guest socket may drive. An allow-list, not a deny-list:
-// an event added later is refused for guests until it is added here on purpose.
-// The three lobby actions (player_ready, select_color, update_modifiers) are
-// absent: a PvE room is ACTIVE from creation, colours are assigned at creation
-// and the rules are frozen at creation, so no guest has a legitimate target for
-// them. A refused event is logged and dropped, never a disconnect: a stray
-// lobby event must not close a socket mid-clash.
+// The whole surface a guest socket may drive. An allow-list: an event added later is
+// refused for guests until it is added here on purpose. The three lobby actions are
+// absent because a PvE room has no legitimate target for them.
 export const GUEST_EVENTS = new Set([
   'join_game', // pinned by the registry's gameId
   'roll_dice',

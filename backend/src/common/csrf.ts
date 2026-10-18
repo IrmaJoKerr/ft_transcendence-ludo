@@ -2,20 +2,9 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import type { NextFunction, Request, Response } from 'express';
 import { secret } from '../secrets';
 
-// Cross-site request forgery protection for mutating API routes.
-//
-// Two independent controls, both required:
-//   1. An allow-list on the Origin the browser reports (Referer is the fallback
-//      when Origin is absent). A cross-site form post always carries one of the
-//      two, so it can never name a host we trust.
-//   2. A signed double-submit token: the browser holds `csrf_token` (readable by
-//      script, unlike the session cookies) and must echo it in X-CSRF-Token.
-//      An attacker on another origin can make the browser send the cookie but
-//      cannot read it to fill the header, and cannot forge the HMAC without the
-//      server key.
-//
-// SameSite=Lax on the session cookies already stops most form posts; this is the
-// layer that holds when a browser or a proxy drops that guarantee.
+// CSRF protection for mutating routes, with two controls: an Origin allow-list
+// (Referer as fallback) and a signed double-submit token echoed in X-CSRF-Token.
+// Another origin can send the cookie but cannot read it or forge the HMAC.
 
 export const CSRF_COOKIE = 'csrf_token';
 export const CSRF_HEADER = 'x-csrf-token';

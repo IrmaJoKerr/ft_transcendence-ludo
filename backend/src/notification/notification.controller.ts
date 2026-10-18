@@ -54,7 +54,7 @@ export class NotificationController {
 
     return merge(events, heartbeat).pipe(
       // Teardown on HTTP close happens in the service's finalize() wrapper :
-      // this empty finalize just marks where the stream teardown begins.
+      // this empty finalize marks where the stream teardown begins.
       finalize(() => {
         // Cleanup happens in NotificationService.subscribe()'s finalize.
       }),

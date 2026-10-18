@@ -22,10 +22,9 @@
   --text-soft: #d4caef;
   --border-color: #ff007f;
   --box-shadow: 0 0 15px rgba(255, 0, 127, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.2);
-  /* Both halves of the Atkinson Hyperlegible family from the Braille
-     Institute, which is designed for low-vision legibility. Next is the
-     proportional UI face; Mono is its companion for the old monospace token,
-     so tabular readouts and room codes keep their fixed-width alignment. */
+  /* Both halves of the Atkinson Hyperlegible family from the Braille Institute,
+     designed for low-vision legibility. Next is the UI face; Mono keeps tabular
+     readouts and room codes aligned. */
   --font-heading: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
   --font-display: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace;
@@ -85,10 +84,9 @@ body {
    FIELD ERROR SLOT
    -------------------------------------------------------------------------- */
 
-/* Reserved space under a password field, so filling it on submit cannot shift
-   the form. Two lines fit the longest localized message (fr, 122 characters)
-   at desktop widths; the auth card keeps its 3.25rem padding on small screens,
-   so the same sentence wraps to three lines and, on phones, four. */
+/* Reserved space under a password field, so filling it on submit cannot shift the
+   form. Two lines fit the longest localized message (fr, 122 characters) at
+   desktop widths; narrower cards wrap further. */
 .field-error {
   min-height: calc(2 * 1.45em + 4px);
 }

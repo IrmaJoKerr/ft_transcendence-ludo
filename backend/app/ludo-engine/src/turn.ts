@@ -10,12 +10,9 @@ function syncPiecesInGoal(state: GameState, player: PlayerMeta): void {
   player.stats.piecesInGoal = inGoal;
 }
 
-// Apply a move's outcome: sync piece mirrors, bump the counter, run the win
-// check, update stats/bonus, and advance the turn (or re-roll on 6/capture).
-// `attackerWon` matters only for a clash-resolved move: a defender who won the
-// press race repulses the attacker, so that move earns no re-roll and the turn
-// always passes on.
-// Pure mutation : persistence/emission stay with the caller.
+// Apply a move's outcome: sync piece mirrors, bump the counter, run the win check,
+// update stats and advance the turn, or re-roll on a 6 or capture. `attackerWon` only
+// matters for a clash: a defender who won repulses the attacker, so no re-roll.
 export function applyMoveOutcome(
   state: GameState,
   result: MoveResult,
@@ -72,10 +69,9 @@ export function applyMoveOutcome(
       // bonusRoll tells the frontend to let the SAME player roll again.
       mover.bonusRoll = sixBonus || result.captured;
     }
-    // Turn hand-off: a 6 or an actual capture re-rolls the same player
-    // (turnPhase back to WAITING_FOR_ROLL, no advance); anything else advances
-    // to the next active seat. A repulsed clash attacker never re-rolls: the
-    // defender held the square, so the turn passes on.
+    // Turn hand-off: a 6 or an actual capture re-rolls the same player; anything else
+    // advances to the next active seat. A repulsed clash attacker never re-rolls, since
+    // the defender held the square.
     if (!attackerWon) {
       if (mover) {
         mover.bonusRoll = false;

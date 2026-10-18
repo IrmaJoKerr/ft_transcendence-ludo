@@ -1,12 +1,8 @@
 import type { ThrottlerOptions } from '@nestjs/throttler';
 
-// Route-level rate limits, grouped by the controller that uses them.
-//
-// Kept in one table so the coverage is auditable: every mutating route has an
-// entry, and the global 300/min default in app.module.ts stays the backstop for
-// reads. `ttl` is milliseconds (`@nestjs/throttler` v6). The limiter is keyed on
-// the client address (Express `req.ip`, trust-proxy configured in main.ts), so
-// these caps apply per IP, not per account.
+// Route-level rate limits, grouped by the controller that uses them. One table keeps
+// coverage auditable: every mutating route has an entry, and the global 300/min
+// default stays the backstop for reads. Caps apply per client IP, not per account.
 
 const MINUTE = 60 * 1000;
 const QUARTER_HOUR = 15 * MINUTE;
@@ -83,7 +79,7 @@ export const USER_THROTTLE = {
   avatarDelete: { default: { limit: 10, ttl: HOUR } },
 } satisfies RouteLimits;
 
-// achievements.controller.ts : silent re-evaluation.
+// achievements.controller.ts : re-evaluation with no notification.
 export const ACHIEVEMENTS_THROTTLE = {
   check: { default: { limit: 30, ttl: HOUR } },
 } satisfies RouteLimits;

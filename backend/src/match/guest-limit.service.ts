@@ -4,11 +4,8 @@ import Redis from 'ioredis';
 import { secret } from '../secrets';
 
 // --- GUEST LIMITS: the whole knob block. Edit here, nowhere else. ---
-// One guest room is a Redis hash, a socket and a bot loop, allocated by an
-// anonymous caller: these are the numbers that bound that. The route's
-// @Throttle and nginx's `guest` zone are the burst backstops in front; these
-// counters are the budgets that actually price churn (backend-auth-module.md's
-// three-layer model, applied to guests).
+// One guest room is a Redis hash, a socket and a bot loop, allocated anonymously.
+// These counters bound that churn; @Throttle and nginx's `guest` zone take bursts.
 const GUEST_LIMITS = {
   windowS: 6 * 60 * 60, //  how far back the per-address counters look
   mintSoftLimit: 10, //     mints past which each call costs the caller time
@@ -27,11 +24,9 @@ export const GUEST_TOKEN_TTL_S = GUEST_LIMITS.tokenTtlS;
 // 2^n stops growing here: 2^5 = 32 s is already past maxDelayS.
 const MAX_DELAY_STEPS = 5;
 
-// Counter keys. The engine keeps its own copy of guestKey(), these names and
-// windowS (it prices an abort and gives the slot back); it decides no limit,
-// so retuning stays a backend-only edit.
-// Hashed like `login:fail:` (LoginLockoutService), so a Redis dump holds no
-// addresses. The engine has its own copy in redis.ts (it writes the same keys).
+// Counter keys. The engine keeps its own copy of guestKey(), these names and windowS
+// (it prices an abort and gives the slot back); it decides no limit. Hashed as
+// `login:fail:` is, so a Redis dump holds no addresses.
 export function guestIpHash(ip: string): string {
   return createHash('sha256').update(ip).digest('hex');
 }

@@ -68,10 +68,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const [noSafeZones, setNoSafeZones] = useState(false);
   const [freeExit, setFreeExit] = useState(false);
 
-  // Backend-authoritative mirror of the state lock: /api/games/mine lists every
-  // room this player is seated in after a game started, so an empty answer means
-  // this screen may launch. One fetch on mount is enough for a config screen; the
-  // persisted activeMatch is deliberately not trusted (it outlives a closed tab).
+  // Backend-authoritative mirror of the state lock: /api/games/mine lists every room
+  // this player is seated in after a game started, so an empty answer means this screen
+  // may launch. One fetch on mount is enough; activeMatch is deliberately not trusted.
   useEffect(() => {
     // A guest has no account, so /api/games/mine is a guaranteed 401 and there
     // is no state lock to mirror. The per-address budgets are server-side.
@@ -119,10 +118,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
     setStartError(null);
     setStarting(true);
     try {
-      // Guest launch: PvE only, and none of mode/playerCount/seatColors come
-      // from here - the server forces the mode, derives the count and seats the
-      // human as blue. The exact bot colours travel so the seats shown here are
-      // the seats dealt (the server expands them to [blue, ...botColors]).
+      // Guest launch: PvE only, and none of mode/playerCount/seatColors come from here;
+      // the server forces the mode, derives the count and seats the human as blue. The
+      // bot colours travel so the seats shown are the seats dealt.
       if (guest) {
         // Named apart from the non-guest `botCount` below: that one is declared
         // later in this same try block, so reading it here would hit its TDZ.

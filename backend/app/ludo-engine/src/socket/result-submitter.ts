@@ -31,11 +31,9 @@ export class ResultSubmitter {
       const state = await this.engine.getGameState(gameId);
       if (!state) return;
 
-      // Hotseat is demo-and-forget, and so is a guest room (the backend writes
-      // `isGuest=true` into the match hash at mint): the result is NEVER
-      // submitted - no game/participant rows, no counters, no leaderboard.
-      // A guest room also gives its concurrency slots back here: a game that
-      // ends normally (the guest won) never takes the abort path.
+      // Hotseat is demo-and-forget, and so is a guest room: the result is never
+      // submitted, so no game rows, counters or leaderboard. A guest room also gives
+      // its concurrency slots back here.
       const matchData = await this.store.getMatchData(gameId);
       if (matchData?.gameType === 'HOTSEAT' || matchData?.isGuest === 'true') {
         const kind = matchData?.isGuest === 'true' ? 'GUEST' : 'HOTSEAT';

@@ -2,12 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GRID_BACKGROUND } from '../styles/tw';
 
-/**
- * Unconditional pre-game notice, mounted by the auth shell (so one insertion
- * covers login, signup, verify, two-factor, forgot and reset) and by the lobby.
- * It detects nothing: the sentence itself names the supported cases, which is
- * honest for a desktop player too.
- */
+/** Unconditional pre-game notice, mounted by the auth shell and the lobby. */
 export function LandscapeNotice() {
   const { t } = useTranslation();
   return (
@@ -36,13 +31,7 @@ export function LandscapeNotice() {
   );
 }
 
-/**
- * Full-bleed retrowave auth shell: shared cityscape background plus a glass card.
- * `topRight` is an optional control pinned 12px inside the card's top-right corner:
- * the login uses it for the language switch. Anchoring it in the card (rather than
- * in the page flow above it) keeps the switch attached to the box it translates
- * and costs no vertical space, so the card still fits a short landscape screen.
- */
+/** Full-bleed retrowave auth shell: shared cityscape plus a glass card. */
 export function RetroAuthLayout({
   tag,
   topRight,

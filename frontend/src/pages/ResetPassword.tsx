@@ -25,9 +25,7 @@ import {
 type FieldMessage = 'passwordInfo.error' | 'auth.passwordMismatch' | null;
 
 /**
- * Reset step 2 for an emailed link: `/reset-password#token=<resetToken>`. The
- * token is in the URL fragment, which the browser never sends, so it cannot
- * reach a log. See docs/frontend/frontend-auth-extras-module.md.
+ * Reset step 2 for an emailed link: the token sits in the URL fragment, never sent.
  */
 export function ResetPassword() {
   const { t } = useTranslation();

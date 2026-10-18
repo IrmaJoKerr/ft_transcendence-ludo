@@ -92,7 +92,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [email, setEmail] = useState('');
   // Baselines taken from the server, so "unchanged" is judged against what the
-  // profile really holds (the session user may be missing fields).
+  // profile holds (the session user may be missing fields).
   const [initialEmail, setInitialEmail] = useState<string | null>(null);
   const [initialDisplayName, setInitialDisplayName] = useState<string | null>(null);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -205,9 +205,8 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
       body.currentPassword = emailPassword;
     }
     // Send the toggle only when it changed and the real value is known, so an
-    // unrelated save cannot write a stale state over it. It is a sensitive
-    // change, so a password account confirms the password once for whichever
-    // sensitive field this save touches.
+    // unrelated save cannot write a stale state over it. A password account confirms
+    // the password once for whichever sensitive field this save touches.
     if (twoFactorChanging) {
       if (hasPassword && !emailPassword) {
         setBusy(false);
