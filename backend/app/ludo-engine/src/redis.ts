@@ -1,6 +1,7 @@
 import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
 import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } from './types';
+import { STARTING_BUSTER_TOKENS } from './types';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -121,8 +122,8 @@ export class RedisGameStore {
       isFinished: false,
       // One Barrier Buster token is dealt at game start: it buys the prison exit's
       // landing on a barrier the roll reaches exactly. A clash won against a single
-      // defender pays one back, up to BUST_CAP (clash-engine.ts).
-      barrierTokens: 1,
+      // defender pays one back, up to BARRIER_BUSTER_TOKEN_CAP (clash-engine.ts).
+      barrierTokens: STARTING_BUSTER_TOKENS,
       stats: {
         turns: 0,
         captures: 0,
@@ -204,15 +205,6 @@ export class RedisGameStore {
     if (!state) return;
 
     state.clash = clash;
-    await this.saveGameState(gameId, state);
-  }
-
-  // Drop the clash from the game state (resolved or aborted).
-  async clearClashState(gameId: string): Promise<void> {
-    const state = await this.loadGameState(gameId);
-    if (!state) return;
-
-    delete state.clash;
     await this.saveGameState(gameId, state);
   }
 

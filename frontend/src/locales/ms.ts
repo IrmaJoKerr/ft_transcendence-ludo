@@ -482,7 +482,10 @@ export const ms = {
     clashRoundOver: 'PUSINGAN TAMAT',
     clashRoundWon: '{{left}} pertahanan lagi — bersedia untuk pusingan seterusnya…',
     clashChainBroken: 'Tembok pecah — petak itu milik anda!',
-    clashChainRepulsed: 'Dipatahkan semula — tembok bertahan.',
+    // Baris penangkisan menamakan PETAK, bukan tembok: rantaian yang tamat pada
+    // pusingan kemudian sudah menghantar pertahanan terdahulu pulang, jadi tembok
+    // lebih nipis walaupun serangan gagal. "Petak" kekal benar dalam kedua-dua kes.
+    clashChainRepulsed: 'Serangan ditangkis — pertahanan kekal di petak.',
     clashOver: 'CLASH TAMAT',
     clashYouWon: '⚔️ Anda menang!',
     clashWins: '{{color}} menang',

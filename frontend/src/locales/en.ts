@@ -487,7 +487,10 @@ export const en = {
     clashRoundOver: 'ROUND OVER',
     clashRoundWon: '{{left}} defender(s) left — brace for the next round…',
     clashChainBroken: 'Wall broken — the square is yours!',
-    clashChainRepulsed: 'Repulsed — the wall holds.',
+    // The repulse line names the SQUARE, not the wall: a chain that ends on a later
+    // round has already sent earlier defenders home, so the wall is thinner even
+    // though the attack failed. "The square" stays true either way.
+    clashChainRepulsed: 'Repulsed — the defenders hold the square.',
     clashYouWon: '⚔️ You won!',
     clashWins: '{{color}} wins',
     clashVersus: 'VS',

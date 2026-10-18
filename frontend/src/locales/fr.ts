@@ -487,7 +487,11 @@ export const fr = {
     clashRoundOver: 'MANCHE TERMINÉE',
     clashRoundWon: 'Encore {{left}} défenseur(s) — préparez la manche suivante…',
     clashChainBroken: 'Mur brisé — la case est à vous !',
-    clashChainRepulsed: 'Repoussé — le mur tient.',
+    // La ligne de repoussée nomme la CASE, pas le mur : une chaîne qui s'arrête à
+    // une manche ultérieure a déjà renvoyé des défenseurs chez eux, donc le mur est
+    // plus mince même si l'attaque a échoué. Parler de « la case » reste exact dans
+    // les deux cas.
+    clashChainRepulsed: 'Attaque repoussée — la case reste aux défenseurs.',
     clashOver: 'CLASH TERMINÉ',
     clashYouWon: '⚔️ Vous avez gagné !',
     clashWins: '{{color}} gagne',

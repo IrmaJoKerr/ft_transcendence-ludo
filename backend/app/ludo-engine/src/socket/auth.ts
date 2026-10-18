@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io';
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { PlayerColor } from '../types';
 
 export const BOT_PREFIX = 'bot-';
@@ -9,13 +9,9 @@ export function isBotUserId(userId: string | undefined): boolean {
 }
 
 // Guest tokens are opaque, looked up in Redis, and in their own namespace: a forged
-// one is "not found" rather than a signature that must not validate in the player
-// branch. The backend mints them; the engine only reads the record.
+// one is "not found" rather than a bad signature in the player branch. The backend
+// mints them; getGuestSession hashes the presented token for the lookup.
 export const GUEST_TOKEN_PREFIX = 'g_';
-
-export function hashGuestToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 // The whole surface a guest socket may drive. An allow-list: an event added later is
 // refused for guests until it is added here on purpose. The three lobby actions are

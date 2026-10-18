@@ -12,8 +12,8 @@ export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
 export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start
 export const CLASH_SWEEP_INTERVAL_MS = 5000; // orphaned-clash sweep cadence
 export const CLASH_PRESS_CAP_MS = 110; // min ms between accepted presses per side (~9 Hz)
-export const CLASH_BOT_WIN_MS_BASE = 125; // winner's press interval base
-export const CLASH_BOT_LOSE_MS_BASE = 155; // loser's press interval base
+export const CLASH_BOT_WIN_MS_BASE = 133; // winner's press interval base
+export const CLASH_BOT_LOSE_MS_BASE = 163; // loser's press interval base
 export const CLASH_BOT_JITTER_MS = 30; // random spread added to each interval
 
 // --- turn animation ------------------------------------------------------------

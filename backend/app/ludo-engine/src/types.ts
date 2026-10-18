@@ -54,9 +54,9 @@ export interface PlayerMeta {
   // and every such landing spends a token; while off the wall blocks. Never settable
   // with an empty hand, and cleared when the turn leaves. Absent reads as off.
   barrierArmed?: boolean;
-  // Barrier Buster tokens in hand: one at game start, one spent per token-bought
-  // exit, one earned per clash won against exactly one defender (see BUST_CAP).
-  // Absent reads as 0.
+  // Barrier Buster tokens in hand: STARTING_BUSTER_TOKENS at game start, one spent
+  // per token-bought exit, one earned per clash won against exactly one defender
+  // (see BARRIER_BUSTER_TOKEN_CAP). Absent reads as 0.
   barrierTokens?: number;
 }
 
@@ -84,10 +84,14 @@ export interface ClashState {
   totalRounds?: number;
 }
 
-// The Barrier Buster hand is capped here: the seed is 1 and a clash won against one
-// defender pays one back, so a seat banks at most three attempts. A won barrier never
-// pays, so a wall cannot feed the token that breaks walls.
-export const BUST_CAP = 3;
+// The Barrier Buster hand starts here: every seat is dealt this many tokens. A token
+// buys one landing on a barrier the roll reaches exactly.
+export const STARTING_BUSTER_TOKENS = 1;
+
+// The hand is capped here: the seed is one and a clash won against one defender pays
+// one back, so a seat banks at most three attempts. A won barrier never pays, so a
+// wall cannot feed the token that breaks walls.
+export const BARRIER_BUSTER_TOKEN_CAP = 3;
 
 // A capture deferred until the clash resolves: the move is held here instead of
 // being applied at move time.
@@ -300,6 +304,10 @@ export type GameEvent =
       // other card is dropped. Absent leaves the ceiling in charge.
       cardId?: string;
       totalRounds?: number;
+      // The result card's deadline on the engine clock. The socket layer times a
+      // bot's resume from THIS instead of a second fixed guard, so a card with no
+      // human on it (the short ceiling) does not leave the bot waiting 4 s.
+      resultCardUntil?: number;
       continues?: boolean;
       defenderPieceId?: PieceId;
       remainingDefenderIds?: PieceId[];
