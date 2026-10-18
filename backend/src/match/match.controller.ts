@@ -10,10 +10,13 @@ import {
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { MATCH_THROTTLE } from '../common/throttles';
 import { MatchService, type GameEndPayload } from './match.service';
 import { InviteFriendDto } from './dto/invite-friend.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { verifySecret } from '../secrets';
+
 
 @Controller()
 // HTTP routes for the match lifecycle: creating/joining games (PvP, PvE,
@@ -24,6 +27,7 @@ export class MatchController {
 
   // PvP: Create invite game (share code via chat)
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.pvpInvite)
   @Post('api/match/pvp/invite')
   pvpInvite(
     @Request() req: { user: { id: string } },
@@ -40,6 +44,7 @@ export class MatchController {
 
   // PvP: Join by invite code
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.join)
   @Post('api/match/join/:code')
   joinInvite(@Request() req: { user: { id: string } }, @Param('code') code: string) {
     return this.match.joinByInvite(code, req.user.id);
@@ -47,6 +52,7 @@ export class MatchController {
 
   // PvE: Human vs Bot (1 - 3 bots)
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.pve)
   @Post('api/match/pve')
   pve(@Request() req: { user: { id: string } }, @Body('playerCount') playerCount: number) {
     return this.match.playBot(req.user.id, playerCount || 2);
@@ -54,6 +60,7 @@ export class MatchController {
 
   // Unified Match Creation
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.create)
   @Post('api/match/create')
   create(
     @Request() req: { user: { id: string } },
@@ -98,6 +105,7 @@ export class MatchController {
 
   // Game Actions
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.ready)
   @Post('api/game/:id/ready')
   ready(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
     return this.match.readyGame(gameId, req.user.id);
@@ -120,6 +128,7 @@ export class MatchController {
 
   // Invite a friend into this WAITING PvP room
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.inviteFriend)
   @Post('api/game/:id/invite')
   inviteFriend(
     @Request() req: { user: { id: string } },
@@ -130,6 +139,7 @@ export class MatchController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.rejoin)
   @Post('api/game/:id/rejoin')
   rejoin(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
     return this.match.rejoin(gameId, req.user.id);
@@ -155,6 +165,7 @@ export class MatchController {
 
   // Exit Game (player acknowledges leaving)
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.exit)
   @Post('api/game/:id/exit')
   exitGame(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
     return this.match.exitGame(gameId, req.user.id);
@@ -162,6 +173,7 @@ export class MatchController {
 
   // Abort Game
   @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.abort)
   @Post('api/game/:id/abort')
   abort(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
     return this.match.cancelGame(gameId, req.user.id);

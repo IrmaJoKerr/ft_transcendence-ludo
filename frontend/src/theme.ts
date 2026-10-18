@@ -39,7 +39,7 @@ export const btnGold: CSSProperties = {
   border: 'none',
   borderRadius: 12,
   padding: '14px 18px',
-  font: "800 15px 'Hanken Grotesk'",
+  font: "800 15px 'Atkinson Hyperlegible Next', sans-serif",
   color: '#2a1c07',
   cursor: 'pointer',
   background: 'linear-gradient(180deg,#f0d18a,#c99b45)',
@@ -50,7 +50,7 @@ export const btnGoldSmall: CSSProperties = {
   border: 'none',
   borderRadius: 11,
   padding: '12px 22px',
-  font: "800 14px 'Hanken Grotesk'",
+  font: "800 14px 'Atkinson Hyperlegible Next', sans-serif",
   color: '#2a1c07',
   cursor: 'pointer',
   background: 'linear-gradient(180deg,#f0d18a,#c99b45)',
@@ -60,7 +60,7 @@ export const btnOutline: CSSProperties = {
   border: '1px solid #4a3826',
   borderRadius: 12,
   padding: '13px 18px',
-  font: "700 15px 'Hanken Grotesk'",
+  font: "700 15px 'Atkinson Hyperlegible Next', sans-serif",
   color: '#e8dcc6',
   cursor: 'pointer',
   background: 'linear-gradient(180deg,#2b2118,#20180f)',
@@ -77,21 +77,21 @@ export const input: CSSProperties = {
   border: '1px solid #43331f',
   borderRadius: 11,
   padding: '12px 14px',
-  font: "500 15px 'Hanken Grotesk'",
+  font: "500 15px 'Atkinson Hyperlegible Next', sans-serif",
   color: '#efe6d6',
   background: '#17110b',
   outline: 'none',
 };
 
 export const label: CSSProperties = {
-  font: "700 12px 'Hanken Grotesk'",
+  font: "700 12px 'Atkinson Hyperlegible Next', sans-serif",
   letterSpacing: '.06em',
   textTransform: 'uppercase',
   color: '#a99a83',
 };
 
 export const sectionLabel: CSSProperties = {
-  font: "700 12px 'Hanken Grotesk'",
+  font: "700 12px 'Atkinson Hyperlegible Next', sans-serif",
   letterSpacing: '.08em',
   textTransform: 'uppercase',
   color: '#c99b45',

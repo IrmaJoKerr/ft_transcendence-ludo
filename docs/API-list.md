@@ -20,6 +20,8 @@ What protects these routes (edge headers, throttling, cookie and token scope) is
 
 > **Auth note:** All 🔒 endpoints authenticate via the `token` httpOnly cookie. No `Authorization: Bearer` header is used.
 
+> **CSRF note:** every mutating request (`POST`, `PATCH`, `DELETE`) under `/api` must echo the signed `csrf_token` cookie in the `X-CSRF-Token` header. The SPA bootstraps the cookie with `GET /api/auth/csrf` (its `fetchWithCsrf` wrapper does this automatically) and the server also rejects a request whose `Origin`/`Referer` is neither this host nor a published frontend URL (`403 CSRF_ORIGIN_REJECTED`). A missing, stale or mismatched token is `403 CSRF_TOKEN_INVALID`; `api.ts` retries once with a fresh token. The two 🤖 engine callbacks are exempt because they authenticate with `x-engine-key` and carry no browser session.
+
 
 ---
 ---
@@ -50,7 +52,8 @@ An error response has one of two shapes:
 | `AUTH_RESET_LINK_INVALID` | 401 | Reset link invalid or expired |
 | `AUTH_CODE_INVALID` | 401 | 2FA code invalid or expired |
 | `AUTH_NOT_AUTHENTICATED` | 401 | No valid session |
-| `AUTH_SESSION_EXPIRED` | 401 | Session expired — log in again |
+| `AUTH_SESSION_EXPIRED` | 401 | Unknown/expired refresh token — log in again |
+| `AUTH_SESSION_REUSED` | 401 | A refresh token that was already rotated came back outside the race window: every session was revoked |
 | `AUTH_DISPLAY_NAME_TAKEN` | 409 | Display name already taken |
 | `AUTH_DISPLAY_NAME_RESERVED` | 400 | Display name cannot start with `bot-` (reserved for bots) |
 | `AUTH_CURRENT_PASSWORD_INCORRECT` | 401 | Current password wrong |
@@ -64,6 +67,14 @@ An error response has one of two shapes:
 | `AUTH_KEEP_ONE_SIGNIN` | 403 | Must keep at least one sign-in method |
 | `AUTH_EMAIL_NOT_VERIFIED` | 200 | Notice: verify the address before signing in |
 | `AUTH_PASSWORD_UPDATED` | 200 | Notice: password changed, other devices signed out |
+
+*Transport / limits*
+
+| Code | HTTP | Meaning |
+|---|---|---|
+| `CSRF_TOKEN_INVALID` | 403 | Missing, mismatched or stale `X-CSRF-Token` (see the CSRF note above) |
+| `CSRF_ORIGIN_REJECTED` | 403 | `Origin`/`Referer` is not this host and not on the frontend allow-list |
+| `NOTIFICATION_STREAM_LIMIT` | 429 | More than 5 simultaneous notification SSE streams for one user |
 
 *Validation (400)*
 
@@ -136,6 +147,7 @@ An error response has one of two shapes:
 ### **HTTP APIs — Backend (NestJS)**
 
 1. **[Auth — Account & Sessions](#1-auth--account--sessions)** — Registration, email verification, login, 2FA verify, refresh, logout, who am I
+   - [`GET /api/auth/csrf`](#get-apiauthcsrf) — Bootstrap the signed CSRF token (cookie + `X-CSRF-Token` on writes)
    - [`POST /api/auth/register`](#post-apiauthregister) — Create a new account (an email-verification link is sent)
    - [`POST /api/auth/verify-email`](#post-apiauthverify-email): Confirm your email address with the token from the emailed link (sent in the body, not the URL)
    - [`POST /api/auth/login`](#post-apiauthlogin) — Log in with username/email + password (returns a 2FA prompt if enabled)
@@ -266,6 +278,29 @@ No manual `Authorization` header is needed for cookie-authenticated requests.
 
 
 ---
+---
+
+
+#### `GET /api/auth/csrf`
+
+**Source:** `backend/src/auth/auth.controller.ts` + `backend/src/common/csrf.ts` — AuthModule
+
+Returns the browser's CSRF token and (re)sets the readable `csrf_token` cookie. The middleware also sets the cookie on any other response when it is missing, so this route is the explicit bootstrap the SPA calls before its first mutating request.
+
+**Headers:** None
+**Response:**
+
+```json
+{
+  "token": "<nonce>.<hmac>"
+}
+```
+
+The cookie and the returned token are the same value; send it back as `X-CSRF-Token` on every `POST`/`PATCH`/`DELETE`. The token is signed with a key derived from `JWT_SECRET`, so a cookie planted by another origin cannot be made to validate.
+
+
+---
+
 ---
 
 
@@ -476,7 +511,7 @@ Silent re-authentication. Trade a valid refresh token for a fresh access token +
 
 ```
 
-**Errors:** 401 if refresh token is missing, expired, or revoked.
+**Errors:** 401 `AUTH_NOT_AUTHENTICATED` when the refresh cookie is absent; 401 `AUTH_SESSION_EXPIRED` for an unknown/expired token; 401 `AUTH_SESSION_REUSED` when an already-rotated token is presented outside the 15 s two-tab grace window — the server then revokes **every** session for that user. A rotation inside the grace window whose replacement is still live is treated as the cross-tab race and returns `AUTH_SESSION_EXPIRED` without revoking anything, so the SPA's `/me` probe can settle it.
 
 
 ---
@@ -650,7 +685,7 @@ Update the logged-in user's profile (display name, email, 2FA toggle, OAuth link
 {
   "displayName": "New Display Name",
   "email": "new@example.com",
-  "currentPassword": "required with an email change (password accounts)",
+  "currentPassword": "required with any sensitive change (password accounts): email, 2FA, OAuth link/unlink",
   "twoFactorEnabled": true,
   "oauthToAdd": "google",
   "oauthToRemove": "github"
@@ -658,6 +693,7 @@ Update the logged-in user's profile (display name, email, 2FA toggle, OAuth link
 ```
 
 - Changing the email requires the account to have a password **and** `currentPassword`; OAuth-only accounts get `400 AUTH_EMAIL_CHANGE_SET_PASSWORD`, a wrong password `401 AUTH_CURRENT_PASSWORD_INCORRECT`.
+- **Re-auth:** a password account must also send `currentPassword` to toggle 2FA or to unlink an OAuth provider (and to use the `oauthToAdd` field). The SPA's "Add" button opens the provider's own login, which is itself a fresh authentication. OAuth-only accounts have no password to confirm and are trusted through the active session. A missing or wrong password is `401 AUTH_CURRENT_PASSWORD_INCORRECT`.
 - Rate-limited to **3 email changes/hour** per user → `429 AUTH_EMAIL_CHANGE_RATE_LIMITED`.
 
 **Response:**
@@ -798,7 +834,8 @@ Toggle the user's 2FA preference.
 
 ```json
 {
-  "enabled": true
+  "enabled": true,
+  "currentPassword": "required for a password account (ignored for OAuth-only)"
 }
 
 ```
@@ -811,6 +848,8 @@ Toggle the user's 2FA preference.
 }
 
 ```
+
+**Errors:** `401 AUTH_CURRENT_PASSWORD_INCORRECT` when the toggle changes and the supplied password is wrong; `429 RATE_LIMITED` above 10 toggles/hour.
 
 
 ---
@@ -2153,6 +2192,8 @@ Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_decline
 
 **Keep-alive (server → client):** the server writes a `ping` frame into the stream every 20 s (`SSE_HEARTBEAT_MS`). Between notifications this response sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`), so the frame exists to satisfy the tunnel's socket requirements and stop the stream being treated as dead. It is unrelated to the **client → server** presence heartbeat ([`POST /api/presence/heartbeat`](#post-apipresenceheartbeat)), which is a separate request that writes nothing into this stream. See [architecture.md](architecture.md) → Connection liveness (two-direction heartbeats).
 
+**Limits:** at most **5 simultaneous streams per user**; the sixth connection answers `429 NOTIFICATION_STREAM_LIMIT` and is not registered (`NotificationService.subscribe`). The route is also throttled to 60 connections/minute per address.
+
 
 ---
 ---
@@ -2659,8 +2700,9 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 
 - **Auth:** All auth endpoints use httpOnly cookies. Set by login, 2FA verify, OAuth completion, and refresh; cleared by logout. No `Authorization: Bearer` header is used.
 - **`code` is the contract, `message` is a diagnostic.** Every error body carries a stable `code` that the SPA localizes (`errors.<CODE>` in `frontend/src/locales`); `message` is English and intended for logs, the console and non-browser clients, and the SPA never renders it. Success bodies that carry a `message` follow the same rule — the SPA keys off `code` (or shows its own localized notice).
+- **CSRF:** every mutating `/api` request carries a signed double-submit token (`csrf_token` cookie + `X-CSRF-Token` header, bootstrapped by `GET /api/auth/csrf`) and must come from this host or a configured frontend origin. The engine callbacks (`POST /api/game/end`, `POST /api/game/:id/started`) are exempt: they authenticate with `x-engine-key` and use no cookies.
 - **JWT expiration:** 15 minutes for access tokens. Refresh tokens last 7 days and are rotated on each use.
 - **Bot seats:** a bot has no account, so its seat id is the literal `bot-<color>` (for example `bot-green`), and `role` is `'player'` / `'player1'`. The shown name comes from our own `player{n}_displayName` entry when the creator sent a `botNames` value: it reads `bot-<color> (<assistant>)`, and the client re-localizes the colour word.
 - **CORS:** Not enabled on the backend. Every client call is same-origin through nginx's `/api` proxy, so the backend emits no CORS headers. The engine is the one exception: its Socket.IO handshake answers only the origins on the allow-list compose builds from `FRONTEND_URL` and `NGROK_FRONTEND_URL` (see [`security_measures.md`](security_measures.md), Game engine boundary).
-- **Rate limiting:** The auth controller sets a per-IP limit on `register` (5/hour), `resend-verification` (3/hour), `login` (5/minute, plus the per-account lockout on the `POST /api/auth/login` entry), `2fa/verify` (5/minute), `2fa/resend` (5/hour, plus 3/hour per user), `refresh` (30/minute), `forgot-password` (3/hour) and `reset-password` (5 per 15 minutes). Every other route uses the global default (300 requests per 60 s).
+- **Rate limiting:** every mutating route has a per-IP limit, collected in `backend/src/common/throttles.ts` (auth, friends, match, notifications, presence, avatar, achievements); the auth ones are listed on the [login](#post-apiauthlogin) and [profile](#patch-apiauthprofile) entries. Reads fall back to the global default (300 requests per 60 s).
 - **Client IP:** `main.ts` trusts internal hops only (`trust proxy`), so the address behind those limits is the client's own and a client-sent `X-Forwarded-For` cannot spoof it.

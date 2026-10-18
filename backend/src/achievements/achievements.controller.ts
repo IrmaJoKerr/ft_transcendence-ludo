@@ -1,6 +1,9 @@
 import { Controller, Get, Post, UseGuards, Request, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { ACHIEVEMENTS_THROTTLE } from '../common/throttles';
 import { AchievementsService } from './achievements.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
 
 @Controller('api/achievements')
 // HTTP routes for achievements: the progress report for the dashboard and a
@@ -23,6 +26,7 @@ export class AchievementsController {
   // POST /api/achievements/check : silent re-evaluation for the current
   // user. Returns { unlocked: string[] }.
   @UseGuards(JwtAuthGuard)
+  @Throttle(ACHIEVEMENTS_THROTTLE.check)
   @Post('check')
   async checkAchievements(@Request() req: { user: { id: string } }) {
     return this.achievements.evaluateForUser(req.user.id, undefined, false);

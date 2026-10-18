@@ -12,6 +12,12 @@ export const en = {
     landscapeNotice:
       'Only playable in landscape mode on a tablet sized device (iOS or Android) or on a computer with a keyboard. Using Google Chrome is recommended.',
   },
+  passwordInfo: {
+    label: 'Password requirements',
+    hint: '12–72 characters, uppercase, lowercase, number, special character.',
+    error:
+      'Error: Password must be 12–72 characters with uppercase, lowercase, number and special character.',
+  },
   errors: {
     AUTH_EMAIL_TAKEN: 'Email already registered. Use a different email',
     AUTH_EMAIL_SEND_FAILED: 'Could not send email: try again later',
@@ -23,6 +29,10 @@ export const en = {
     AUTH_CODE_RESEND_LOCKED: 'Too many code requests: try again later.',
     AUTH_NOT_AUTHENTICATED: 'Not authenticated',
     AUTH_SESSION_EXPIRED: 'Session expired: please log in again',
+    AUTH_SESSION_REUSED: 'Session security check failed: please log in again',
+    CSRF_TOKEN_INVALID: 'Your security token expired: reload the page and try again',
+    CSRF_ORIGIN_REJECTED: 'This request was blocked for security reasons',
+    NOTIFICATION_STREAM_LIMIT: 'Too many open notification streams',
     AUTH_DISPLAY_NAME_TAKEN: 'Display name is already taken',
     AUTH_DISPLAY_NAME_RESERVED: 'Display name cannot start with "bot-"',
     AUTH_CURRENT_PASSWORD_INCORRECT: 'Current password is incorrect',
@@ -608,7 +618,6 @@ export const en = {
     newPasswordPlaceholder: 'Enter new password',
     confirmPassword: 'Confirm new password',
     confirmPasswordPlaceholder: 'Re-enter new password',
-    passwordHint: 'REQUIREMENTS: 12+ characters, uppercase, lowercase, number, special character.',
     newPasswordRequired: 'Enter a new password.',
     passwordMismatch: 'Passwords do not match.',
     oauthMethods: 'Sign-in methods',
@@ -624,6 +633,7 @@ export const en = {
     resend: 'Resend',
     emailResent: 'Confirmation email sent again.',
     emailPasswordRequired: 'Enter your current password to change your email.',
+    passwordConfirmRequired: 'Enter your current password to confirm this change.',
     emailSetPasswordFirst: 'Set a password before changing your email.',
     emailChangeSeparateSave: 'Set your password first (Save), then change your email.',
     emailChangedNotice: 'Email updated.',
@@ -686,6 +696,9 @@ export const en = {
     accountMenuAria: 'Account Settings, Language and 2FA',
     accountMenuTitle: 'Account Settings, Language & 2FA',
     toggle2fa: 'Toggle Two-Factor Authentication',
+    twoFactorPasswordPrompt: 'Enter your current password to change 2FA',
+    confirm: 'CONFIRM',
+    cancel: 'CANCEL',
     toggleAudio: 'Toggle all game audio (music + sound effects)',
     languageLabel: 'LANGUAGE // LANGUE',
     twoFactorLabel: '2FA AUTH',
@@ -704,7 +717,7 @@ export const en = {
   },
   authExtra: {
     brandTitle: 'RETRO LUDO',
-    brandTagline: 'ROLL ROLL ROLL ROLL',
+    brandTagline: 'May the Dice be with you.',
     twoFactorAuthTitle: 'TWO-FACTOR AUTH',
     verifyEnterArenaBtn: 'VERIFY & ENTER ARENA',
   },

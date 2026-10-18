@@ -63,6 +63,12 @@ unsubscribes, the service's `finalize(() => subject.complete())` completes the
 Subject, and `removeClient()` drops it from the maps and unsubscribes from the
 per-user Redis channel when the last tab for that user closes.
 
+**Per-user cap (F-11):** `subscribe()` refuses a sixth simultaneous stream for the same user with
+`429 NOTIFICATION_STREAM_LIMIT` before it creates a Subject or subscribes to Redis, so one account
+cannot grow the in-memory maps (and the Redis subscription list) without bound. The route is also
+throttled to 60 connection attempts per minute.
+
+
 
 ---
 ---

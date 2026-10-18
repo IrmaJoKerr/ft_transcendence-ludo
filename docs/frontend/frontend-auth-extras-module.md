@@ -36,6 +36,8 @@ All four are full-screen routes (no side rail) and are public, so no session is 
 | `src/pages/ResetPassword.tsx` | Password reset step 2 — new password form |
 | `src/pages/VerifyEmail.tsx` | Emailed-link landing page: reads the token from the URL fragment, strips it, redeems it |
 | `src/components/RetroAuthLayout.tsx` | Layout container for all auth pages |
+| `src/components/PasswordInfo.tsx` | "i" badge beside a new-password label; explains the policy on hover and keyboard focus |
+| `src/components/FieldError.tsx` | Inline per-field error slot (two reserved lines, `role="alert"`); used by ResetPassword |
 | `src/store.tsx` | `verify2fa`, `resend2fa`, `forgotPassword`, `resetPassword`, `verifyEmail` actions |
 | `src/validatePassword.ts` | Client-side password validation (same rules as the backend policy) |
 
@@ -187,12 +189,9 @@ const PASSWORD_MIN = 12;
 const PASSWORD_MAX = 72;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
-export function passwordError(pw: string): string | null {
-  if (pw.length < PASSWORD_MIN) return `Password must be at least ${PASSWORD_MIN} characters`;
-  if (pw.length > PASSWORD_MAX) return `Password must be at most ${PASSWORD_MAX} characters`;
-  if (!PASSWORD_REGEX.test(pw))
-    return 'Password needs an uppercase letter, a lowercase letter, a number, and a special character';
-  return null;
+// Boolean only: the caller owns the message, so every surface can localize it.
+export function passwordMeetsPolicy(pw: string): boolean {
+  return pw.length >= PASSWORD_MIN && pw.length <= PASSWORD_MAX && PASSWORD_REGEX.test(pw);
 }
 ```
 
@@ -204,7 +203,7 @@ export function passwordError(pw: string): string | null {
 ## Page Notes
 
 - **ForgotPassword** collects an email and asks the backend to send a reset link. The confirmation screen always appears: the backend never reveals whether the address is registered, and neither does the page.
-- **ResetPassword** is reached from the emailed link, which carries the token in the URL fragment (`/reset-password#token=<resetToken>`). It validates the new password against the same policy as signup (`validatePassword.ts`); on success it sends the user to `/login`. Redeeming the link also marks the address as verified, so an account that had not verified yet can sign in afterwards.
+- **ResetPassword** is reached from the emailed link, which carries the token in the URL fragment (`/reset-password#token=<resetToken>`). It validates the new password against the same policy as signup (`validatePassword.ts`); on success it sends the user to `/login`. Policy and confirmation failures are rendered inline under their own fields (`passwordInfo.error` / `auth.passwordMismatch`) and clear as soon as the field is edited; the form-level error is kept for backend failures. Redeeming the link also marks the address as verified, so an account that had not verified yet can sign in afterwards.
 - **TwoFactor** is reached in two ways, both with `?token=<pendingToken>`: from `Login.tsx` after the password step succeeds, or from the backend's OAuth callback after it emails the code.
 
 
@@ -218,6 +217,6 @@ export function passwordError(pw: string): string | null {
 |-----------|---------|
 | `store.tsx` | `verify2fa`, `resend2fa`, `forgotPassword`, `resetPassword` actions |
 | `router.tsx` | `navigate`, `useRoute` for token query params |
-| `validatePassword.ts` | Client-side password validation |
+| `validatePassword.ts` | Client-side password-policy check (`passwordMeetsPolicy`, boolean) |
 | `RetroAuthLayout.tsx` | Centered card layout wrapper |
 | `styles/tw.ts` | `RETRO_AUTH_*` class constants (title, input, label, button, error, link) |

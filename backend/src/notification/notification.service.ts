@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Subject, Observable, finalize } from 'rxjs';
 import Redis from 'ioredis';
 import { PrismaService } from '../prisma.service';
@@ -32,6 +32,12 @@ export interface NotificationPayload {
   createdAt: string; // ISO string
 }
 // Service
+// SSE stream cap: a user may hold several tabs open, but an unbounded number
+// of streams is a one-socket memory and Redis-subscription drain (security
+// review F-11). Five covers normal multi-tab use; the sixth stream is refused
+// with a localizable 429 instead of being registered.
+const MAX_SSE_STREAMS_PER_USER = 5;
+
 @Injectable()
 // Notification hub: persists notifications to Postgres and pushes them live to
 // connected clients over SSE via Redis Pub/Sub. Called by most services (friends,
@@ -108,6 +114,17 @@ export class NotificationService implements OnModuleDestroy {
   // Client opens the SSE stream. Returns an Observable the controller pipes
   // into the response; subscribes to the Redis channel on first connection.
   subscribe(userId: string): Observable<NotificationPayload> {
+    const connected = this.clients.get(userId)?.length ?? 0;
+    if (connected >= MAX_SSE_STREAMS_PER_USER) {
+      throw new HttpException(
+        {
+          code: 'NOTIFICATION_STREAM_LIMIT',
+          message: 'Too many open notification streams',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const subject = new Subject<NotificationPayload>();
     this.broadcastClients.add(subject);
 

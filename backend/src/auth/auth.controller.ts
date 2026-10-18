@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { AUTH_THROTTLE } from '../common/throttles';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -27,6 +28,11 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard, GithubAuthGuard, FortyTwoAuthGuard } from './oauth.guards';
 import { requireSecret, isTunnelRequest } from '../secrets';
+import {
+  CSRF_COOKIE,
+  issueCsrfCookie,
+  isValidCsrfToken,
+} from '../common/csrf';
 
 // Access-token cookie: JwtStrategy reads this
 const ACCESS_COOKIE = 'token';
@@ -36,8 +42,6 @@ const ACCESS_MAX_AGE_MS = 15 * 60 * 1000; // 15 min
 const REFRESH_COOKIE = 'refresh_token';
 const REFRESH_PATH = '/api/auth';
 const REFRESH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matches SessionService TTL
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
 
 const LOCAL_FRONTEND_URL = requireSecret('FRONTEND_URL');
 const NGROK_FRONTEND_URL = requireSecret('NGROK_FRONTEND_URL');
@@ -57,7 +61,20 @@ function frontendUrlFor(req: Request): string {
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-  @Throttle({ default: { limit: 5, ttl: HOUR_MS } })
+
+  // GET /csrf: hands the SPA its double-submit token. The middleware already
+  // sets the cookie on any response; this route is the explicit bootstrap the
+  // client calls before its first mutating request. Returns the same token the
+  // cookie holds so the header can be filled immediately.
+  @Get('csrf')
+  @HttpCode(200)
+  csrf(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const existing = (req.cookies as Record<string, unknown> | undefined)?.[CSRF_COOKIE];
+    const token = isValidCsrfToken(existing) ? existing : issueCsrfCookie(res);
+    return { token };
+  }
+
+  @Throttle(AUTH_THROTTLE.register)
   // POST /register
   @Post('register')
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
@@ -74,7 +91,7 @@ export class AuthController {
   }
 
   // POST /resend-verification: public; resends a signup link. Generic response.
-  @Throttle({ default: { limit: 3, ttl: HOUR_MS } })
+  @Throttle(AUTH_THROTTLE.resendVerification)
   @Post('resend-verification')
   @HttpCode(200)
   async resendVerification(@Body() dto: ResendVerificationDto, @Req() req: Request) {
@@ -82,7 +99,7 @@ export class AuthController {
   }
 
   // POST /login
-  @Throttle({ default: { limit: 5, ttl: MINUTE_MS } })
+  @Throttle(AUTH_THROTTLE.login)
   @Post('login')
   @HttpCode(200)
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
@@ -103,7 +120,7 @@ export class AuthController {
   }
 
   // POST /2fa/verify
-  @Throttle({ default: { limit: 5, ttl: MINUTE_MS } })
+  @Throttle(AUTH_THROTTLE.twoFactorVerify)
   @Post('2fa/verify')
   @HttpCode(200)
   async verifyTwoFactor(@Body() dto: TwoFactorDto, @Res({ passthrough: true }) res: Response) {
@@ -116,7 +133,7 @@ export class AuthController {
   }
 
   // POST /2fa/resend: re-issue the login code for a live challenge.
-  @Throttle({ default: { limit: 5, ttl: HOUR_MS } })
+  @Throttle(AUTH_THROTTLE.twoFactorResend)
   @Post('2fa/resend')
   @HttpCode(200)
   async resendTwoFactor(@Body('pendingToken') pendingToken?: string) {
@@ -125,7 +142,7 @@ export class AuthController {
 
   // POST /refresh - swaps a refresh token for new access token
   // Reads the refresh cookie and sets both cookies again
-  @Throttle({ default: { limit: 30, ttl: MINUTE_MS } })
+  @Throttle(AUTH_THROTTLE.refresh)
   @Post('refresh')
   @HttpCode(200)
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
@@ -137,7 +154,7 @@ export class AuthController {
   }
 
   // POST /forgot-password
-  @Throttle({ default: { limit: 3, ttl: HOUR_MS } })
+  @Throttle(AUTH_THROTTLE.forgotPassword)
   @Post('forgot-password')
   @HttpCode(200)
   async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
@@ -145,7 +162,7 @@ export class AuthController {
   }
 
   // POST /reset-password
-  @Throttle({ default: { limit: 5, ttl: 15 * MINUTE_MS } })
+  @Throttle(AUTH_THROTTLE.resetPassword)
   @Post('reset-password')
   @HttpCode(200)
   async resetPassword(@Body() dto: ResetPasswordDto) {
@@ -183,7 +200,7 @@ export class AuthController {
 
   // Complete profile update (username / email / 2FA method)
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: HOUR_MS } })
+  @Throttle(AUTH_THROTTLE.updateProfile)
   @Patch('profile')
   async updateProfile(@Req() req: Request, @Body() dto: UpdateProfileDto) {
     const result = await this.authService.updateProfile(
@@ -201,7 +218,7 @@ export class AuthController {
 
   // POST /profile/resend-email-change: authenticated; resends the pending change link.
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: HOUR_MS } })
+  @Throttle(AUTH_THROTTLE.resendEmailChange)
   @Post('profile/resend-email-change')
   @HttpCode(200)
   async resendEmailChange(@Req() req: Request) {
@@ -210,6 +227,7 @@ export class AuthController {
 
   // Change password while logged in
   @UseGuards(JwtAuthGuard)
+  @Throttle(AUTH_THROTTLE.changePassword)
   @Patch('profile/password')
   async changePassword(@Req() req: Request, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(
@@ -222,6 +240,7 @@ export class AuthController {
 
   // Permanently delete the account (password-verified)
   @UseGuards(JwtAuthGuard)
+  @Throttle(AUTH_THROTTLE.deleteAccount)
   @Delete('profile')
   @HttpCode(200)
   async deleteAccount(
@@ -244,9 +263,14 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Throttle(AUTH_THROTTLE.setTwoFactor)
   @Patch('2fa')
   setTwoFactor(@Req() req: Request, @Body() dto: TwoFactorSettingDto) {
-    return this.authService.setTwoFactorSetting((req.user as { id: string }).id, dto.enabled);
+    return this.authService.setTwoFactorSetting(
+      (req.user as { id: string }).id,
+      dto.enabled,
+      dto.currentPassword,
+    );
   }
 
   // **Google OAuth**

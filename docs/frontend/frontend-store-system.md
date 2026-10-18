@@ -329,7 +329,8 @@ toggleSetting(key)
 
 `apiFetch(url, init)` handles every authenticated call:
 
-- On a **401** it refreshes once through `POST /api/auth/refresh`, then retries the original request. All callers share one in-flight refresh request, so two 401s arriving at the same time can never rotate the refresh token twice.
+- Every mutating call goes through `fetchWithCsrf` (which `apiFetch` uses internally): it reads the `csrf_token` cookie, bootstraps it from `GET /api/auth/csrf` when absent, sends it as `X-CSRF-Token`, and retries once on `403 CSRF_TOKEN_INVALID` with a freshly minted token. Raw `fetch()` sites that mutate (auth store, friends, avatar) use the same wrapper; GETs can stay plain.
+- On a **401** it refreshes once through `POST /api/auth/refresh`, then retries the original request. All callers share one in-flight refresh request, so two 401s arriving at the same time can never rotate the refresh token twice. A refresh token that is replayed outside the server's 15-second two-tab grace is reported as `AUTH_SESSION_REUSED`, and the server has already revoked every session.
 - If the refresh **fails**, the two cases are kept apart: a missing or expired refresh token means the user is really signed out, while a *blocked* refresh (for example, rate-limited) returns its own status instead of pretending the user signed out.
 - It adds the `ngrok-skip-browser-warning` header so the ngrok interstitial page never intercepts an API (Application Programming Interface) call (other hosts ignore the header), and it builds headers with the `Headers` constructor, so headers passed by the caller are merged instead of overwritten.
 - **Errors are translated using their code.** When a response fails, `request()` reads the `code` field from the body and translates it with `translateErrorCode()` (`errors.<CODE>`). If the body has no `code`, or the code has no translation, it logs the English `message` to the console and uses a localized generic message; the server text is never rendered. The auth store's `apiError()` works the same way. See [API-list.md](../API-list.md) → Error responses.
@@ -347,6 +348,6 @@ toggleSetting(key)
 |-----------|---------|
 | `theme.ts` | `BOT_POOL` for bot seat names (sent as `botNames`, shown as the seat's `displayName`) |
 | `i18n.ts` | `i18n.changeLanguage` and `i18n.t` for default player names |
-| `api.ts` | `apiFetch` (refresh-and-retry), `refreshOnce` (called on the store's 14-minute timer, before the access token expires), and `translateErrorCode`, which turns an error code into text in the user's language |
+| `api.ts` | `apiFetch` (refresh-and-retry), `fetchWithCsrf` (CSRF bootstrap + header), `refreshOnce` (called on the store's 14-minute timer, before the access token expires), and `translateErrorCode`, which turns an error code into text in the user's language |
 | `game/types.ts` | `PlayerColor` for `ActiveMatch` |
 | API (Application Programming Interface) | `/api/auth/me`, `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/2fa/verify`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/2fa`, `/api/presence/heartbeat` |

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { postApi, translateErrorCode } from '../api';
+import { fetchWithCsrf, postApi, translateErrorCode } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
 import { RetroNavbar } from '../components/RetroNavbar';
 import type { PlayerColor } from '../game/types';
@@ -147,7 +147,7 @@ export function Friends() {
       }
       const userData = await userRes.json();
 
-      const reqRes = await fetch(`/api/friends/request/${userData.id}`, {
+      const reqRes = await fetchWithCsrf(`/api/friends/request/${userData.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -177,7 +177,7 @@ export function Friends() {
 
   const handleAccept = async (requestId: string) => {
     retroAudio.playUiBeep(880, 0.06);
-    await fetch(`/api/friends/accept/${requestId}`, {
+    await fetchWithCsrf(`/api/friends/accept/${requestId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -188,7 +188,7 @@ export function Friends() {
 
   const handleDecline = async (requestId: string) => {
     retroAudio.playUiBeep(440, 0.06);
-    await fetch(`/api/friends/decline/${requestId}`, {
+    await fetchWithCsrf(`/api/friends/decline/${requestId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -221,7 +221,7 @@ export function Friends() {
 
   const handleRemove = async (friendId: string) => {
     retroAudio.playUiBeep(440, 0.06);
-    await fetch(`/api/friends/remove/${friendId}`, {
+    await fetchWithCsrf(`/api/friends/remove/${friendId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -232,7 +232,7 @@ export function Friends() {
 
   const handleBlock = async (friendId: string) => {
     retroAudio.playUiBeep(320, 0.08);
-    await fetch(`/api/friends/block/${friendId}`, {
+    await fetchWithCsrf(`/api/friends/block/${friendId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -243,7 +243,7 @@ export function Friends() {
 
   const handleUnblock = async (targetUserId: string) => {
     retroAudio.playUiBeep(640, 0.06);
-    await fetch(`/api/friends/unblock/${targetUserId}`, {
+    await fetchWithCsrf(`/api/friends/unblock/${targetUserId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

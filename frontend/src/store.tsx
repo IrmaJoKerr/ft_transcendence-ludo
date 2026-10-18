@@ -10,7 +10,7 @@ import {
 import type { ReactNode } from 'react';
 import i18n from './i18n';
 import { BOT_POOL } from './theme';
-import { apiFetch, refreshOnce, translateErrorCode } from './api';
+import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
 import type { PlayerColor } from './game/types';
 
 export type AuthUser = {
@@ -21,6 +21,7 @@ export type AuthUser = {
   emailVerified?: boolean;
   pendingEmail?: string | null;
   twoFactorEnabled?: boolean;
+  hasPassword?: boolean;
   avatarStyle?: string | null;
   hasAvatarPhoto?: boolean;
 };
@@ -187,7 +188,7 @@ type AppState = {
   lang: Lang;
   setLang: (l: Lang) => void;
   twoFactor: boolean;
-  toggleTwoFactor: () => void;
+  toggleTwoFactor: (currentPassword?: string) => Promise<string | null>;
   setPlaying: (playing: boolean) => void;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
@@ -283,7 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       identifier: string,
       password: string,
     ): Promise<{ error?: string; pendingToken?: string; notVerified?: boolean }> => {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetchWithCsrf('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
@@ -317,7 +318,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       password: string,
       email: string,
     ): Promise<{ error?: string; username?: string }> => {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetchWithCsrf('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, email, language: i18n.language }),
@@ -334,7 +335,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Factor two: a correct emailed code buys the actual session cookie.
   const verify2fa = useCallback(
     async (pendingToken: string, code: string): Promise<string | null> => {
-      const res = await fetch('/api/auth/2fa/verify', {
+      const res = await fetchWithCsrf('/api/auth/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pendingToken, code }),
@@ -349,7 +350,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Re-issue the 2FA login code for a live challenge. Success = null.
   const resend2fa = useCallback(async (pendingToken: string): Promise<string | null> => {
-    const res = await fetch('/api/auth/2fa/resend', {
+    const res = await fetchWithCsrf('/api/auth/2fa/resend', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pendingToken }),
@@ -363,7 +364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // deliberately generic, so this always resolves null (never reveals whether
   // the address exists). A network failure still surfaces as a message.
   const forgotPassword = useCallback(async (email: string): Promise<string | null> => {
-    const res = await fetch('/api/auth/forgot-password', {
+    const res = await fetchWithCsrf('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -376,7 +377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Reset password: redeems the emailed token and sets the new password.
   const resetPassword = useCallback(
     async (token: string, password: string): Promise<string | null> => {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await fetchWithCsrf('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password }),
@@ -390,7 +391,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Resend a signup verification link (public endpoint; generic response).
   const resendVerification = useCallback(async (email: string): Promise<string | null> => {
-    const res = await fetch('/api/auth/resend-verification', {
+    const res = await fetchWithCsrf('/api/auth/resend-verification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -404,7 +405,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // the request *body*: the link carries it in a URL fragment, which browsers
   // never send to the server, so it stays out of the access and error logs.
   const verifyEmail = useCallback(async (token: string): Promise<VerifyOutcome> => {
-    const res = await fetch('/api/auth/verify-email', {
+    const res = await fetchWithCsrf('/api/auth/verify-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
@@ -420,10 +421,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Clears presence immediately, before the auth cookie needed to identify
     // the request is gone: otherwise the account reads "online" for up to
     // the heartbeat TTL after signing out.
-    await fetch('/api/presence/heartbeat', { method: 'DELETE', credentials: 'include' }).catch(
-      () => undefined,
-    );
-    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    await fetchWithCsrf('/api/presence/heartbeat', {
+      method: 'DELETE',
+      credentials: 'include',
+    }).catch(() => undefined);
+    await fetchWithCsrf('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setTwoFactor(false);
   }, []);
@@ -523,22 +525,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => undefined);
   }, [user]);
 
-  // Optimistic toggle; PATCH /api/auth/2fa persists it, reverting on failure.
-  const toggleTwoFactor = useCallback(() => {
-    setTwoFactor((prev) => {
-      const next = !prev;
-      apiFetch('/api/auth/2fa', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: next }),
-      })
-        .then((res) => {
-          if (!res.ok) setTwoFactor(prev);
-        })
-        .catch(() => setTwoFactor(prev));
-      return next;
-    });
-  }, []);
+  // Persist the toggle. Turning 2FA on or off is a sensitive change, so a
+  // password account confirms its password; `undefined` is correct for an
+  // OAuth-only account (the server trusts the active session). Resolves null on
+  // success or a localized error message.
+  const toggleTwoFactor = useCallback(
+    async (currentPassword?: string): Promise<string | null> => {
+      const next = !twoFactor;
+      try {
+        const res = await apiFetch('/api/auth/2fa', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: next, currentPassword }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          code?: string;
+          message?: string;
+          twoFactorEnabled?: boolean;
+        } | null;
+        if (!res.ok) {
+          if (data?.message) console.error('[2fa]', data.message);
+          return translateErrorCode(data?.code) ?? i18n.t('common.requestFailed', { status: res.status });
+        }
+        setTwoFactor(!!data?.twoFactorEnabled);
+        return null;
+      } catch {
+        return i18n.t('common.couldNotReachServer');
+      }
+    },
+    [twoFactor],
+  );
 
   useEffect(() => {
     document.documentElement.lang = lang;

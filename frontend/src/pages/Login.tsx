@@ -82,7 +82,7 @@ export function Login() {
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}
       >
-        <div>
+        <div className="text-center">
           <div className={RETRO_AUTH_TITLE}>{t('authExtra.brandTitle')}</div>
           <div className={RETRO_AUTH_SUBTITLE}>{t('authExtra.brandTagline')}</div>
         </div>

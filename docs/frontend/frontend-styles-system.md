@@ -69,7 +69,7 @@ The application runs one theme, Synthwave '84. Its tokens are declared on `:root
 --accent-cyan, --accent-pink, --accent-yellow, --accent-purple
 --text-main, --text-muted, --text-soft  /* white, muted lavender, paler step for captions */
 --border-color, --box-shadow, --card-border-style
---font-heading, --font-display, --font-mono  /* Press Start 2P, Orbitron, Share Tech Mono */
+--font-heading, --font-display, --font-mono  /* Atkinson Hyperlegible Next (heading/display), Atkinson Hyperlegible Mono */
 --crt-scanline-opacity, --crt-flicker-opacity
 --window-header-bg, --window-header-text
 ```
@@ -110,4 +110,4 @@ sequenceDiagram
 | `store.tsx` | `theme` / `setTheme` state; persists `retro_theme` and sets the `data-theme` attribute |
 | `styles/tw.ts` | Consumes the tokens through Tailwind arbitrary values; documented separately |
 | Tailwind CSS | Imported by `index.css` (`@import 'tailwindcss'`) |
-| Google Fonts | `Press Start 2P`, `VT323`, `Orbitron`, `Share Tech Mono`, imported at the top of `retrowave.css` |
+| Google Fonts | `Atkinson Hyperlegible Next` (headings, UI, body) and `Atkinson Hyperlegible Mono` (tabular/mono text), requested in `index.html` and at the top of `retrowave.css` |

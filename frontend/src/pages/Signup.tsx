@@ -3,9 +3,11 @@ import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout, NeonCheck } from '../components/RetroAuthLayout';
 import { LegalModal } from '../components/LegalModal';
+import { PasswordInfo } from '../components/PasswordInfo';
+import { FieldError } from '../components/FieldError';
 import { navigate } from '../router';
 import { useApp } from '../store';
-import { passwordError } from '../validatePassword';
+import { passwordMeetsPolicy } from '../validatePassword';
 import { isValidEmail } from '../validateEmail';
 import '../styles/retrowave.css';
 import {
@@ -30,6 +32,10 @@ export function Signup() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Field-level slots: filled on submit, cleared as soon as that field is
+  // edited, so the red text never nags while someone is still typing.
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [assigned, setAssigned] = useState('');
@@ -47,16 +53,14 @@ export function Signup() {
       return;
     }
     // Mirror the backend rule (RegisterDto) so weak passwords fail instantly
-    // rather than round-tripping to a 400. The server still re-checks.
-    const pwError = passwordError(password);
-    if (pwError) {
-      setError(pwError);
-      return;
-    }
-    if (password !== confirm) {
-      setError(t('auth.passwordMismatch'));
-      return;
-    }
+    // rather than round-tripping to a 400. The server still re-checks. Each
+    // message gets its own slot under the field; the form-level box below
+    // stays for the email, the checkbox and server errors.
+    const policyOk = passwordMeetsPolicy(password);
+    const matchOk = password === confirm;
+    setPasswordFieldError(policyOk ? null : t('passwordInfo.error'));
+    setConfirmFieldError(matchOk ? null : t('auth.passwordMismatch'));
+    if (!policyOk || !matchOk) return;
     if (!agreed) {
       setError(t('auth.agreeRequired'));
       return;
@@ -142,26 +146,42 @@ export function Signup() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div className={RETRO_AUTH_LABEL}>{t('auth.passwordLabel')}</div>
+            <div
+              className={RETRO_AUTH_LABEL}
+              style={{ display: 'flex', alignItems: 'center', position: 'relative' }}
+            >
+              <span>{t('auth.passwordLabel')}</span>
+              <PasswordInfo />
+            </div>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordFieldError(null);
+                // The pair changed, so a mismatch note is stale too.
+                setConfirmFieldError(null);
+              }}
               placeholder={t('auth.passwordPlaceholderSignup')}
               autoComplete="new-password"
               className={RETRO_AUTH_INPUT}
             />
+            <FieldError message={passwordFieldError} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className={RETRO_AUTH_LABEL}>{t('auth.confirmLabel')}</div>
             <input
               type="password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => {
+                setConfirm(e.target.value);
+                setConfirmFieldError(null);
+              }}
               placeholder="••••••••"
               autoComplete="new-password"
               className={RETRO_AUTH_INPUT}
             />
+            <FieldError message={confirmFieldError} />
           </div>
         </div>
         {error && <div className={RETRO_AUTH_ERROR}>{error}</div>}

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { RetroNavbar } from '../components/RetroNavbar';
 import { UserAvatar } from '../components/UserAvatar';
 import { applyAvatarChange } from '../avatarCache';
-import { translateErrorCode } from '../api';
+import { fetchWithCsrf, translateErrorCode } from '../api';
 import { ProfileEditModal } from '../components/ProfileEditModal';
 import { useRoute, navigate } from '../router';
 import { useApp } from '../store';
@@ -241,7 +241,7 @@ export function Profile() {
     formData.append('avatar', file);
 
     try {
-      const res = await fetch('/api/user/avatar', {
+      const res = await fetchWithCsrf('/api/user/avatar', {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -268,7 +268,7 @@ export function Profile() {
 
   const handleRemoveAvatar = async () => {
     try {
-      const res = await fetch('/api/user/avatar', {
+      const res = await fetchWithCsrf('/api/user/avatar', {
         method: 'DELETE',
         credentials: 'include',
       });

@@ -183,6 +183,7 @@ npm run start:dev (or node main.js)
   │       # internal hops only, so req.ip is the real client IP for rate
   │       # limiting and a client-sent X-Forwarded-For cannot spoof it
   ├── app.use(cookieParser())
+  ├── app.use(csrfProtection)              # Origin/Referer allow-list + X-CSRF-Token on mutating /api
   ├── app.useGlobalPipes(ValidationPipe { whitelist, transform, exceptionFactory })
   │       # exceptionFactory adds a VALIDATION_* code to the DTO errors listed in main.ts
   ├── Register GET /health handler
