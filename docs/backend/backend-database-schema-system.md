@@ -155,7 +155,7 @@ avatar data (those live on `User`).
 |-------|------|------------|-------------|
 | `id` | String | UUID, PK | Unique identifier |
 | `userId` | String | Unique, FK | Owning user |
-| `achFirstBlood` … `achMercilessAttacker` | Boolean | Default: false | 15 achievement flags (see `backend-achievements-module.md`) |
+| `achFirstBlood` … `achMercilessAttacker` | Boolean | Default: false | 16 achievement flags (see `backend-achievements-module.md`) |
 
 **Relations:** `user` (1:1, back-reference)
 

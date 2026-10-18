@@ -157,10 +157,9 @@ export function Friends() {
         const errorData: { code?: string; message?: string } | null = await reqRes
           .json()
           .catch(() => null);
-        const errorMsg =
-          translateErrorCode(errorData?.code) ??
-          errorData?.message ??
-          t('friends.couldNotSendRequest');
+        const localized = translateErrorCode(errorData?.code);
+        if (!localized && errorData?.message) console.error('[friends]', errorData.message);
+        const errorMsg = localized ?? t('friends.couldNotSendRequest');
         retroAudio.playUiBeep(320, 0.08);
         setMsg({ text: errorMsg, type: 'error' });
         return;

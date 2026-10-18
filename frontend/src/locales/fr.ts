@@ -816,7 +816,7 @@ export const fr = {
     rulesPage8Body:
       "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer ouvre la porte et la sortie fait partie du déplacement : la pièce sort et s'arrête sur le pas obtenu — un 5 la pose sur son pas 5, un 6 sur son pas 6.",
     rulesPage8Body2:
-      "Un 6 conserve son lancer bonus. La sortie est un déplacement ordinaire depuis la prison : la pièce sort le long de son propre parcours et s'arrête sur le pas obtenu, donc un mur de deux pièces sur le trajet — ou exactement sur cette case d'arrivée — scelle la prison, sauf si le mode Clash permet de briser le mur sur lequel elle se pose, un Clash par défenseur. Un mur posé sur une étoile protégée est simplement traversé.",
+      "Un 6 conserve son lancer bonus. La sortie est un déplacement ordinaire depuis la prison : la pièce ATTERRIT sur le pas obtenu et ne combat que cette case. Un mur avant la case d'arrivée bloque la sortie, et le mode Clash n'y change rien ; un mur exactement SUR la case d'arrivée est celui que le mode Clash permet d'attaquer, un Clash par défenseur. Un mur posé sur une étoile protégée est simplement traversé.",
     rulesPage9Header: '// BRISE-BARRIÈRE',
     rulesPage9Title: '🔓 Un jeton, un mur',
     rulesPage9Body:

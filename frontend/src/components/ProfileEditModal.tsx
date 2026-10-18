@@ -222,7 +222,6 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
         setNotice(t('profileEdit.emailChangePending'));
         setEmailPassword('');
       }
-      if (data.message) setNotice(data.message);
       if (isPasswordChange) {
         const pwBody: Record<string, string> = { newPassword };
         if (hasPassword) pwBody.currentPassword = currentPassword;
@@ -230,7 +229,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           '/api/auth/profile/password',
           pwBody,
         );
-        const notice = translateErrorCode(pwResp.code) ?? pwResp.message;
+        const notice = translateErrorCode(pwResp.code);
         if (notice) setNotice(notice);
         // Password change keeps the CURRENT session alive: stay signed in.
         setHasPassword(true);

@@ -26,7 +26,8 @@ achievement system, and the whole interface is available in multiple languages.
 - **Authentication** — local accounts, OAuth 2.0 sign-in (Google, GitHub, 42), email verification, and two-factor authentication (email code)
 - **Progression** — match history, statistics, leaderboard, and achievements
 - **Multilingual UI** — English, Malay, and French, including error messages and notices that are translated into the selected language
-- **Notifications, game customization, and extended browser support**
+- **Retro arcade shell** — synthwave CRT styling and Web-Audio UI sounds, an in-app
+  notification log, and keyboard or touch play with tablet landscape guidance
 
 ## Instructions
 
@@ -413,6 +414,14 @@ material was reviewed and adapted by the team member responsible for that area.
 
 - The self-signed certificate triggers a browser warning on first visit (expected for localhost).
 - Ngrok's free tier shows an intermediate page for new visitors similar to the issue with localhost.
+- Clash mode is keyboard-driven on desktop; touch devices use the on-screen tap pad and must be
+  held in landscape. Phones and portrait tablets are out of scope.
+- Hotseat matches are demo-and-forget: the result is never posted to the backend, so they add no
+  history, counters, or leaderboard rows.
+- The ludo-engine is a single instance: live rooms and socket fan-out are in-process, so scaling
+  out needs a shared adapter.
+- Verification is the green TypeScript builds plus the scripted engine and frontend harnesses;
+  no automated end-to-end suite is committed.
 
 ## License
 

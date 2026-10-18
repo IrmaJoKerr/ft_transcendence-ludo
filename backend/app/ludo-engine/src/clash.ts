@@ -7,31 +7,29 @@ import type { PlayerColor, ClashState, ChainRound, PieceId } from './types';
 // the right-hand one.
 export const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 export const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
-export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
-export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys still hidden
-export const CLASH_PRESS_MS = 5000; // press race window
-export const CLASH_RESULT_MS = 2000; // result card, displayed by the client
-// Server freeze after a clash resolves: longer than the client's result card,
-// so no roll or move can land while the card is visible. This is the CEILING of
-// the card-release handshake: a client's hold can only ever shorten it.
-export const CLASH_RESULT_FREEZE_MS = 4000;
-// Floor for a client's card hold: a receipt asking for less than this is clamped,
-// so a broken client cannot skip the card's meaning (it is still cosmetic).
-export const CARD_HOLD_MIN_MS = 250;
-export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start
+// The clash WINDOWS live in ./timing with every other delay; re-exported here so the
+// existing imports (clash-engine, socket layer, harnesses) keep their path.
+export {
+  CLASH_ANNOUNCE_MS,
+  CLASH_COUNTDOWN_MS,
+  CLASH_PRESS_MS,
+  CLASH_RESULT_MS,
+  CLASH_RESULT_FREEZE_MS,
+  CARD_HOLD_MIN_MS,
+  CLASH_SWEEP_GRACE_MS,
+  CLASH_PRESS_CAP_MS,
+  CLASH_BOT_WIN_MS_BASE,
+  CLASH_BOT_LOSE_MS_BASE,
+  CLASH_BOT_JITTER_MS,
+} from './timing';
+import { CLASH_ANNOUNCE_MS, CLASH_COUNTDOWN_MS, CLASH_PRESS_MS, CLASH_PRESS_CAP_MS } from './timing';
 export const CLASH_TARGET = 42; // presses needed to win the race
-// Min ms between accepted presses per side (~9 Hz). Rapid-fire keyboards cannot
-// out-press a human, and the cap bounds abuse without a rate-limit carve-out.
-export const CLASH_PRESS_CAP_MS = 110;
 // The most one accepted press may be worth. The touch pad sends 2, because a tap
 // on a circle is slower and less repeatable than a held key; the clamp keeps the
 // wire from asking for more, so the cap's ceiling stays 2x and no further.
 export const CLASH_TAP_COUNT_MAX = 2;
 // Bot presser tuning: the engine pre-rolls the winner, so the winning bot
 // presses faster than the losing one while both look human.
-export const CLASH_BOT_WIN_MS_BASE = 125; // winner's press interval base (ms)
-export const CLASH_BOT_LOSE_MS_BASE = 155; // loser's press interval base (ms)
-export const CLASH_BOT_JITTER_MS = 30; // random ± spread added to each interval
 export const CLASH_BOT_VS_BOT_WIN_CHANCE = 0.5; // bot vs bot: coin flip
 export const CLASH_BOT_VS_HUMAN_WIN_CHANCE = 0.25; // bot vs human: bot win chance
 

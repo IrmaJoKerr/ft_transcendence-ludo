@@ -826,7 +826,7 @@ export const en = {
     // exactly like any other move. Breaking the barrier it LANDS on is the token's
     // job (page 9, one wall per token), so the copy splits the two.
     rulesPage8Body2:
-      'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece walks out along its own track and stops on the step it rolled, so a two-piece wall on the way — or exactly on that landing square — seals the prison until clash mode lets the piece break the wall it lands on, one clash per defender. A wall parked on a protected star is simply passed.',
+      'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece LANDS on the step it rolled, and it fights only that square. A wall before the landing square blocks the exit outright, and clash mode does not help there; a wall exactly ON the landing square is the one clash mode lets the piece fight, one clash per defender. A wall parked on a protected star is simply passed.',
     rulesPage9Header: '// BARRIER BUSTER',
     rulesPage9Title: '🔓 One token, one wall',
     rulesPage9Body:

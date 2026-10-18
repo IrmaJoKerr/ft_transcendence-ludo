@@ -111,8 +111,8 @@ NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) wher
 no arithmetic and is read as `=== true`, so absent is simply off). `RedisGameStore` normalizes
 them once at the only door the state comes back through (`withBarrierDefaults`, in
 [`redis.ts`](./ludo-engine-redis-system.md)), and every per-site read keeps a `?? 0` as belt and
-braces. `0` is also the honest reading: a room that old was never dealt a token and has not
-broken a wall.
+braces. `0` is also the honest reading: a state without the fields deals no token and has broken no
+wall.
 
 `userId` / `hasAvatarPhoto` / `avatarStyle` are filled in at join time from the backend's Redis
 `avatar:<userId>` record (the engine has no database access), and `emitLobbyUpdate` passes them to the
@@ -157,9 +157,9 @@ reconnect branch and flip it back to `active` with all four pieces still at `-1`
 skips `step < 0`, so that seat could never produce a legal move and its turn would auto-pass forever.
 
 The reset on turn advance is deliberate. The turn-scoped snapshot (`turnPhase`, `pendingLegalMoves`,
-`pendingDiceValue`, `pendingIsFirstRoll`) belongs to the player who just finished. Leaving it behind
-stranded the next player whenever a seat was pruned mid-`WAITING_FOR_MOVE`: the new player could
-neither roll (`Invalid turn phase`) nor move a piece, freezing the game. `rollDice` also resets these
+`pendingDiceValue`, `pendingIsFirstRoll`) belongs to the player who just finished. A stale snapshot would
+freeze the next player after a seat is pruned mid-`WAITING_FOR_MOVE`: it could neither roll (`Invalid turn
+phase`) nor move a piece. `rollDice` also resets these
 on its own paths, but doing it in `advanceTurnInState` makes the invariant hold for every caller.
 
 **Quorum.** `hasQuorum(state)` is the single predicate that decides whether a room can continue: it
@@ -254,6 +254,19 @@ export type GameEvent =
 
 ## Core Logic / Flow
 
+### The landing rule
+
+**A move fights ONLY the square it lands on.** That is the whole capture rule, and it holds for both
+shapes: a single defender on the landing square is the ordinary capture, and a wall there (2+ of one
+opponent colour) is the clash chain, one round per defender. Nothing is ever attacked on a square a
+piece passes over, on any route: a wall anywhere before the landing square blocks the move, whether the
+piece is leaving prison or already on the board, and whether free exit is on or off. The roll therefore
+has to reach the target's square exactly.
+
+There is no fighting along the path, no battle list on a `LegalMove`, and no attack that resolves on a
+square the piece did not land on. `LegalMove` carries one landing (`to`,
+`captureCount`), and the chain reads the landing square's stack.
+
 ### 1. Dice Roll
 
 ```mermaid
@@ -282,7 +295,8 @@ sequenceDiagram
 
     Player->>Engine: Click a piece to move it
     Engine->>Engine: Check the move is legal
-    Engine->>Engine: Move the piece. Any opponent piece on that cell goes back to base
+    Engine->>Engine: Clash mode and the move captures: defer to the QTE, applied once the chain ends
+    Engine->>Engine: Otherwise move the piece now. Any opponent piece on the landing square goes to base
     Engine->>Engine: Did all 4 pieces reach home?
     alt Yes — player wins
         Engine-->>Player: game_ended (winner)
@@ -307,6 +321,7 @@ sequenceDiagram
 ```
 roll_dice()
   ├── Reject if the game is paused (a disconnect grace window is open)
+  ├── Reject if the clash result card is still up (state.resultCardUntil in the future)
   ├── Validate game active, turnPhase WAITING_FOR_ROLL, caller is current player
   ├── Roll 1-6
   ├── 6 → consecutiveSixes++ ; otherwise reset to 0
@@ -350,20 +365,30 @@ each roll gives that roll its own separate stream, so other code using
 ```
 move_piece(pieceId)
   ├── Reject if the game is paused (a disconnect grace window is open)
+  ├── Reject if the clash result card is still up (state.resultCardUntil in the future)
   ├── Validate game active and turnPhase = WAITING_FOR_MOVE
   ├── Verify pieceId is in pendingLegalMoves (server snapshot from the roll)
-  ├── Barrier Buster move → spend the seat's token here, on the ATTEMPT (inside the game lock,
-  │   against the freshly loaded state: a replayed emit finds the move gone and spends nothing,
-  │   and a repulsed chain keeps the token spent)
-  ├── executeMove → move the piece; resolve any captures immediately (captured pieces → base)
-  ├── recordMove (history) + moveCounter++
-  ├── Check win condition (all 4 pieces at step 57)
-  │   ├── Win → sync the winner's piecesInGoal, status='finished', emit game_ended
-  │   └── No win → sync the mover's piecesInGoal
-  │       ├── Roll was 6 OR move captured → same player rolls again (bonus roll)
-  │       └── Roll 1-5, no capture → advance turn to next player
-  ├── Clear pendingLegalMoves + pendingDiceValue
-  └── saveGameState; emit piece_moved (+ game_ended if finished)
+  ├── Priced Barrier Buster move →
+  │   ├── Require the seat to be ARMED (arm_barrier) and to hold a token, else refuse
+  │   └── Spend the token here, on the ATTEMPT, inside the game lock and against the freshly
+  │       loaded state: a replayed emit finds the move gone and spends nothing, a repulsed
+  │       chain keeps the token spent, and an empty hand clears the arm switch
+  ├── Clash mode AND the move is a capture →
+  │   ├── Stage pendingCapture for the landing square (the whole stack, in piece-id order)
+  │   │   with barrierBattles stamped (1 when that square stood 2+ of one colour)
+  │   ├── Clear pendingLegalMoves + pendingDiceValue, then start the QTE
+  │   └── Return result.captured = true with NO piece_moved: the chain applies the move once,
+  │       on its last round (clash-engine doc)
+  └── Otherwise (no clash, or a move that captures nothing) →
+      ├── executeMove → move the piece; any opponent piece on the landing square goes to base
+      ├── recordMove (history) + moveCounter++
+      ├── Check the win condition (all 4 pieces at step 57)
+      │   ├── Win → sync the winner's piecesInGoal, status = 'finished', emit game_ended
+      │   └── No win → sync the mover's piecesInGoal
+      │       ├── Roll was 6 OR the move captured → the same player rolls again (bonus roll)
+      │       └── Roll 1 to 5 with no capture → advance the turn to the next seat
+      ├── Clear pendingLegalMoves + pendingDiceValue
+      └── saveGameState; emit piece_moved (+ game_ended if finished)
 ```
 
 ### Barrier Buster Path

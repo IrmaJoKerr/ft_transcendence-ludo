@@ -1,6 +1,6 @@
 # **API List**
 
-Complete reference of all HTTP and WebSocket APIs in the project. Updated 14 Sep 2026
+Complete reference of all HTTP and WebSocket APIs in the project. Updated 18 Oct 2026
 
 What protects these routes (edge headers, throttling, cookie and token scope) is documented in
 [`security_measures.md`](security_measures.md).
@@ -34,7 +34,7 @@ An error response has one of two shapes:
 | **Default** | NestJS's own exceptions (anything not listed below) | `{ "statusCode": 400, "message": "…", "error": "Bad Request" }` |
 | **With a code** | An error or notice that the user reads in their own language | `{ "code": "SOME_CODE", "message": "…" }` |
 
-- **`code`** is a fixed identifier. The frontend uses it to find a translation named `errors.<CODE>` (in `frontend/src/locales/*`) and shows that text in the user's language. If a code has no translation yet, the English `message` is shown instead. `translateErrorCode()` in `api.ts` does the translation, and both the `apiFetch` helpers and the auth store call it.
+- **`code`** is a fixed identifier. The frontend uses it to find a translation named `errors.<CODE>` (in `frontend/src/locales/*`) and shows that text in the user's language. If a code has no translation yet, the SPA logs the English `message` to the console and shows a localized generic message — server text is never rendered. `translateErrorCode()` in `api.ts` does the translation, and both the `apiFetch` helpers and the auth store call it.
 - **`message`** is always plain English, so a code with no translation never shows a technical identifier to the user.
 - **Validation errors** are built by the `ValidationPipe` `exceptionFactory` in `main.ts`. For the fields listed in that file it adds a `VALIDATION_*` code; for every other field it returns the default NestJS body.
 
@@ -124,7 +124,7 @@ An error response has one of two shapes:
 | `MATCH_SEAT_EXPIRED` | 403 | The seat is finalized (grace expired / End Game) — the player can never rejoin it |
 | `MATCH_PVP_ONLY_INVITE` | 403 | Only PvP rooms can be invited to |
 
-> Not every backend error has a code yet. When an error has no `code`, the frontend shows its English `message` instead.
+> Every user-visible failure carries a `code`. If an error has no `code` (or a code with no `errors.<CODE>` entry), the SPA logs the English `message` to the console and shows a localized generic message instead — it never renders the server text.
 
 
 ---
@@ -236,7 +236,7 @@ An error response has one of two shapes:
 ### WebSocket APIs — Ludo Engine
 
 19. **[Connection](#19-connection)** — Connect to the game engine with a match token
-20. **[Client → Server Events](#20-client--server-events-emit)** — What the client sends: join, roll dice, move pieces, ready, end game
+20. **[Client → Server Events](#20-client--server-events-emit)** — What the client sends: join, roll/move, barriers, clash input, room rules, ready, end game
 21. **[Server → Client Events](#21-server--client-events-on)** — What the client receives: state updates, dice/move results, game end
 22. **[End-to-End Flow](#22-end-to-end-flow)** — A complete walkthrough from login to a finished game
 
@@ -1115,7 +1115,16 @@ const socket = io(window.location.origin, { // same-origin → nginx → ludo-en
 Create a PvP invite game with a shareable code.
 
 **Headers:** 🔒 (requires `token` cookie)  
-**Body:** None (all fields optional)
+**Body:** all fields optional — the three room rules, defaulting to a standard room:
+
+```json
+{
+  "clashEnabled": false,
+  "noSafeZones": false,
+  "freeExit": false
+}
+
+```
 
 **Response:**
 
@@ -1136,6 +1145,7 @@ Create a PvP invite game with a shareable code.
 - Share `inviteCode` via chat/friend list.
 - Recipient joins via `POST /api/match/join/:code`.
 - Follows the same create-or-reuse path as `POST /api/match/create`: if you already sit in one of your own `WAITING` PvP rooms, that room (and its existing invite code) is handed back instead of a second room being created.
+- `clashEnabled` turns the clash QTE on, `noSafeZones` makes star squares capture-able, and `freeExit` lets any roll leave prison (the exit square counts as part of the roll). The rules are frozen when the room is created; the host can still change them from the lobby panel while the room is `WAITING` (`update_modifiers`, see §20).
 
 
 ---
@@ -1232,7 +1242,10 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
   "botCount": 0,
   "botColors": ["red", "green"],
   "botNames": ["Siri", "Alexa"],
-  "seatColors": ["yellow", "blue"]
+  "seatColors": ["yellow", "blue"],
+  "clashEnabled": false,
+  "noSafeZones": false,
+  "freeExit": false
 }
 
 ```
@@ -1259,6 +1272,7 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
 - `botNames` (optional string array) is index-aligned with `botColors`. Each entry is the name the lobby gave that bot: the backend stores it as `player{n}_displayName` in the form `bot-<color> (<assistant>)`, so every client shows the lobby's own assistant name. An entry that is missing, blank or unusable is dropped, and the seat then shows its plain `bot-<color>` id. The stored label is not translated, so clients re-localize the colour word with the `lobby.color*` keys and keep the assistant name as sent.
 - **Reuse:** creating a `pvp` room while you already sit in one of your own still-`WAITING` PvP rooms hands that room back — the response carries its `gameId`, `inviteCode` and your existing seat colour, and nothing in the stored room is modified. A room whose game has already started (engine state is anything but `waiting`, or your seat in it is finalized) is never reused: a fresh room is created instead, so a player who left a live game can start or join another one while their old seat stays ghosted.
 - `pve`/`hotseat` always create a fresh room (they start `ACTIVE` and are never reused).
+- `clashEnabled`, `noSafeZones` and `freeExit` are the three room rules (all optional, default `false` = standard room). They are written in the same call that creates the room, so no room ever exists without its rules; `room-rules.ts` coerces the raw body values to booleans. While the room is `WAITING`, the host can change them from the lobby panel (`update_modifiers`, see §20).
 
 
 ---
@@ -2239,6 +2253,8 @@ On DB error:
 
 The browser connects to the engine on its **own origin** — nginx (or the Vite dev proxy) forwards `/socket.io/` to the ludo-engine.
 
+The handshake is bounded before it is authenticated: only origins on the engine's allow-list are accepted, one account may hold at most **4 live sockets**, and both the handshake payload and every event are capped at **64 KB**. The engine pings every 10 s, closes a socket that takes more than 15 s to answer, and disconnects a socket that exceeds 20 events per 5 s.
+
 Connection requires JWT in handshake auth:
 
 ```js
@@ -2354,6 +2370,100 @@ socket.emit('move_piece', pieceId);
 ---
 
 
+#### `arm_barrier`
+
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleArmBarrier`)
+
+Arm or disarm the Barrier Buster for the current turn (clash mode only). Armed means this seat may land on a wall; disarmed means the wall blocks it. The flag is turn-scoped and is cleared when the turn advances.
+
+```js
+socket.emit('arm_barrier', true);
+
+```
+
+| Param | Type | Notes |
+|---|---|---|
+| `armed` | boolean | `true` = may break the wall it lands on, `false` = a wall blocks it |
+
+**Response:** `state_update` broadcast (`players[].barrierArmed`).
+
+**Errors:** `error` outside clash mode, off your turn, or when arming an empty hand.
+
+
+---
+---
+
+
+#### `skip_bust`
+
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSkipBust`)
+
+Decline the held Barrier Buster turn: a PASS, not a re-roll. The dice are spent, the turn advances, and the token stays in hand.
+
+```js
+socket.emit('skip_bust');
+
+```
+
+**Response:** `turn_skipped` + `state_update` broadcast.
+
+**Refusals are silent:** the action is only valid when every pending move is token-priced. Any other state is logged for the operator and nothing is sent to the player.
+
+
+---
+---
+
+
+#### `clash_input`
+
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleClashInput`)
+
+One QTE keypress during the press phase. The key itself picks the side (defender keys are the left block, attacker keys the right); the seat binding then proves the caller owns it. `count` is the tablet tap weight, clamped to `CLASH_TAP_COUNT_MAX` (2).
+
+```js
+socket.emit('clash_input', 'f', 1);
+
+```
+
+| Param | Type | Notes |
+|---|---|---|
+| `key` | string | The key bound to your side in the current clash |
+| `count` | number | Optional tap weight, default 1, clamped to 2; a pad tap is a heavier press, never a faster stream (110 ms per-side cap) |
+
+**Response:** `clash_press` broadcast.
+
+**Refusals are silent:** a press that fails the key/ownership/phase check is dropped.
+
+
+---
+---
+
+
+#### `clash_card_hold`
+
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleClashCardHold`)
+
+The result-card release handshake. The client forecasts how long its own card will run; the engine clamps that to `[CARD_HOLD_MIN_MS, CLASH_RESULT_FREEZE_MS]` and keeps the smallest receipt, so a receipt can only shorten the freeze (the 4 s ceiling applies when none arrives).
+
+```js
+socket.emit('clash_card_hold', 'blue-red-41', 2400);
+
+```
+
+| Param | Type | Notes |
+|---|---|---|
+| `cardId` | string | `"<attacker>-<defender>-<moveCounter>"`, echoed from `clash_result` |
+| `holdMs` | number | Forecast card duration in ms |
+
+**Response:** `clash_card_released` once every participating user has reported (or the card has no human in it).
+
+**Errors:** `error` only for a caller with no seat in that card; a foreign `cardId` is dropped silently, and a receipt after the release does nothing.
+
+
+---
+---
+
+
 #### `player_ready`
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handlePlayerReady`)
@@ -2388,6 +2498,32 @@ socket.emit('select_color', color);
 | `color` | `'red'` \| `'green'` \| `'yellow'` \| `'blue'` | The requested color |
 
 **Response:** `lobby_update` or `color_selected` broadcast.
+
+
+---
+---
+
+
+#### `update_modifiers`
+
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleUpdateModifiers`)
+
+Host-only live update of the three room rules while the room is still `WAITING`. The payload is one object, never positional booleans; the engine normalizes it and broadcasts back what it actually persisted (so the room mirrors stored state).
+
+```js
+socket.emit('update_modifiers', { clashEnabled: true, noSafeZones: false, freeExit: false });
+
+```
+
+| Param | Type | Notes |
+|---|---|---|
+| `clashEnabled` | boolean | Turn the clash QTE on/off |
+| `noSafeZones` | boolean | `true` = star squares no longer protect a piece |
+| `freeExit` | boolean | `true` = any roll leaves prison (the exit square counts as part of the roll) |
+
+**Response:** `modifiers_updated` broadcast (`{ gameId, clashEnabled, noSafeZones, freeExit }`).
+
+**Errors:** `error` when the caller is not the host or the room is no longer `WAITING`; malformed fields are coerced to booleans rather than trusted.
 
 
 ---
@@ -2455,19 +2591,26 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 | `game_joined` | `GameState` (full state) | After `join_game` |
 | `dice_rolled` | `{ value, legalMoves, bonusRoll }` | After dice rolled |
 | `piece_moved` | `MoveResult` | After piece moved |
+| `turn_skipped` | `{ gameId, currentTurn }` | `skip_bust` declined the armed turn; the turn has already advanced in the state |
+| `clash_start` | `{ attacker, defender, attackerKey, defenderKey, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase |
+| `clash_phase` | `{ phase, countdownDeadline, pressDeadline }` | The QTE moves announce → countdown → pressing |
+| `clash_press` | `{ color, presses }` | An accepted `clash_input` press |
+| `clash_result` | `{ cardId, winner, loser, winnerPresses, loserPresses, round, totalRounds, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `continues: true` means the square still holds defenders and another round follows |
+| `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card done; the input freeze ends at `resultCardUntil` |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
 | `game_timeout` | none | Post-game lobby expired (60s) — room torn down |
-| `game_expired` | none | Idle lobby expired (5 min, < 2 seated) |
-| `player_exited` | `{ color }` | Player disconnected (exited) |
-| `player_aborted` | `{ color, username }` | A player aborted the game |
+| `game_expired` | `{ gameId }` | Idle lobby (5 min, < 2 seated), single-instance disconnect window expired, or quorum lost after an exit |
+| `player_exited` | `{ color }` | A seat left for good or its reconnect grace expired |
+| `player_aborted` | `{ color, username }` | The host ended a PvP game / the room was aborted |
 | `player_disconnected` | `{ color }` | A player's connection dropped |
 | `player_reconnected` | `{ color, displayName? }` | A player reconnected inside the grace window |
 | `seat_expired` | `{ gameId, color }` | Your `join_game` was refused because the seat was already removed (left, or the grace window expired) — sent to that socket only |
-| `lobby_update` | `{ players: [{ username, color, ready }] }` | Lobby seats changed (join/leave/ready) |
-| `color_selected` | `{ color }` | A player selected a color in the lobby |
-| `state_update` | full `GameState` | After a live exit moved the turn (also the SPA's catch-all for any other pub/sub frame) |
-| `error` | `string` | On invalid action |
+| `lobby_update` | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed (join/leave/ready/colour) |
+| `color_selected` | `{ gameId, userId, color }` | A player selected a color in the lobby |
+| `modifiers_updated` | `{ gameId, clashEnabled, noSafeZones, freeExit }` | The host changed the room rules while the room was `WAITING` |
+| `state_update` | full `GameState` (includes `paused`, `pauseTurnOwner`, `players[].barrierArmed`, `players[].barrierTokens`, `resultCardUntil`) | A live exit moved the turn, a PvP disconnect paused/unpaused the game, or a barrier/clash change landed; also the SPA's catch-all for any other pub/sub frame |
+| `error` | `string` | On invalid action / failed authentication. The string is a localization code (`errors.<CODE>`); unmapped strings stay console-only |
 
 
 ---
@@ -2485,8 +2628,8 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 2. POST /api/match/create { mode: "pvp" } (or /pve, or /pvp/invite then /match/join/:code)
    → { gameId, token, engineUrl }
 
-3. Connect to engine:
-   io(engineUrl, { auth: { token } })
+3. Connect to engine (same origin — nginx proxies /socket.io/ to the engine):
+   io(window.location.origin, { auth: { token }, transports: ['websocket'] })
 
 4. socket.emit('join_game', gameId, 'red')
    ← socket.on('game_joined', state)
@@ -2515,6 +2658,7 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 ## Notes
 
 - **Auth:** All auth endpoints use httpOnly cookies. Set by login, 2FA verify, OAuth completion, and refresh; cleared by logout. No `Authorization: Bearer` header is used.
+- **`code` is the contract, `message` is a diagnostic.** Every error body carries a stable `code` that the SPA localizes (`errors.<CODE>` in `frontend/src/locales`); `message` is English and intended for logs, the console and non-browser clients, and the SPA never renders it. Success bodies that carry a `message` follow the same rule — the SPA keys off `code` (or shows its own localized notice).
 - **JWT expiration:** 15 minutes for access tokens. Refresh tokens last 7 days and are rotated on each use.
 - **Bot seats:** a bot has no account, so its seat id is the literal `bot-<color>` (for example `bot-green`), and `role` is `'player'` / `'player1'`. The shown name comes from our own `player{n}_displayName` entry when the creator sent a `botNames` value: it reads `bot-<color> (<assistant>)`, and the client re-localizes the colour word.
 - **CORS:** Not enabled on the backend. Every client call is same-origin through nginx's `/api` proxy, so the backend emits no CORS headers. The engine is the one exception: its Socket.IO handshake answers only the origins on the allow-list compose builds from `FRONTEND_URL` and `NGROK_FRONTEND_URL` (see [`security_measures.md`](security_measures.md), Game engine boundary).

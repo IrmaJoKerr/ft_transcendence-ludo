@@ -125,16 +125,32 @@ same-color pieces, the whole stack goes home at once.
 
 ```mermaid
 flowchart TD
-    A["Your piece lands on a square"] --> B{"Who is there?"}
+    A["Your piece LANDS on a square"] --> B{"Who is there?"}
     B -- "Nobody" --> C["Just take the square"]
-    B -- "Opponent's piece (main track)" --> D["💥 Capture it — send it back to Prison"]
+    B -- "One opponent (main track)" --> D["💥 Capture it — send it back to Prison"]
     B -- "Opponent on a ★ star space" --> E["Share the square — no capture"]
-    B -- "Opponent's blockade (2+ stacked)" --> F["Blocked — you can't land there"]
+    B -- "A wall (2+ stacked)" --> F["Blocked: you cannot pass it or land on it"]
     D --> G["🎲 Bonus roll"]
     C --> H["Turn ends (unless 6 / capture)"]
     E --> H
     F --> H
 ```
+
+The flow above is the standard room. Three room rules change it, and each has a page in the in-game
+rules deck:
+
+- **Clash mode** turns every capture into the QTE: the attacker and the defender race for the press
+  target, and the loser goes to prison, the attacker included. A wall is one clash per defender.
+- **Hardcore** removes the star shield, so a star space no longer protects a piece or lets a stack share
+  it.
+- **Free exit** opens the prison on any roll: the exit is an ordinary move that LANDS on the step rolled.
+- **The Barrier Buster** is the one way to fight a wall: one token per seat, and the roll must LAND the
+  piece exactly on the wall's square. The seat arms the switch first (`arm_barrier`), a wall anywhere
+  before the landing square still blocks the move, and a clash won against a single defender pays one
+  token back, up to three.
+
+Nothing is ever attacked on a square a piece passes over: for a single defender and for a wall alike, the
+roll has to place the attacker on the target's square.
 
 
 ---

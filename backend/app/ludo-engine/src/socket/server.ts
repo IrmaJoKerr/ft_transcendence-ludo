@@ -19,37 +19,50 @@ import { parseAllowedOrigins } from './allowed-origins';
 import { EventRateLimiter } from './event-rate-limiter';
 import { IdleLobbyWatcher } from './idle-lobby';
 import { RoomRegistry } from './room-context';
+import { ConnectionCounter } from './connection-counter';
+import {
+  BOT_MOVE_STEP_MS,
+  BOT_THINK_MS,
+  CLASH_EVENT_WINDOW_MS,
+  DICE_ROLL_ANIM_MS,
+  EVENT_WINDOW_MS,
+  IDLE_LOBBY_TIMEOUT_MS,
+  PING_INTERVAL_MS,
+  PING_TIMEOUT_MS,
+  POST_GAME_TIMEOUT_MS,
+} from '../timing';
 
-// A WAITING PvP room with fewer than 2 seated players is idle; once it has
-// been idle this long the room is aborted (friend on the way? give them time).
-const IDLE_LOBBY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-const POST_GAME_TIMEOUT_MS = 60 * 1000; // 60 seconds
-
-// Mirrors the frontend's STEP_ANIM_MS : bot turns are paced so their moves
-// finish animating on screen before the next bot action fires.
-const BOT_STEP_ANIM_MS = 220;
-// Flat "thinking" pause before a bot rolls, so bot turns don't feel instant.
-const BOT_THINK_MS = 500;
-
-// Largest inbound event socket.io buffers and parses. The biggest legitimate
-// payload (join_game carrying the lobby's bot names) is a few KB.
-const MAX_EVENT_BYTES = 100 * 1024; // 100 KB
-// Liveness: a live browser answers a ping in a few hundred milliseconds, so a
-// socket missing an interval plus the timeout is gone, well inside the 45 s
-// reconnect window in player-handler.ts (a returning player can still reclaim).
-const PING_INTERVAL_MS = 10 * 1000;
-const PING_TIMEOUT_MS = 15 * 1000;
-// Inbound event budget per socket: 20 events, refilled over 5 s. The SPA sends a
-// few events per turn, so only a loop or a flood drains the bucket, and that
-// socket is closed instead of served.
+// Every delay lives in ../timing. These are the limits that are about socket wiring
+// rather than pacing, so they stay here and are exported for the contract harness.
+//
+// Largest inbound event socket.io buffers and parses. 64 KB is the OWASP WebSocket
+// guidance for a message cap; the biggest legitimate payload (join_game carrying the
+// lobby's bot names) is a few KB.
+export const MAX_EVENT_BYTES = 64 * 1024;
+// One account may hold a handful of sockets. The arithmetic: one ACTIVE socket per
+// device, one STALE socket while a refresh reconnects (the old one is reaped by the 15 s
+// ping timeout, so it can coexist briefly), one for a clash pipe if that architecture
+// ever ships, and one slack (a second device for a minute). More than one tab is
+// pointless, and a flood from one account is not a player. 3 would be brittle the day a
+// pipe is added; 4 covers a reconnect and stays tight.
+export const MAX_SOCKETS_PER_USER = 4;
+// Inbound event budget per socket: 20 events, refilled over 5 s. The SPA sends a few
+// events per turn, so only a loop or a flood drains the bucket, and that socket is
+// closed instead of served.
 const EVENT_LIMIT = 20;
-const EVENT_WINDOW_MS = 5 * 1000;
-// Clash presses spend their own bucket: a mash at the 110 ms press cap
-// (clash.ts) is about 9 presses/s per side, so the shared bucket would close the
-// socket mid-race. 25 presses/s sustained keeps the press cap and the phase
-// checks as the real bound, while a socket that loops faster still gets closed.
+// Clash presses spend their own bucket: a mash at the 110 ms press cap (timing.ts) is
+// about 9 presses/s per side, so the shared bucket would close the socket mid-race.
+// 25 presses/s sustained keeps the press cap and the phase checks as the real bound,
+// while a socket that loops faster still gets closed.
 const CLASH_EVENT_LIMIT = 125;
-const CLASH_EVENT_WINDOW_MS = 5 * 1000;
+
+// The Origin gate, in one testable place. A browser origin must match the allow-list
+// exactly. `undefined` means a non-browser client (curl, the probes) or a same-origin
+// navigation, which has no cross-site origin to hijack, so it is allowed.
+export function originAllowed(origin: string | undefined, allowed: string[]): boolean {
+  if (!origin) return true;
+  return allowed.includes(origin);
+}
 
 // SocketServer is the orchestration root for the ludo engine: it wires the
 // engine, Redis pub/sub, bots, post-game lifecycle, and sockets, routing
@@ -75,6 +88,9 @@ export class SocketServer {
   private idleLobby: IdleLobbyWatcher;
   // Guards against overlapping wake passes (a redis reconnect during a boot wake).
   private wakeInFlight = false;
+  // Per-user socket cap (see MAX_SOCKETS_PER_USER): counted at the handshake, freed on
+  // disconnect. A flood from one account is refused, not served.
+  private connections = new ConnectionCounter();
   constructor() {
     this.store = new RedisGameStore();
     this.publisher = new EventPublisher(this.store);
@@ -145,7 +161,7 @@ export class SocketServer {
       } else if (event.type === 'piece_moved') {
         // Wait for the move's box-by-box animation to finish on screen
         // (path.length steps) plus a short thinking pause before acting again.
-        const animMs = event.result.path.length * BOT_STEP_ANIM_MS;
+        const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
         // A move that settled a clash keeps every input frozen for the result
         // card, so the bot's next action waits that card out too.
         const clashCardMs = event.result.clashOutcome ? CLASH_RESULT_FREEZE_MS : 0;
@@ -154,7 +170,7 @@ export class SocketServer {
         // Only trigger bot turn if no legal moves (turn auto-advanced)
         // Wait for the 750ms frontend dice-roll animation plus thinking pause
         if (event.legalMoves.length === 0) {
-          this.botScheduler.schedule(event.gameId, 750 + BOT_THINK_MS);
+          this.botScheduler.schedule(event.gameId, DICE_ROLL_ANIM_MS + BOT_THINK_MS);
         }
       } else if (event.type === 'turn_skipped') {
         // A held turn passed to the next seat, which a bot may own: the same wake a
@@ -220,7 +236,13 @@ export class SocketServer {
 
     this.io = new Server(this.httpServer, {
       cors: {
-        origin: allowedOrigins,
+        // The gate itself is `originAllowed`, so the rule can be tested without a live
+        // handshake: a browser origin must be allow-listed exactly, a client with no
+        // Origin header is allowed.
+        origin: (
+          origin: string | undefined,
+          cb: (err: Error | null, allow?: boolean) => void,
+        ) => cb(null, originAllowed(origin, allowedOrigins)),
         methods: ['GET', 'POST'],
       },
       maxHttpBufferSize: MAX_EVENT_BYTES,
@@ -387,6 +409,12 @@ export class SocketServer {
       socket.data.role = payload.role as 'player';
       socket.data.tokenColor = payload.color;
       socket.data.mode = payload.mode as 'pvp' | 'pve' | 'hotseat' | undefined;
+      // Per-user socket cap. Refusing here reaches the client as `connect_error`, so a
+      // flood from one account never becomes dozens of live sockets.
+      if (!this.connections.acquire(payload.userId, MAX_SOCKETS_PER_USER)) {
+        next(new Error('Too many connections'));
+        return;
+      }
       next();
     });
 
@@ -394,6 +422,11 @@ export class SocketServer {
       console.log(
         `Client connected: ${socket.id}${socket.data.userId ? ` (user: ${socket.data.userId})` : ''}`,
       );
+      // Free this socket's slot on ANY disconnect path (drop, refusal, takeover): the
+      // counter must never leak, or a player would be locked out after enough reconnects.
+      socket.on('disconnect', () => {
+        if (socket.data.userId) this.connections.release(socket.data.userId);
+      });
 
       // Every inbound event passes through here before a handler sees it, so one
       // bucket covers all of them. An over-budget socket is closed: a closed

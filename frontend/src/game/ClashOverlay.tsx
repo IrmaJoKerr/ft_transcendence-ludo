@@ -4,20 +4,19 @@ import { useTranslation } from 'react-i18next';
 import type { ClashResult, GameViewState } from './reducer';
 import type { ClashPhase, PlayerColor } from './types';
 import { isMobileOS } from '../utils/device';
+import {
+  CLASH_ANNOUNCE_MS,
+  CLASH_COUNTDOWN_MS,
+  CLASH_PRESS_MS,
+  CLASH_RESULT_MS,
+  CLASH_FIGHT_FLASH_MS,
+  CLASH_UI_TICK_MS,
+  TOUCH_FLASH_MS,
+} from './timing';
 
-// ── Clash timing constants — EDIT HERE to tune the FEEL ─────────────────────
-// These mirror the ENGINE constants in backend/app/ludo-engine/src/clash.ts.
-// The overlay's phase transitions come from the server-borne deadlines
-// (announceDeadline / countdownDeadline / pressDeadline), so these only affect
-// presentation helpers (result-card duration, fight-flash window, tick rate).
-// To change the ACTUAL race timings, ALSO edit the engine's clash.ts.
-const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("⚔️ CLASH!" + colors)
-const CLASH_COUNTDOWN_MS = 3000; // GET READY → 3 → 2 → 1 (inside Card C)
-const CLASH_PRESS_MS = 5000; // keys + bars race
-export const CLASH_RESULT_MS = 2000; // Card D result card (also the client's hold forecast)
-const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
-const CLASH_UI_TICK_MS = 250; // overlay re-render cadence
-
+// Clash timing lives in ./timing, with every other delay, shared with the engine and
+// pinned by the `timing-contract` harness. The overlay's phase transitions come from the
+// server-borne deadlines (announce / countdown / press), so these only drive presentation.
 const CLASH_TARGET = 42; // must mirror engine CLASH_TARGET
 // Bar renders in whole pixels: 168px track / 42 presses = 4px per press, so the
 // bar hits exactly full (168px) at 42 presses. Keep width a multiple of target.
@@ -40,7 +39,6 @@ const TOUCH_EDGE_BUFFER = '1cm';
 // holding a key down, and the per-side cap still gates the event rate, so this
 // only makes each accepted tap heavier.
 const TOUCH_TAP_COUNT = 2;
-const TOUCH_FLASH_MS = 120;
 
 // The two key sets, mirrored from the engine (clash.ts ATTACKER_KEYS /
 // DEFENDER_KEYS). The touch pad draws its decoys from the side's OWN set, and

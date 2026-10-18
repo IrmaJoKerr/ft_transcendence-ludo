@@ -26,7 +26,7 @@ import type {
 } from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
-const CLASH_SWEEP_INTERVAL_MS = 5000;
+import { CLASH_SWEEP_INTERVAL_MS } from './timing';
 
 // The chain, read out of a deferred capture as plain arrays so one round can be
 // resolved without touching the persisted object's shape. A capture written
