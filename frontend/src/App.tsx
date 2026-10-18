@@ -67,8 +67,7 @@ function Screen() {
   // /game is public only for a guest handoff held in memory. A guest has no
   // session, so the usual "must be signed in" gate would bounce them to /login
   // one render after the mint.
-  const isPublic =
-    PUBLIC_ROUTES.has(path) || (path === '/game' && activeMatch?.isGuest === true);
+  const isPublic = PUBLIC_ROUTES.has(path) || (path === '/game' && activeMatch?.isGuest === true);
   // Account-action arrivals (verified/reset/error/token) belong to a specific
   // account action, not the session, so a logged-in user must still see them.
   const hasNotice =

@@ -288,10 +288,9 @@ export class JoinManager {
           player.username = botUserId;
           player.isBot = true;
           player.isConnected = true;
-          // `username` stays the immutable `bot-<color>` identity (isBotUserId and
-          // the persisted `isBot` seat flag both key on it). `displayName` holds
-          // the label the lobby assigned the seat, and falls back to the id when
-          // absent.
+          // `username` stays the immutable `bot-<color>` identity; isBotUserId and
+          // the persisted `isBot` flag key on it. `displayName` holds the lobby's label
+          // and falls back to the id when absent.
           player.displayName = matchData[`player${i}_displayName`] || botUserId;
           // A bot has no photo; hasAvatarPhoto stays false so the client renders
           // the generated avatar instead of requesting one.

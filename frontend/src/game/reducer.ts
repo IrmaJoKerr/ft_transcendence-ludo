@@ -4,6 +4,10 @@
 
 import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
 
+// `clash_start` may omit these three (older payloads); the reducer fills them.
+type ClashPayload = Omit<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'> &
+  Partial<Pick<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'>>;
+
 export type ClashResult = {
   winner: PlayerColor;
   loser: PlayerColor;
@@ -199,7 +203,7 @@ export function applyEvent(
     case 'game_ended':
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
     case 'clash_start': {
-      const c = event as unknown as ClashState;
+      const c = event as unknown as ClashPayload;
       // Payloads may omit the press counts (bars start empty) and the target
       // (the overlay then falls back to its own CLASH_TARGET constant). The
       // chain's round fields pass straight through when the engine sends them.
@@ -293,7 +297,7 @@ export function applyEvent(
         ...state,
         legalMoves: [],
         turnPhase: 'WAITING_FOR_ROLL',
-        currentTurn: (event.currentTurn as PlayerColor) ?? state.currentTurn,
+        currentTurn: (event.currentTurn as PlayerColor | undefined) ?? state.currentTurn,
       };
     default:
       return state;

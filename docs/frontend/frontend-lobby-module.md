@@ -233,6 +233,14 @@ For hotseat and PvE, the created game is exactly the occupied seats (the host is
 ---
 
 
+## Implementation Notes
+
+- **Rule toggles reuse the seat sounds** (`Lobby.tsx`). Switching a rule on plays the seat-added blip (520 Hz); switching one off plays the seat-removed blip (320 Hz). Both use the shared 0.05 s duration, so the rules panel sounds like the seat controls beside it.
+
+
+---
+
+
 ## Dependencies
 
 | Dependency | Purpose |

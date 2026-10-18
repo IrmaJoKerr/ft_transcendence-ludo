@@ -1026,7 +1026,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                             background: 'rgba(0, 0, 0, 0.4)',
                           }}
                         >
-                          <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                          <span
+                            style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}
+                          >
                             <span>
                               {rule.icon} {rule.label}
                             </span>
@@ -1038,10 +1040,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                             type="checkbox"
                             checked={rule.checked}
                             onChange={(e) => {
-                              // The mutation toggles borrow the seat add/remove pair from this
-                              // lobby, so switching a rule ON reads like a seat being added
-                              // (520 Hz) and switching one OFF like a seat being removed
-                              // (320 Hz), both at the same 0.05 s blip.
+                              // The rule toggles reuse the seat add/remove sounds: on reads as a
+                              // seat added (520 Hz), off as a seat removed (320 Hz), both at
+                              // the same 0.05 s blip.
                               retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
                               rule.toggle(e.target.checked);
                             }}

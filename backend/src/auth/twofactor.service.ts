@@ -12,11 +12,9 @@ const MAX_ATTEMPTS = AUTH.challenge.maxAttempts;
 const RESEND_WINDOW_S = AUTH.challenge.resendWindowS; // resend cap window
 const MAX_RESENDS = AUTH.challenge.maxResends;
 
-// Short-lived auth state in Redis (hashed tokens + auto-expiry, so a Redis
-// dump can't be replayed): `verify:`/`reset:` -> userId (links), `2fa:` ->
-// {userId, codeHash, attempts} (login-code challenges) and `emailchange:` ->
-// {userId, newEmail} staged email changes (plus a `emailchange:user:<userId>`
-// reverse pointer whose expiry MailService's keyspace subscription watches).
+// Short-lived auth state in Redis: hashed tokens with auto-expiry. Keys are
+// `verify:`/`reset:` (links), `2fa:` (login codes), `emailchange:` (staged
+// changes) and `emailchange:user:<userId>` (reverse pointer, watched by MailService).
 @Injectable()
 export class TwoFactorService implements OnModuleDestroy {
   // Redis client for all short-lived auth state (verify/reset/2FA keys).
@@ -81,11 +79,9 @@ export class TwoFactorService implements OnModuleDestroy {
     return userId;
   }
 
-  // Email-change staging (verify-then-commit). Two keys are written per request:
-  //   emailchange:<sha256(token)> -> { userId, newEmail }   the emailed link
-  //   emailchange:user:<userId>   -> { tokenHash, newEmail } reverse pointer
-  // Both share CHANGE_TTL_S: the reverse key's expiry is the event MailService's
-  // keyspace subscription acts on, so it must outlive the link by exactly zero.
+  // Email-change staging (verify-then-commit): the emailed link and a reverse
+  // pointer per user. Both share CHANGE_TTL_S, so the pointer expires with the link;
+  // MailService reacts to that expiry.
   async createEmailChangeToken(userId: string, newEmail: string): Promise<string> {
     const token = randomBytes(32).toString('hex');
     const tokenHash = this.hash(token);

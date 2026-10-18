@@ -29,14 +29,9 @@ end
 return left
 `;
 
-// The Barrier Buster fields were added after the first rooms were written, and a
-// live room survives a redeploy in Redis, so a state created before the token
-// existed can be loaded mid-game. Both fields feed arithmetic (`-= 1` on the
-// hand, `+= n` on the tally), and `undefined - 1` is NaN, which would poison the
-// seat for the rest of the match: normalize them once, here, at the only door
-// the state comes back through. Zero is also the honest reading — a room that
-// old was never dealt a token and has not broken a wall — and the per-site
-// `?? 0` reads stay as belt and braces for a state that never passes this door.
+// A live room survives a redeploy, so a state written before the Barrier Buster
+// fields existed can load mid-game. Both fields feed arithmetic, where undefined
+// becomes NaN, so normalize them here, at the only read path. Zero means no token.
 function withBarrierDefaults(state: GameState): GameState {
   for (const player of state.players) {
     if (player.barrierTokens === undefined) player.barrierTokens = 0;
@@ -78,11 +73,9 @@ export class RedisGameStore {
     await this.subscriber.quit();
   }
 
-  // The wake trigger for a Redis reconnect: a Redis container rebuild with the
-  // engine still alive resets in-memory timers and subscriptions, while the
-  // durable deadlines in the data survive, so the engine replays them. The boot
-  // connection is not covered here on purpose: the caller runs the first wake
-  // pass itself, right after connect().
+  // The wake trigger for a Redis reconnect: a container rebuild resets in-memory
+  // timers, while durable deadlines survive, so the engine replays them. The boot
+  // connection is not covered: the caller runs the first wake pass after connect().
   onReady(handler: () => void): void {
     this.client.on('ready', handler);
   }
@@ -97,13 +90,9 @@ export class RedisGameStore {
     return { has: data.has === '1', style: data.style || undefined };
   }
 
-  // Create a new game, all 16 pieces in prison. Only `activeColors` seats
-  // get PlayerMeta entries, so unused seats never appear downstream.
-  // The three room rules are frozen here at creation: the lobby can change them
-  // only while the room is still WAITING (see lobby.ts). The defaults are the
-  // standard room, the same answer an absent match-hash field gets, so a caller
-  // that forgets a rule cannot ship a variant by omission: clash in the QTE off,
-  // the free exit off, and the star squares protecting.
+  // Create a new game, all 16 pieces in prison. Only `activeColors` seats get
+  // PlayerMeta entries. The three room rules are frozen here: clash off, free exit
+  // off, stars protecting. The lobby can change them only while WAITING.
   async createGame(
     gameId: string,
     clashMode = false,
@@ -355,10 +344,9 @@ export class RedisGameStore {
     await this.client.del(this.gameKey(gameId), this.movesKey(gameId));
   }
 
-  // Resolve a guest handshake token. The record written by the backend is the
-  // authority for the room, the seat and the mode; nothing comes from the
-  // client. Unknown, expired or malformed records are refused, as is any mode
-  // other than pve (guests are PvE only).
+  // Resolve a guest handshake token. The backend's record is the authority for the
+  // room, seat and mode; nothing comes from the client. Unknown, expired or
+  // malformed records are refused, as is any mode other than pve.
   async getGuestSession(token: string): Promise<{
     userId: string;
     gameId: string;

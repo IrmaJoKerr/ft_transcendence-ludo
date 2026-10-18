@@ -111,7 +111,7 @@ function reject(res: Response, code: string, message: string): void {
 }
 
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
-  const cookies = (req.cookies ?? {}) as Record<string, unknown>;
+  const cookies = req.cookies as Record<string, unknown>;
   const existing = cookies[CSRF_COOKIE];
   const path = req.originalUrl.split('?')[0];
   // GET /api/auth/csrf mints its own token in the controller; issuing one here
@@ -150,11 +150,15 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   // Control 2: cookie and header must match and the token must be signed.
   const header = req.get(CSRF_HEADER) ?? '';
   const cookieToken = typeof existing === 'string' ? existing : '';
-  if (!cookieToken || !header || !isValidCsrfToken(cookieToken) || !sameValue(cookieToken, header)) {
+  if (
+    !cookieToken ||
+    !header ||
+    !isValidCsrfToken(cookieToken) ||
+    !sameValue(cookieToken, header)
+  ) {
     reject(res, 'CSRF_TOKEN_INVALID', 'Missing or invalid CSRF token');
     return;
   }
 
   next();
 }
-

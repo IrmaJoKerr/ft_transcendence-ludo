@@ -9,10 +9,7 @@ const REFRESH_TTL_S = 7 * 24 * 60 * 60; // refresh tokens live 7 days
 // cookie before either response landed. Older replays revoke every session.
 const REUSE_GRACE_MS = 15_000;
 
-export type RotateResult =
-  | { userId: string; newToken: string }
-  | { reused: true }
-  | null;
+export type RotateResult = { userId: string; newToken: string } | { reused: true } | null;
 
 @Injectable()
 // Refresh-token session store in Redis: minting, rotation and revocation of
@@ -52,11 +49,9 @@ export class SessionService implements OnModuleDestroy {
     return token;
   }
 
-  // Verify a refresh token and rotate it: the old token is consumed and a
-  // fresh one issued in the same step. Returns userId + new token, null for an
-  // unknown/expired token, or { reused: true } when a token that was already
-  // rotated came back from outside the race window (theft): every session of
-  // that user has been revoked by then.
+  // Verify and rotate a refresh token: consume the old one and issue a fresh one.
+  // Returns userId + token, null for unknown or expired, or { reused: true } for a
+  // token returned after the race window (theft); that user's sessions are revoked.
   async rotate(oldToken: string): Promise<RotateResult> {
     const oldHash = this.hash(oldToken);
     // GETDEL consumes the token atomically, so two simultaneous callers cannot
@@ -78,10 +73,9 @@ export class SessionService implements OnModuleDestroy {
     return { userId, newToken };
   }
 
-  // A token that is not live may have been rotated already. A recent rotation
-  // whose replacement is still live is the cross-tab race (return null so the
-  // client probes /me); anything else is reuse, so fail closed and sign the
-  // account out everywhere.
+  // A dead token may be a recent rotation whose replacement is live: the cross-tab
+  // race, which returns null so the client probes /me. Anything else is reuse, so
+  // fail closed and sign the account out everywhere.
   private async handleUnknownToken(oldHash: string): Promise<RotateResult> {
     const raw = await this.redis.get(`refresh-used:${oldHash}`);
     if (!raw) return null;
@@ -97,7 +91,9 @@ export class SessionService implements OnModuleDestroy {
     if (replacementLive && Date.now() - record.at <= REUSE_GRACE_MS) return null;
 
     await this.revokeAll(record.userId);
-    console.warn(`[session] refresh token reuse detected for user ${record.userId}: all sessions revoked`);
+    console.warn(
+      `[session] refresh token reuse detected for user ${record.userId}: all sessions revoked`,
+    );
     return { reused: true };
   }
 

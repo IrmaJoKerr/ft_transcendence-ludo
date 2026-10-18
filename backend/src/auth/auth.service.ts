@@ -369,10 +369,7 @@ export class AuthService implements OnModuleDestroy {
 
   // Resend a signup verification link. Always resolves the same way (no account
   // enumeration); only sends when the address exists and is unverified.
-  async resendSignupVerification(
-    rawEmail: string,
-    baseUrl: string,
-  ): Promise<{ code: string }> {
+  async resendSignupVerification(rawEmail: string, baseUrl: string): Promise<{ code: string }> {
     const email = normalizeEmail(rawEmail);
     const user = await this.prisma.db.user.findUnique({ where: { email } });
     if (user?.emailVerified === null && user.email) {
@@ -643,11 +640,9 @@ export class AuthService implements OnModuleDestroy {
     // (see below), so it is deliberately not collected here.
     const changedItems: string[] = [];
 
-    // Re-auth gate for the changes that can weaken or repoint the account:
-    // email, the 2FA toggle and OAuth linking/unlinking. One current-password
-    // check covers whichever of them this request asks for. OAuth-only accounts
-    // have no password to confirm and are trusted through the active session
-    // (an email change still requires setting a password first, below).
+    // Re-auth gate for email, the 2FA toggle and OAuth linking or unlinking: one
+    // current-password check covers the requested change. OAuth-only accounts have
+    // no password and pass on the active session; an email change still needs one.
     const requestedEmail = dto.email !== undefined ? normalizeEmail(dto.email) : undefined;
     const pendingEmail =
       requestedEmail !== undefined
@@ -690,7 +685,7 @@ export class AuthService implements OnModuleDestroy {
       data.displayName = dto.displayName;
     }
 
-    if (emailChanging && requestedEmail !== undefined) {
+    if (emailChanging) {
       // A password is required to change the address; OAuth-only accounts must
       // set one first (mirrors deleteAccount). The password was checked in the
       // re-auth gate above when the account has one.
@@ -767,12 +762,9 @@ export class AuthService implements OnModuleDestroy {
       }
     }
 
-    // Profile-change notifications
-    // 1) Self-confirmation (persisted): "You have updated your profile: …"
-    //    A display-name change is deliberately NOT persisted : it is announced by
-    //    the transient `display_name_changed` push below, so a bell entry on top of
-    //    it would duplicate the actor's own action (same rule as the avatar change
-    //    in UserService).
+    // Profile-change notifications, 1 of 2: the persisted self-confirmation
+    // ("You have updated your profile: …"). A display-name change skips it and
+    // uses the transient push below, so the actor never gets two notices.
     if (emailChanged) changedItems.push('email');
     if (dto.twoFactorEnabled !== undefined && dto.twoFactorEnabled !== user.twoFactorEnabled) {
       changedItems.push('twoFactor');
@@ -783,10 +775,8 @@ export class AuthService implements OnModuleDestroy {
         .catch(() => {});
     }
 
-    // 2) Self-confirmation (transient toast, this user's own clients only):
-    //    "You have changed your Displayname to (New DisplayName)"
-    //    Targeted at the actor with notifyTransient: no other account is told,
-    //    and nothing is persisted (no bell entry).
+    // Profile-change notifications, 2 of 2: a transient toast for the actor only.
+    // notifyTransient reaches this user's clients and persists nothing.
     if (data.displayName !== undefined) {
       await this.notifications
         .notifyTransient(userId, 'display_name_changed', {

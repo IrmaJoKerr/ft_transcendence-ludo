@@ -5,7 +5,7 @@
 // agent; a misclassified client still plays a fair QTE.
 export function isMobileOS(): boolean {
   if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent ?? '';
+  const ua = navigator.userAgent;
   if (/android|iphone|ipad/i.test(ua)) return true;
   return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }

@@ -94,16 +94,12 @@ export class LobbyManager {
     }
   }
 
-  // Change the room rules before the game starts: clash mode (the capture QTE),
-  // the star-square shield and the free prison exit. Host only, WAITING only:
-  // once the game is live the rules are frozen, because mid-game flips would
-  // invalidate moves already validated against the old ones.
-  // One object in, and a replacement rather than a patch: the host's panel always
-  // sends all three fields (the toggle that moved plus the two it echoes).
-  // Throws carry i18n codes, not prose (see handleSelectColor above).
+  // Change the room rules before the game starts: clash, star shield, free exit.
+  // Host only, WAITING only, because a mid-game flip would invalidate validated
+  // moves. The payload replaces all three fields; errors carry i18n codes.
   async updateModifiers(gameId: string, userId: string, rules: RoomRules): Promise<void> {
     const data = await this.store.getMatchData(gameId);
-    if (!data || data.status !== 'WAITING') {
+    if (data?.status !== 'WAITING') {
       throw new Error('LOBBY_NOT_WAITING');
     }
     if (data.player1_id !== userId) {

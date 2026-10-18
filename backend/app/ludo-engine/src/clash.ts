@@ -22,7 +22,12 @@ export {
   CLASH_BOT_LOSE_MS_BASE,
   CLASH_BOT_JITTER_MS,
 } from './timing';
-import { CLASH_ANNOUNCE_MS, CLASH_COUNTDOWN_MS, CLASH_PRESS_MS, CLASH_PRESS_CAP_MS } from './timing';
+import {
+  CLASH_ANNOUNCE_MS,
+  CLASH_COUNTDOWN_MS,
+  CLASH_PRESS_MS,
+  CLASH_PRESS_CAP_MS,
+} from './timing';
 export const CLASH_TARGET = 42; // presses needed to win the race
 // The most one accepted press may be worth. The touch pad sends 2, because a tap
 // on a circle is slower and less repeatable than a held key; the clamp keeps the
@@ -174,4 +179,3 @@ export class ClashManager {
     await this.store.clearClashState(gameId);
   }
 }
-

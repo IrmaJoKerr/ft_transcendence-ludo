@@ -187,7 +187,7 @@ export const CYBER_MODAL_GLITCH =
 
 // **CyberButton**
 export const CYBER_BTN_BASE =
-  "group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[#0d0221] focus-visible:text-[#0d0221]";
+  'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[#0d0221] focus-visible:text-[#0d0221]';
 
 export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink,#ff007f)] ![--btn-shadow:#9d00ff]';
 

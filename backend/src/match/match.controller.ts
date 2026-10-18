@@ -19,7 +19,6 @@ import { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { verifySecret } from '../secrets';
 
-
 @Controller()
 // HTTP routes for the match lifecycle: creating/joining games (PvP, PvE,
 // hotseat), ready/exit/abort actions, room browsing, and the engine

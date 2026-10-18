@@ -178,11 +178,9 @@ export function LudoLobby() {
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Strict state lock, mirrored from the backend: /api/games/mine lists every
-  // room this player is seated in after a game started, so "has an active game"
-  // means the backend refuses a create/join with MATCH_ACTIVE_GAME. It is polled,
-  // so the controls can lag a refresh behind the truth — the backend is the gate,
-  // this only greys the buttons out early.
+  // Strict state lock, mirrored from the backend: /api/games/mine lists every room
+  // this player is seated in, and the backend refuses create or join with
+  // MATCH_ACTIVE_GAME. Polling can lag a refresh; the backend is the gate.
   const lockedByActiveGame = hasActiveGame;
   const hostLocked = hostBusy || lockedByActiveGame;
 
@@ -227,7 +225,7 @@ export function LudoLobby() {
     retroAudio.playUiBeep(920, 0.08);
     try {
       // A PvP room is created with the standard rules (false/false/false: clash
-      // off, free exit off, safe zones ON — stored inverted). The host flips them
+      // off, free exit off, safe zones ON, stored inverted). The host flips them
       // from the room's rules panel, which is where the wire carries the object.
       const res = await postApi<MatchResult>('/api/match/pvp/invite', {
         clashEnabled: false,
@@ -1056,7 +1054,9 @@ export function LudoLobby() {
                                   {room.seats}/{room.maxSeats}
                                 </div>
                                 <div>
-                                  <span style={badgeStyle('ranked')}>{t('lobbyBrowser.ranked')}</span>
+                                  <span style={badgeStyle('ranked')}>
+                                    {t('lobbyBrowser.ranked')}
+                                  </span>
                                 </div>
                                 <div style={{ minWidth: 0 }}>
                                   <RoomModes room={room} />

@@ -413,10 +413,7 @@ const SAFE_STAR_POINTS =
  */
 function SafeStar() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      style={{ width: '44%', height: '44%', display: 'block' }}
-    >
+    <svg viewBox="0 0 24 24" style={{ width: '44%', height: '44%', display: 'block' }}>
       <polygon
         points={SAFE_STAR_POINTS}
         fill={SAFE_STAR_COLOR}
@@ -485,26 +482,23 @@ export function Board({
 }: BoardProps = {}) {
   const { t } = useTranslation();
   // A Barrier Buster exit is not a plain tap target: arming it is the player's
-  // explicit choice (the control in Game.tsx), so until then its piece is neither
-  // tappable nor badged and a stray tap cannot spend a token. The engine offers at
-  // most one exit per piece per roll, so the tap still names the piece alone.
+  // explicit choice in Game.tsx, so until then the piece is not tappable or badged.
+  // The engine offers at most one exit per piece per roll.
   const bustPieceIds = new Set(
     (legalMoves ?? []).filter((m) => m.spendsBarrierToken).map((m) => m.pieceId),
   );
   const legalPieceIds = new Set(
     (legalMoves ?? []).filter((m) => !m.spendsBarrierToken || bustArmed).map((m) => m.pieceId),
   );
-  // Clash CHAIN preview: an attack onto a STACK of defenders costs one QTE round
-  // per defender, so the legal piece wears a ×R badge and the price of the attack
-  // is visible before the click. 0/1 (a plain move or a single defender) show
-  // nothing: the badge is about walls. A Barrier Buster bust carries the size of
-  // the wall it lands on, so the token's price is visible the same way.
+  // Clash chain preview: an attack on a stack of defenders costs one QTE round per
+  // defender, so the legal piece wears a ×R badge. Plain moves and single defenders
+  // show nothing; a Barrier Buster bust shows the size of the wall it lands on.
   const chainCounts = new Map<string, number>();
   for (const m of legalMoves ?? []) {
     if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
   }
   // Barrier Buster exits in the pool: their piece is still in the base but is
-  // playable, so it gets the 🔓 price tag — only while armed, which is what makes
+  // playable, so it gets the 🔓 price tag only while armed; that is what makes
   // the badge mean "this tap spends the token".
   const armedPieceIds = bustArmed ? bustPieceIds : new Set<string>();
   const activeColors = new Set(
@@ -589,21 +583,21 @@ export function Board({
     if (!cell) continue;
     const key = `${cell.r},${cell.c}`;
     const list = byCell.get(key) ?? [];
-      list.push({
-        id: piece.id,
-        ck,
-        isLegal: legalPieceIds.has(piece.id),
-        chain: chainCounts.get(piece.id) ?? 0,
-        // Armed wall landings are token-priced, so the piece wears the price tag.
-        priced: bustPieceIds.has(piece.id),
-      });
+    list.push({
+      id: piece.id,
+      ck,
+      isLegal: legalPieceIds.has(piece.id),
+      chain: chainCounts.get(piece.id) ?? 0,
+      // Armed wall landings are token-priced, so the piece wears the price tag.
+      priced: bustPieceIds.has(piece.id),
+    });
     byCell.set(key, list);
   }
 
-// The wall break token glyph, mirrored from Game.tsx (BUSTER_GLYPH). A ×R badge on a
-// landing that SPENDS a token carries it, so the price of the tap is readable on the
-// piece itself; the base-piece tag already shows it for a prison exit.
-const BUSTER_GLYPH = '🧨';
+  // The wall break token glyph, mirrored from Game.tsx (BUSTER_GLYPH). A ×R badge on a
+  // landing that SPENDS a token carries it, so the price of the tap is readable on the
+  // piece itself; the base-piece tag already shows it for a prison exit.
+  const BUSTER_GLYPH = '🧨';
 
   // Sub-cell offsets so up to 4 stacked pieces stay individually visible/clickable.
   const SUB_OFFSETS = [
@@ -729,11 +723,9 @@ const BUSTER_GLYPH = '🧨';
         >
           <Sphere ck={p.ck} isLegal={p.isLegal} />
           {p.chain >= 2 && (
-            // ×R on the attacker: this move fights R defenders back to back, i.e.
-            // R QTE rounds (the engine's captureCount). Pointer-events off so the
-            // piece underneath stays the click target. A token-priced wall landing
-            // (armed Barrier Buster) carries the glyph, so the tap's price is visible
-            // on the piece itself, not only in the roster column.
+            // ×R on the attacker: R defenders means R QTE rounds (captureCount).
+            // Pointer-events off so the piece underneath stays the click target. A
+            // priced wall landing carries the Buster glyph on the piece itself.
             <span
               title={
                 p.priced

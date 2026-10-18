@@ -432,6 +432,14 @@ GET /api/games/rooms
 ---
 
 
+## Implementation Notes
+
+- **Room rules are normalized once, at the service boundary** (`match.creator.service.ts`). `normalizeRoomRules` applies the defaults and the coercion for every caller, and `roomRuleHashFields` writes the result in the same `HSET` as the seats, so a room never exists without its rules. Keys and defaults live in `room-rules.ts`; the engine freezes them at join, and the lobby may change them only while the room is WAITING.
+
+
+---
+
+
 ## Dependencies
 
 | Dependency | Purpose |

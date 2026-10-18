@@ -74,10 +74,9 @@ export class MatchQueryService {
           seats,
           maxSeats,
           mySeat: slotIndex !== -1,
-          // The room rules the hash was created with (readRoomRules defaults an
-          // old hash to clash off, free exit off, safe zones ON). The lobby
-          // renders them as the row's MODES cell, so a player can see what
-          // variant they are joining before they take a seat.
+          // The rules the hash was created with; readRoomRules defaults an old hash
+          // to clash off, free exit off, safe zones on. The lobby renders them in the
+          // MODES cell before a player takes a seat.
           ...readRoomRules(data),
         });
       }

@@ -196,6 +196,6 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     nameKey: 'dashboard.achTearDownThisWall',
     type: 'per-game',
     perGameTarget: 2,
-    perGameSource: (part) => part.barrierBreaks ?? 0,
+    perGameSource: (part) => part.barrierBreaks,
   },
 ];
