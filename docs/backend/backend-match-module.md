@@ -23,7 +23,7 @@
 The Match module is the bridge between the REST API and the real-time ludo-engine. It handles:
 
 1. **Matchmaking** — creates or joins PvP, PvE, or invite games.
-2. **Game lifecycle** — moves the engine's game state through `waiting` → `active` → `finished`, and the match record through `WAITING` → `ACTIVE` → `ABORTED` or `ENDED`.
+2. **Game lifecycle** — moves the engine's game state through `waiting` → `active` → `finished`, and the match record through `WAITING` → `ACTIVE` → `ABORTED`, or deletes the hash once the game-end callback has written the results.
 3. **Room browsing** — `GET /api/games/rooms` lists the PvP rooms you may enter (open lobby rooms, plus your own still-reclaimable seats in games that have already started), and `GET /api/games/mine` lists the rooms you are seated in.
 
 The module uses Redis for short-lived match data (queues, active games) and lets the ludo-engine own the actual game logic over Socket.IO.
@@ -195,7 +195,7 @@ A room counts as live when the caller is seated in it and either
 - the hash status is `ACTIVE` — the game is on (`POST /api/game/:id/started` flips it), or
 - `isEngineGameStarted()` reports `true` — the hash can lag behind the engine, so a `WAITING` room whose ready-check already started the game is still live.
 
-Rooms whose hash says `ABORTED` (an abort, or the engine's expiry teardown) or `ENDED` (the game-end callback) are finished and never lock their players out, even while the hash lingers for the rest of its TTL. A `WAITING` lobby room is not live either: a player may keep one lobby room open and still create or join elsewhere — the create reuse lookup hands their existing seat back instead of opening a second room.
+Rooms whose hash says `ABORTED` (an abort, or the engine's expiry teardown) are finished and never lock their players out, even while the hash lingers for the rest of its TTL; a room finished by its results has no hash at all (the game-end callback deletes it), and a legacy `ENDED` value written by an older build is treated as finished too. A `WAITING` lobby room is not live either: a player may keep one lobby room open and still create or join elsewhere — the create reuse lookup hands their existing seat back instead of opening a second room.
 
 The check is backend-authoritative because the backend owns the `match:*` state. The frontend mirrors it as a hint only: `LudoLobby` greys out host/join (with a tooltip) while `/api/games/mine` reports a room, and `Lobby`'s launch button does the same from a one-shot `/api/games/mine` read. `NotificationToast` goes further on accept: if a challenge arrives while another game is stored in `activeMatch`, it `POST`s `/api/game/:id/abort` for that game first — which marks that room `ABORTED`, however far along it was — so switching rooms cannot trip this lock. A refused create/join surfaces as the localized `errors.MATCH_ACTIVE_GAME` message wherever the request was made.
 

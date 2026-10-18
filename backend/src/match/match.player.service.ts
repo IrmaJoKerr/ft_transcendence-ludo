@@ -16,7 +16,7 @@ const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 
 @Injectable()
 // Per-player match actions: joining, rejoining, inviting friends, ready
-// checks, exiting, and marking matches started/ended. Edits the match:* hashes
+// checks, exiting, and marking matches started. Edits the match:* hashes
 // in Redis. Used by MatchService.
 export class MatchPlayerService {
   // Redis client for match:* game hashes and ready:<gameId> sets.
@@ -401,29 +401,6 @@ export class MatchPlayerService {
     await this.redis.hset(`match:${gameId}`, 'status', 'ACTIVE');
     await this.redis.hsetnx(`match:${gameId}`, 'startedAt', Date.now().toString());
     return { message: 'Game marked active', gameId };
-  }
-
-  // Mark a match as ENDED (called when the game is finished).
-  async gameEnd(gameId: string, userId: string) {
-    const data = await this.redis.hgetall(`match:${gameId}`);
-    if (!data.id)
-      throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
-
-    const isPlayer =
-      data.player1_id === userId ||
-      data.player2_id === userId ||
-      data.player3_id === userId ||
-      data.player4_id === userId;
-    if (!isPlayer)
-      throw new ForbiddenException({
-        code: 'MATCH_NOT_PLAYER',
-        message: 'You are not a player in this game',
-      });
-
-    await this.redis.hset(`match:${gameId}`, 'status', 'ENDED');
-    await this.redis.expire(`match:${gameId}`, 3600);
-
-    return { gameId };
   }
 
   private async resolveUsername(userId: string): Promise<string | null> {

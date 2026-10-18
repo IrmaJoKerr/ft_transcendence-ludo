@@ -1461,7 +1461,7 @@ List the PvP rooms the caller may enter. The list is computed **per caller**:
   and stops being returned once the engine finalizes that seat.
 
 A started room is therefore hidden from everybody except the players who still hold a reclaimable seat
-in it, and `ABORTED`/`ENDED` rooms are never returned. The engine state, not just the stored hash,
+in it, and `ABORTED` rooms are never returned. The engine state, not just the stored hash,
 decides whether a game has started (see `isEngineGameStarted` in `backend-match-module.md`).
 
 **Headers:** 🔒 (requires `token` cookie)  
