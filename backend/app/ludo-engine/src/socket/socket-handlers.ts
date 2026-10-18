@@ -97,10 +97,9 @@ export class SocketHandlers {
     })();
   }
 
-  // 'skip_bust' event: decline the armed Barrier Buster exit that is holding the
-  // turn. The engine owns the rule (such a move must be on the table, and never on
-  // a 6), so this only repeats the turn/ownership pre-check a move gets, then
-  // passes. Errors go back to the requesting socket only.
+  // 'skip_bust' event: decline the armed Barrier Buster exit holding the turn. The
+  // engine owns the rule (the move must be on the table, never on a 6), so this only
+  // repeats the turn and ownership pre-check, then passes. Errors go to that socket.
   handleSkipBust(socket: GameSocket): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -117,19 +116,17 @@ export class SocketHandlers {
         }
         await this.engine.skipArmedBust(gameId);
       } catch (error) {
-        // A refused Skip is dropped SILENTLY: the intent is a pass, the token is never at
-        // risk in it, and the client only sends one in the single situation the engine
-        // accepts, so a refusal means a stale or crafted emit. Logged for the operator,
-        // never flashed at the player.
+        // A refused Skip is dropped silently: the intent is a pass, the token is never
+        // at risk, and the client sends one only where the engine accepts it, so a
+        // refusal means a stale or crafted emit. Log it, never show it to the player.
         console.error('Skip refused:', error);
       }
     })();
   }
 
-  // 'arm_barrier' event: the Barrier Buster arm switch, clash mode only. Armed
-  // means "I may break a wall this turn" (and every wall landing spends a token);
-  // disarmed means a wall blocks the landing. The engine owns the flag and refuses
-  // an arm with an empty hand; this handler only repeats the ownership pre-check.
+  // 'arm_barrier' event: the Barrier Buster switch, clash mode only. Armed means
+  // this turn may break a wall, and every wall landing spends a token; disarmed means
+  // a wall blocks it. The engine owns the flag; this repeats the ownership check.
   handleArmBarrier(socket: GameSocket, armed: boolean): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -147,10 +144,9 @@ export class SocketHandlers {
     })();
   }
 
-  // 'clash_card_hold' event: the result-card release handshake (option 1). The
-  // client forecasts how long its own card will run; the engine clamps it, applies
-  // the smallest deadline, and announces the release once every participating user
-  // has reported. A stale id or a non-participant is dropped: the ceiling is the net.
+  // 'clash_card_hold' event: the result-card release handshake. The client forecasts
+  // its own card; the engine clamps it, keeps the smallest deadline, and releases once
+  // every participant reports. A stale id or non-participant is dropped.
   handleClashCardHold(socket: GameSocket, cardId: unknown, holdMs: unknown): void {
     const gameId = socket.data.gameId;
     const userId = socket.data.userId;
@@ -166,23 +162,14 @@ export class SocketHandlers {
         // Logged for the operator, never flashed at the player: a receipt is an
         // optimisation of the card's length, not an action the player took. The
         // message alone is enough; a stack per refusal is noise.
-        console.error(
-          'Card hold refused:',
-          error instanceof Error ? error.message : String(error),
-        );
+        console.error('Card hold refused:', error instanceof Error ? error.message : String(error));
       }
     })();
   }
 
-  // 'clash_input' event: one keypress in the capture QTE. The pressed KEY picks
-  // the side, then the room's seat binding proves the caller owns that seat: in
-  // PvP only the owner's key lands, while in hotseat one user owns both seats
-  // and may mash both keys. A press that fails any check is dropped silently.
-  //
-  // `count` is the tablet tap weight: one tap on the touch pad is worth 2 presses
-  // (a circle is slower and less repeatable than a held key). It is clamped to
-  // CLASH_TAP_COUNT_MAX inside the press rule, and the per-side cap still gates
-  // the EVENTS, so the touch path buys a heavier press, never a faster stream.
+  // 'clash_input' event: one keypress in the capture QTE. The key picks the side,
+  // then the seat binding proves ownership (hotseat owns both). `count` is the tablet
+  // tap weight, clamped to CLASH_TAP_COUNT_MAX; the per-side cap gates events.
   handleClashInput(socket: GameSocket, key: string, count = 1): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -271,11 +258,9 @@ export class SocketHandlers {
     })();
   }
 
-  // 'update_modifiers' event: the host flips the room rules while the room is
-  // still waiting. One object in, passed through as the client sent it: the
-  // engine's façade normalizes it (only a literal `true` turns a rule on).
-  // LobbyManager throws i18n codes (LOBBY_NOT_WAITING, MODIFIERS_HOST_ONLY);
-  // forward the code so the client can localize it.
+  // 'update_modifiers' event: the host flips the room rules while WAITING. The object
+  // passes through as sent; the façade normalizes it (only a literal `true` enables a
+  // rule). LobbyManager throws i18n codes, forwarded so the client can localize them.
   handleUpdateModifiers(socket: GameSocket, raw: unknown): void {
     const gameId = socket.data.gameId;
     const userId = socket.data.userId;
@@ -343,10 +328,9 @@ export class SocketHandlers {
     void (async () => {
       try {
         await this.engine.handlePlayerDisconnect(gameId, color, this.notifyAbort);
-        // Settle a mid-clash disconnect at once (higher meter wins, tie goes to
-        // the attacker) instead of freezing the QTE for the grace window. This
-        // runs after handlePlayerDisconnect released the game lock: the resolve
-        // takes that lock itself.
+        // Settle a mid-clash disconnect at once (higher meter wins, ties go to the
+        // attacker) instead of freezing the QTE for the grace window. This runs after
+        // handlePlayerDisconnect released the lock; the resolve takes it again.
         await this.engine.resolveClashOnDisconnect(gameId);
       } catch (error) {
         console.error('Disconnect handler error:', error);

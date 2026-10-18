@@ -2,7 +2,7 @@
 // match `backend/app/ludo-engine/src/timing.ts`; the timing contract harness asserts
 // it. The clash windows are presentation only, since the server sends deadlines.
 
-export const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("CLASH!") 
+export const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("CLASH!")
 export const CLASH_COUNTDOWN_MS = 3000; // GET READY, then 3-2-1
 export const CLASH_PRESS_MS = 5000; // keys and bars race
 export const CLASH_RESULT_MS = 2000; // Card D result card, and the hold forecast

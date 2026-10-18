@@ -51,11 +51,9 @@ end
 return left
 `;
 
-// Per-address guest budgets. Mirrors LoginLockoutService: the counters live
-// here, the thresholds are the block above, and the route has its own burst
-// limit. The address is the only key available for a caller with no account;
-// an address is coarse (campus NAT, CGNAT), which is why the concurrency cap -
-// not the mint cap - is the lever that matters.
+// Per-address guest budgets: counters here, thresholds above, plus the route's
+// burst limit. An address is coarse (campus NAT, CGNAT), so the concurrency cap
+// matters more than the mint cap.
 @Injectable()
 export class GuestLimitService implements OnModuleDestroy {
   private redis: Redis;

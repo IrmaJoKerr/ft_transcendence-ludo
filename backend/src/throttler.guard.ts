@@ -6,7 +6,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 // { code, message } shape as every other error, so the client localizes it.
 @Injectable()
 export class CodedThrottlerGuard extends ThrottlerGuard {
-  protected async throwThrottlingException(): Promise<void> {
+  protected throwThrottlingException(): Promise<void> {
     throw new HttpException(
       { code: 'RATE_LIMITED', message: 'Too many requests: try again later' },
       HttpStatus.TOO_MANY_REQUESTS,

@@ -244,10 +244,9 @@ function Toast({
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
-    // Strict state lock, mirrored from the backend: one live game at a time. If
-    // another game is still live, accepting the challenge aborts it first, so the
-    // switch never hits the backend's MATCH_ACTIVE_GAME refusal. The abort is
-    // fire-and-forget: the room is dropped locally either way.
+    // Strict state lock, mirrored from the backend: one live game at a time.
+    // Accepting the challenge aborts a live game first, so the switch never hits
+    // MATCH_ACTIVE_GAME. The abort is fire-and-forget; the room is dropped locally.
     const currentGameId = activeMatch?.gameId;
     if (currentGameId && currentGameId !== p.gameId) {
       void apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {

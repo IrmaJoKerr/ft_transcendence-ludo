@@ -60,9 +60,7 @@ export function LanguageSwitcher({
                 justifyContent: 'center',
                 padding: '7px 4px',
                 borderRadius: 6,
-                border: isSelected
-                  ? '1.5px solid var(--accent-cyan)'
-                  : '1px solid transparent',
+                border: isSelected ? '1.5px solid var(--accent-cyan)' : '1px solid transparent',
                 background: isSelected
                   ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.2))'
                   : 'transparent',

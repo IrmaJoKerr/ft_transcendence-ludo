@@ -446,6 +446,11 @@ landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a l
 and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
 keeps a state written before the field existed reading as 0.
 
+**Bot pressers.** A bot side presses at a jittered pace: `CLASH_BOT_WIN_MS_BASE` for the pre-rolled
+winner and `CLASH_BOT_LOSE_MS_BASE` for the loser, so the winner reaches the target first. A presser
+carries the round it was armed for, so a chain that has moved to a new round is not pressed by the
+old schedule.
+
 
 ---
 ---

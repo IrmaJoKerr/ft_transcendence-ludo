@@ -6,7 +6,6 @@ import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { NotificationPayload } from './notification.service';
 
-
 // NestJS's Sse decorator expects each emission to be a MessageEvent :
 // the shape { data: ... } that the browser's EventSource API understands.
 interface MessageEvent {

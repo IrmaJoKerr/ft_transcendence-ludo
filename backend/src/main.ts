@@ -68,10 +68,9 @@ async function bootstrap() {
   // JwtStrategy reads the token from req.cookies; without this it's undefined.
   app.use(cookieParser());
 
-  // CSRF: same-host Origin allow-list plus a signed double-submit token echoed
-  // in X-CSRF-Token on every mutating /api route (see common/csrf.ts). Mounted
-  // after cookieParser so the token cookie is readable, and before the routes so
-  // nothing reaches a controller without both checks.
+  // CSRF: same-host Origin allow-list plus a signed double-submit token in
+  // X-CSRF-Token on every mutating /api route. Mounted after cookieParser and
+  // before the routes; see common/csrf.ts.
   app.use(csrfProtection);
 
   // Enforce the class-validator decorators on register/login DTOs, localizing

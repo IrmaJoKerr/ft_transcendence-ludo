@@ -4,7 +4,6 @@ import { ACHIEVEMENTS_THROTTLE } from '../common/throttles';
 import { AchievementsService } from './achievements.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-
 @Controller('api/achievements')
 // HTTP routes for achievements: the progress report for the dashboard and a re-check
 // endpoint that sends no notification. Delegates to AchievementsService.

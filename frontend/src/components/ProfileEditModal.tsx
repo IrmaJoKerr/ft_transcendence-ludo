@@ -38,10 +38,7 @@ type ErrorField = 'displayName' | 'email' | 'password' | 'oauth' | 'form';
 // then re-renders a live message instead of leaving the previous language on
 // screen. All three keys exist in en, fr and ms.
 type FieldMessage =
-  | 'passwordInfo.error'
-  | 'profileEdit.newPasswordRequired'
-  | 'profileEdit.passwordMismatch'
-  | null;
+  'passwordInfo.error' | 'profileEdit.newPasswordRequired' | 'profileEdit.passwordMismatch' | null;
 
 // Which field a backend error code belongs under.
 const ERROR_FIELD: Record<string, ErrorField> = {

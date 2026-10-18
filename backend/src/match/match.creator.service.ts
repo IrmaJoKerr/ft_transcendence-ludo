@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { requireSecret, secret } from '../secrets';
@@ -95,9 +100,8 @@ export class MatchCreatorService {
     botNames?: string[],
     seatColors?: string[],
     // The host's room rules from the same create payload as the seats. Normalized
-    // here, at the service boundary, so every caller (and every route) gets the
-    // defaulting and the coercion from one place; the hash write below takes the
-    // normalized object only.
+    // here, at the service boundary, so every caller gets the same defaults; the
+    // hash write below takes the normalized object only.
     rules: Partial<RoomRules> = {},
   ) {
     if (playerCount < 2 || playerCount > 4) {
@@ -186,22 +190,19 @@ export class MatchCreatorService {
     // writes Redis. The default keeps a caller that has none on the standard room
     // (the public entry point normalizes, so it always passes one).
     rules: RoomRules = normalizeRoomRules(),
-    // Guest mints pass their opaque engine token here. Its presence marks the
-    // anonymous path: no account lookups (a `guest-` id has no user row) and no
-    // live-game scan (the id is unique per mint, so it can never match).
-    // The hashed address is written into the hash so the engine can release the
-    // concurrency slot when a guest game ends normally.
+    // A guest mint passes its opaque engine token here. Its presence marks the
+    // anonymous path: no account lookups, no live-game scan. The hashed address
+    // lets the engine release the concurrency slot when the game ends.
     opts: { guestToken?: string; guestIpHash?: string } = {},
   ) {
-    // Strict lock: a caller who is already in a live game must not open a second
-    // room, whatever the mode. Checked before the idempotent PvP reuse below, so
-    // a mid-game caller is refused instead of being handed any room at all.
-    // Guests skip it: the per-mint id makes the answer always "no", and a scan
-    // of every match hash per anonymous mint is pure cost.
+    // Strict lock: a caller already in a live game must not open a second room,
+    // whatever the mode. Checked before the PvP reuse below. Guests skip it: their
+    // per-mint id can never match, and the scan would be wasted work.
     if (!opts.guestToken && (await hasLiveMatch(this.redis, userId))) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
-        message: 'You already have an active game. Leave it before creating or joining a new match.',
+        message:
+          'You already have an active game. Leave it before creating or joining a new match.',
       });
     }
 
@@ -284,11 +285,9 @@ export class MatchCreatorService {
       }
     }
 
-    // The room rules, written by the SAME hset as the seats: one payload means one
-    // transaction, so a room never exists without its rules. Keys, polarity and
-    // defaults live in room-rules.ts; the engine's join reads these back when it
-    // creates the game state and freezes them there, and the lobby may change them
-    // afterwards only while the room is still WAITING.
+    // The room rules, written by the same hset as the seats, so a room never
+    // exists without them. Keys and defaults live in room-rules.ts; the engine
+    // freezes them at join, and the lobby may change them only while WAITING.
     Object.assign(updates, roomRuleHashFields(rules));
 
     if (opts.guestToken) {
@@ -437,13 +436,9 @@ export class MatchCreatorService {
     return this.createMatch(userId, 'pve', playerCount, botCount);
   }
 
-  // The guest door: an anonymous, ephemeral PvE room. Deliberately not
-  // createMatch(): mode is forced here (never read from the body), the
-  // account-shaped steps are skipped, and the per-address budgets are charged
-  // in this one call.
-  //
-  // `ip` is the real client address (controller -> @Ip(), trust-proxy set in
-  // main.ts). It keys the counters only; it is hashed before it reaches Redis.
+  // The guest door: an anonymous, ephemeral PvE room. Not createMatch(): mode is
+  // forced, account steps are skipped, and the budgets are charged here. `ip` keys
+  // the counters only and is hashed before Redis (trust-proxy is set in main.ts).
   async createGuestMatch(ip: string, dto: CreateGuestMatchDto): Promise<MatchRoomHandoff> {
     const botCount = dto.botCount;
     const playerCount = 1 + botCount;
@@ -457,16 +452,11 @@ export class MatchCreatorService {
 
     let result: MatchRoomHandoff;
     try {
-      // The seat order is the human's fixed blue plus the bot colours in the
-      // order the setup screen showed them, so a sparse layout (blue + green +
-      // yellow, no red) is dealt as-is instead of being re-densified to
-      // blue/red/green. The client still never chooses the human's colour, and a
-      // botColors/botCount mismatch stays `undefined` here so createMatchLocked
-      // reports its own MATCH_BOT_COLORS.
+      // Seat order: the human's fixed blue plus the bot colours in setup order, so
+      // a sparse layout is dealt as-is. The client never chooses the human's colour;
+      // a botColors/botCount mismatch stays undefined for createMatchLocked to report.
       const seatColors =
-        dto.botColors && dto.botColors.length === botCount
-          ? ['blue', ...dto.botColors]
-          : undefined;
+        dto.botColors?.length === botCount ? ['blue', ...dto.botColors] : undefined;
       result = await this.createMatchLocked(
         guestId,
         'pve',
@@ -486,10 +476,8 @@ export class MatchCreatorService {
     }
 
     await this.guests.recordMint(ip);
-    // The registry the engine's handshake resolves. Written only after the room
-    // exists, so a token never points at a hash that was never written. Fields
-    // are the design's four: the room, the seat, the mode and the address the
-    // abort counter is keyed by.
+    // The registry the engine's handshake resolves, written only after the room
+    // exists. Holds the room, seat, mode and address that keys the abort counter.
     const entry = guestTokenKey(token);
     await this.redis.hset(entry, {
       gameId: result.gameId,

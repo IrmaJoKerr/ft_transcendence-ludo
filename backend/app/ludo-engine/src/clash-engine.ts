@@ -1,6 +1,6 @@
 import type { RedisGameStore } from './redis';
+import type { ClashManager } from './clash';
 import {
-  ClashManager,
   CLASH_SWEEP_GRACE_MS,
   CLASH_TARGET,
   CLASH_RESULT_MS,
@@ -120,7 +120,7 @@ export class ClashEngine {
       // so a timer armed for round N must not act on round N+1. Each callback
       // bails when the live round is no longer its own.
       const armedRound = clash.round ?? 1;
-      const schedule = (delay: number, fn: () => void) => {
+      const schedule = (delay: number, fn: () => Promise<void>) => {
         if (delay > 0) {
           this.clashTimers.set(
             gameId,
@@ -140,7 +140,7 @@ export class ClashEngine {
       };
       // No lock wrapper here: resolveClashOutcome locks on its own, so wrapping
       // it would deadlock against the lock this timer chain already holds.
-      const scheduleUnlocked = (delay: number, fn: () => void) => {
+      const scheduleUnlocked = (delay: number, fn: () => Promise<void>) => {
         if (delay > 0) {
           this.clashTimers.set(
             gameId,
@@ -161,7 +161,7 @@ export class ClashEngine {
       // announce -> countdown
       schedule(Math.max(0, clash.announceDeadline - now), async () => {
         const st = await this.store.loadGameState(gameId);
-        if (!st?.clash || st.clash.phase !== 'announce') return;
+        if (st?.clash?.phase !== 'announce') return;
         if ((st.clash.round ?? 1) !== armedRound) return;
         st.clash.phase = 'countdown';
         await this.store.saveGameState(gameId, st);
@@ -176,7 +176,7 @@ export class ClashEngine {
       // countdown -> pressing (bot pressers start here)
       schedule(Math.max(0, clash.countdownDeadline - now), async () => {
         const st = await this.store.loadGameState(gameId);
-        if (!st?.clash || st.clash.phase !== 'countdown') return;
+        if (st?.clash?.phase !== 'countdown') return;
         if ((st.clash.round ?? 1) !== armedRound) return;
         st.clash.phase = 'pressing';
         await this.store.saveGameState(gameId, st);
@@ -211,9 +211,9 @@ export class ClashEngine {
         } else if (st.pendingCapture) {
           // A chain interrupted between rounds (its gap timer died with the
           // process): the ledger, not the vanished clash, is what resumes it.
-          void this.startNextRound(gameId).catch((err) =>
-            console.error('[clash] re-arm next round failed', gameId, err),
-          );
+          void this.startNextRound(gameId).catch((err) => {
+            console.error('[clash] re-arm next round failed', gameId, err);
+          });
         }
       }
     } catch {
@@ -233,7 +233,7 @@ export class ClashEngine {
             const gameId = key.replace('game:', '');
             try {
               const st = await this.store.loadGameState(gameId);
-              if (!st || st.status !== 'active') continue;
+              if (st?.status !== 'active') continue;
               // A chain between rounds has no live clash but keeps its ledger. The
               // sweep is the backstop for a gap timer that never fired, and it picks
               // the chain up after a paused seat reconnects.
@@ -277,7 +277,7 @@ export class ClashEngine {
   private async resolveClashOnTimeout(gameId: string, armedRound?: number): Promise<void> {
     try {
       const state = await this.store.loadGameState(gameId);
-      if (!state || state.status !== 'active') return;
+      if (state?.status !== 'active') return;
       const clash: ClashState | undefined = state.clash;
       if (!clash) return;
       if (armedRound !== undefined && (clash.round ?? 1) !== armedRound) return;
@@ -301,11 +301,9 @@ export class ClashEngine {
     }
   }
 
-  // Re-arm a press-deadline resolution that arrived a hair early, plus one
-  // millisecond so the retry clears the same comparison. The map is the game's
-  // pending-clash timer slot (the one the phase timers and resolveClashOutcome
-  // already use), and the callback carries its round, so a retry can never act on
-  // a later round of the same chain.
+  // Re-arm a press deadline that arrived slightly early, plus 1 ms so the retry
+  // clears the same comparison. This uses the game's pending-clash timer slot, and
+  // the callback carries its round, so a retry cannot act on a later round.
   private armResolveAtDeadline(gameId: string, armedRound: number, afterMs: number): void {
     const existing = this.clashTimers.get(gameId);
     if (existing) clearTimeout(existing);
@@ -348,7 +346,7 @@ export class ClashEngine {
       }
 
       const state = await this.store.loadGameState(gameId);
-      if (!state || state.status !== 'active') return;
+      if (state?.status !== 'active') return;
       const pc = state.pendingCapture;
       if (!pc) return;
 
@@ -359,7 +357,7 @@ export class ClashEngine {
       const ledger = chainLedgerOf(pc);
       const defenderPieceId = ledger.remaining[0] ?? '';
       const defenderPiece = state.pieces.find((p) => p.id === defenderPieceId);
-      const defenderColor = (defenderPiece?.color as PlayerColor | undefined) ?? pc.defender;
+      const defenderColor = defenderPiece?.color ?? pc.defender;
       // A round WITH defenders still standing after it is an intermediate round:
       // the chain continues, so nothing about the move itself is applied yet.
       const continues =
@@ -371,12 +369,9 @@ export class ClashEngine {
       const dCount = state.clash?.defenderPresses ?? 0;
 
       if (continues) {
-        // INTERMEDIATE round: the defender that lost this round goes home now, the
-        // ledger advances, and the next round waits for the result card. No
-        // executeMove / recordMove / applyMoveOutcome / piece_moved here: those
-        // belong to the move as a whole and run ONCE, when the chain ends. Emitting
-        // piece_moved mid-chain would also schedule the next bot turn inside the
-        // card freeze.
+        // INTERMEDIATE round: the defender goes home, the ledger advances, and the
+        // next round waits for the card. The move-level calls (executeMove, recordMove,
+        // applyMoveOutcome, piece_moved) run once when the chain ends, never here.
         if (attackerMeta) attackerMeta.stats.clashAttacksWon++;
         if (defenderPiece) {
           defenderPiece.step = 0;
@@ -397,10 +392,9 @@ export class ClashEngine {
         const paused = Boolean(state.paused);
         await this.store.saveGameState(gameId, state);
 
-        // A paused chain publishes NOTHING further: it waits for the dropped seat.
-        // What starts the next round is that seat's reconnect, or the sweep a
-        // moment after the game unpauses (see startNextRound); never a timer armed
-        // in here.
+        // A paused chain publishes nothing further: it waits for the dropped seat.
+        // Its reconnect, or the sweep after unpause, starts the next round (see
+        // startNextRound); never a timer armed here.
         if (paused) return;
 
         this.emit({
@@ -430,10 +424,9 @@ export class ClashEngine {
         pieceId: pc.pieceId,
         from: pc.from,
         to: pc.to,
-        // NEVER isCapture: every beaten defender of the chain is already at step 0,
-        // so the square no longer holds the wall that was there at move time and
-        // re-deriving the capture would report nothing (or, worse, only the last
-        // defender). The ledger below is applied explicitly instead.
+        // Never isCapture: every beaten defender is already at step 0, so re-deriving
+        // the capture would report nothing or only the last defender. The ledger
+        // below is applied explicitly instead.
         isCapture: false,
         isHomeEntry: pc.enteredHome,
         // The defenders stamped when the clash began: 1 for a single piece, R for a
@@ -444,10 +437,9 @@ export class ClashEngine {
 
       const result = MoveValidator.executeMove(state, pendingMove, pc.diceValue);
       if (!attackerWon) {
-        // REPULSE: the attacker's piece goes home and the defender holds the
-        // square. executeMove walked the mover to `to` with isCapture=false, so
-        // re-home it and report the piece as captured by its own failed attack.
-        // Defenders already beaten in earlier rounds stay home: the trade stands.
+        // REPULSE: the attacker goes home and the defender holds the square.
+        // executeMove walked the mover to `to` with isCapture=false, so re-home it and
+        // report it captured by its own failed attack. Earlier defenders stay home.
         const moverPiece = state.pieces.find((p) => p.id === pc.pieceId);
         if (moverPiece) {
           moverPiece.step = 0;
@@ -476,18 +468,15 @@ export class ClashEngine {
         if (attackerMeta) {
           if (capturedIds.length > 0) attackerMeta.stats.captures += capturedIds.length;
           // The Barrier Buster credit (achTearDownThisWall): 1 when the landing square
-          // stood 2 or more defenders, stamped on pendingCapture at move time. Only a
-          // chain won END TO END reaches this branch — a repulse leaves the wall
-          // standing. `?? 0` keeps a seat record written before the field existed from
-          // turning the tally into NaN.
+          // stood 2 or more defenders, stamped at move time. Only a chain won end to end
+          // reaches here. `?? 0` keeps an older seat record from turning the tally to NaN.
           if (pc.barrierBattles) {
             attackerMeta.stats.barrierBreaks =
               (attackerMeta.stats.barrierBreaks ?? 0) + pc.barrierBattles;
           }
-          // The token's income: a clash won against exactly ONE defender pays one
-          // token back, up to the cap. A won barrier pays nothing, so a wall never
-          // feeds the thing that breaks walls. Same branch as the credit above, so
-          // the money and the tally cannot drift apart.
+          // Token income: a clash won against exactly one defender pays one token
+          // back, up to the cap. A won barrier pays nothing. Same branch as the credit
+          // above, so the money and the tally cannot drift apart.
           if (capturedIds.length === 1) {
             attackerMeta.barrierTokens = Math.min(BUST_CAP, (attackerMeta.barrierTokens ?? 0) + 1);
           }
@@ -550,12 +539,15 @@ export class ClashEngine {
     if (existing) clearTimeout(existing);
     this.chainTimers.set(
       gameId,
-      setTimeout(() => {
-        this.chainTimers.delete(gameId);
-        void this.startNextRound(gameId).catch((err) =>
-          console.error('[clash] next round failed', gameId, err),
-        );
-      }, Math.max(0, delayMs)),
+      setTimeout(
+        () => {
+          this.chainTimers.delete(gameId);
+          void this.startNextRound(gameId).catch((err) => {
+            console.error('[clash] next round failed', gameId, err);
+          });
+        },
+        Math.max(0, delayMs),
+      ),
     );
   }
 
@@ -589,29 +581,22 @@ export class ClashEngine {
     this.cardHolds.set(state.id, { id: cardId, users, ready: new Set(), midChain });
   }
 
-  // A client's forecast for its own card ('I am done in holdMs'). Clamped, minimum
-  // only (a receipt can never extend the wait), and accepted only from a live user
-  // that owns a seat in THAT card. When every participating user has reported, the
-  // freeze is already the latest receipt, so the engine announces the release.
-  async holdCard(
-    gameId: string,
-    userId: string,
-    cardId: string,
-    holdMs: number,
-  ): Promise<boolean> {
+  // A client's forecast for its own card ("done in holdMs"). Clamped to a minimum
+  // only, so a receipt never extends the wait, and accepted only from a live user
+  // seated in that card. Once every participant reports, the engine releases.
+  async holdCard(gameId: string, userId: string, cardId: string, holdMs: number): Promise<boolean> {
     let released = false;
     let midChain = false;
     await this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
-      if (!state || state.status !== 'active') return;
+      if (state?.status !== 'active') return;
       const hold = this.cardHolds.get(gameId);
       // A stale or unknown card (an old round, a resolved game, a crafted id) is
       // dropped silently: the ceiling is still doing its job.
-      if (!hold || hold.id !== cardId) return;
-      // A HOTSEAT card has no user ids at all (join-manager leaves them undefined for
-      // local seats), so there is nobody to authorise: the card already runs on the
-      // short ceiling and a receipt for it is simply ignored. Without this guard every
-      // local client's receipt threw and logged, which is noise, not a failure.
+      if (hold?.id !== cardId) return;
+      // A HOTSEAT card has no user ids: join-manager leaves them undefined for local
+      // seats, so there is nobody to authorise. The card runs on the short ceiling and
+      // ignores receipts; without this guard every local receipt threw and logged.
       if (hold.users.size === 0) return;
       if (!hold.users.has(userId)) throw new Error('Not a participant of this clash');
       hold.ready.add(userId);
@@ -640,15 +625,13 @@ export class ClashEngine {
     return released;
   }
 
-  // Start the next round of a chain, from the ledger. This is the ONE entry point
-  // for a chain that is between rounds: the gap timer, the boot re-arm, the 5s
-  // sweep, and a reconnect that resumes a paused chain all call it. The game lock
-  // plus a re-read of the ledger make a duplicate call a no-op (the second one
-  // finds a live clash and returns).
+  // Start the next round of a chain from the ledger. This is the one entry point
+  // between rounds: the gap timer, the boot re-arm, the 5s sweep and a reconnect
+  // all call it. The game lock and a ledger re-read make a duplicate call a no-op.
   async startNextRound(gameId: string): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
-      if (!state || state.status !== 'active') return;
+      if (state?.status !== 'active') return;
       // A live clash (or a chain the resolution already finished) is not waiting
       // for a round.
       if (state.clash) return;
@@ -671,7 +654,7 @@ export class ClashEngine {
         return;
       }
 
-      const defenderColor = defenderPiece.color as PlayerColor;
+      const defenderColor = defenderPiece.color;
       // The ledger stays the single source of truth for who this round fights.
       pc.defender = defenderColor;
       state.pendingCapture = pc;
@@ -688,13 +671,9 @@ export class ClashEngine {
     });
   }
 
-  // Bot mashing at a human-realistic jittered pace. The caller pre-rolls the
-  // winner: it presses fast (CLASH_BOT_WIN_MS_BASE ± jitter) and the loser slow
-  // (CLASH_BOT_LOSE_MS_BASE ± jitter), so the winner reaches target first.
-  // `armedRound` is the round this presser belongs to: inside a chain the next
-  // round is a fresh clash with its own keys and window, so a chain left over
-  // from the previous round must not press into it (its press cap alone would
-  // not stop it in a back-to-back chain).
+  // Bot mashing at a jittered human pace. The caller pre-rolls the winner: fast
+  // presses (CLASH_BOT_WIN_MS_BASE ± jitter) against slow ones, so the winner
+  // arrives first. `armedRound` keeps a previous round's presser out of the next.
   private simulateBotPressers(
     gameId: string,
     botColor: PlayerColor,
@@ -708,7 +687,7 @@ export class ClashEngine {
         void (async () => {
           try {
             const cur = await this.store.loadGameState(gameId);
-            if (!cur || cur.status !== 'active' || !cur.clash) return; // resolved
+            if (cur?.status !== 'active' || !cur.clash) return; // resolved
             if ((cur.clash.round ?? 1) !== armedRound) return; // a later round
             if (Date.now() >= cur.clash.pressDeadline) return; // timeout handles it
 
@@ -735,7 +714,3 @@ export class ClashEngine {
     schedulePress();
   }
 }
-
-
-
-

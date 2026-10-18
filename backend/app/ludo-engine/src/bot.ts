@@ -130,7 +130,8 @@ export class LudoBot {
     // fights, read through the same helper the validator uses. The wall depth is
     // already in `move.captureCount`, one round per defender.
     const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
-    const defenderColor = defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
+    const defenderColor =
+      defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
     const perRound =
       defenderColor && isBotSeat(state, defenderColor)
         ? CLASH_BOT_VS_BOT_WIN_CHANCE
@@ -165,10 +166,9 @@ export class LudoBot {
     if (state.currentTurn !== this.color) return false; // Not our turn
     if (state.turnPhase !== 'WAITING_FOR_ROLL') return false; // Wrong phase
 
-    // The bot arms whenever it holds a token. An unarmed seat is BLOCKED by a wall,
-    // so an unarmed bot would never even see the wall landings its pricing exists
-    // for; arming costs nothing by itself (only a wall landing spends a token) and
-    // selectBestMove still declines a bust whose odds do not cover the shadow price.
+    // The bot arms whenever it holds a token: an unarmed seat is blocked by a wall,
+    // so it would never see the wall landings its pricing exists for. Arming costs
+    // nothing; selectBestMove still declines a bust whose odds miss the shadow price.
     const botSeat = state.players.find((p) => p.color === this.color);
     if (
       state.clashMode === true &&
@@ -186,10 +186,9 @@ export class LudoBot {
       const afterRoll = await this.store.loadGameState(this.gameId);
       if (afterRoll?.currentTurn !== this.color) return false;
 
-      // Select best move using heuristics. A null here is the bot declining an
-      // armed Barrier Buster bust whose odds do not cover the token's shadow price
-      // (see selectBestMove): it passes the held turn instead of stalling it, and
-      // the token stays in hand.
+      // Select the best move by heuristic. Null means the bot declines an armed
+      // Barrier Buster bust whose odds miss the token's shadow price: it passes the
+      // turn instead of stalling, and the token stays in hand.
       const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue);
       if (!bestMove) {
         await this.engine.skipArmedBust(this.gameId);

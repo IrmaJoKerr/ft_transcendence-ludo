@@ -15,10 +15,7 @@ type Step = 'confirm' | 'setPassword';
 // then re-renders a live message instead of leaving the previous language on
 // screen. All three keys exist in en, fr and ms.
 type FieldMessage =
-  | 'passwordInfo.error'
-  | 'profileEdit.newPasswordRequired'
-  | 'profileEdit.passwordMismatch'
-  | null;
+  'passwordInfo.error' | 'profileEdit.newPasswordRequired' | 'profileEdit.passwordMismatch' | null;
 
 function fieldLabel(style: CSSProperties): CSSProperties {
   return {

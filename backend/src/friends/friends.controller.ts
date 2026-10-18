@@ -4,7 +4,6 @@ import { FRIENDS_THROTTLE } from '../common/throttles';
 import { FriendsService } from './friends.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-
 @Controller()
 // HTTP routes for the friend system and game invitations. All routes are
 // JWT-protected and delegate to FriendsService.

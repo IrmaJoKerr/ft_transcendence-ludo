@@ -18,7 +18,8 @@ import {
   expireDisconnectedPlayer,
 } from './player-handler';
 import type { LobbyManager } from './lobby';
-import { ClashManager, orderDefenderIds } from './clash';
+import type { ClashManager } from './clash';
+import { orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
 
 // Room rules from the wire, turned into domain truth: only a literal `true` turns
@@ -55,7 +56,9 @@ export class LudoEngine {
     this.clashEngine = new ClashEngine(
       store,
       clashManager,
-      (e) => this.emit(e),
+      (e) => {
+        this.emit(e);
+      },
       (gameId, fn) => this.withGameLock(gameId, fn),
     );
   }
@@ -270,7 +273,7 @@ export class LudoEngine {
         throw new Error('No pending dice value : roll first');
       }
 
-      const moverColor = state.pieces.find((p) => p.id === pieceId)?.color as PlayerColor;
+      const moverColor = state.pieces.find((p) => p.id === pieceId)?.color;
       // Captured before the move resolves: a turn advance clears every seat's arm switch, so
       // this is what tells the HUD below whether it needs a fresh players[] frame.
       const moverWasArmed =
@@ -313,7 +316,7 @@ export class LudoEngine {
         // No defender behind the move (home/goal): fall through to a normal move.
         const defenderPiece = state.pieces.find((p) => p.id === defenderIds[0]);
         if (defenderPiece) {
-          const defenderColor = defenderPiece.color as PlayerColor;
+          const defenderColor = defenderPiece.color;
           const totalRounds = defenderIds.length;
 
           state.pendingCapture = {
@@ -337,8 +340,7 @@ export class LudoEngine {
           state.pendingIsFirstRoll = undefined;
           await this.store.saveGameState(gameId, state);
 
-          const attackerIsBot =
-            state.players.find((p) => p.color === moverColor)?.isBot ?? false;
+          const attackerIsBot = state.players.find((p) => p.color === moverColor)?.isBot ?? false;
           const defenderIsBot =
             state.players.find((p) => p.color === defenderColor)?.isBot ?? false;
 
@@ -541,8 +543,7 @@ export class LudoEngine {
     const state = await this.store.loadGameState(gameId);
     if (!state?.clash) return;
     const clash = state.clash;
-    const winner =
-      clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
+    const winner = clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
     await this.clashEngine.resolveClashOutcome(gameId, winner);
   }
 

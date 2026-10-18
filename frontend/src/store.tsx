@@ -562,7 +562,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         } | null;
         if (!res.ok) {
           if (data?.message) console.error('[2fa]', data.message);
-          return translateErrorCode(data?.code) ?? i18n.t('common.requestFailed', { status: res.status });
+          return (
+            translateErrorCode(data?.code) ?? i18n.t('common.requestFailed', { status: res.status })
+          );
         }
         setTwoFactor(!!data?.twoFactorEnabled);
         return null;

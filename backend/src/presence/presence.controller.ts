@@ -6,7 +6,6 @@ import { PresenceService } from './presence.service';
 import { HeartbeatDto } from './dto/heartbeat.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-
 @UseGuards(JwtAuthGuard)
 @Controller('api/presence')
 // HTTP routes for the presence system (heartbeat, online count, logout

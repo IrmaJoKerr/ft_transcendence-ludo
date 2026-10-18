@@ -97,14 +97,9 @@ export class SocketServer {
     this.idleLobby = new IdleLobbyWatcher(this.store, this.rooms, IDLE_LOBBY_TIMEOUT_MS, (gameId) =>
       this.expireIdleLobby(gameId),
     );
-    this.resultSubmitter = new ResultSubmitter(
-      this.engine,
-      this.store,
-      this.rooms,
-      (gameId) => {
-        this.cleanupGame(gameId);
-      },
-    );
+    this.resultSubmitter = new ResultSubmitter(this.engine, this.store, this.rooms, (gameId) => {
+      this.cleanupGame(gameId);
+    });
     this.botScheduler = new BotTurnScheduler(this.store, this.engine, getOrCreateBot);
     this.postGame = new PostGameManager(
       () => this.io,
@@ -228,10 +223,9 @@ export class SocketServer {
         // The gate itself is `originAllowed`, so the rule can be tested without a live
         // handshake: a browser origin must be allow-listed exactly, a client with no
         // Origin header is allowed.
-        origin: (
-          origin: string | undefined,
-          cb: (err: Error | null, allow?: boolean) => void,
-        ) => cb(null, originAllowed(origin, allowedOrigins)),
+        origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+          cb(null, originAllowed(origin, allowedOrigins));
+        },
         methods: ['GET', 'POST'],
       },
       maxHttpBufferSize: MAX_EVENT_BYTES,
@@ -278,15 +272,15 @@ export class SocketServer {
         this.engine.emitEvent(event);
       },
       gameId,
-      (id) => this.cleanupGame(id),
+      (id) => {
+        this.cleanupGame(id);
+      },
     );
   }
 
-  // The wake pass: one scan of the durable deadlines, then sleep. It runs once
-  // at boot (after store.connect()) and again on every Redis reconnect, so a
-  // timer lost with the process (or with Redis) is replayed instead of leaving
-  // its room frozen. Every action re-validates against live state, so replaying
-  // an already-settled deadline is a no-op.
+  // The wake pass: one scan of durable deadlines, then sleep. It runs at boot,
+  // after store.connect(), and on every Redis reconnect, so a lost timer is
+  // replayed instead of leaving its room frozen. Replay re-validates, so it is safe.
   private async wake(reason: string): Promise<void> {
     if (this.wakeInFlight) {
       console.log(`[engine] wake pass (${reason}) skipped: another pass is running`);
@@ -326,12 +320,9 @@ export class SocketServer {
     }
   }
 
-  // Rebuild ONE room from Redis and replay whatever is due:
-  //   1. grace windows that expired while the process was down;
-  //   2. a bot seat holding the turn (the original freeze: no client has to
-  //      rejoin for the bots to resume);
-  //   3. a finished room whose post-game timer died with the process;
-  //   4. the idle window of a WAITING room below quorum.
+  // Rebuild one room from Redis and replay what is due: expired grace windows, a
+  // bot seat holding the turn, a finished room whose post-game timer died, and the
+  // idle window of a WAITING room below quorum.
   private async rebuildRoom(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state) {
@@ -346,7 +337,9 @@ export class SocketServer {
     for (const disc of state.disconnectedPlayers) {
       if (Date.now() < disc.reconnectDeadline) continue;
       // Re-checks the deadline itself, so racing an in-flight grace timer is safe.
-      await this.engine.expireDisconnectedPlayer(gameId, disc.color, (id) => this.cleanupGame(id));
+      await this.engine.expireDisconnectedPlayer(gameId, disc.color, (id) => {
+        this.cleanupGame(id);
+      });
     }
 
     // Reload: an expiry above can advance the turn, end the game, or tear the
@@ -371,10 +364,9 @@ export class SocketServer {
     await this.idleLobby.refresh(gameId);
   }
 
-  // Guest settlement, exactly once per socket: price the abort against the
-  // address (the backend weights it at mint time) and give the concurrency
-  // slots back, then revoke the token. Runs after the room teardown on
-  // end_game, immediately on leave_game, and never disconnects the socket.
+  // Guest settlement, once per socket: price the abort against the address, give
+  // the concurrency slots back, then revoke the token. Runs after teardown on
+  // end_game and on leave_game; it never disconnects the socket.
   private async settleGuestExit(socket: GameSocket): Promise<void> {
     if (!socket.data.isGuest || socket.data.guestSettled) return;
     socket.data.guestSettled = true;
@@ -382,10 +374,7 @@ export class SocketServer {
       await this.store.settleGuestAbort(socket.data.guestIpHash ?? '');
       await this.store.revokeGuestToken(socket.data.guestTokenHash ?? '');
     } catch (error) {
-      console.error(
-        'Guest settlement failed:',
-        error instanceof Error ? error.message : error,
-      );
+      console.error('Guest settlement failed:', error instanceof Error ? error.message : error);
     }
   }
 
@@ -401,10 +390,9 @@ export class SocketServer {
           return;
         }
 
-        // Guest branch: an opaque `g_` token, resolved from the backend's
-        // registry. The record is the authority for the room, the seat and the
-        // mode - none of it is read from the client - and a forged token is
-        // simply "not found", never a signature the player branch must refuse.
+        // Guest branch: an opaque `g_` token resolved from the backend's registry.
+        // That record is the authority for the room, seat and mode; none of it comes
+        // from the client. A forged token is "not found", not a refused signature.
         if (token.startsWith(GUEST_TOKEN_PREFIX)) {
           const guest = await this.store.getGuestSession(token);
           if (!guest) {
@@ -458,10 +446,7 @@ export class SocketServer {
         }
         next();
       } catch (error) {
-        console.error(
-          'Socket handshake failed:',
-          error instanceof Error ? error.message : error,
-        );
+        console.error('Socket handshake failed:', error instanceof Error ? error.message : error);
         next(new Error('Authentication failed'));
       }
     });

@@ -14,12 +14,9 @@ import {
   TOUCH_FLASH_MS,
 } from './timing';
 
-// Clash timing lives in ./timing, with every other delay, shared with the engine and
-// pinned by the `timing-contract` harness. The overlay's phase transitions come from the
-// server-borne deadlines (announce / countdown / press), so these only drive presentation.
-const CLASH_TARGET = 42; // must mirror engine CLASH_TARGET
-// Bar renders in whole pixels: 168px track / 42 presses = 4px per press, so the
-// bar hits exactly full (168px) at 42 presses. Keep width a multiple of target.
+// Clash timing lives in ./timing, shared with the engine and pinned by the
+// `timing-contract` harness. Phase transitions come from server deadlines, so these
+// values only drive presentation. The bar is 168px for 42 presses: 4px per press.
 const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
@@ -126,7 +123,15 @@ function Bar({ color, presses, target }: { color: PlayerColor; presses: number; 
 }
 
 /** Name-plate — Defender sits LEFT (QWESADZXC), Attacker RIGHT (UIOHJKNBM). */
-function Plate({ role, color, isMe }: { role: 'defender' | 'attacker'; color: PlayerColor; isMe: boolean }) {
+function Plate({
+  role,
+  color,
+  isMe,
+}: {
+  role: 'defender' | 'attacker';
+  color: PlayerColor;
+  isMe: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <div style={{ textAlign: 'center' }}>
@@ -147,7 +152,7 @@ function Plate({ role, color, isMe }: { role: 'defender' | 'attacker'; color: Pl
           boxShadow: `0 0 18px color-mix(in srgb, ${COLORS[color]} 33%, transparent)`,
         }}
       >
-        {(color ?? '').slice(0, 2).toUpperCase() || '?'}
+        {color.slice(0, 2).toUpperCase() || '?'}
       </div>
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-main)' }}>
         {role === 'defender' ? t('game.clashDefenderRole') : t('game.clashAttackerRole')}
@@ -165,12 +170,9 @@ function Plate({ role, color, isMe }: { role: 'defender' | 'attacker'; color: Pl
   );
 }
 
-// Static clash key box — identical for every key so the border doesn't hug the
-// glyph. Sized from Atkinson Hyperlegible Bold metrics at 54px so the WIDEST
-// character used (W, advance 47.7px) and the TALLEST (Q, 39.7px incl. descender)
-// always keep ≥2mm clearance (2mm ≈ 7.56px) from the 2px border on all sides:
-//   width  = widestAdvance + 4mm + 2×2px border = 47.7 + 15.1 + 4 = 67px
-//   height = line-box baseline model (half-leading) + 2×2px border = 61px
+// Static clash key box: identical for every key so the border never hugs the glyph.
+// Sized from Atkinson Hyperlegible Bold at 54px, with 2mm clearance from the 2px
+// border on all sides. Width 67px, height 61px; the game doc carries the derivation.
 const KEY_BADGE_W = 67;
 const KEY_BADGE_H = 61;
 
@@ -286,10 +288,7 @@ function TouchPad({
   // Re-drawn every round, so muscle memory cannot replace reading the correct
   // circle. The decoys can never be the other side's key, because the two key
   // sets are disjoint.
-  const keys = useMemo(
-    () => drawPad(side, acceptKey, round),
-    [acceptKey, side, round],
-  );
+  const keys = useMemo(() => drawPad(side, acceptKey, round), [acceptKey, side, round]);
 
   useEffect(
     () => () => {
@@ -304,7 +303,7 @@ function TouchPad({
     if (flashRef.current) clearTimeout(flashRef.current);
     flashRef.current = setTimeout(() => setPressed(null), TOUCH_FLASH_MS);
     // Cheap extra, not a requirement: Android honours this, iOS ignores it.
-    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(8);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8);
     // A pad tap is worth TOUCH_TAP_COUNT presses: the engine clamps the weight
     // and still caps the event rate, so this is a heavier press, not a faster one.
     onPress(key, TOUCH_TAP_COUNT);
@@ -318,7 +317,9 @@ function TouchPad({
       : { paddingRight: `calc(${TOUCH_EDGE_BUFFER} + env(safe-area-inset-right))` };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, ...edge }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, ...edge }}
+    >
       <div
         style={{
           fontFamily: 'var(--font-mono)',
@@ -387,7 +388,14 @@ function TouchPad({
  * keydown listener stays live even in touch mode, so a tablet with a keyboard
  * case gets both.
  */
-export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, allowBothSides = false }: Props) {
+export function ClashOverlay({
+  clash,
+  result,
+  myColor,
+  onKeyPress,
+  onComplete,
+  allowBothSides = false,
+}: Props) {
   const { t } = useTranslation();
   const now = useNow(CLASH_UI_TICK_MS);
   const phase = phaseAt(clash, now);
@@ -413,20 +421,18 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
   // Chain copy for the result card. A round the attacker took while defenders
   // remain says how many are left (the next round is coming); the round that ends
   // the attack says which way it ended. A single clash gets no line at all.
-  const chainLine = !result || (result.totalRounds ?? 1) <= 1
-    ? null
-    : result.continues
-      ? t('game.clashRoundWon', { left: result.remainingDefenderIds?.length ?? 0 })
-      : result.winner === clash.attacker
-        ? t('game.clashChainBroken')
-        : t('game.clashChainRepulsed');
+  const chainLine =
+    !result || (result.totalRounds ?? 1) <= 1
+      ? null
+      : result.continues
+        ? t('game.clashRoundWon', { left: result.remainingDefenderIds?.length ?? 0 })
+        : result.winner === clash.attacker
+          ? t('game.clashChainBroken')
+          : t('game.clashChainRepulsed');
 
-  // The overlay swallows every tap. A stray tap must not reach the board and
-  // emit a roll or a move: the server rejects both during the press window (the
-  // phase is still WAITING_FOR_MOVE and pendingLegalMoves is empty), so this is
-  // defence in depth — but a rejected emit is an error toast mid-QTE and every
-  // tap spends rate-limit tokens. A native NON-passive listener is required,
-  // because preventDefault on a passive one is ignored.
+  // The overlay swallows every tap: a stray tap must not emit a roll or a move and
+  // spend rate-limit tokens. A native non-passive listener is required, because
+  // preventDefault on a passive one is ignored.
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -443,15 +449,14 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
     };
   }, []);
 
-  // Keypresses ONLY count during the PRESSING phase (the keys are hidden before
-  // that). Matching is deliberately generous: `e.code` is the PHYSICAL key
-  // ("KeyZ", never "z"), so the QWERTY position works on any layout, and `e.key`
-  // is the CHARACTER produced (AZERTY swaps q↔a and w↔z), compared
-  // case-insensitively so CapsLock/Shift cannot break it. Either match counts.
+  // Keypresses count only during the PRESSING phase. Matching is generous: `e.code`
+  // is the physical key (KeyZ), so the QWERTY position works on any layout, and
+  // `e.key` is the produced character, compared case-insensitively. Either counts.
   useEffect(() => {
     if (!iAmInClash || phase !== 'pressing' || result) return;
     const hitKey = (e: KeyboardEvent, k: string) =>
-      e.code === `Key${k.toUpperCase()}` || (typeof e.key === 'string' && e.key.toLowerCase() === k);
+      e.code === `Key${k.toUpperCase()}` ||
+      (typeof e.key === 'string' && e.key.toLowerCase() === k);
     const handler = (e: KeyboardEvent) => {
       const hit = listenerKeys.find((k) => hitKey(e, k));
       if (hit) onKeyPress(hit);
@@ -460,11 +465,9 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
     return () => window.removeEventListener('keydown', handler);
   }, [iAmInClash, phase, listenerKeys, result, onKeyPress]);
 
-  // Auto-dismiss the result card; the reducer keeps `clash` alive until then (or until
-  // the engine's release frame, whichever comes first). The timer depends ONLY on the
-  // result: `onComplete` is an inline function in Game.tsx, so listing it as a
-  // dependency restarted this timer on every parent render, which could stop it from
-  // ever firing and leave the card (and its overlay) on screen.
+  // Auto-dismiss the result card; the reducer keeps `clash` alive until this fires or
+  // the engine releases it. The timer depends only on the result: `onComplete` is
+  // inline in Game.tsx, and listing it restarted the timer on every parent render.
   const completeRef = useRef(onComplete);
   useEffect(() => {
     completeRef.current = onComplete;
@@ -481,8 +484,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
   useEffect(() => {
     if (!touchMode) return;
     const orientation = screen.orientation as
-      | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
-      | undefined;
+      (Omit<ScreenOrientation, 'lock'> & { lock?: (o: string) => Promise<void> }) | undefined;
     try {
       const lock = orientation?.lock?.('landscape');
       if (lock && typeof lock.catch === 'function') lock.catch(() => undefined);
@@ -494,14 +496,13 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
   const countdownSecs = Math.max(0, Math.ceil((clash.countdownDeadline - now) / 1000));
   const fightFlash = phase === 'pressing' && now - clash.countdownDeadline < CLASH_FIGHT_FLASH_MS;
   const pressable = !result && phase === 'pressing';
-  // Your own device (PvP/PvE): a tap on the opponent's pad would be rejected by
-  // the server's ownership check, so only your own group is drawn. Hotseat: both
-  // seats belong to this socket, so both groups are drawn (physical separation,
-  // side tint and a per-group letter are the guards).
+  // Your own device (PvP/PvE): only your group is drawn; the opponent's pad would
+  // fail the ownership check. Hotseat: both seats belong to this socket, so both are
+  // drawn, separated by position, tint and a per-group letter.
   const showDefenderPad = touchMode && iAmInClash && (allowBothSides || defenderIsMe);
   const showAttackerPad = touchMode && iAmInClash && (allowBothSides || attackerIsMe);
 
-  // Persistent "who's fighting" header — Defender LEFT / Attacker RIGHT,
+  // Persistent "who's fighting" header: Defender LEFT / Attacker RIGHT,
   // mirroring the split the key sets already use.
   const plates = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
@@ -597,7 +598,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                   presses={
                     result.winner === clash.defender ? result.winnerPresses : result.loserPresses
                   }
-                  target={clash.target ?? CLASH_TARGET}
+                  target={clash.target}
                 />
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-muted)' }}>
@@ -612,7 +613,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                   presses={
                     result.winner === clash.attacker ? result.winnerPresses : result.loserPresses
                   }
-                  target={clash.target ?? CLASH_TARGET}
+                  target={clash.target}
                 />
               </div>
             </div>
@@ -723,7 +724,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                       <Bar
                         color={clash.defender}
                         presses={clash.defenderPresses}
-                        target={clash.target ?? CLASH_TARGET}
+                        target={clash.target}
                       />
                     </div>
                     <div
@@ -742,7 +743,7 @@ export function ClashOverlay({ clash, result, myColor, onKeyPress, onComplete, a
                       <Bar
                         color={clash.attacker}
                         presses={clash.attackerPresses}
-                        target={clash.target ?? CLASH_TARGET}
+                        target={clash.target}
                       />
                     </div>
                   </div>

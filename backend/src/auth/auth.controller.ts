@@ -28,11 +28,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard, GithubAuthGuard, FortyTwoAuthGuard } from './oauth.guards';
 import { requireSecret, isTunnelRequest } from '../secrets';
-import {
-  CSRF_COOKIE,
-  issueCsrfCookie,
-  isValidCsrfToken,
-} from '../common/csrf';
+import { CSRF_COOKIE, issueCsrfCookie, isValidCsrfToken } from '../common/csrf';
 
 // Access-token cookie: JwtStrategy reads this
 const ACCESS_COOKIE = 'token';
@@ -62,10 +58,9 @@ function frontendUrlFor(req: Request): string {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // GET /csrf: hands the SPA its double-submit token. The middleware already
-  // sets the cookie on any response; this route is the explicit bootstrap the
-  // client calls before its first mutating request. Returns the same token the
-  // cookie holds so the header can be filled immediately.
+  // GET /csrf: the explicit bootstrap of the double-submit token. The middleware
+  // sets the cookie on any response; this returns the same token so the client can
+  // fill X-CSRF-Token before its first mutating request.
   @Get('csrf')
   @HttpCode(200)
   csrf(@Req() req: Request, @Res({ passthrough: true }) res: Response) {

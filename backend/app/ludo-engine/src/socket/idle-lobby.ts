@@ -8,15 +8,9 @@ export function seatedCount(match: Record<string, string>): number {
   return [1, 2, 3, 4].filter((n) => match[`player${n}_id`] && !match[`player${n}_left`]).length;
 }
 
-// IdleLobbyWatcher owns one rule: a WAITING room with fewer than two seated
-// players is aborted once it has been idle for `timeoutMs`.
-//
-// It replaces the old 60 s lobby scan. The deadline itself is durable (the
-// match hash's `idleSince` stamp), and the local timer lives in the room's
-// RoomContext, so:
-//   - a refill cancels the window (and clears the stamp);
-//   - a departure arms it, at the departure event, without any polling;
-//   - a restart or a Redis blip replays the stamp in the wake pass.
+// IdleLobbyWatcher owns one rule: a WAITING room with fewer than two seated players
+// is aborted after `timeoutMs` idle. The deadline is durable (`idleSince` in the
+// match hash), so a refill cancels it, a departure arms it, and a restart replays it.
 export class IdleLobbyWatcher {
   constructor(
     private store: RedisGameStore,
@@ -34,7 +28,7 @@ export class IdleLobbyWatcher {
     // Only WAITING rooms idle. A live game is governed by quorum and the
     // reconnect grace windows, a finished one by the post-game timer, and a
     // missing match hash means the room is gone.
-    if (!match || match.status !== 'WAITING') {
+    if (match?.status !== 'WAITING') {
       this.rooms.get(gameId)?.cancelIdle();
       if (match) await this.store.clearIdleSince(gameId);
       return;
@@ -89,7 +83,7 @@ export class IdleLobbyWatcher {
   private async expireIfDue(gameId: string): Promise<void> {
     try {
       const match = await this.store.getMatchData(gameId);
-      if (!match || match.status !== 'WAITING' || seatedCount(match) >= 2) {
+      if (match?.status !== 'WAITING' || seatedCount(match) >= 2) {
         this.rooms.get(gameId)?.cancelIdle();
         if (match) await this.store.clearIdleSince(gameId);
         return;
@@ -101,7 +95,7 @@ export class IdleLobbyWatcher {
         // so a refill that landed while this callback was waiting keeps the room
         // alive instead of losing it to a race with its own timer.
         const fresh = await this.store.getMatchData(gameId);
-        if (fresh && fresh.status === 'WAITING' && fresh.idleSince && seatedCount(fresh) < 2) {
+        if (fresh?.status === 'WAITING' && fresh.idleSince && seatedCount(fresh) < 2) {
           await this.expireRoom(gameId);
         } else {
           await this.refresh(gameId);

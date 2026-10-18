@@ -74,7 +74,10 @@ export async function fetchWithCsrf(
 
   let res = await sendWithToken(input, base, token);
   if (res.status === 403) {
-    const body = (await res.clone().json().catch(() => null)) as { code?: string } | null;
+    const body = (await res
+      .clone()
+      .json()
+      .catch(() => null)) as { code?: string } | null;
     if (body?.code === 'CSRF_TOKEN_INVALID') {
       const fresh = await ensureCsrfToken(true);
       if (fresh && fresh !== token) res = await sendWithToken(input, base, fresh);
@@ -113,11 +116,9 @@ export function refreshOnce(): Promise<RefreshResult> {
   return refreshing;
 }
 
-// The tab holding the cross-tab lock posts; the others reuse its outcome, because
-// the rotated cookies are shared at browser level. A tab that hears nothing (no
-// BroadcastChannel, or the leader died mid-flight) posts as well: a duplicate is
-// the pre-fix behaviour, and postRefresh's probe keeps it from reading as a
-// logout.
+// The tab holding the cross-tab lock posts; the others reuse its outcome because
+// the rotated cookies are shared. A tab that hears nothing posts too: a duplicate
+// is harmless, and postRefresh's probe keeps it from reading as a logout.
 async function coordinatedRefresh(): Promise<RefreshResult> {
   const lease = refreshLock.acquire<RefreshResult>();
   if (lease.role === 'follower') {
@@ -140,20 +141,17 @@ async function postRefresh(): Promise<RefreshResult> {
   if (res.status !== 401 && res.status !== 403) {
     return { outcome: 'blocked', status: res.status, retryAfter: res.headers.get('Retry-After') };
   }
-  // Two 401s that need telling apart. AUTH_NOT_AUTHENTICATED is "no refresh
-  // cookie at all": nothing to have raced with, so the session is over.
-  // AUTH_SESSION_EXPIRED is an unknown token, which a second tab's rotation
-  // produces as well, so it goes to the probe.
+  // Two 401s to tell apart. AUTH_NOT_AUTHENTICATED means no refresh cookie, so the
+  // session is over. AUTH_SESSION_EXPIRED is an unknown token, which a second tab's
+  // rotation also produces, so it goes to the probe.
   const body = (await res.json().catch(() => null)) as { code?: string } | null;
   if (body?.code === 'AUTH_NOT_AUTHENTICATED') return { outcome: 'expired' };
   return probeSession();
 }
 
-// Tie-breaker for a lost rotation race: the cookies are shared, so once the
-// winning tab's response has landed /me answers 200 on the fresh access token.
-// Only a run of 401s means the session really is over; anything else (network,
-// throttle, server error) is reported as blocked, which no caller reads as a
-// logout.
+// Tie-breaker for a lost rotation race: once the winning tab's response lands, /me
+// answers 200 on the fresh token. Only repeated 401s mean the session is over;
+// network, throttle and server errors report blocked, which never reads as logout.
 async function probeSession(): Promise<RefreshResult> {
   for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt += 1) {
     const res = await fetch('/api/auth/me', withNgrokHeader()).catch(() => null);
@@ -185,9 +183,8 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
 }
 
 // Maps a backend error `code` to a localized message (errors.<CODE>), with a few
-// overrides that reuse existing keys. Returns null when there is no mapping; the
-// caller then uses a localized fallback. Server text is English by contract and
-// is never rendered — it goes to the console for diagnosis only.
+// overrides. Returns null when there is no mapping. Server text is never rendered:
+// it goes to the console for diagnosis only.
 const ERROR_KEY_OVERRIDES: Record<string, string> = {
   AVATAR_INVALID_TYPE: 'profile.fileTypeError',
 };

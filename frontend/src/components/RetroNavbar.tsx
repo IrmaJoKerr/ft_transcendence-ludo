@@ -183,7 +183,9 @@ export function RetroNavbar({
   const submitTwoFactor = async () => {
     setTwoFactorBusy(true);
     setTwoFactorError('');
-    const failure = await toggleTwoFactor(user?.hasPassword === false ? undefined : twoFactorPassword);
+    const failure = await toggleTwoFactor(
+      user?.hasPassword === false ? undefined : twoFactorPassword,
+    );
     setTwoFactorBusy(false);
     if (failure) {
       setTwoFactorError(failure);
@@ -193,8 +195,6 @@ export function RetroNavbar({
     setTwoFactorPrompt(false);
     setTwoFactorPassword('');
   };
-
-
 
   const fetchActiveGame = useCallback(() => {
     if (!user) {
@@ -481,128 +481,137 @@ export function RetroNavbar({
 
                 {/* 2. 2FA Security Toggle Option */}
                 <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    background: twoFactor ? 'rgba(0, 255, 136, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                    border: twoFactor ? '1px solid #00ff88' : '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: twoFactor ? '0 0 10px rgba(0, 255, 136, 0.2)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
-                  }}
-                  onClick={() => {
-                    // OAuth-only accounts have no password to confirm; the server
-                    // trusts their active session.
-                    if (user?.hasPassword === false) {
-                      void toggleTwoFactor();
-                      retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
-                      return;
-                    }
-                    setTwoFactorPrompt((open) => !open);
-                    setTwoFactorPassword('');
-                    setTwoFactorError('');
-                  }}
-                  title={t('navbar.toggle2fa')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: '1rem' }}>🛡️</span>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-display)',
-                        fontSize: '0.84rem',
-                        fontWeight: 900,
-                        color: '#ffffff',
-                      }}
-                    >
-                      {t('navbar.twoFactorLabel')}
-                    </span>
-                  </div>
-                  <span
+                  <div
                     style={{
-                      fontSize: '0.68rem',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 900,
-                      padding: '3px 8px',
-                      borderRadius: 4,
-                      background: twoFactor ? '#00ff88' : 'rgba(255, 255, 255, 0.12)',
-                      color: twoFactor ? '#0b021a' : 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      background: twoFactor
+                        ? 'rgba(0, 255, 136, 0.12)'
+                        : 'rgba(255, 255, 255, 0.04)',
                       border: twoFactor
                         ? '1px solid #00ff88'
-                        : '1px solid rgba(255, 255, 255, 0.18)',
+                        : '1px solid rgba(255, 255, 255, 0.1)',
+                      boxShadow: twoFactor ? '0 0 10px rgba(0, 255, 136, 0.2)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.18s ease',
                     }}
+                    onClick={() => {
+                      // OAuth-only accounts have no password to confirm; the server
+                      // trusts their active session.
+                      if (user?.hasPassword === false) {
+                        void toggleTwoFactor();
+                        retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
+                        return;
+                      }
+                      setTwoFactorPrompt((open) => !open);
+                      setTwoFactorPassword('');
+                      setTwoFactorError('');
+                    }}
+                    title={t('navbar.toggle2fa')}
                   >
-                    {twoFactor ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}
-                  </span>
-                </div>
-                {twoFactorPrompt && (
-                  <div style={{ padding: '8px 12px 2px' }}>
-                    <div
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '1rem' }}>🛡️</span>
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-display)',
+                          fontSize: '0.84rem',
+                          fontWeight: 900,
+                          color: '#ffffff',
+                        }}
+                      >
+                        {t('navbar.twoFactorLabel')}
+                      </span>
+                    </div>
+                    <span
                       style={{
-                        fontSize: '0.6rem',
-                        color: 'var(--text-muted)',
-                        marginBottom: 6,
+                        fontSize: '0.68rem',
                         fontFamily: 'var(--font-mono)',
-                        lineHeight: 1.4,
+                        fontWeight: 900,
+                        padding: '3px 8px',
+                        borderRadius: 4,
+                        background: twoFactor ? '#00ff88' : 'rgba(255, 255, 255, 0.12)',
+                        color: twoFactor ? '#0b021a' : 'var(--text-muted)',
+                        border: twoFactor
+                          ? '1px solid #00ff88'
+                          : '1px solid rgba(255, 255, 255, 0.18)',
                       }}
                     >
-                      {t('navbar.twoFactorPasswordPrompt')}
-                    </div>
-                    <input
-                      type="password"
-                      value={twoFactorPassword}
-                      onChange={(e) => setTwoFactorPassword(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void submitTwoFactor();
-                      }}
-                      autoComplete="current-password"
-                      autoFocus
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '6px 8px',
-                        borderRadius: 4,
-                        background: 'rgba(0,0,0,0.4)',
-                        color: 'var(--text-main)',
-                        border: '1px solid var(--border-color)',
-                        outline: 'none',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.72rem',
-                      }}
-                    />
-                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                      <button
-                        className={RETRO_BTN}
-                        type="button"
-                        disabled={twoFactorBusy}
-                        onClick={() => void submitTwoFactor()}
-                        style={{ flex: 1, padding: '3px 8px', fontSize: '0.62rem', color: 'var(--accent-cyan)' }}
-                      >
-                        {t('navbar.confirm')}
-                      </button>
-                      <button
-                        className={RETRO_BTN}
-                        type="button"
-                        disabled={twoFactorBusy}
-                        onClick={() => {
-                          setTwoFactorPrompt(false);
-                          setTwoFactorError('');
-                        }}
-                        style={{ padding: '3px 8px', fontSize: '0.62rem' }}
-                      >
-                        {t('navbar.cancel')}
-                      </button>
-                    </div>
-                    {twoFactorError && (
-                      <div style={{ fontSize: '0.62rem', color: '#ff0055', marginTop: 6 }}>
-                        {twoFactorError}
-                      </div>
-                    )}
+                      {twoFactor ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}
+                    </span>
                   </div>
-                )}
+                  {twoFactorPrompt && (
+                    <div style={{ padding: '8px 12px 2px' }}>
+                      <div
+                        style={{
+                          fontSize: '0.6rem',
+                          color: 'var(--text-muted)',
+                          marginBottom: 6,
+                          fontFamily: 'var(--font-mono)',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {t('navbar.twoFactorPasswordPrompt')}
+                      </div>
+                      <input
+                        type="password"
+                        value={twoFactorPassword}
+                        onChange={(e) => setTwoFactorPassword(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void submitTwoFactor();
+                        }}
+                        autoComplete="current-password"
+                        autoFocus
+                        style={{
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '6px 8px',
+                          borderRadius: 4,
+                          background: 'rgba(0,0,0,0.4)',
+                          color: 'var(--text-main)',
+                          border: '1px solid var(--border-color)',
+                          outline: 'none',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.72rem',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                        <button
+                          className={RETRO_BTN}
+                          type="button"
+                          disabled={twoFactorBusy}
+                          onClick={() => void submitTwoFactor()}
+                          style={{
+                            flex: 1,
+                            padding: '3px 8px',
+                            fontSize: '0.62rem',
+                            color: 'var(--accent-cyan)',
+                          }}
+                        >
+                          {t('navbar.confirm')}
+                        </button>
+                        <button
+                          className={RETRO_BTN}
+                          type="button"
+                          disabled={twoFactorBusy}
+                          onClick={() => {
+                            setTwoFactorPrompt(false);
+                            setTwoFactorError('');
+                          }}
+                          style={{ padding: '3px 8px', fontSize: '0.62rem' }}
+                        >
+                          {t('navbar.cancel')}
+                        </button>
+                      </div>
+                      {twoFactorError && (
+                        <div style={{ fontSize: '0.62rem', color: '#ff0055', marginTop: 6 }}>
+                          {twoFactorError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),

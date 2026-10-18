@@ -53,7 +53,8 @@ export class MatchPlayerService {
     if (await this.hasActiveMatch(userId)) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
-        message: 'You already have an active game. Leave it before creating or joining a new match.',
+        message:
+          'You already have an active game. Leave it before creating or joining a new match.',
       });
     }
 
@@ -132,7 +133,8 @@ export class MatchPlayerService {
     if (await this.hasActiveMatchExcept(userId, gameId)) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
-        message: 'You already have an active game. Leave it before creating or joining a new match.',
+        message:
+          'You already have an active game. Leave it before creating or joining a new match.',
       });
     }
 
