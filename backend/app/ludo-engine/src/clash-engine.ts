@@ -14,7 +14,7 @@ import {
 } from './clash';
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
-import { BUST_CAP } from './types';
+import { BARRIER_BUSTER_TOKEN_CAP } from './types';
 import type {
   PlayerColor,
   GameEvent,
@@ -407,6 +407,7 @@ export class ClashEngine {
           loserPresses: dCount,
           round: ledger.round,
           totalRounds: ledger.totalRounds,
+          resultCardUntil: state.resultCardUntil,
           continues: true,
           defenderPieceId,
           remainingDefenderIds: [...pc.remainingDefenderIds],
@@ -478,7 +479,10 @@ export class ClashEngine {
           // back, up to the cap. A won barrier pays nothing. Same branch as the credit
           // above, so the money and the tally cannot drift apart.
           if (capturedIds.length === 1) {
-            attackerMeta.barrierTokens = Math.min(BUST_CAP, (attackerMeta.barrierTokens ?? 0) + 1);
+            attackerMeta.barrierTokens = Math.min(
+              BARRIER_BUSTER_TOKEN_CAP,
+              (attackerMeta.barrierTokens ?? 0) + 1,
+            );
           }
         }
         result.clashOutcome = 'attacker_won';
@@ -525,6 +529,7 @@ export class ClashEngine {
         // false), so the client reads one shape for both.
         round: ledger.round,
         totalRounds: ledger.totalRounds,
+        resultCardUntil: state.resultCardUntil,
         continues: false,
         defenderPieceId,
         remainingDefenderIds: [],

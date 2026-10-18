@@ -1,5 +1,4 @@
 import type { RedisGameStore } from './redis';
-import type { EventPublisher } from './socket/event-publisher';
 import type { PlayerColor, RoomRules } from './types';
 
 const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
@@ -7,12 +6,9 @@ const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 // LobbyManager: color/seat selection for waiting rooms. Keeps the match hash
 // and the live engine GameState in sync when players pick or swap colors.
 export class LobbyManager {
-  // Redis persistence for game/match state, and the publisher used to push
-  // lobby update events to connected clients.
-  constructor(
-    private store: RedisGameStore,
-    private publisher: EventPublisher,
-  ) {}
+  // Redis persistence for game/match state. Lobby broadcasts are published by the
+  // socket layer from the saved state, so this module needs no publisher.
+  constructor(private store: RedisGameStore) {}
 
   // Assign (or swap) a seat color in a waiting room, keeping the match hash and the
   // live engine state in sync. Thrown messages carry i18n codes, not prose: the socket

@@ -22,6 +22,9 @@ export type ClashResult = {
   // The engine's id for THIS card ("attacker-defender-moveCounter"), echoed back by
   // the release handshake. Optional so a frame from an older engine still reads.
   cardId?: string;
+  // The card's deadline on the engine clock: the post-clash gates use the real end
+  // instead of the 4 s ceiling. Absent on an older engine.
+  resultCardUntil?: number;
 };
 
 export type GameViewState = {
@@ -236,15 +239,23 @@ export function applyEvent(
       };
     }
     case 'clash_result':
-      // Keep the clash object through the result card: the overlay renders only while
-      // `view.clash` is truthy, and its onComplete timer fires `clash_clear`. Nulling it
-      // here would unmount the overlay and leave `clashResult` set forever.
-      return { ...state, clashResult: event as unknown as ClashResult };
+      // Keep `clash` through the result card: the overlay renders only while `view.clash`
+      // is truthy and its timer fires `clash_clear`; nulling it here would leave
+      // `clashResult` set. The card's deadline is kept so the gates read its real end.
+      return {
+        ...state,
+        clashResult: event as unknown as ClashResult,
+        resultCardUntil:
+          (event.resultCardUntil as number | null | undefined) ?? state.resultCardUntil,
+      };
     case 'clash_card_released':
-      // The engine's release: every participating client reported its card was done,
-      // so the clash is over (the server dropped it and shortened the freeze). Both
-      // slices go; the overlay's own timer is only the fallback for this frame.
-      return { ...state, clash: null, clashResult: null };
+      // The card keeps its own clock: the overlay's timer ends it at CLASH_RESULT_MS.
+      // The engine emits this a round trip into the card, so it only carries the
+      // shortened freeze; clearing here would hide the result before it is read.
+      return {
+        ...state,
+        resultCardUntil: (event.resultCardUntil as number | undefined) ?? state.resultCardUntil,
+      };
     case 'clash_press': {
       const e = event as unknown as { color: PlayerColor; presses: number };
       if (!state.clash) return state;

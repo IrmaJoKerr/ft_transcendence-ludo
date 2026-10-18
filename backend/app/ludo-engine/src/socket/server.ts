@@ -65,8 +65,8 @@ export class SocketServer {
   private httpServer!: http.Server;
   private store: RedisGameStore;
   private engine: LudoEngine;
-  // Owns clash record lifecycle (create/validate/count/clear). The engine runs
-  // the QTE timers; this is the state side both share.
+  // Owns the clash record's life (create/validate/count). The engine runs the QTE
+  // timers and applies the outcome; this is the state side both share.
   private clashManager: ClashManager;
   private publisher: EventPublisher;
   private broadcaster: RedisBroadcaster;
@@ -89,7 +89,7 @@ export class SocketServer {
     this.publisher = new EventPublisher(this.store);
     this.clashManager = new ClashManager(this.store, this.publisher);
     this.engine = new LudoEngine(this.store, this.clashManager);
-    const lobbyManager = new LobbyManager(this.store, this.publisher);
+    const lobbyManager = new LobbyManager(this.store);
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();
     // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
@@ -97,9 +97,7 @@ export class SocketServer {
     this.idleLobby = new IdleLobbyWatcher(this.store, this.rooms, IDLE_LOBBY_TIMEOUT_MS, (gameId) =>
       this.expireIdleLobby(gameId),
     );
-    this.resultSubmitter = new ResultSubmitter(this.engine, this.store, this.rooms, (gameId) => {
-      this.cleanupGame(gameId);
-    });
+    this.resultSubmitter = new ResultSubmitter(this.engine, this.store, this.rooms);
     this.botScheduler = new BotTurnScheduler(this.store, this.engine, getOrCreateBot);
     this.postGame = new PostGameManager(
       () => this.io,
@@ -146,13 +144,13 @@ export class SocketServer {
         this.botScheduler.schedule(event.gameId, BOT_THINK_MS);
         void this.resultSubmitter.notifyGameStarted(event.gameId);
       } else if (event.type === 'piece_moved') {
-        // Wait for the move's box-by-box animation to finish on screen
-        // (path.length steps) plus a short thinking pause before acting again.
-        const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
-        // A move that settled a clash keeps every input frozen for the result
-        // card, so the bot's next action waits that card out too.
-        const clashCardMs = event.result.clashOutcome ? CLASH_RESULT_FREEZE_MS : 0;
-        this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS + clashCardMs);
+        // Wait for the box-by-box animation (path.length steps) and a thinking pause.
+        // A move that settled a clash is the exception: `clash_result` owns the
+        // card's deadline, and one owner keeps the guards from stacking.
+        if (!event.result.clashOutcome) {
+          const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
+          this.botScheduler.schedule(event.gameId, animMs + BOT_THINK_MS);
+        }
       } else if (event.type === 'dice_rolled') {
         // Only trigger bot turn if no legal moves (turn auto-advanced)
         // Wait for the 750ms frontend dice-roll animation plus thinking pause
@@ -169,8 +167,17 @@ export class SocketServer {
         // the countdown and press race unguarded.
         this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
       } else if (event.type === 'clash_result') {
-        // Stay frozen through the result card, then let the bot resume.
-        this.botScheduler.setClashFreeze(event.gameId, Date.now() + CLASH_RESULT_FREEZE_MS);
+        // The card is the pause: freeze to its own deadline (a card nobody human
+        // sits on ends at the short ceiling, not the 4 s one) and hand the bot's
+        // resume to it. `clash_card_released` re-arms when a receipt shortens it.
+        const cardUntil = event.resultCardUntil ?? Date.now() + CLASH_RESULT_FREEZE_MS;
+        this.botScheduler.setClashFreeze(event.gameId, cardUntil);
+        if (!event.continues) {
+          this.botScheduler.schedule(
+            event.gameId,
+            Math.max(0, cardUntil - Date.now()) + BOT_THINK_MS,
+          );
+        }
       } else if (event.type === 'clash_card_released') {
         // The card ended early (every client reported it was done): shorten the bots'
         // guard and re-arm their turn against the new deadline. `schedule` reads the

@@ -58,13 +58,14 @@ export type ServerEvents = {
     loserPresses: number;
     round?: number;
     totalRounds?: number;
+    resultCardUntil?: number;
     continues?: boolean;
     defenderPieceId?: string;
     remainingDefenderIds?: string[];
   }) => void;
-  // The result card's hold ended: every participating client reported it was done, so
-  // the engine shortened the freeze and says the clash is over. The card itself stays
-  // the client's own presentation clock.
+  // The result card's hold: every participating client reported how long its card
+  // runs, so the engine fixed the freeze at the shortened deadline. The card itself
+  // stays the client's own presentation clock.
   clash_card_released: (e: { gameId: string; resultCardUntil: number }) => void;
   game_started: (e: { gameId: string }) => void;
   game_ended: (e: { winner: PlayerColor; resultDetail: string }) => void;

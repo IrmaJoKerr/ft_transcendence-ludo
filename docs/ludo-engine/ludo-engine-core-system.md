@@ -393,7 +393,7 @@ move_piece(pieceId)
 
 ### Barrier Buster Path
 
-The Barrier Buster is the token-priced LANDING: one token per seat, dealt by `createGame`, that pays
+The Barrier Buster is the token-priced LANDING: `STARTING_BUSTER_TOKENS` per seat, dealt by `createGame`, that pays
 for a fight on a wall the roll reaches exactly. It never crosses a barrier and never waives the
 exit-roll gate: the roll still has to reach the wall's square exactly. The route does not matter (an
 armed prison exit, an on-board landing and a free-exit landing all pay the same one token), so with
@@ -432,7 +432,7 @@ it is refused unless EVERY pending move is priced (an ordinary move on the table
 played, not skipped), there is no 6 carve-out (a 6 offers no priced move, so the gate already covers
 it), and the socket layer drops a refusal silently.
 
-**The economy.** Seed 1, cap `BUST_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
+**The economy.** Seed `STARTING_BUSTER_TOKENS` (1), cap `BARRIER_BUSTER_TOKEN_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
 inside the game lock and against the state it has just re-read, before the clash gate, so a replayed
 emit finds the move snapshot cleared and cannot spend a second, while a chain that repulses the
 attacker keeps the token spent. The income comes from the same clash branch that credits

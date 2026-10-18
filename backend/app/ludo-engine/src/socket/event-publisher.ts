@@ -152,6 +152,7 @@ export class EventPublisher {
             // clash publishes 1/1 with continues false.
             round: event.round ?? 1,
             totalRounds: event.totalRounds ?? 1,
+            resultCardUntil: event.resultCardUntil ?? null,
             continues: event.continues ?? false,
             defenderPieceId: event.defenderPieceId ?? null,
             remainingDefenderIds: event.remainingDefenderIds ?? [],

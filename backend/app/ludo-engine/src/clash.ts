@@ -49,9 +49,9 @@ export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
-// ClashManager owns one clash QTE: start, validate and count presses, publish the
-// result, then clear it. Timers, the recovery sweep and bot pressers live in
-// clash-engine.ts; the clash is persisted inside the game state.
+// ClashManager owns one clash QTE's state: start it, validate and count presses.
+// clash-engine.ts applies and publishes the outcome, clears `state.clash`, and owns
+// the timers, the recovery sweep and the bot pressers. The clash is stored in the state.
 export class ClashManager {
   constructor(
     private store: RedisGameStore,
@@ -159,23 +159,5 @@ export class ClashManager {
       presses: meter,
     });
     return meter;
-  }
-
-  // Publish the outcome and clear the clash. The deferred move is applied by the
-  // caller (clash-engine.ts resolveClashOutcome), which owns the game lock.
-  async resolveClash(gameId: string, winner: PlayerColor, loser: PlayerColor): Promise<void> {
-    const clash = await this.store.loadClashState(gameId);
-    if (!clash) return;
-
-    this.publisher.publish({
-      type: 'clash_result',
-      gameId,
-      winner,
-      loser,
-      winnerPresses: winner === clash.attacker ? clash.attackerPresses : clash.defenderPresses,
-      loserPresses: loser === clash.attacker ? clash.attackerPresses : clash.defenderPresses,
-    });
-
-    await this.store.clearClashState(gameId);
   }
 }

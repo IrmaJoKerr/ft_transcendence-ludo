@@ -13,14 +13,12 @@ function getEngineApiKey(): string {
   return key;
 }
 
-// ResultSubmitter: posts finished-game results to the backend and cleans up
-// in-memory state.
+// ResultSubmitter: posts finished-game results to the backend.
 export class ResultSubmitter {
   constructor(
     private engine: LudoEngine,
     private store: RedisGameStore,
     private rooms: RoomRegistry,
-    private cleanup: (gameId: string) => void,
   ) {}
 
   // POST the finished game's results to the backend /api/game/end exactly

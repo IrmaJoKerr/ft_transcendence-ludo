@@ -99,10 +99,10 @@ function MiniDie({ value }: { value: number }) {
 // color, regardless of the Lobby seat-picker's own (unrelated) display order.
 const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
-// The Barrier Buster hand cap, mirrored from the engine (types.ts BUST_CAP): the
-// wall-break cell draws exactly this many glyph slots, so an empty hand reads as
-// empty rather than as a row that vanished.
-const BUST_CAP = 3;
+// The Barrier Buster hand cap, mirrored from the engine
+// (types.ts BARRIER_BUSTER_TOKEN_CAP): the wall-break cell draws exactly this many
+// glyph slots, so an empty hand reads as empty rather than as a row that vanished.
+const BARRIER_BUSTER_TOKEN_CAP = 3;
 // The wall break tokens panel: its width and the gap in front of it. That span is how
 // much further the roster box overhangs its grid track in clash mode; a smaller
 // CARD_ROOM_OVERHANG is always added, so the cards come out the same width.
@@ -680,8 +680,8 @@ export function Game() {
     socket.on('clash_phase', handleEngineEvent);
     socket.on('clash_press', handleEngineEvent);
     socket.on('clash_result', handleEngineEvent);
-    // The result card's hold ended: the engine shortened the freeze and says the clash
-    // is over. The reducer clears the clash slices on it.
+    // The result card's hold: the engine fixed the freeze at the shortened deadline.
+    // The reducer keeps the card, which its own timer ends.
     socket.on('clash_card_released', handleEngineEvent);
     // The host flipped the room rules: the frame carries what the engine
     // actually persisted, not what was asked for.
@@ -1940,7 +1940,7 @@ export function Game() {
                                   lineHeight: 1,
                                 }}
                               >
-                                {Array.from({ length: BUST_CAP }, (_, slot) => (
+                                {Array.from({ length: BARRIER_BUSTER_TOKEN_CAP }, (_, slot) => (
                                   <span key={slot} style={{ opacity: slot < tokens ? 1 : 0.22 }}>
                                     {BUSTER_GLYPH}
                                   </span>

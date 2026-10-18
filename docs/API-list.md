@@ -2552,7 +2552,7 @@ socket.emit('clash_card_hold', 'blue-red-41', 2400);
 | `cardId` | string | `"<attacker>-<defender>-<moveCounter>"`, echoed from `clash_result` |
 | `holdMs` | number | Forecast card duration in ms |
 
-**Response:** `clash_card_released` once every participating user has reported (or the card has no human in it).
+**Response:** `clash_card_released` once every participating user has reported its card's length (or the card has no human in it).
 
 **Errors:** `error` only for a caller with no seat in that card; a foreign `cardId` is dropped silently, and a receipt after the release does nothing.
 
@@ -2692,8 +2692,8 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 | `clash_start` | `{ attacker, defender, attackerKey, defenderKey, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase |
 | `clash_phase` | `{ phase, countdownDeadline, pressDeadline }` | The QTE moves announce → countdown → pressing |
 | `clash_press` | `{ color, presses }` | An accepted `clash_input` press |
-| `clash_result` | `{ cardId, winner, loser, winnerPresses, loserPresses, round, totalRounds, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `continues: true` means the square still holds defenders and another round follows |
-| `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card done; the input freeze ends at `resultCardUntil` |
+| `clash_result` | `{ cardId, winner, loser, winnerPresses, loserPresses, round, totalRounds, resultCardUntil, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `continues: true` means the square still holds defenders and another round follows; `resultCardUntil` is the card's deadline, which the bots' next turn is timed from |
+| `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card's length; the input freeze ends at `resultCardUntil` and the SPA card keeps its own timer |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
 | `game_timeout` | none | Post-game lobby expired (60s) — room torn down |
