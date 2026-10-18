@@ -5,7 +5,15 @@ import { Die } from '../components/Die';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor, PlayerMeta } from '../game/types';
-import { ClashOverlay, CLASH_RESULT_MS } from '../game/ClashOverlay';
+import { ClashOverlay } from '../game/ClashOverlay';
+import {
+  CARD_HOLD_MARGIN_MS,
+  CLASH_RESULT_MS,
+  DICE_ROLL_ANIM_MS,
+  MOVE_STEP_ANIM_MS,
+  PENDING_MOVE_GUARD_MS,
+  RESULTS_MODAL_DELAY_MS,
+} from '../game/timing';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
@@ -102,10 +110,6 @@ const BUST_CAP = 3;
 // only difference between them), with room for the display names either way.
 const BUSTER_PANEL_W = 96;
 const BUSTER_PANEL_GAP = 10;
-// The result-card handshake: the client's own card duration plus a margin that
-// absorbs the receipt's one-way trip. The engine converts it to a deadline on
-// receipt and clamps it, so this is a forecast, never a local gate.
-const CARD_HOLD_MARGIN_MS = 200;
 const CARD_ROOM_OVERHANG = 46;
 // The wall-break token glyph. A padlock read as "locked"; dynamite (or a
 // sledgehammer) reads as "breaker", which is what the toggle actually does. One
@@ -237,7 +241,6 @@ export function Game() {
   // Set when move_piece emits, cleared on piece_moved/rejection: blocks a
   // second click from firing a duplicate move the engine rejects.
   const pendingMoveRef = useRef(false);
-  const STEP_ANIM_MS = 180;
   // Capture burst FX: a short ring + sparks on the landing square when a piece
   // is captured. Set at the end of the mover's walk and cleared after the burst
   // plays out, so it is visual only and never touches game state.
@@ -573,19 +576,19 @@ export function Game() {
                 return;
               }
               setAnimatingPiece({ pieceId: e.pieceId, step: path[i] });
-            }, STEP_ANIM_MS);
+            }, MOVE_STEP_ANIM_MS);
           } else if (path.length === 1) {
             setAnimatingPiece({ pieceId: e.pieceId, step: path[0] });
             setTimeout(() => {
               finishMove();
-            }, STEP_ANIM_MS);
+            }, MOVE_STEP_ANIM_MS);
           } else {
             finishMove();
           }
         };
 
         if (isRollingRef.current) {
-          setTimeout(runStepAnimation, 750);
+          setTimeout(runStepAnimation, DICE_ROLL_ANIM_MS);
         } else {
           runStepAnimation();
         }
@@ -642,7 +645,7 @@ export function Game() {
         });
         setTimeout(() => {
           setShowResultsModal(true);
-        }, 900);
+        }, RESULTS_MODAL_DELAY_MS);
       }
     };
 
@@ -872,7 +875,7 @@ export function Game() {
     // guard so the next move is not blocked.
     setTimeout(() => {
       pendingMoveRef.current = false;
-    }, 3000);
+    }, PENDING_MOVE_GUARD_MS);
   };
 
   // Skip: the deliberate way out of a turn the armed exit is holding. The token

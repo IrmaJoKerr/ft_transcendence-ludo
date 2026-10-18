@@ -247,8 +247,9 @@ export function Profile() {
         credentials: 'include',
       });
       if (!res.ok) {
-        const err = await res.json();
-        setUploadError(translateErrorCode(err?.code) ?? err?.message ?? t('profile.uploadFailed'));
+        const err: { code?: string; message?: string } | null = await res.json().catch(() => null);
+        if (err?.message) console.error('[avatar]', err.message);
+        setUploadError(translateErrorCode(err?.code) ?? t('profile.uploadFailed'));
       } else {
         retroAudio.playUiBeep(880, 0.06);
         if (user) setUser({ ...user, hasAvatarPhoto: true });

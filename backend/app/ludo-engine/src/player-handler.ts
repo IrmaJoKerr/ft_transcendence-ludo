@@ -1,9 +1,8 @@
 import type { GameState, PlayerColor, GameEvent } from './types';
 import type { RedisGameStore } from './redis';
+import { DISCONNECT_GRACE_MS, SINGLE_SOCKET_DISCONNECT_GRACE_MS } from './timing';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
-const DISCONNECT_GRACE_MS = 45000; // 45 seconds to reconnect before the player is pruned (PvP window)
-const SINGLE_SOCKET_DISCONNECT_GRACE_MS = 60 * 60 * 1000; // 1 hour to reconnect before auto-abort (bot-mode games)
 
 // First active seat in color order. currentTurn must always point at a
 // seated color : pre-game color swaps mean 'blue' isn't guaranteed occupied,

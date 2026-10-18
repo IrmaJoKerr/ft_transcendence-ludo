@@ -51,6 +51,9 @@ export class MoveValidator {
       // Skip if already finished (step === 57)
       if (from === 57) continue;
 
+      // LANDING RULE (see the core doc): a move fights ONLY the square it lands on. A
+      // single defender there is the capture, a wall there is the chain, and nothing is
+      // attacked on a square the piece passes over, on any route (an exit included).
       // Prison exit rule: a piece leaves prison on a 6, and that 6 lands it on
       // step 1 (the remaining 5 steps are not applied). Under the free exit room
       // rule any roll opens the prison and the first step out counts as part of

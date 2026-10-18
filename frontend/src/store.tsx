@@ -25,14 +25,14 @@ export type AuthUser = {
   hasAvatarPhoto?: boolean;
 };
 
-/** Pulls a readable, localized message out of nestjs error body  */
+/** Pulls a localized message out of a nestjs error body. The server `message` is
+ * English by contract: log it and fall back to the caller's localized string. */
 function apiError(body: unknown, fallback: string): string {
   const b = body as { code?: string; message?: string | string[] } | null;
   const localized = translateErrorCode(b?.code);
   if (localized) return localized;
-  const message = b?.message;
-  if (Array.isArray(message)) return message.join('. ');
-  return typeof message === 'string' ? message : fallback;
+  if (b?.message) console.error('[api]', b.message);
+  return fallback;
 }
 
 /** Outcome of redeeming an emailed verify link. 'error' means the request itself

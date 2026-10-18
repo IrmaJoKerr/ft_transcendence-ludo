@@ -51,6 +51,7 @@ input/output. Each event is documented in full below; see
 | `clash_card_hold` | Either side of a live result card (the client that is showing it) | `(cardId: string, holdMs: number)` | The result-card release handshake. The client forecasts how long its OWN card will run; the engine converts it to a deadline on receipt, clamps it to `[CARD_HOLD_MIN_MS, CLASH_RESULT_FREEZE_MS]` and keeps the SMALLEST, so a receipt can only ever shorten the freeze and a missing one leaves the 4 s ceiling. Only a user who owns a seat in that card may report: a foreign `cardId` is dropped, a stranger is refused, and a receipt after the release does nothing. Hotseat is one user over both seats, so one receipt releases the card | `clash_card_released` |
 | `player_ready` | Seated player in the waiting lobby | `()` | Mark ready; when every active player is ready the game starts | `game_started` |
 | `select_color` | Seated player during color selection | `(color: 'red'/'green'/'yellow'/'blue')` | Move the player to the requested seat color; clears Ready on both colors involved | `color_selected` + `lobby_update` |
+| `update_modifiers` | Host, room still `WAITING` | `(rules: { clashEnabled, noSafeZones, freeExit })` | Normalize and persist the three room rules (mirrored into the match hash). Rejected when the caller is not the host or the room has started | `modifiers_updated` |
 | `leave_game` | Player leaving a room (e.g. after a match) | `()` | Waiting room: seat parked `inactive` and reserved. Live game: seat parked `exited`, pieces cleared, turn advances | `player_exited` (+ `state_update` live) |
 | `end_game` | Host presses "End Game" | `()` | PvE/hotseat: abort the whole game. PvP: prune this player, abort the room if fewer than 2 humans remain | `game_expired` or `player_aborted` |
 | `disconnect` | Socket drops (automatic) | — | Start the reconnect grace period, but only for a live, unfinished **active** seat — an exited/finished seat has no pieces left and must not be revivable. In **PvP**, dropping during your own turn also pauses the game (`paused` + `pauseTurnOwner`); dropping during someone else's turn lets play continue until the turn reaches the departed seat, which then simply waits | `player_disconnected`, then `player_reconnected` or `player_exited` |
@@ -84,6 +85,7 @@ input/output. Each event is documented in full below; see
 | `seat_expired` | A `join_game` for a seat already removed (left, or its grace window expired) | `{ gameId, color }` | Sent to that socket only — the seat is gone for good, so the client shows the end-of-match card and leaves |
 | `lobby_update` | Lobby seats / ready state changed | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Room-wide |
 | `color_selected` | A seat color change | `{ gameId, userId, color }` | Room-wide |
+| `modifiers_updated` | The host changed the room rules while the room was waiting | `{ gameId, clashEnabled, noSafeZones, freeExit }` | Room-wide. Carries what was actually persisted, not what the caller sent |
 | `state_update` | A live exit moved the turn (and cleared the departed seat's pieces), a PvP disconnect set/cleared the reconnect pause, or a Barrier Buster change landed (arm, disarm, a token spent on an attempt, an armed move, a Skip, or the end of a clash chain) | full `GameState` (includes `paused` / `pauseTurnOwner` / `players[].barrierArmed` / `players[].barrierTokens` / `resultCardUntil`) | Room-wide. The SPA's reducer merges it field by field; it is also the fallback for any other pub/sub frame. Because the switch and the hand ride `players[]`, this is what refreshes every client's token column and ARM badge |
 | `error` | Invalid action / failed authentication | `string` | Sent to the offending socket |
 
@@ -181,7 +183,8 @@ The same `new Server(...)` call bounds what a connected socket may send:
 
 | Setting | Value | Why |
 |---|---|---|
-| `maxHttpBufferSize` | 100 KB | the largest legitimate event (`join_game` carrying the lobby's names) is a few KB, so the 1 MB default is headroom only an attacker would use |
+| `maxHttpBufferSize` | 64 KB | the largest legitimate event (`join_game` carrying the lobby's names) is a few KB, so 64 KB is the OWASP figure and nothing legitimate comes close |
+| sockets per user | 4 | `ConnectionCounter` refuses the handshake past this. The arithmetic: one active socket, one stale while a refresh reconnects (reaped by the 15 s ping timeout), one for a clash pipe if that architecture ever ships, one slack. More than one tab is pointless. |
 | `pingInterval` / `pingTimeout` | 10 s / 15 s | a dead socket is detected within ~25 s, comfortably inside the 45 s reconnect window in `player-handler.ts`, so a dropped player's seat is still reclaimable |
 | per-socket event bucket | 20 events / 5 s | `socket.use()` sees every inbound event before a handler does; over budget closes the socket (`socket.disconnect(true)`), which runs the ordinary disconnect path so the seat follows the normal grace window |
 
@@ -233,6 +236,10 @@ sequenceDiagram
     Player->>Engine: roll_dice
     Engine-->>Player: dice_rolled (value + movable pieces)
     Player->>Engine: move_piece (pieceId)
+    opt The landing square holds a defender and clash mode is on
+        Engine-->>Player: clash_start (one round per defender)
+        Note over Player,Engine: the chain applies the move on its last round
+    end
     Engine-->>Player: piece_moved
     Engine-->>Player: game_ended (if someone won)
 ```
@@ -617,17 +624,18 @@ Module-level constants in the socket layer — edit the value at the top of the 
 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
-| `IDLE_LOBBY_TIMEOUT_MS` | `socket/server.ts` | 5 min | A WAITING room (< 2 seated) is aborted once its persisted `idleSince` stamp is this old. Armed per room in its `RoomContext` from the join and departure events, and replayed by the wake pass |
-| `POST_GAME_TIMEOUT_MS` | `socket/server.ts` | 60 s | Post-game room auto-times-out after a game ends. Armed in the room's `RoomContext` and re-armed by the wake pass |
-| `BOT_STEP_ANIM_MS` | `socket/server.ts` | 220 ms | Per-step piece-move animation pacing used to time bot turns |
-| `BOT_THINK_MS` | `socket/server.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
+| `IDLE_LOBBY_TIMEOUT_MS` | `timing.ts` | 5 min | A WAITING room (< 2 seated) is aborted once its persisted `idleSince` stamp is this old. Armed per room in its `RoomContext` from the join and departure events, and replayed by the wake pass |
+| `POST_GAME_TIMEOUT_MS` | `timing.ts` | 60 s | Post-game room auto-times-out after a game ends. Armed in the room's `RoomContext` and re-armed by the wake pass |
+| `MOVE_STEP_ANIM_MS` / `BOT_MOVE_STEP_MS` | `timing.ts` | 180 / 220 ms | Per-step piece-move animation pacing used to time bot turns |
+| `BOT_THINK_MS` | `timing.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
 | (removed) lobby and grace sweeps | `socket/server.ts` | — | The two 60 s `setInterval` sweeps were deleted with the restart-recovery work. See *Wake pass* above: deadlines are armed per room and replayed after a restart |
-| (inline) dice-anim wait | `socket/server.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
+| `DICE_ROLL_ANIM_MS` | `timing.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
 | `SLOT_COLORS` | `socket/join-manager.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |
 | `BOT_PREFIX` | `socket/auth.ts` | `bot-` | Prefix that marks a user id as a bot |
 | `BACKEND_URL` | `socket/auth.ts` | `http://backend:3000` | Base URL the engine POSTs results to (env `BACKEND_URL`) |
-| `MAX_EVENT_BYTES` | `socket/server.ts` | 100 KB | Largest inbound event socket.io buffers and parses (`maxHttpBufferSize`) |
-| `PING_INTERVAL_MS` | `socket/server.ts` | 10 s | Socket.IO ping interval |
-| `PING_TIMEOUT_MS` | `socket/server.ts` | 15 s | How long a socket has to answer a ping before it is closed |
+| `MAX_EVENT_BYTES` | `socket/server.ts` | 64 KB | Largest inbound event socket.io buffers and parses (`maxHttpBufferSize`), the OWASP figure |
+| `MAX_SOCKETS_PER_USER` | `socket/server.ts` | 4 | Concurrent sockets one account may hold; `ConnectionCounter` refuses the next handshake |
+| `PING_INTERVAL_MS` | `timing.ts` | 10 s | Socket.IO ping interval |
+| `PING_TIMEOUT_MS` | `timing.ts` | 15 s | How long a socket has to answer a ping before it is closed |
 | `EVENT_LIMIT` | `socket/server.ts` | 20 | Events a socket may spend from its bucket |
-| `EVENT_WINDOW_MS` | `socket/server.ts` | 5 s | Window the bucket refills over |
+| `EVENT_WINDOW_MS` | `timing.ts` | 5 s | Window the bucket refills over |

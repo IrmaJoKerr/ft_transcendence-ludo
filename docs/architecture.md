@@ -260,7 +260,7 @@ and after a Redis reconnect (see [Engine restart recovery](#engine-restart-recov
 
 Prisma-managed, schema at `backend/prisma/schema.prisma`.
 
-**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (15 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
+**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (16 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
 **Enums:** `FriendshipStatus`, `PlayerColor`, `GameStatus`, `GameType`
 
 Schema is applied with `npx prisma db push` (**no** `--accept-data-loss`) from
@@ -330,8 +330,8 @@ by a backend-only departure). `wakeInFlight` skips an overlapping pass, and ever
 re-validates against live state, so replaying an already-settled deadline is a no-op.
 
 Steady state has **no periodic scan**. Each deadline is armed by the event that creates it (a join, a
-departure, a game end), which is why the two 60 s `setInterval` sweeps the engine used to run are
-gone. A `join_game` is also refused when the match hash is missing or `ABORTED`
+departure, a game end), so no interval runs in the background. A `join_game` is also refused when the
+match hash is missing or `ABORTED`
 (`MATCH_GAME_NOT_FOUND`), so a client cannot enter a room the engine has already abandoned.
 
 Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.md) → Wake pass, and
@@ -353,7 +353,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `UserModule` | `/api/user` | Profile, avatar, game history |
 | `FriendsModule` | `/api/friends` | Requests, accept/decline, block |
 | `LeaderboardModule` | `/api/leaderboard` | Rankings, Redis sorted sets (Postgres backfill when the set is empty; a Redis outage surfaces as an error) |
-| `AchievementsModule` | `/api/achievements` | 15 Ludo achievements |
+| `AchievementsModule` | `/api/achievements` | 16 Ludo achievements |
 | `StatsModule` | `/api/stats` | Per-player aggregates |
 | `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle |
 | `PresenceModule` | `/api/presence` | Online/offline/playing presence tracking |
@@ -386,25 +386,7 @@ boundary rests on three properties:
 
 - **The engine is only reachable same-origin.** `ludo-engine` publishes `127.0.0.1:3001` only, and the browser connects to `/socket.io/` on its own origin, which nginx proxies: a loopback connection on its own is never enough to reach a game.
 - **Every socket is authenticated by a match token, and the token, not the client, names the room and the seat.** The backend mints that token only for a seat the caller still owns, in a game the engine has neither started nor finalized.
-- **The handshake is bounded before it is authenticated.** The engine answers only the origins on its `CORS_ORIGIN` allow-list (`FRONTEND_URL` + `NGROK_FRONTEND_URL`) and refuses to boot when that list is empty instead of falling back to `origin: '*'`; events are capped at 100 KB, the engine pings every 10 s and closes a socket that takes more than 15 s to answer, and a socket that drains its 20-events-per-5 s bucket is closed.
-
-The table below lists the holes found in the first version of this boundary, why each one mattered, and the rule that now closes it. The engine-side rules are described in [`ludo-engine/ludo-engine-socket-system.md`](ludo-engine/ludo-engine-socket-system.md) (handshake, `join_game`, `disconnect`), the minting and seat gates in [`backend/backend-match-module.md`](backend/backend-match-module.md), and the rejoin row the UI derives from `mySeat` in [`frontend/frontend-lobby-module.md`](frontend/frontend-lobby-module.md).
-
-| # | Hole (before) | Why it mattered | Fix (now) | Code |
-|---|---|---|---|---|
-| 1 | The engine verified handshake tokens against the session `JWT_SECRET`, with no audience or token-type check | Any session access token, or a token minted by any service sharing that key, was also a valid game token, so one leaked key forged both session and seat credentials | The engine has its own `ENGINE_JWT_SECRET`: a token must carry `aud: 'ludo-engine'`, be `HS256`, have a signature that compares in constant time and a live `exp`, and the boot preflight refuses to start without the key | `backend/src/match/engine-token.util.ts`, `backend/app/ludo-engine/src/socket/auth.ts`, `backend/docker-entrypoint.sh`, `Makefile` |
-| 2 | `join_game` took the room from the client whenever the socket had no `gameId` of its own, and nothing ever cleared that binding | The room a socket acted in was not necessarily the room named by its token, and a refused socket stayed bound to the room it already had | The token's match id is kept as `tokenGameId`, is the authoritative id for `join_game`, and `detachSocket()` never clears it, so a refusal cannot re-point a socket at another game | `backend/app/ludo-engine/src/socket/server.ts`, `socket/join-manager.ts` |
-| 3 | A refused join returned without leaving the room or clearing `socket.data.gameId` / `playerColor` | The refused socket received every broadcast of a game it was not in, and its close ran `handleDisconnect`, which marked that seat disconnected and opened the 45 s grace window for a player who was online | `detachSocket()` leaves the room and clears both fields before the refusal is emitted, so the refused socket's later close is a no-op | `backend/app/ludo-engine/src/socket/join-manager.ts`, `socket/socket-handlers.ts` |
-| 4 | The in-progress guard refused every non-reconnecting join | A seat the engine still held as `active` or `disconnected` (for example right after an abrupt close, before the grace bookkeeping ran) could not be resumed by its own owner | The guard also accepts a join whose token seat is resumable (`active` / `disconnected`); only a seat the engine finalized (`exited`) or never seated is refused, and that one gets `seat_expired` | `backend/app/ludo-engine/src/socket/join-manager.ts` |
-| 5 | Nothing unbound an older socket holding the same room + colour | A duplicate tab could keep its binding, and its close marked the seat disconnected while the newer socket was live | An accepted join calls `evictSeatSiblings()`, which detaches any other socket bound to that room + colour, without opening a grace window | `backend/app/ludo-engine/src/socket/join-manager.ts` |
-| 6 | `POST /api/match/create` reused any `WAITING`/`ACTIVE` room the caller was seated in and then wrote that hash again (`status`, `createdAt`, `inviteCode`) | A started game could be rewritten to `WAITING` and re-advertised as a lobby, and a seat the engine had already taken away could be handed back | `findReusableRoom()` reuses a room only when it is `WAITING` PvP, its engine game has not started and the caller's seat is not finalized; `handoffExistingRoom()` writes nothing to the hash; every other create gets a fresh `gameId` | `backend/src/match/match.creator.service.ts` |
-| 7 | `isSeatFinalized()` was consulted only when the hash said `ACTIVE` | A seat the engine had already pruned (`exited`) under any other hash status could still pass `POST /api/game/:id/rejoin` from a cached tab or a crafted request, which also bypassed the `GET /api/games/mine` filter | The check runs on the caller's seat whatever the hash status says | `backend/src/match/match.player.service.ts`, `backend/src/match/seat-finalization.ts` |
-| 8 | Joins checked only the `match:*` hash | The hash can lag behind the engine, so a room whose game had started could still read `WAITING` and take a new seat | `isEngineGameStarted()` reads the engine's own state and is checked in `joinMatch()` and in the room list | `backend/src/match/seat-finalization.ts`, `backend/src/match/match.player.service.ts` |
-| 9 | `GET /api/games/rooms` returned one list to all callers and included only `WAITING` rooms | A seated player whose game had started had no rejoin row, and a row only its own holder could reclaim was indistinguishable from a joinable one | The list is computed per caller: rows carry `mySeat`, and an `ACTIVE` room is returned only to a viewer who still holds a reclaimable seat in it | `backend/src/match/match.query.service.ts`, `backend/src/match/match.controller.ts`, `frontend/src/pages/LudoLobby.tsx` |
-| 10 | Three `jwt.sign` calls across the match services minted engine tokens with the session `JWT_SECRET` borrowed from `AuthModule`, each overriding only `expiresIn` | With no single mint site, the secret, audience and lifetime rules could drift apart: none of the three carried an audience, so each call had to state every other rule itself | `signEngineToken()` is the single mint site, applying the engine secret, the audience and the 24 h lifetime | `backend/src/match/engine-token.util.ts` |
-| 11 | `new Server()` took the Socket.IO CORS default, `origin: '*'`, and nothing bounded a connected socket's input | A socket handshake is the one engine request a browser makes on its own, so any site could open one; and a connected client could send events up to the 1 MB default buffer as fast as it liked | The engine passes an allow-list parsed from `CORS_ORIGIN` and exits when it is empty; it also caps events at 100 KB, sets an explicit 10 s/15 s ping, and closes a socket that drains its 20-events-per-5 s bucket | `backend/app/ludo-engine/src/socket/server.ts`, `socket/allowed-origins.ts`, `socket/event-rate-limiter.ts`, `compose.yaml` |
-| 12 | The `X-Engine-Key` header was compared with `!==`, and the engine fell back to `'dev-engine-key'` when `ENGINE_API_KEY` was unset | The comparison result leaked through timing, and a misconfigured deployment would accept one known key from anyone | `verifySecret()` hashes both sides and compares with `timingSafeEqual`; the fallback is gone, and the backend preflight and the engine boot both refuse to start without the variable | `backend/src/secrets.ts`, `backend/src/match/match.controller.ts`, `backend/app/ludo-engine/src/socket/result-submitter.ts`, `backend/docker-entrypoint.sh` |
-
+- **The handshake is bounded before it is authenticated.** The engine answers only the origins on its `CORS_ORIGIN` allow-list (`FRONTEND_URL` + `NGROK_FRONTEND_URL`) and refuses to boot when that list is empty instead of falling back to `origin: '*'`; events are capped at 64 KB, one account may hold at most 4 sockets, the engine pings every 10 s and closes a socket that takes more than 15 s to answer, and a socket that drains its 20-events-per-5 s bucket is closed.
 ### Invariants to check
 
 - A session access token is bound to the API: it carries `iss: 'ft_transcendence'`, `aud: 'ft_transcendence-api'`, `HS256` and a string `sub`. An engine token (`aud: 'ludo-engine'`) or an oauth-link token (`aud: 'oauth-link'`) lacks that audience, so it never opens a `JwtAuthGuard` route; detail in [`backend/backend-auth-module.md`](backend/backend-auth-module.md) (Token scope).
@@ -413,7 +395,7 @@ The table below lists the holes found in the first version of this boundary, why
 - A socket holds a room and seat binding only while its join is accepted: a refusal or a takeover clears `socket.data.gameId` and `playerColor` (`detachSocket()`), so its later `disconnect` cannot disturb a live seat.
 - The backend mints a token only when the caller's seat is not `exited` in the engine state and the engine has not started the game; the `match:*` hash is never trusted on its own.
 - `POST /api/match/create` never rewrites an existing room hash: a reusable lobby is handed back unchanged.
-- A socket is bounded before it is authenticated: only origins on the `CORS_ORIGIN` allow-list complete a handshake, events are capped at 100 KB, and a socket that drains its 20-events-per-5 s bucket is closed and follows the ordinary disconnect path.
+- A socket is bounded before it is authenticated: only origins on the `CORS_ORIGIN` allow-list complete a handshake, events are capped at 64 KB, one account may hold at most 4 sockets, and a socket that drains its 20-events-per-5 s bucket is closed and follows the ordinary disconnect path.
 - The engine's CORS allow-list is never empty at runtime: `parseAllowedOrigins('')` returns `[]`, and `start()` exits on `[]` rather than widening to `*`.
 - `POST /api/game/end` and `POST /api/game/:id/started` compare `X-Engine-Key` with `verifySecret()` (both sides SHA-256-hashed, then `timingSafeEqual`), and the key has no default on either side.
 - `GET /api/games/rooms` is caller-scoped: a started room is visible only to the holder of a reclaimable seat in it (`mySeat`).
@@ -572,10 +554,10 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── leaderboard.service.ts        # ranking logic + response envelope
 │   │   │   ├── leaderboard-redis.service.ts  # Redis sorted-set storage (one set per mode)
 │   │   │   └── leaderboard.module.ts
-│   │   ├── achievements/         # 15 Ludo achievements
+│   │   ├── achievements/         # 16 Ludo achievements
 │   │   │   ├── achievements.controller.ts  # progress report + check route
 │   │   │   ├── achievements.service.ts     # evaluation logic
-│   │   │   ├── achievements.registry.ts    # authoritative list of the 15 achievements
+│   │   │   ├── achievements.registry.ts    # authoritative list of the 16 achievements
 │   │   │   └── achievements.module.ts
 │   │   ├── player-stats/         # Per-player aggregates
 │   │   │   ├── stats.controller.ts  # GET /api/stats
@@ -702,7 +684,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
     │   ├── backend-friends-module.md         # Friend requests, block/unblock, game invites
     │   ├── backend-match-module.md           # Matchmaking (PvP/PvE/hotseat) + lifecycle
     │   ├── backend-leaderboard-module.md     # Rankings (Redis cache + Postgres fallback)
-    │   ├── backend-achievements-module.md    # 15 achievement badges + evaluation
+    │   ├── backend-achievements-module.md    # 16 achievement badges + evaluation
     │   ├── backend-player-stats-module.md    # Per-player lifetime statistics
     │   ├── backend-presence-module.md         # Online / in-game / offline tracking
     │   ├── backend-notification-module.md    # Real-time notifications (SSE + Redis pub/sub)

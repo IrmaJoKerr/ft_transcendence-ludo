@@ -4,7 +4,7 @@
 
 - [Overview](#overview) — Achievement evaluation and retrieval
 - [Files](#files) — Source file inventory
-- [Key Types / Interfaces](#key-types--interfaces) — The 15 achievements and response shape
+- [Key Types / Interfaces](#key-types--interfaces) — The 16 achievements and response shape
 - [API Endpoints](#api-endpoints) — Both routes
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagram of check flow
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees
@@ -17,7 +17,7 @@
 
 ## Overview
 
-The Achievements module tracks 15 achievement badges earned from match performance. Achievements are stored as true/false columns on the 1:1 `Achievement` model (see `backend-database-schema-system.md`). They are evaluated in two ways:
+The Achievements module tracks 16 achievement badges earned from match performance. Achievements are stored as true/false columns on the 1:1 `Achievement` model (see `backend-database-schema-system.md`). They are evaluated in two ways:
 
 1. **Automatically after a game** — `evaluateAfterGame(gameId)` runs after every PvP/PvE game ends, checks each real (non-bot) player, and sends a notification when an achievement unlocks.
 2. **On demand** — `POST /api/achievements/check` re-evaluates the current user silently (no notifications), which is useful after a rule change.
@@ -112,7 +112,7 @@ To add or tweak an achievement, edit `ACHIEVEMENT_KEYS` / `ACHIEVEMENT_RULES` in
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/achievements` | JWT | Report for all 15 achievements: `{ unlocked, progress, target }` per key |
+| `GET` | `/api/achievements` | JWT | Report for all 16 achievements: `{ unlocked, progress, target }` per key |
 | `POST` | `/api/achievements/check` | JWT | Force re-evaluate (silent backfill), return newly-unlocked keys |
 
 

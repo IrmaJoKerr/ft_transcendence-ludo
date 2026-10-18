@@ -119,8 +119,9 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
 }
 
 // Maps a backend error `code` to a localized message (errors.<CODE>), with a few
-// overrides that reuse existing keys. Returns null when there is no mapping, so
-// callers fall back to the server's English message.
+// overrides that reuse existing keys. Returns null when there is no mapping; the
+// caller then uses a localized fallback. Server text is English by contract and
+// is never rendered — it goes to the console for diagnosis only.
 const ERROR_KEY_OVERRIDES: Record<string, string> = {
   AVATAR_INVALID_TYPE: 'profile.fileTypeError',
 };
@@ -145,12 +146,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const b = body as { code?: string; message?: string | string[] } | null;
     const msg = b?.message;
     const localized = translateErrorCode(b?.code);
-    const error = new Error(
-      localized ??
-        (Array.isArray(msg)
-          ? msg.join('. ')
-          : (msg ?? i18n.t('common.requestFailed', { status: res.status }))),
-    );
+    // A code with no locale mapping still must not leak English to the user:
+    // keep the server text in the console and show a localized fallback.
+    if (!localized && msg) console.error('[api]', path, msg);
+    const error = new Error(localized ?? i18n.t('common.requestFailed', { status: res.status }));
     // Carry the backend code so callers can react to it (e.g. field-level errors).
     (error as { code?: string }).code = b?.code;
     throw error;

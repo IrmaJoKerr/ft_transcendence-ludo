@@ -810,7 +810,7 @@ export const ms = {
     rulesPage8Body:
       'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang gulingan membuka pintu dan keluar itu sebahagian daripada pergerakan itu sendiri: buah keluar dan berhenti pada langkah yang digulingkan — gulingan 5 meletakkannya pada langkah 5, gulingan 6 pada langkah 6.',
     rulesPage8Body2:
-      'Gulingan 6 masih memberi gulingan bonus. Keluar penjara ialah pergerakan biasa: buah keluar sepanjang laluannya sendiri dan berhenti pada langkah yang digulingkan, jadi tembok dua buah di sepanjang laluan — atau tepat pada petak pendaratan itu — menyekat penjara, kecuali mod Clash membolehkan buah memecahkan tembok yang dipijaknya, satu Clash bagi setiap pertahanan. Tembok di atas bintang yang dilindungi hanya dilalui.',
+      'Gulingan 6 masih memberi gulingan bonus. Keluar penjara ialah pergerakan biasa: buah MENDARAT pada langkah yang digulingkan dan hanya bertempur di petak itu. Tembok sebelum petak pendaratan menyekat keluarnya, dan mod Clash tidak membantu di situ; tembok tepat PADA petak pendaratan itulah yang boleh ditentang dalam mod Clash, satu Clash bagi setiap pertahanan. Tembok di atas bintang yang dilindungi hanya dilalui.',
     rulesPage9Header: '// PEMECAH SEKATAN',
     rulesPage9Title: '🔓 Satu token, satu tembok',
     rulesPage9Body:
