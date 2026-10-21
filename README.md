@@ -47,8 +47,8 @@ achievement system, and the whole interface is available in multiple languages.
 ### Running
 
 ```bash
-git clone https://github.com/J00ZzZ/ft_transcendence.git
-cd ft_transcendence
+git clone https://github.com/IrmaJoKerr/ft_transcendence-ludo.git
+cd ft_transcendence-ludo
 make
 ```
 
