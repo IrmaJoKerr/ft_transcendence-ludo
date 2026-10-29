@@ -129,8 +129,8 @@ session cookies on the network, and plaintext capture of the first request.
 ```
 default-src 'self';
 script-src  'self';
-style-src   'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
-font-src    'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+style-src   'self' 'unsafe-inline';
+font-src    'self';
 img-src     'self' data:;
 connect-src 'self';
 object-src  'none';
@@ -143,10 +143,12 @@ upgrade-insecure-requests;
 - `script-src 'self'` is the load-bearing directive: it is what makes a single injection point
   non-exploitable, because there is no inline script for an injected payload to ride on.
 - `style-src` keeps `'unsafe-inline'` deliberately. React inline `style` attributes and Tailwind
-  require it, and a style cannot execute script. The two third-party origins are the Google Fonts and
-  FontAwesome stylesheets the SPA loads.
-- `font-src` keeps the same origins for the font files themselves, plus `data:` for the icons bundled
-  into the build.
+  require it, and a style cannot execute script. No third-party stylesheet is loaded any more: the
+  SPA used to pull Google Fonts and FontAwesome from `fonts.googleapis.com` and
+  `cdnjs.cloudflare.com`, and both are now either self-hosted (`frontend/public/fonts/`, see
+  `src/styles/fonts.css`) or gone (FontAwesome was never used by a component).
+- `font-src 'self'` covers every face the app asks for, because all of them ship in the image under
+  `/fonts/`. Nothing embeds a data-URI font, so `data:` was dropped along with the two origins.
 - `object-src 'none'` removes `<object>`, `<embed>` and legacy plugin content, which nothing in the
   app uses and which `script-src` does not always govern.
 - `base-uri 'self'` stops an injected `<base href>` from re-pointing every relative URL on the page at

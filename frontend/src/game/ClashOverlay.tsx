@@ -220,7 +220,7 @@ function KeyBadge({ label, emphasized }: { label: string; emphasized: boolean })
         lineHeight: 1,
         width: KEY_BADGE_W,
         height: KEY_BADGE_H,
-        fontFamily: "'Atkinson Hyperlegible', sans-serif",
+        fontFamily: "'Atkinson Hyperlegible Next', sans-serif",
         border: `2px solid ${emphasized ? 'var(--accent-yellow)' : 'var(--text-muted)'}`,
         color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
         boxShadow: emphasized ? '0 0 14px var(--accent-yellow)' : 'none',

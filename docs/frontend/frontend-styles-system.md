@@ -2,7 +2,7 @@
 
 ## Table of Contents
 
-- [Overview](#overview) — The two stylesheets and how theming works
+- [Overview](#overview) — The stylesheets and how theming works
 - [Files](#files) — Source file inventory
 - [Key Types / Interfaces](#key-types--interfaces) — Theme tokens
 - [Core Logic / Flow](#core-logic--flow) — How the theme reaches the screen on boot
@@ -22,6 +22,8 @@ Styling is split between CSS files and TypeScript constants, with a clear rule f
 3. **`styles/tw.ts`** — long Tailwind utility-class strings shared by several components. Each constant replaces one `retrowave.css` rule one-for-one; where a rule cannot be expressed as utilities (`@keyframes`, custom easing curves such as `--flicker`), it stays in `retrowave.css` and is referenced with `var()` or an arbitrary `animation:` value.
 
 **Theme switching is CSS-only.** No JavaScript reads a theme name to pick colors — a component never checks "which theme is active". The app ships a single theme, and `theme.ts` holds a few fixed (non-switching) constants for it: the Ludo palette (`COL`), the presence colours (`STATUS_STYLE`) and gold/panel inline styles.
+
+`src/styles/fonts.css` is generated, never hand-edited: `node scripts/vendor-fonts.mjs` downloads the Atkinson Hyperlegible Next/Mono woff2 files into `public/fonts/` and writes the twelve `@font-face` rules for them. It is imported first in `main.tsx`, so every `--font-heading`/`--font-display`/`--font-mono` reference resolves to a face that ships with the app instead of one fetched from Google.
 
 ### Cascade and CSS-only rules
 
@@ -44,7 +46,8 @@ These rules stay in CSS because no utility expresses them:
 
 | File | Role |
 |------|------|
-| `src/styles/retrowave.css` | Theme design system — the `[data-theme='synthwave']` token set, fonts, scrollbar, `@keyframes` |
+| `src/styles/fonts.css` | Generated `@font-face` rules for the self-hosted Atkinson Hyperlegible Next/Mono faces (source of truth: `scripts/vendor-fonts.mjs`, files in `public/fonts/`) |
+| `src/styles/retrowave.css` | Theme design system — the `[data-theme='synthwave']` token set, font tokens, scrollbar, `@keyframes` |
 | `src/index.css` | Tailwind import, base element styles, Home page layout rules, scrollbar fallback |
 | `src/styles/tw.ts` | Shared Tailwind utility-class constants (documented in [frontend-components-system.md](frontend-components-system.md)) |
 | `src/theme.ts` | One-theme TypeScript constants (`COL`, `SEAT_COLORS`, `BOT_POOL`, `STATUS_STYLE`, `goldText`, `btnGold`/`btnGoldSmall`/`btnOutline`, `card`, `input`, `label`, `sectionLabel`, `avatarBlue`/`avatarDim`, `feltPanel`, `pill`) |
