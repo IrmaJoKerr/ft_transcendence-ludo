@@ -15,6 +15,8 @@ import {
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
 import { BARRIER_BUSTER_TOKEN_CAP } from './types';
+import { createRng, randFloat, seedFrom } from './rng';
+import type { Rng } from './rng';
 import type {
   PlayerColor,
   GameEvent,
@@ -69,6 +71,10 @@ export class ClashEngine {
     private clashManager: ClashManager,
     private emit: (event: GameEvent) => void,
     private withGameLock: <T>(gameId: string, fn: () => Promise<T>) => Promise<T>,
+    // Entropy for a clash: its keys, the bot pre-rolls and the press jitter.
+    // LudoEngine passes its own source in, so one harness generator steers the
+    // whole write path; standalone callers keep the global.
+    private random: Rng = Math.random,
   ) {}
 
   // Start the QTE and arm its phase timers. Bot pressers begin exactly at
@@ -90,17 +96,21 @@ export class ClashEngine {
       clearTimeout(pendingGap);
       this.chainTimers.delete(gameId);
     }
-    await this.clashManager.startClash(gameId, attacker, defender, info);
+    // One generator per clash, seeded once here and carried through the key draws
+    // (inside the manager), the switch schedule and the bot presses, so a round's
+    // whole random shape replays from a single seed.
+    const rng = createRng(seedFrom(this.random));
+    await this.clashManager.startClash(gameId, attacker, defender, info, rng);
     this.armClashPhaseTimers(gameId, () => {
       if (attackerIsBot || defenderIsBot) {
         if (attackerIsBot && defenderIsBot) {
-          const attackerWins = Math.random() < CLASH_BOT_VS_BOT_WIN_CHANCE;
-          this.simulateBotPressers(gameId, attacker, attackerWins, info?.round ?? 1);
-          this.simulateBotPressers(gameId, defender, !attackerWins, info?.round ?? 1);
+          const attackerWins = rng() < CLASH_BOT_VS_BOT_WIN_CHANCE;
+          this.simulateBotPressers(gameId, attacker, attackerWins, info?.round ?? 1, rng);
+          this.simulateBotPressers(gameId, defender, !attackerWins, info?.round ?? 1, rng);
         } else {
           const botSide = attackerIsBot ? attacker : defender;
-          const botWins = Math.random() < CLASH_BOT_VS_HUMAN_WIN_CHANCE;
-          this.simulateBotPressers(gameId, botSide, botWins, info?.round ?? 1);
+          const botWins = rng() < CLASH_BOT_VS_HUMAN_WIN_CHANCE;
+          this.simulateBotPressers(gameId, botSide, botWins, info?.round ?? 1, rng);
         }
       }
     });
@@ -679,15 +689,17 @@ export class ClashEngine {
   // Bot mashing at a jittered human pace. The caller pre-rolls the winner: fast
   // presses (CLASH_BOT_WIN_MS_BASE ± jitter) against slow ones, so the winner
   // arrives first. `armedRound` keeps a previous round's presser out of the next.
+  // `rng` is the clash's own generator, so the pacing replays with the round.
   private simulateBotPressers(
     gameId: string,
     botColor: PlayerColor,
     winner: boolean,
     armedRound = 1,
+    rng: Rng = createRng(seedFrom(this.random)),
   ): void {
     const schedulePress = () => {
       const base = winner ? CLASH_BOT_WIN_MS_BASE : CLASH_BOT_LOSE_MS_BASE;
-      const delay = base + Math.random() * CLASH_BOT_JITTER_MS;
+      const delay = base + randFloat(rng, 0, CLASH_BOT_JITTER_MS);
       setTimeout(() => {
         void (async () => {
           try {

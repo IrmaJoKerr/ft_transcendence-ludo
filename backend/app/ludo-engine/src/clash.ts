@@ -1,6 +1,8 @@
 import type { RedisGameStore } from './redis';
 import type { EventPublisher } from './socket/event-publisher';
 import type { PlayerColor, ClashState, ChainRound, PieceId } from './types';
+import { createRng, pick, seedFrom } from './rng';
+import type { Rng } from './rng';
 
 // One key grid per side, split so two players at one keyboard (hotseat) never
 // reach for the same key: defender keys are the left-hand block, attacker keys
@@ -56,19 +58,25 @@ export class ClashManager {
   constructor(
     private store: RedisGameStore,
     private publisher: EventPublisher,
+    // Entropy for the key draws, defaulting to the global. ClashEngine hands in
+    // the clash's own generator instead, so a round's keys replay with it.
+    private random: Rng = Math.random,
   ) {}
 
   // Start a clash: pick one key per side, stamp absolute phase deadlines, persist
   // them, then announce. `info` carries the chain counters and this round's
   // defender; absent means one defender, the R = 1 case of the same shape.
+  // `rng` is the clash's generator when the caller owns one (ClashEngine does);
+  // on its own the manager seeds a fresh one from its entropy source.
   async startClash(
     gameId: string,
     attacker: PlayerColor,
     defender: PlayerColor,
     info?: ChainRound,
+    rng: Rng = createRng(seedFrom(this.random)),
   ): Promise<void> {
-    const attackerKey = ATTACKER_KEYS[Math.floor(Math.random() * ATTACKER_KEYS.length)];
-    const defenderKey = DEFENDER_KEYS[Math.floor(Math.random() * DEFENDER_KEYS.length)];
+    const attackerKey = pick(rng, ATTACKER_KEYS);
+    const defenderKey = pick(rng, DEFENDER_KEYS);
     const startedAt = Date.now();
     const clashState: ClashState = {
       attacker,

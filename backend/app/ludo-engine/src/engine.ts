@@ -21,6 +21,8 @@ import type { LobbyManager } from './lobby';
 import type { ClashManager } from './clash';
 import { orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
+import { createRng, randInt, seedFrom } from './rng';
+import type { Rng } from './rng';
 
 // Room rules from the wire, turned into domain truth: only a literal `true` turns
 // a rule on, so `"false"`, `1`, `{}` and an absent field all mean off. Without the
@@ -50,9 +52,15 @@ export class LudoEngine {
   // ClashEngine owns the timers, the manager owns the clash record, and the
   // engine owns the lock the clash work runs under.
   private clashEngine: ClashEngine;
+  // The engine's entropy source, the only place randomness enters a game. A
+  // harness passes a fixed generator and the whole write path becomes
+  // replayable; production keeps Math.random. Seeds are drawn from it, never
+  // reused as the die stream itself.
+  private random: Rng;
 
-  constructor(store: RedisGameStore, clashManager: ClashManager) {
+  constructor(store: RedisGameStore, clashManager: ClashManager, random: Rng = Math.random) {
     this.store = store;
+    this.random = random;
     this.clashEngine = new ClashEngine(
       store,
       clashManager,
@@ -60,6 +68,7 @@ export class LudoEngine {
         this.emit(e);
       },
       (gameId, fn) => this.withGameLock(gameId, fn),
+      random,
     );
   }
 
@@ -101,20 +110,6 @@ export class LudoEngine {
     return await this.store.loadGameState(gameId);
   }
 
-  // Seeded PRNG (mulberry32): one fresh generator per roll, seeded from
-  // Math.random() so the die stream is isolated from other Math.random() use.
-  private static seededRand(seed: number): () => number {
-    let s = seed >>> 0;
-    return () => {
-      // 0x6d2b79f5: mulberry32's fixed odd accumulator, which cycles s through all
-      // 2^32 states (full period); `| 0` wraps the sum back into 32-bit range.
-      s = (s + 0x6d2b79f5) | 0;
-      let t = Math.imul(s ^ (s >>> 15), 1 | s);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
   // Roll dice for the current player.
   // Sets turnPhase to WAITING_FOR_MOVE and stores pendingLegalMoves and pendingDiceValue.
   // Handles zero legal moves by advancing turn automatically (with bonus roll on 6).
@@ -149,11 +144,13 @@ export class LudoEngine {
         throw new Error('Clash result in progress : wait for the card to clear');
       }
 
-      // Math.random() cannot be seeded directly, so it seeds the per-roll stream.
-      const rand = LudoEngine.seededRand(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
+      // One entropy draw from the engine's source seeds this roll's own stream, so
+      // the die stays isolated from every other draw in the process (keys, jitter,
+      // decorators) exactly as it was when it seeded from Math.random().
+      const rand = createRng(seedFrom(this.random));
       // Single draw from the seeded stream → every face 1..6 is exactly 1/6 (fair
       // die, max entropy ~2.585 bits). No averaging, no middle-face bias.
-      const diceValue = Math.floor(rand() * 6) + 1;
+      const diceValue = randInt(rand, 1, 6);
 
       currentPlayer.hasRolled = true;
       // Per-player 6-streak (classic rule): every 6 grants a bonus roll; the
