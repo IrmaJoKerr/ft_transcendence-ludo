@@ -294,7 +294,7 @@ Several distinct uses:
 - **Live game state** — `MatchService` (matchmaking and match lifecycle) and the engine's `RedisGameStore`, which holds the full `GameState` plus the match hash's durable `idleSince` stamp. It is the system of record the engine replays after a restart: see [Engine restart recovery](#engine-restart-recovery-ludo-engine).
 - **Presence** — `presence:<userId>` = `online` | `playing`, with a 45 s TTL refreshed by the account's live session socket (20 s server-side timer), plus `presence:conns:<userId>` (the set of that account's socket ids, same TTL) and the `presence:count` channel that carries the badge number (`PresenceService`). See [Connection liveness](#connection-liveness-the-sockets-own-pingpong-plus-the-sse-keep-alive).
 - **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
-- **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, public profile) rewrite it from Postgres, so a missed write or an eviction converges on the next read. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
+- **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, a profile page) repair it from Postgres — read first, write only when `has`/`style` diverge — so a missed write or an eviction converges on the next read without minting a new stamp per view. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
 - **Auth state** — `refresh:<tokenHash>` (refresh token → user, 7-day TTL) with the `sessions:<userId>` set that revoke-all walks, plus the single-use `verify:<tokenHash>`, `reset:<tokenHash>` and `2fa:<pendingTokenHash>` challenge keys, and the staged email-change pair `emailchange:<tokenHash>` / `emailchange:user:<userId>` (`SessionService`, `TwoFactorService`). The reverse pointer's TTL is the change deadline: its Redis key-expiry event is what `MailService` subscribes to in order to email the old address when a staged change lapses.
 - **Guest mode** — `guesttok:<sha256(token)>` = `{ gameId, color, mode, ip }` (1 h TTL) is how the engine resolves an anonymous seat, since a guest has no signed token. The budgets around it are the per-address counters `guest:mint:`, `guest:abort:` and `guest:live:` (all keyed by the hashed address) plus the global `guest:rooms:live`. The engine writes the abort count and frees the live slots; the backend decides every limit. See [guest-mode.md](./guest-mode.md).
 
@@ -545,13 +545,15 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │       └── delete-account.dto.ts      # account-deletion confirmation
 │   │   │
 │   │   ├── user/                 # User profiles & game history
-│   │   │   ├── user.controller.ts    # public profile/history + avatar upload/get/delete
+│   │   │   ├── user.controller.ts    # pair-gated profile/history + avatar upload/get/delete (all JWT)
 │   │   │   ├── user.service.ts       # profile + avatar logic, game history
 │   │   │   └── user.module.ts
 │   │   ├── friends/              # Friend system (requests, accept/decline, block, invites)
 │   │   │   ├── friends.controller.ts # friend + game-invite routes
 │   │   │   ├── friends.service.ts    # friendship rules + online enrichment
 │   │   │   ├── friendship-pair.ts    # pure pair predicates shared with match + presence
+│   │   │   ├── block-state.service.ts # the read-path pair gate (Prisma-only leaf)
+│   │   │   ├── block-state.module.ts  # exports it without pulling MatchModule in
 │   │   │   └── friends.module.ts
 │   │   ├── match/                # Matchmaking & game lifecycle (split services)
 │   │   │   ├── match.controller.ts        # match/game HTTP routes

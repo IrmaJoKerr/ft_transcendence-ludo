@@ -382,6 +382,15 @@ account recovers on its own.
   missing or mismatched pair is `403 CSRF_TOKEN_INVALID`, a foreign origin `403 CSRF_ORIGIN_REJECTED`.
   `GET /api/auth/csrf` bootstraps the cookie and `api.ts` retries once with a fresh token. The two
   engine callbacks are exempt: they are authenticated by `x-engine-key` and carry no browser session.
+- **Authorization on profile reads:** every endpoint that renders a profile is `JwtAuthGuard`-protected
+  (`GET /api/user/:username`, `/:username/games`, `/id/:userId/avatar`, `GET /api/achievements`,
+  `GET /api/friends`), and the relationship is checked server-side as well: `BlockStateService` reads
+  the single friendship row for the pair (`pairKey`) and a block between the caller and the target
+  degrades `GET /api/user/:username` to the identity and avatar (`visibility: 'blocked-by-you' |
+  'blocked-by-them'`) while `/games`, `/achievements?username=` and `/friends?username=` answer
+  `403 FRIEND_BLOCKED`. The client router is never the gate: a deep link or a `curl` holds the same
+  cookie and gets the same answer. See
+  [backend-friends-module.md](./backend/backend-friends-module.md).
 - **Re-authentication for sensitive profile changes:** changing the email, toggling 2FA, or
   unlinking an OAuth provider (and the API's `oauthToAdd` field) requires `currentPassword` on an
   account that has one (`AUTH_CURRENT_PASSWORD_INCORRECT` otherwise). The SPA's "Add a sign-in

@@ -15,15 +15,27 @@
 
 ## Overview
 
-The Profile page (`/profile`) shows a user's public profile with statistics, recent match history and a friends panel. It is a full-screen route (rendered directly by the router); the page renders its own `RetroNavbar`.
+The Profile page (`/profile`) shows a user's profile with statistics, recent match history and a friends panel. It is a full-screen route (rendered directly by the router); the page renders its own `RetroNavbar`. The route is signed-in only.
 
 1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created.
 2. **Stats grid** — wins, losses, win rate, best streak.
 3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you.
 4. **Friends panel** — friends with their online status and their rating; shown only on your own profile.
 5. **Avatar actions (own profile)** — the `EDIT AVATAR`, `RESET` and `EDIT PROFILE` buttons, and below them a **message area with a fixed height**. The area shows upload and reset errors in red, and the photo-load warning (`profile.photoLoadError`) in amber. Because the height is fixed, a longer translation in Malay or French wraps onto more lines without moving the content below it.
+6. **Blocked card** — a block between the viewer and this player degrades the whole page (see *Blocked profile* below).
 
-When the page loads it reads the profile, game history, achievements, friends and leaderboard rank. It reads them again when the username changes or when the edit modal closes. It does **not** repeat on a timer.
+When the page loads it reads the profile first, then the game history, achievements and friends **only if the profile came back `visibility: 'full'`**. It reads them again when the username changes or the edit modal closes. It does **not** repeat on a timer. A refresh after **Unblock** shows the full page again.
+
+### Blocked profile
+
+`GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 FRIEND_BLOCKED`). `BlockedProfileCard` in the same file then renders the avatar, the name and `@username`, a `CONTACT UNAVAILABLE` notice, and:
+
+| `visibility` | Copy | Action |
+|---|---|---|
+| `blocked-by-you` | `profile.blockedByYou` | **UNBLOCK** (`POST /api/friends/unblock/:userId`, then bumps `profileRefresh` so the effect refetches) |
+| `blocked-by-them` | `profile.blockedByThem` — *"You have been blocked by this user."* | **RETURN TO MY PROFILE** only |
+
+A mutual block reports `blocked-by-you` (the viewer's own block is the one they can lift); after unblocking, the refetch reports `blocked-by-them`.
 
 
 ---
@@ -54,6 +66,8 @@ When the page loads it reads the profile, game history, achievements, friends an
   username: string;  // Player's username
   displayName?: string;  // Name shown in the game
   avatarStyle: string | null;  // Avatar style name
+  avatarV?: number;  // Avatar record stamp, applied as the photo URL's `?v=`
+  visibility?: 'full' | 'blocked-by-you' | 'blocked-by-them';  // Defaults to full
   hasAvatarPhoto: boolean;  // Whether a custom photo is uploaded
   rating: number;  // Player's rating (score)
   highestRating: number;  // Best rating ever reached
@@ -65,6 +79,10 @@ When the page loads it reads the profile, game history, achievements, friends an
   status: 'online' | 'playing' | 'offline';  // Current status
 }
 ```
+
+A blocked payload carries only `id`, `username`, `displayName`, `avatarStyle`, `hasAvatarPhoto`,
+`avatarV` and `visibility`: the stats and `status` are **absent**, not zeroed, which is why the page
+branches on `visibility` before reading any of them.
 
 ### MatchHistory
 
@@ -130,12 +148,17 @@ sequenceDiagram
     App->>Profile: Mount (full-screen route)
     Profile->>Profile: Read ?u= query or use logged-in user
     Profile->>API: GET /api/user/:username
-    Profile->>API: GET /api/user/:username/games
-    alt Own profile
-        Profile->>API: GET /api/friends
+    alt visibility = 'full'
+        Profile->>Profile: applyAvatarChange(id, { has, style, v: avatarV })
+        Profile->>API: GET /api/user/:username/games
+        Profile->>API: GET /api/achievements?username=
+        Profile->>API: GET /api/friends?username=
+        API-->>Profile: games, achievements, friends
+        Profile->>Profile: Render stats, matches, friends sidebar
+    else a block between viewer and target
+        Note over Profile,API: the three reads are skipped (they would 403)
+        Profile->>Profile: Render BlockedProfileCard (identity + avatar + notice)
     end
-    API-->>Profile: profile, games, friends
-    Profile->>Profile: Render stats, matches, friends sidebar
 ```
 
 ### Data Refresh
@@ -145,15 +168,17 @@ sequenceDiagram
     participant Profile
     participant API
 
-    Note over Profile,API: Read once on mount, and again when the username changes
+    Note over Profile,API: Read once on mount, and again when the username changes,
+    Note over Profile,API: the edit modal closes or Unblock bumps profileRefresh
     Profile->>API: GET /api/user/:username
-    Profile->>API: GET /api/user/:username/games?limit=30
-    alt Own profile
-        Profile->>API: GET /api/friends
-        Profile->>API: GET /api/achievements
-        Profile->>API: GET /api/leaderboard?mode=global&limit=50
+    alt visibility = 'full'
+        Profile->>API: GET /api/user/:username/games?limit=30
+        Profile->>API: GET /api/achievements?username=
+        Profile->>API: GET /api/friends?username=
+        API-->>Profile: profile, games, achievements, friends
+    else blocked
+        API-->>Profile: identity + avatar only
     end
-    API-->>Profile: profile, games, friends, achievements, rank
     Profile->>Profile: Re-render with the data (no repeating timer)
 ```
 

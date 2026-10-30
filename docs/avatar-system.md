@@ -52,11 +52,11 @@ validation and uploads.
 
 | File | Role |
 | --- | --- |
-| `backend/src/avatar/avatar-meta.service.ts` | The Redis record `avatar:<userId>` → `{ has, style, v }`. `set()` writes it and returns the change stamp; `get()` reads it; `syncFromUser()` repairs it from a row the caller already loaded; `remove()` cleans up. |
+| `backend/src/avatar/avatar-meta.service.ts` | The Redis record `avatar:<userId>` → `{ has, style, v }`. `set()` writes it and returns the change stamp; `get()` reads it; `syncFromUser()` repairs it from a row the caller already loaded — read first, write only when `has`/`style` diverge — and returns the record's stamp; `remove()` cleans up. |
 | `backend/src/avatar/avatar-meta.module.ts` | Provides/exports `AvatarMetaService` (the same pattern as `NotificationService`). |
 | `backend/src/avatar/image-signature.util.ts` | Magic-byte check so the declared MIME type must match the file's leading bytes. |
 | `backend/src/user/user.controller.ts` | `POST /api/user/avatar`, `DELETE /api/user/avatar`, `GET /api/user/id/:userId/avatar`. Defines the cache headers and the upload validation. |
-| `backend/src/user/user.service.ts` | `getAvatarById()`; writes the Redis record **after** the Postgres commit in upload/delete; pushes `avatar_changed` to the owner's own clients (`notifyTransient()`, never `broadcast()`) and writes the owner's own persisted `profile_updated` confirmation; repairs the record on public-profile reads. |
+| `backend/src/user/user.service.ts` | `getAvatarById()`; writes the Redis record **after** the Postgres commit in upload/delete; pushes `avatar_changed` to the owner's own clients (`notifyTransient()`, never `broadcast()`) and writes the owner's own persisted `profile_updated` confirmation; repairs the record on profile reads and echoes its stamp as `avatarV`. |
 | `backend/src/auth/auth.service.ts` | Seeds the record on register and on the OAuth creation path; repairs it on `/me`; removes it on account deletion. |
 | `backend/src/notification/notification.controller.ts` | Transport for the owner-only `avatar_changed` push: the SSE stream plus its `SSE_HEARTBEAT_MS` keep-alive. |
 
@@ -260,7 +260,14 @@ sequenceDiagram
 ```
 
 The engine has no database access, so this read is its only source of the flag. A record that is
-missing or was evicted falls back to the generated avatar, never to a 404, and the backend repairs the record the next time it reads that user (`syncFromUser` on `/me` or a public profile).
+missing or was evicted falls back to the generated avatar, never to a 404, and the backend repairs the record the next time it reads that user (`syncFromUser` on `/me` or a profile read).
+
+**A repair, not a touch.** `syncFromUser` reads the record first and writes only when `has`/`style`
+diverge, and it returns the stamp the record holds. That matters because `set()` mints
+`v: Date.now()`, and the profile payload now echoes the stamp as `avatarV` (the card's `?v=`): an
+unconditional write on every profile view would mint a new URL each time and defeat the cache it
+exists to bust. `/me` awaits the repair and reports only the stored flag; the profile read is what
+hands the client the stamp.
 
 **Hotseat is the exception, and only for the host.** One socket drives every local seat and none of them
 has its own account, so `JoinManager` leaves `PlayerMeta.userId` undefined for those joins
@@ -311,6 +318,7 @@ So whenever a change is known, the URL gains `?v=<stamp>`:
 | --- | --- |
 | the SSE `avatar_changed` event's `v` | the uploader's other tabs (the event reaches that user's own clients only) |
 | `Date.now()` in `Profile.tsx` | the uploader's own client, immediately and without SSE |
+| `avatarV` in the `/api/user/:username` payload | the first paint of a profile (own or someone else's, degraded card included), applied through `applyAvatarChange` |
 
 On a **fresh page load** there is nothing cached for the bare URL, so the base URL is fetched and
 revalidated normally: the stamp is only needed once a change happens inside a session.

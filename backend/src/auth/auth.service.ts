@@ -568,7 +568,9 @@ export class AuthService implements OnModuleDestroy {
 
     // Repair the avatar-meta cache from this row: /me is the payload every session
     // loads, so the cached flag follows the stored row at no extra query cost.
-    this.avatarMeta.syncFromUser(user);
+    // Await it so the repair has landed before `publicUser` answers, but keep no
+    // stamp: /me reports the stored flag, and the stamp is the profile read's job.
+    await this.avatarMeta.syncFromUser(user);
 
     return { user: await this.publicUser(user) };
   }

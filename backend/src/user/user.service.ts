@@ -4,9 +4,10 @@ import { PresenceService } from '../presence/presence.service';
 import { ratingDeltaFor } from '../common/scoring';
 import { NotificationService } from '../notification/notification.service';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
+import { BlockStateService, visibilityFor } from '../friends/block-state.service';
 
 @Injectable()
-// User profile and avatar logic: public profiles, avatar upload/delete/get,
+// User profile and avatar logic: pair-gated profiles, avatar upload/delete/get,
 // and per-user game history. Called by user.controller.ts.
 export class UserService {
   constructor(
@@ -14,11 +15,18 @@ export class UserService {
     private readonly presence: PresenceService,
     private readonly notifications: NotificationService,
     private readonly avatarMeta: AvatarMetaService,
+    private readonly blockState: BlockStateService,
   ) {}
 
-  // Full public profile of a user (stats, rating, avatar info, online
-  // status) with no private data. Used by GET /api/user/:username.
-  async getPublicProfile(username: string) {
+  // Profile of a user (stats, rating, avatar info, online status) as the caller
+  // is allowed to see it. Used by GET /api/user/:username.
+  //
+  // The block gate lives here, not in the client router: a deep link or a curl
+  // reaches this method with no click behind it. A block returns 200 with
+  // `visibility` set and the payload degraded to the identity and avatar — a
+  // block hides the relationship, not the person, and both are already public
+  // on the leaderboard. Every stat and the live presence drop out.
+  async getPublicProfile(username: string, viewerId: string) {
     const user = await this.prisma.db.user.findUnique({
       where: { username },
       select: {
@@ -44,12 +52,30 @@ export class UserService {
     }
 
     // Repair the avatar-meta cache from the row we already loaded (no extra
-    // query), so a missed write or an eviction converges on the next read.
-    this.avatarMeta.syncFromUser(user);
+    // query), so a missed write or an eviction converges on the next read. The
+    // returned stamp is the record's own `?v=`: the card busts a stale photo
+    // without minting a new stamp on every view.
+    const avatarV = await this.avatarMeta.syncFromUser(user);
+
+    const { avatarPhotoContentType, ...rest } = user;
+    const hasAvatarPhoto = avatarPhotoContentType !== null;
+    const stamp = avatarV === undefined ? {} : { avatarV };
+
+    const blockState = await this.blockState.between(viewerId, user.id);
+    if (blockState !== 'none') {
+      return {
+        id: rest.id,
+        username: rest.username,
+        displayName: rest.displayName,
+        avatarStyle: rest.avatarStyle,
+        hasAvatarPhoto,
+        ...stamp,
+        visibility: visibilityFor(blockState),
+      };
+    }
 
     const status = await this.presence.getStatus(user.id);
-    const { avatarPhotoContentType, ...rest } = user;
-    return { ...rest, hasAvatarPhoto: avatarPhotoContentType !== null, status };
+    return { ...rest, hasAvatarPhoto, ...stamp, status, visibility: 'full' as const };
   }
 
   // Store the uploaded bytes on the user row, confirm the change to the user
@@ -146,9 +172,13 @@ export class UserService {
 
   // One page of a user's finished games with per-game participants and
   // rating deltas. Used by GET /api/user/:username/games.
-  async getUserGames(username: string, page: number = 1, limit: number = 20) {
+  async getUserGames(username: string, viewerId: string, page: number = 1, limit: number = 20) {
     const user = await this.prisma.db.user.findUnique({ where: { username } });
     if (!user) throw new NotFoundException(`User "${username}" not found`);
+
+    // A block hides the history too: the client skips this read when
+    // `visibility !== 'full'`, and the 403 keeps a deep link honest.
+    await this.blockState.assertUnblocked(viewerId, user.id);
 
     const skip = (page - 1) * limit;
 

@@ -5,9 +5,10 @@ import { PrismaService } from '../prisma.service';
 import { PresenceModule } from '../presence/presence.module';
 import { NotificationModule } from '../notification/notification.module';
 import { AvatarMetaModule } from '../avatar/avatar-meta.module';
+import { BlockStateModule } from '../friends/block-state.module';
 
 @Module({
-  imports: [PresenceModule, NotificationModule, AvatarMetaModule],
+  imports: [PresenceModule, NotificationModule, AvatarMetaModule, BlockStateModule],
   controllers: [UserController],
   providers: [UserService, PrismaService],
   exports: [UserService],

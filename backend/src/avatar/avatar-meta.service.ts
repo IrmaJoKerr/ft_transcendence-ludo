@@ -59,12 +59,20 @@ export class AvatarMetaService implements OnModuleDestroy {
   }
 
   // Read-through repair from a row the caller already loaded (no extra query):
-  // a missed write or an eviction converges on the next read. Fire-and-forget.
-  syncFromUser(user: AvatarMetaSource): void {
-    void this.set(user.id, {
-      has: user.avatarPhotoContentType != null,
-      style: user.avatarStyle,
-    });
+  // a missed write or an eviction converges on the next read. Read first and
+  // write only when `has`/`style` diverge — a repair, not a touch: `set` mints a
+  // new stamp, and a stamp that moved on every profile view would bust the
+  // client's avatar cache for no reason (the payload now echoes it as `?v=`).
+  // Returns the stamp the record holds (undefined if it was read as absent and
+  // the repair write could not land either).
+  async syncFromUser(user: AvatarMetaSource): Promise<number | undefined> {
+    const has = user.avatarPhotoContentType != null;
+    const style = user.avatarStyle ?? 'bottts';
+
+    const current = await this.get(user.id);
+    if (current?.has === has && current.style === style) return current.v;
+
+    return this.set(user.id, { has, style });
   }
 
   async get(userId: string): Promise<AvatarMeta | null> {

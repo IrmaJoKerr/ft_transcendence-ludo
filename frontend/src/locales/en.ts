@@ -281,6 +281,12 @@ export const en = {
     editAvatar: 'EDIT AVATAR',
     resetAvatar: 'RESET',
     returnToMyProfileBtn: '◄ RETURN TO MY PROFILE',
+    blockedCardTitle: 'CONTACT UNAVAILABLE',
+    blockedByYou:
+      'You have blocked this pilot. Their stats, match history and achievements are hidden from you until you unblock them.',
+    blockedByThem: 'You have been blocked by this user.',
+    unblockButton: 'UNBLOCK',
+    unblocking: 'UNBLOCKING...',
     currentCombatElo: 'CURRENT COMBAT ELO',
     allTimePeakRecord: 'ALL-TIME PEAK RECORD',
     victoriesStat: 'VICTORIES',

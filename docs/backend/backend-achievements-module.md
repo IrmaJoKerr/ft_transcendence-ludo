@@ -36,7 +36,7 @@ Hotseat games never reach the backend, so they are not counted. Bots (`user_id` 
 | `achievements.controller.ts` | HTTP routes: GET list, POST check |
 | `achievements.service.ts` | Business logic: evaluate rules, unlock flags, fire notifications |
 | `achievements.registry.ts` | Single source of truth: 15 rules with keys, types, and thresholds |
-| `achievements.module.ts` | NestJS module — registers controller, service, PrismaService |
+| `achievements.module.ts` | NestJS module — registers controller, service, PrismaService; imports `NotificationModule` and `BlockStateModule` |
 
 
 ---
@@ -201,4 +201,6 @@ POST /api/achievements/check (JWT)
 |-----------|---------|
 | `PrismaService` | Database access (Achievement, Game, GameParticipant models) |
 | `NotificationService` | Push an `achievement` notification on unlock |
+| `BlockStateService` | `GET /api/achievements?username=` is pair-gated: a block between the caller and that user is `403 FRIEND_BLOCKED` (see `backend-friends-module.md`) |
 | `JwtAuthGuard` | Protects achievement endpoints |
+

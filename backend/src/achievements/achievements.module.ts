@@ -3,9 +3,10 @@ import { AchievementsService } from './achievements.service';
 import { AchievementsController } from './achievements.controller';
 import { PrismaService } from '../prisma.service';
 import { NotificationModule } from '../notification/notification.module';
+import { BlockStateModule } from '../friends/block-state.module';
 
 @Module({
-  imports: [NotificationModule],
+  imports: [NotificationModule, BlockStateModule],
   controllers: [AchievementsController],
   providers: [AchievementsService, PrismaService],
   exports: [AchievementsService],

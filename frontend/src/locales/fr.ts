@@ -284,6 +284,12 @@ export const fr = {
     editAvatar: 'MODIFIER L\'AVATAR',
     resetAvatar: 'RÉINITIALISER',
     returnToMyProfileBtn: '◄ RETOURNER À MON PROFIL',
+    blockedCardTitle: 'CONTACT INDISPONIBLE',
+    blockedByYou:
+      'Vous avez bloqué ce pilote. Ses statistiques, son historique de parties et ses succès sont masqués jusqu’au déblocage.',
+    blockedByThem: 'Vous avez été bloqué par cet utilisateur.',
+    unblockButton: 'DÉBLOQUER',
+    unblocking: 'DÉBLOCAGE...',
     currentCombatElo: 'ELO DE COMBAT ACTUEL',
     allTimePeakRecord: 'RECORD HISTORIQUE MAXIMAL',
     victoriesStat: 'VICTOIRES',

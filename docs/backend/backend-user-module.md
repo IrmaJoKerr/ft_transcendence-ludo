@@ -17,17 +17,20 @@
 
 ## Overview
 
-The User module manages public user profiles, game history, and avatar images.
+The User module manages user profiles, game history, and avatar images.
 
-1. **Public profile** — `GET /api/user/:username` returns profile stats.
-2. **Game history** — `GET /api/user/:username/games` returns paginated past games.
+1. **Profile** — `GET /api/user/:username` returns the profile as the caller is allowed to see it: full stats, or the degraded identity-and-avatar card when a block sits between the viewer and that player.
+2. **Game history** — `GET /api/user/:username/games` returns paginated past games (`403 FRIEND_BLOCKED` on a block).
 3. **Avatar upload** — `POST /api/user/avatar` accepts a multipart image (max 2 MB, PNG/JPEG/GIF/WebP).
 4. **Avatar retrieval** — `GET /api/user/id/:userId/avatar` returns the binary image (keyed by the immutable user id, so a rename cannot break it).
 5. **Avatar deletion** — `DELETE /api/user/avatar` removes the custom avatar.
 
+Every route here is `JwtAuthGuard`-protected. The profile gate is the pair, not the click: a deep link or `curl` reaches the service with no client router behind it.
+
 > The avatar pipeline — where the bytes live, the shared Redis record the engine reads, the caching
 > and freshness rules, and how a failed load is handled — is described in full in
-> [`avatar-system.md`](../avatar-system.md).
+> [`avatar-system.md`](../avatar-system.md). The block model itself is in
+> [`backend-friends-module.md`](backend-friends-module.md).
 
 
 ---
@@ -38,9 +41,10 @@ The User module manages public user profiles, game history, and avatar images.
 
 | File | Role |
 |------|------|
-| `user.controller.ts` | HTTP routes: profile, games, avatar CRUD |
-| `user.service.ts` | Business logic: Prisma queries for user data |
-| `user.module.ts` | NestJS module — registers controller/service and imports `PresenceModule`, `NotificationModule`, `AvatarMetaModule` |
+| `user.controller.ts` | HTTP routes: profile, games, avatar CRUD (all JWT) |
+| `user.service.ts` | Business logic: Prisma queries for user data, the pair gate via `BlockStateService` |
+| `user.module.ts` | NestJS module — registers controller/service and imports `PresenceModule`, `NotificationModule`, `AvatarMetaModule`, `BlockStateModule` |
+
 
 
 ---
@@ -106,11 +110,12 @@ The User module manages public user profiles, game history, and avatar images.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/user/:username` | None | Get public profile by username |
-| `GET` | `/api/user/:username/games` | None | Get paginated game history |
+| `GET` | `/api/user/:username` | JWT | Profile as the caller may see it (`visibility`, pair-gated) |
+| `GET` | `/api/user/:username/games` | JWT | Get paginated game history (`403 FRIEND_BLOCKED` on a block) |
 | `POST` | `/api/user/avatar` | JWT | Upload avatar image |
-| `GET` | `/api/user/id/:userId/avatar` | None | Retrieve avatar image by user id |
+| `GET` | `/api/user/id/:userId/avatar` | JWT | Retrieve avatar image by user id (not pair-gated) |
 | `DELETE` | `/api/user/avatar` | JWT | Delete current user's avatar |
+
 
 
 ---
@@ -216,15 +221,24 @@ sequenceDiagram
 
 ### Get Public Profile Path
 ```
-GET /api/user/:username
+GET /api/user/:username  (JWT)
   ├── user.findUnique({ username })
   │   ├── null → 404
-  │   └── found → return profile (exclude password_hash)
+  │   └── found → avatarMeta.syncFromUser(row)
+  │        (read first, write only when has/style diverge; returns the record's `v`)
+  ├── blockState.between(callerId, user.id)
+  │   ├── 'none' → full profile: stats + presence status + visibility: 'full' + avatarV
+  │   └── otherwise → 200 with the degraded shape: id, username, displayName,
+  │        avatarStyle, hasAvatarPhoto, avatarV, visibility: 'blocked-by-you' | 'blocked-by-them'
+  │        (no createdAt, no rating, no stats, no presence)
+  └── A block is never a 403 here: the page still renders, degraded
 ```
 
 ### Get Game History Path
 ```
-GET /api/user/:username/games?page=&limit=
+GET /api/user/:username/games?page=&limit= (JWT)
+  ├── user.findUnique({ username }) → null → 404
+  ├── blockState.assertUnblocked(callerId, user.id) → any block → 403 FRIEND_BLOCKED
   ├── gameParticipant.findMany({ where: { user: { username } }, include: [game, user] })
   ├── Map to GameHistoryItem[] (each includes gameType, rank, piecesCaptured,
   │   piecesInGoal, ratingDelta, participants with avatarStyle from user)
@@ -263,8 +277,10 @@ avatar:<userId>  →  { has: '0'|'1', style: '<dicebear style>', v: '<epoch ms>'
   │   delete (Redis-first could leave has=1 with no bytes → a guaranteed 404).
   ├── Read by the ludo-engine, which has no database access of its own, at
   │   join time : that is how a seat knows whether its player has a photo.
-  ├── Repaired from Postgres on /me and public-profile reads (syncFromUser),
-  │   so a missed write or an eviction converges instead of drifting.
+  ├── Repaired from Postgres on /me and profile reads (syncFromUser): a repair,
+  │   not a touch — it reads the record first and writes only when has/style
+  │   diverge, so `v` no longer moves on every profile view (the profile payload
+  │   now echoes it as avatarV → the card's `?v=`).
   └── Redis is a cache, never the truth : a miss means has=false, and Postgres
       stays authoritative for the bytes.
 ```
@@ -288,5 +304,6 @@ DELETE /api/user/avatar (JWT)
 | `PrismaService` | Database access (User, GameParticipant, Game models) |
 | `PresenceService` | `status` (`online`/`playing`/`offline`) on the public profile |
 | `NotificationService` | Two owner-only events per avatar change: a persisted `profile_updated` self-confirmation (`items: ['avatar']` - the actor's own bell row and toast, and the only audience) plus the transient `avatar_changed` state sync pushed with `notifyTransient()` (never `broadcast()`: no other account is told, so an already-open view elsewhere catches up on its next profile/roster fetch) |
-| `AvatarMetaService` | Keeps the shared `avatar:<userId>` Redis record in sync (see `avatar-system.md`) |
-| `JwtAuthGuard` | Protects avatar write/delete endpoints |
+| `AvatarMetaService` | Keeps the shared `avatar:<userId>` Redis record in sync (see `avatar-system.md`) and supplies the profile's `avatarV` stamp |
+| `BlockStateService` | The pair gate: one `pairKey` lookup that returns `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus the `403 FRIEND_BLOCKED` assert the collateral reads use. Prisma-only, so reading a profile never drags `MatchModule` in |
+| `JwtAuthGuard` | Protects every route: profile, games, avatar read/write/delete |

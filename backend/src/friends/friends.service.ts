@@ -10,6 +10,7 @@ import { PresenceService } from '../presence/presence.service';
 import { MatchService } from '../match/match.service';
 import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
+import { BlockStateService } from './block-state.service';
 import {
   pairKey,
   isFriendPair,
@@ -42,6 +43,7 @@ export class FriendsService {
     private readonly presence: PresenceService,
     private readonly matchService: MatchService,
     private readonly notificationService: NotificationService,
+    private readonly blockState: BlockStateService,
   ) {
     const host = process.env.REDIS_HOST ?? 'redis';
     const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
@@ -365,6 +367,10 @@ export class FriendsService {
 
   // Accepted friends of a user (optionally looked up by username instead of
   // the caller) with presence status. Used by GET /api/friends.
+  //
+  // A block between the caller and a named target is a 403, not a silent fall
+  // back to the caller's own list: the profile page skips this read when
+  // `visibility !== 'full'`, and the 403 is what stops a deep link.
   async getFriends(userId: string, targetUsername?: string) {
     let effectiveUserId = userId;
     if (targetUsername) {
@@ -373,6 +379,7 @@ export class FriendsService {
         select: { id: true },
       });
       if (targetUser) {
+        await this.blockState.assertUnblocked(userId, targetUser.id);
         effectiveUserId = targetUser.id;
       }
     }

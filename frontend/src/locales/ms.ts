@@ -281,6 +281,12 @@ export const ms = {
     editAvatar: 'EDIT AVATAR',
     resetAvatar: 'SET SEMULA',
     returnToMyProfileBtn: '◄ KEMBALI KE PROFIL SAYA',
+    blockedCardTitle: 'KONTAK TIDAK BOLEH DIHUBUNGI',
+    blockedByYou:
+      'Anda telah menyekat juruterbang ini. Statistik, sejarah perlawanan dan pencapaiannya disembunyikan sehingga anda membuka sekatan.',
+    blockedByThem: 'Anda telah disekat oleh pengguna ini.',
+    unblockButton: 'BUKA SEKATAN',
+    unblocking: 'MEMBUKA SEKATAN...',
     currentCombatElo: 'ELO PERTEMPURAN SEMASA',
     allTimePeakRecord: 'REKOD PUNCAK SEPANJANG MASA',
     victoriesStat: 'KEMENANGAN',

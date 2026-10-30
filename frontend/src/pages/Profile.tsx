@@ -24,12 +24,20 @@ import {
   RETRO_BTN,
 } from '../styles/tw';
 
+// What the backend allows this viewer to see: `full`, or one of the two blocked
+// states. A blocked payload is the identity and avatar only.
+type ProfileVisibility = 'full' | 'blocked-by-you' | 'blocked-by-them';
+
 interface UserProfile {
   id: string;
   username: string;
   displayName?: string;
   avatarStyle: string | null;
   hasAvatarPhoto: boolean;
+  /** The avatar-meta stamp, echoed into `?v=` so a stale photo is never reused. */
+  avatarV?: number;
+  /** Absent only from a pre-gate payload; read as full. */
+  visibility?: ProfileVisibility;
   rating: number;
   highestRating: number;
   wins: number;
@@ -170,6 +178,195 @@ const ACHIEVEMENTS_DEF = [
   },
 ];
 
+/** The degraded profile a block leaves behind: identity, avatar and the notice.
+ *  The page still renders (the gate answers 200, not 403) because a block hides
+ *  the relationship, not the person — the identity and avatar are already public
+ *  on the leaderboard. Unblock is offered only for a block this viewer holds. */
+function BlockedProfileCard({
+  profile,
+  crtEnabled,
+  toggleCrt,
+  unblocking,
+  onUnblock,
+}: {
+  profile: UserProfile;
+  crtEnabled: boolean;
+  toggleCrt: () => void;
+  unblocking: boolean;
+  onUnblock: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <div className={GRID_BACKGROUND} />
+
+      <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
+        <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
+          <aside
+            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
+            style={{ margin: 0, padding: 0 }}
+          >
+            <RetroNavbar activeRoute="/profile" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
+          </aside>
+
+          <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
+            <header
+              className={HERO_SECTION}
+              style={{ marginTop: 0, padding: '16px 0 18px', marginBottom: 12, flexShrink: 0 }}
+            >
+              <h1
+                className={HERO_TITLE}
+                style={{ fontSize: '1.45rem', margin: 0, letterSpacing: '1.5px' }}
+              >
+                {t('profile.heroTitle')}
+              </h1>
+            </header>
+
+            <section className={RETRO_WINDOW} style={{ width: '100%', padding: 26 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
+                <div
+                  style={{
+                    padding: 4,
+                    borderRadius: 8,
+                    background: 'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
+                    boxShadow: '0 0 20px rgba(0, 240, 255, 0.4)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserAvatar
+                    username={profile.username}
+                    userId={profile.id}
+                    hasAvatarPhoto={profile.hasAvatarPhoto}
+                    avatarStyle={profile.avatarStyle}
+                    size={95}
+                    fallbackStyle={{
+                      width: 95,
+                      height: 95,
+                      borderRadius: 6,
+                      background: 'rgba(8, 2, 22, 0.95)',
+                      color: 'var(--accent-cyan)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: '2.3rem',
+                      fontWeight: 900,
+                      fontFamily: 'var(--font-display)',
+                    }}
+                  />
+                </div>
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontSize: '2rem',
+                      fontWeight: 900,
+                      color: '#ffffff',
+                      letterSpacing: '0.04em',
+                      lineHeight: 1.05,
+                      textShadow: '0 0 20px rgba(0, 240, 255, 0.65)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {profile.displayName ?? profile.username}
+                  </div>
+                  <div
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '0.72rem',
+                      fontFamily: 'var(--font-display)',
+                      marginTop: 6,
+                    }}
+                  >
+                    @{profile.username}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 22,
+                  padding: '14px 16px',
+                  borderRadius: 7,
+                  background: 'rgba(12, 4, 30, 0.9)',
+                  border: '1.5px solid rgba(255, 0, 127, 0.45)',
+                  boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
+                }}
+              >
+                <div
+                  style={{
+                    color: '#ff0055',
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 900,
+                    fontSize: '0.82rem',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {t('profile.blockedCardTitle')}
+                </div>
+                <p
+                  style={{
+                    color: 'var(--text-muted)',
+                    fontSize: '0.86rem',
+                    lineHeight: 1.5,
+                    margin: '8px 0 0',
+                  }}
+                >
+                  {profile.visibility === 'blocked-by-you'
+                    ? t('profile.blockedByYou')
+                    : t('profile.blockedByThem')}
+                </p>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                  {profile.visibility === 'blocked-by-you' && (
+                    <button
+                      className={RETRO_BTN}
+                      onClick={() => {
+                        if (!unblocking) onUnblock();
+                      }}
+                      disabled={unblocking}
+                      style={{
+                        padding: '5px 12px',
+                        fontSize: '0.72rem',
+                        color: 'var(--accent-cyan)',
+                        borderColor: 'rgba(0, 240, 255, 0.45)',
+                        fontFamily: 'var(--font-display)',
+                        borderRadius: 4,
+                        cursor: unblocking ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {unblocking ? t('profile.unblocking') : t('profile.unblockButton')}
+                    </button>
+                  )}
+                  <button
+                    className={RETRO_BTN}
+                    onClick={() => {
+                      retroAudio.playUiBeep(640, 0.04);
+                      navigate('/profile');
+                    }}
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: '0.72rem',
+                      color: 'var(--accent-cyan)',
+                      borderColor: 'rgba(0, 240, 255, 0.45)',
+                      fontFamily: 'var(--font-display)',
+                      borderRadius: 4,
+                    }}
+                  >
+                    {t('profile.returnToMyProfileBtn')}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Profile() {
   const { t } = useTranslation();
   const { query } = useRoute();
@@ -216,6 +413,7 @@ export function Profile() {
   const [photoWarning, setPhotoWarning] = useState('');
   const [avatarBuster, setAvatarBuster] = useState(Date.now());
   const [showEdit, setShowEdit] = useState(false);
+  const [unblocking, setUnblocking] = useState(false);
   // Bump to refetch the profile after the edit modal saves/closes.
   const [profileRefresh, setProfileRefresh] = useState(0);
 
@@ -285,75 +483,140 @@ export function Profile() {
     }
   };
 
+  // Lift our own block from the degraded card, then refetch: the next read
+  // comes back `full` (or `blocked-by-them` when they hold a block too, which
+  // just swaps the copy for the "you have been blocked" line).
+  const handleUnblock = async () => {
+    if (!profile) return;
+    setUnblocking(true);
+    try {
+      const res = await fetchWithCsrf(`/api/friends/unblock/${profile.id}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        retroAudio.playUiBeep(660, 0.05);
+        setProfileRefresh((n) => n + 1);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUnblocking(false);
+    }
+  };
+
   useEffect(() => {
     if (!username) return;
     let cancelled = false;
     setLoading(true);
 
-    fetch(`/api/user/${username}`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled) setProfile(data);
-      })
-      .catch(() => {
-        if (!cancelled) setProfile(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    // Profile first: `visibility` decides whether the three collateral reads are
+    // allowed at all. They are skipped (not sent and failed) for a blocked pair.
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(`/api/user/${username}`, { credentials: 'include' });
+        const data: UserProfile | null = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        setProfile(data);
+        setLoading(false);
 
-    fetch(`/api/user/${username}/games?limit=30`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled) setGamesData(data);
-      })
-      .catch(() => {
-        if (!cancelled) setGamesData(null);
-      });
-
-    const achUrl = username
-      ? `/api/achievements?username=${encodeURIComponent(username)}`
-      : '/api/achievements';
-    fetch(achUrl, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled && data) setAchievements(data);
-      })
-      .catch(() => {
-        if (!cancelled) setAchievements({});
-      });
-
-    const friendsUrl = username
-      ? `/api/friends?username=${encodeURIComponent(username)}`
-      : '/api/friends';
-    fetch(friendsUrl, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled && data) {
-          const list = Array.isArray(data) ? data : (data?.friends ?? []);
-          const sorted = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-          setFriendsData(sorted);
+        if (!data || (data.visibility && data.visibility !== 'full')) {
+          setGamesData(null);
+          setAchievements({});
+          setFriendsData(null);
+          return;
         }
-      })
-      .catch(() => {
-        if (!cancelled) setFriendsData([]);
-      });
+
+        // The server's stamp is the real `?v=`: applying it here means the first
+        // paint revalidates the photo instead of reusing a cached byte-identical
+        // URL. No stamp from the server = no override, so nothing is minted.
+        if (typeof data.avatarV === 'number') {
+          applyAvatarChange(data.id, {
+            has: data.hasAvatarPhoto,
+            style: data.avatarStyle,
+            v: data.avatarV,
+          });
+        }
+
+        fetch(`/api/user/${username}/games?limit=30`, { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((games) => {
+            if (!cancelled) setGamesData(games);
+          })
+          .catch(() => {
+            if (!cancelled) setGamesData(null);
+          });
+
+        const achUrl = `/api/achievements?username=${encodeURIComponent(username)}`;
+        fetch(achUrl, { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data2) => {
+            if (!cancelled && data2) setAchievements(data2);
+          })
+          .catch(() => {
+            if (!cancelled) setAchievements({});
+          });
+
+        const friendsUrl = `/api/friends?username=${encodeURIComponent(username)}`;
+        fetch(friendsUrl, { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data2) => {
+            if (!cancelled && data2) {
+              const list = Array.isArray(data2) ? data2 : (data2?.friends ?? []);
+              const sorted = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+              setFriendsData(sorted);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setFriendsData([]);
+          });
+      } catch {
+        if (!cancelled) {
+          setProfile(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadProfile();
 
     return () => {
       cancelled = true;
     };
   }, [username, avatarBuster, isOwnProfile, profileRefresh]);
 
-  const totalGames = profile ? profile.wins + profile.losses : 0;
-  const winRate = profile && totalGames > 0 ? Math.round((profile.wins / totalGames) * 100) : 0;
-  const statusStyle = profile ? STATUS_STYLE[profile.status] : STATUS_STYLE.offline;
-  const peakRating = profile ? profile.highestRating || profile.rating : 1200;
+  // A block between the viewer and this player: the payload carries the identity
+  // and avatar only, so nothing below may read a stat or `status`.
+  const isBlockedView =
+    profile?.visibility === 'blocked-by-you' || profile?.visibility === 'blocked-by-them';
+
+  const totalGames = profile && !isBlockedView ? profile.wins + profile.losses : 0;
+  const winRate =
+    profile && !isBlockedView && totalGames > 0 ? Math.round((profile.wins / totalGames) * 100) : 0;
+  const statusStyle =
+    profile && !isBlockedView ? STATUS_STYLE[profile.status] : STATUS_STYLE.offline;
+  const peakRating = profile && !isBlockedView ? profile.highestRating || profile.rating : 1200;
 
   const unlockedCount = ACHIEVEMENTS_DEF.filter(
     (a) => getAchievementReport(a.key)?.unlocked === true,
   ).length;
   const totalAchievements = ACHIEVEMENTS_DEF.length;
   const achievementPercent = Math.round((unlockedCount / totalAchievements) * 100);
+
+  // Degraded render: the three collateral reads were skipped, so this branch is
+  // the only one that may paint anything for a blocked pair. `!loading` keeps a
+  // stale card from flashing while a different username is being fetched.
+  if (profile && isBlockedView && !loading) {
+    return (
+      <BlockedProfileCard
+        profile={profile}
+        crtEnabled={crtEnabled}
+        toggleCrt={toggleCrt}
+        unblocking={unblocking}
+        onUnblock={() => void handleUnblock()}
+      />
+    );
+  }
 
   return (
     <>

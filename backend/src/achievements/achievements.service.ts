@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/notification.service';
+import { BlockStateService } from '../friends/block-state.service';
 import {
   ACHIEVEMENT_RULES,
   ACHIEVEMENT_KEYS,
@@ -41,6 +42,7 @@ export class AchievementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationService,
+    private readonly blockState: BlockStateService,
   ) {}
 
   // Post-game auto-hook from processGameEnd. Never throws : failures log.
@@ -164,6 +166,9 @@ export class AchievementsService {
         select: { id: true },
       });
       if (targetUser) {
+        // The profile page skips this read when `visibility !== 'full'`; the
+        // 403 is what stops a deep link or curl from reading a blocked user.
+        await this.blockState.assertUnblocked(userId, targetUser.id);
         effectiveUserId = targetUser.id;
       }
     }

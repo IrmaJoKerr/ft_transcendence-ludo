@@ -31,20 +31,29 @@ interface UploadedAvatarFile {
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  // Signed-in only: the page is behind the session gate in the client router
+  // too, and the payload's `visibility` is what tells a caller whether it may
+  // read the stats at all.
+  @UseGuards(JwtAuthGuard)
   @Get(':username')
-  async getPublicProfile(@Param('username') username: string) {
-    return this.userService.getPublicProfile(username);
+  async getPublicProfile(
+    @Request() req: { user: { id: string } },
+    @Param('username') username: string,
+  ) {
+    return this.userService.getPublicProfile(username, req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get(':username/games')
   async getUserGames(
+    @Request() req: { user: { id: string } },
     @Param('username') username: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? Math.min(parseInt(limit, 10), 100) : 20;
-    return this.userService.getUserGames(username, pageNum, limitNum);
+    return this.userService.getUserGames(username, req.user.id, pageNum, limitNum);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -73,7 +82,11 @@ export class UserController {
   }
 
   // The photo, keyed by the immutable user id: a rename can never turn this URL
-  // into a 404 the way a display-name-keyed route could.
+  // into a 404 the way a display-name-keyed route could. Signed-in only, but
+  // deliberately NOT block-checked: the bytes are not a capability — the same
+  // picture is on the leaderboard — and the profile card keeps the avatar in its
+  // degraded form on purpose.
+  @UseGuards(JwtAuthGuard)
   @Get('id/:userId/avatar')
   async getAvatarById(@Param('userId') userId: string, @Res() res: Response) {
     this.sendAvatar(res, await this.userService.getAvatarById(userId));

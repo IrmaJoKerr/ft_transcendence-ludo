@@ -6,7 +6,7 @@
 - [Files](#files) — Every source file in the module and its role
 - [Key Types / Interfaces](#key-types--interfaces) — Friendship status enum and response shapes
 - [API Endpoints](#api-endpoints) — All 12 routes with method, path, auth, and description
-- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, plus the full pair state machine
+- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, the read-path block gate, plus the full pair state machine
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Dependencies](#dependencies) — Internal services this module relies on
 
@@ -51,7 +51,10 @@ helpers in `friendship-pair.ts`.
 | `friends.controller.ts` | HTTP routes: send, accept, decline, remove, list, requests, block/unblock, blocked list, and game invites (invite, pending, dismiss) |
 | `friends.service.ts` | Business logic: directional pair transitions, requests, blocking, invites |
 | `friendship-pair.ts` | Pure helpers (`pairKey`, `effectiveStatus`, `isFriendPair`, `isBlockedPair`) shared with match + presence — no NestJS/Prisma imports, so no circular DI |
-| `friends.module.ts` | NestJS module — registers controller, service, and PrismaService |
+| `block-state.service.ts` | The read-path gate: one unordered-pair lookup (`between`) returning `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus `assertUnblocked` (403 `FRIEND_BLOCKED`). Prisma-only, injected by User, Achievements and Friends |
+| `block-state.module.ts` | The leaf module that exports `BlockStateService` (no service imports, so no cycle) |
+| `friends.module.ts` | NestJS module — registers controller, service, and PrismaService; imports `BlockStateModule` |
+
 
 
 ---
@@ -309,7 +312,34 @@ sequenceDiagram
 ```
 
 
-### 7. Full Pair State Machine
+### 7. Blocks on the read paths (the profile gate)
+
+A block is not only a write-path refusal. Every endpoint that renders a profile checks the
+pair, because a deep link or a `curl` bypasses the click and the client router:
+
+| Route | On a block between caller and target |
+|---|---|
+| `GET /api/user/:username` | `200` with the degraded shape and `visibility` (`blocked-by-you` / `blocked-by-them`): identity + avatar only |
+| `GET /api/user/:username/games` | `403 FRIEND_BLOCKED` |
+| `GET /api/achievements?username=` | `403 FRIEND_BLOCKED` |
+| `GET /api/friends?username=` | `403 FRIEND_BLOCKED` |
+| `GET /api/user/id/:userId/avatar` | Served: the bytes are not a capability (the same picture is on the leaderboard) |
+
+`BlockStateService` (`block-state.service.ts`) is the single asker: one `findUnique` by `pairKey`,
+no joins, returning `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`.
+`visibilityFor()` maps it to the wire value and reads `both` as `blocked-by-you`, since the caller's
+own block is the one still there to lift; after that unblock the next read reports
+`blocked-by-them`. It is a Prisma-only leaf behind `BlockStateModule`, so injecting it into
+`UserService` does not drag `FriendsService` (and `MatchModule` behind it) into the user module.
+
+The degraded card offers **Unblock** (`POST /api/friends/unblock/:userId`, then a profile refetch);
+the blocked party gets the explicit line *"You have been blocked by this user."* Disclosing is a
+choice — there are no DMs and `sendFriendRequest` already refuses blocked pairs — and it is what
+lets the blocked party know to stop trying. See [`../API-list.md`](../API-list.md) for the exact
+payload.
+
+
+### 8. Full Pair State Machine
 
 The six diagrams above walk through one operation at a time. This one shows the whole
 model at once: every persisted row state and every action **user1 (A)** or **user2 (B)**
@@ -450,6 +480,7 @@ POST /api/friends/decline/{requestId} (JWT required)
 ### List Friends Path
 ```
 GET /api/friends (JWT required)
+  ├── With ?username=<other>: blockState.assertUnblocked → any block → 403 FRIEND_BLOCKED
   ├── Find pairs where caller is user1/user2 AND both directions 'accepted'
   ├── Map to { id, username, avatarStyle, rating, friendsSince }
   ├── Overlay live presence via PresenceService.getStatuses()
@@ -497,6 +528,8 @@ POST /api/friends/unblock/{userId} (JWT required)
 | `PresenceService` | Live status in friend lists |
 | `MatchService` | Create/join rooms for game invites |
 | `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` notifications |
+| `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `FRIEND_BLOCKED`); reads never trust the client router |
+
 | `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence |
 | `Redis` (ioredis) | Pending game-invite records (`invite:<userId>`) |
 | `JwtAuthGuard` | Protects all friend endpoints |

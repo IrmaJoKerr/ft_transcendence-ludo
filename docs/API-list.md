@@ -179,7 +179,7 @@ An error response has one of two shapes:
    - [`GET /api/auth/42/callback`](#get-apiauth42callback) — 42 OAuth redirect target (browser only)
 
 5. **[User](#5-user)** — Public profiles, game history, avatar management
-   - [`GET /api/user/:username`](#get-apiuserusername) — Look up a player's public profile
+   - [`GET /api/user/:username`](#get-apiuserusername) — Look up a player's profile as the caller may see it (pair-gated)
    - [`GET /api/user/:username/games`](#get-apiuserusernamegames) — View a player's past game history
    - [`POST /api/user/avatar`](#post-apiuseravatar) — Upload a custom avatar image
    - [`GET /api/user/id/:userId/avatar`](#get-apiuseriduseridavatar) — Fetch a player's avatar image
@@ -963,9 +963,9 @@ Redirect to 42 (intra) OAuth consent screen.
 
 **Source:** `backend/src/user/user.controller.ts` — UserModule
 
-Get a user's public profile.
+Get a user's profile, **as the caller is allowed to see it**: every render is gated by the friendship pair, not by the click that opened the page.
 
-**Headers:** None  
+**Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:username` = username string  
 **Response:**
 
@@ -976,6 +976,7 @@ Get a user's public profile.
   "displayName": "string",
   "createdAt": "ISO-date-string",
   "avatarStyle": "string",
+  "avatarV": 1793376265279,
   "rating": 0,
   "highestRating": 0,
   "wins": 0,
@@ -985,12 +986,30 @@ Get a user's public profile.
   "botWins": 0,
   "humanWins": 0,
   "hasAvatarPhoto": false,
-  "status": "online | playing | offline"
+  "status": "online | playing | offline",
+  "visibility": "full"
 }
-
 ```
 
-**Errors:** 404 if user not found.
+`avatarV` is the shared avatar record's change stamp (`avatar:<userId>.v`): the client appends it as `?v=` to the photo URL, so a stale image is never reused and the stamp does not move on a read.
+
+**A block between the caller and the target degrades the payload instead of failing it** — `200`, no stats, no presence:
+
+```json
+{
+  "id": "uuid",
+  "username": "string",
+  "displayName": "string",
+  "avatarStyle": "string",
+  "avatarV": 1793376265279,
+  "hasAvatarPhoto": false,
+  "visibility": "blocked-by-you | blocked-by-them"
+}
+```
+
+`blocked-by-you` means the caller holds a block (the page offers **Unblock** via `POST /api/friends/unblock/:userId`, then refetches); `blocked-by-them` renders *"You have been blocked by this user."* A mutual block reads as `blocked-by-you`, because the caller's own block is still there to lift. The avatar is kept on purpose: a block hides the relationship, not the person.
+
+**Errors:** 401 (no session); 404 if user not found. A block is **never** a 403 here — see the three collateral reads below.
 
 
 ---
@@ -1003,7 +1022,7 @@ Get a user's public profile.
 
 Get a user's game history.
 
-**Headers:** None  
+**Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:username` = username string  
 **Query Params:**
 | Param | Type | Default | Max |
@@ -1050,7 +1069,7 @@ Get a user's game history.
 
 ```
 
-**Errors:** 404 if user not found.
+**Errors:** 401 (no session); 404 if user not found; **403 `FRIEND_BLOCKED`** when a block exists between the caller and the target (any direction). The profile page skips this read when `visibility !== 'full'`; the 403 is what stops a deep link or `curl`.
 
 
 ---
@@ -1086,13 +1105,14 @@ Upload an avatar image (max 2 MB, PNG/JPEG/GIF/WebP).
 
 **Source:** `backend/src/user/user.controller.ts` — UserModule
 
-Retrieve a user's custom avatar image, keyed by the **immutable user id** — a display-name rename can therefore never invalidate an avatar URL.
+Retrieve a user's custom avatar image, keyed by the **immutable user id** — a display-name rename can therefore never invalidate an avatar URL. Signed-in only, but deliberately **not** pair-gated: the bytes are not a capability (the same picture is on the leaderboard), so a blocked profile keeps its avatar.
 
-**Headers:** None  
+**Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:userId` = user id  
 **Response:** Binary image data with `Content-Type` set to the stored MIME type, served with `Cache-Control: public, no-cache, no-transform` plus an `ETag`. The base URL is stable, so an unchanged photo is answered `304` on revalidation. When a change is announced to that user's own clients (the SSE `avatar_changed` event, pushed with `notifyTransient()` to the owner alone, or the uploader's own client) the client appends `?v=<stamp>`, which forces a real fetch — a byte-identical URL can otherwise be served from the browser's in-memory image cache without any request, so `no-cache` alone would never revalidate.
 
-**Errors:** `404` when no custom avatar is set, sent with `Cache-Control: no-store` so a "no photo" answer is never cached and replayed.
+**Errors:** 401 (no session); `404` when no custom avatar is set, sent with `Cache-Control: no-store` so a "no photo" answer is never cached and replayed.
+
 
 > Full pipeline — storage layers, the shared Redis record, caching and freshness rules, seat
 > rendering: [`avatar-system.md`](avatar-system.md).
@@ -1748,6 +1768,7 @@ Get the current user's achievement report (unlocked state + progress + target pe
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Query Params:** optional `?username=<username>` returns another user's achievement report.  
+**Errors:** 401 (no session); **403 `FRIEND_BLOCKED`** when a block exists between the caller and `?username=`'s user.
 **Response:**
 
 ```json
@@ -1981,9 +2002,10 @@ Remove a friend.
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Get the current user's friends list.
+Get the current user's friends list (or, with `?username=`, another user's list).
 
 **Headers:** 🔒 (requires `token` cookie)  
+**Query Params:** optional `?username=<username>` returns that user's list.  
 **Response:**
 
 ```json
@@ -1998,6 +2020,8 @@ Get the current user's friends list.
 ]
 
 ```
+
+**Errors:** 401 (no session); **403 `FRIEND_BLOCKED`** when a block exists between the caller and `?username=`'s user (the profile page skips the read when `visibility !== 'full'`).
 
 
 ---
