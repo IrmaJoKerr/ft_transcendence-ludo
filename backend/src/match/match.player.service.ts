@@ -5,6 +5,7 @@ import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
 import { isBotUserId } from '../common/botname-enforce';
+import { publishRoomsChanged } from '../common/channels';
 import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { hasLiveMatch } from './active-game';
@@ -96,6 +97,8 @@ export class MatchPlayerService {
       `${slotKey}_color`,
       assignedColor,
     );
+    // A seat taken is a lobby/mine change for everyone.
+    await publishRoomsChanged(this.redis);
 
     const username = await this.resolveUsername(userId);
     const displayName = await this.resolveDisplayName(userId);
@@ -161,6 +164,7 @@ export class MatchPlayerService {
     // Reclaiming the seat clears the reservation flag a "returned to lobby" leave
     // set, so the room counts this player again and the idle-abort stops applying.
     await this.redis.hdel(`match:${gameId}`, `player${slotIndex + 1}_left`);
+    await publishRoomsChanged(this.redis);
 
     const color = data[`player${slotIndex + 1}_color`] || SLOT_COLORS[slotIndex];
     const username = await this.resolveUsername(userId);
@@ -331,6 +335,7 @@ export class MatchPlayerService {
     const slotKey = slotMap[userId];
     if (slotKey) {
       await this.redis.hdel(`match:${gameId}`, slotKey, slotKey.replace('_id', '_color'));
+      await publishRoomsChanged(this.redis);
     }
 
     const readyKey = `ready:${gameId}`;
@@ -361,6 +366,7 @@ export class MatchPlayerService {
 
     await this.redis.hset(`match:${gameId}`, 'status', 'ABORTED');
     await this.redis.expire(`match:${gameId}`, 3600);
+    await publishRoomsChanged(this.redis);
 
     // Notify the other human players that the match was aborted.
     await this.notifyMatchAbort(gameId, data, userId);
@@ -402,6 +408,7 @@ export class MatchPlayerService {
 
     await this.redis.hset(`match:${gameId}`, 'status', 'ACTIVE');
     await this.redis.hsetnx(`match:${gameId}`, 'startedAt', Date.now().toString());
+    await publishRoomsChanged(this.redis);
     return { message: 'Game marked active', gameId };
   }
 

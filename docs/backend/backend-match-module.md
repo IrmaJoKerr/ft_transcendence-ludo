@@ -10,6 +10,7 @@
 - [Strict State Lock](#strict-state-lock-active-gamets) — One live game per player, enforced on every create/join path
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for match flows
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
+- [Lobby invalidation](#lobby-invalidation-roomschanged--roomslist--roomsmine) — `rooms:changed`, the one snapshot and the per-viewer diff that replaced the polls
 - [Dependencies](#dependencies) — Internal services this module relies on
 - [Configuration / Environment](#configuration--environment) — Redis and engine configuration
 
@@ -433,6 +434,48 @@ GET /api/games/rooms
 ---
 
 
+## Lobby invalidation (`rooms:changed` → `rooms:list` / `rooms:mine`)
+
+The lobby and the rejoin banner are pushed, not polled (socket consolidation, Phase 2).
+
+**Publishers.** Every write that can change either list publishes `rooms:changed` with no payload:
+
+| Side | Where |
+|------|-------|
+| Backend | `MatchCreatorService` (`createMatch` write, `handoffExistingRoom` seat reclaim), `MatchPlayerService` (`joinMatch` seat, `rejoin` reclaim, `exitGame` free seat, `cancelGame` abort, `markStarted`), `MatchPostgameService` (`processGameEnd` deletes the hash) — all through `publishRoomsChanged(this.redis)` from `backend/src/common/channels.ts` |
+| Engine | `RedisGameStore`'s match-key methods: `updateMatchData`, `setIdleSince`, `clearIdleSince`, `setSeatUser`, `clearSeatUser`, `clearMatchSeat`, `reserveMatchSeat`, `abortMatch` — each calls its own `notifyRoomsChanged()`, because the engine is a separate build with no import path into the backend |
+
+Both sides are best-effort: a failed publish is logged and repaired by the tick below, never raised to
+the caller that caused the write.
+
+**The diff.** `RealtimeBroadcaster` subscribes to the channel, debounces **500 ms** (a burst is one
+snapshot read), calls `MatchQueryService.snapshot()` once, and derives each connected viewer's payload
+from it:
+
+- `snapshot()` reads every `match:*` hash in one scan, **one engine-state read per room** (which seats
+  the engine finalized, and whether it started), and one Postgres query for the hosts. Everything
+  viewer-independent is resolved once.
+- `lobbyRoomsFor(snapshot, viewerId)` and `myRoomsFor(snapshot, userId)` are the pure filters that
+  build the two payloads. They are the *same functions* the REST routes use, so the push and
+  `GET /api/games/rooms` / `/api/games/mine` cannot drift.
+- A payload is emitted only when its JSON changed for that viewer, so a room that changed for
+  somebody else never repaints this viewer's screen.
+- The cache is pruned to the accounts that still have a socket, so a reconnect always receives the
+  current state instead of diffing against stale bytes.
+
+**The repair tick.** Every 30 s the broadcaster recomputes and emits on change, and logs
+`[rooms] repair tick emitted N diff(s)` when it had to. It is both insurance (a crash between write
+and publish, a reconnecting subscriber) and the counter that makes a missed publish visible: a steady
+non-zero count is a coverage hole in the publisher list above.
+
+**The client.** `LudoLobby` and `RetroNavbar` subscribe to the events and keep one REST read for first
+paint (plus one per reconnect, since the push carries only a diff). Neither screen polls any more.
+
+
+---
+---
+
+
 ## Implementation Notes
 
 - **Room rules are normalized once, at the service boundary** (`match.creator.service.ts`). `normalizeRoomRules` applies the defaults and the coercion for every caller, and `roomRuleHashFields` writes the result in the same `HSET` as the seats, so a room never exists without its rules. Keys and defaults live in `room-rules.ts`; the engine freezes them at join, and the lobby may change them only while the room is WAITING.
@@ -455,7 +498,8 @@ GET /api/games/rooms
 | `secrets.ts` | `ENGINE_API_KEY` (validating engine callbacks, compared in constant time by `verifySecret`) and `ENGINE_JWT_SECRET` (signing engine tokens) |
 
 > Presence is **not** a match dependency: no `match.*` service imports `PresenceService`.
-> Presence is driven entirely by the client's `POST /api/presence/heartbeat` (see `backend-presence-module.md`).
+> Presence is read off the session socket now (see `backend-presence-module.md`): the connection is the
+> liveness signal, and the match page only sends `presence:playing` on enter/leave.
 
 
 ---

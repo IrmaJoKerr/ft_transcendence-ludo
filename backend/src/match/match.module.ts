@@ -24,6 +24,6 @@ import { NotificationModule } from '../notification/notification.module';
     GuestLimitService,
     PrismaService,
   ],
-  exports: [MatchService],
+  exports: [MatchService, MatchQueryService],
 })
 export class MatchModule {}

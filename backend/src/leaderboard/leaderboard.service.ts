@@ -57,8 +57,10 @@ export class LeaderboardService {
 
       // If Redis has no entries or is missing users, auto-populate from PostgreSQL
       if (redisEntries.length === 0 || total < 5) {
-        // Bots are real User rows (FK), so exclude them here just like
-        // match.postgame.service.ts does when it zadds ratings.
+        // No bot is ever a User row: a bot's id is `bot-<color>`, postgame skips it
+        // before any write, and no seed inserts one, so this filter can match
+        // nothing. Kept only as a guard against a hand-inserted row; the schema
+        // revamp deletes it with the leaderboard rebuild.
         const allDbUsers = await this.prisma.db.user.findMany({
           where: { NOT: { id: { startsWith: BOT_PREFIX } } },
           select: { id: true, rating: true },

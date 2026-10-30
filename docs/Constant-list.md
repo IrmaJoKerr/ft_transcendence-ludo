@@ -438,7 +438,9 @@ counter below zero.
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `PRESENCE_TTL_S` | 45 | `presence:<userId>` lives this long: two missed 20 s heartbeats before a closed tab reads offline |
+| `PRESENCE_TTL_S` | 45 | how long `presence:<userId>` and `presence:conns:<userId>` live without a refresh; the session socket refreshes both every 20 s, and the socket's own ping/pong (20 s + 20 s) detects a dead peer first |
+| `PRESENCE_REFRESH_MS` | 20000 | the server-side refresh of one live connection's row and set membership |
+| `PRESENCE_COUNT_COALESCE_MS` | 5000 | `presence:count` publishes at most once per window (the count is a SCAN) |
 | `SSE_HEARTBEAT_MS` | 20000 | keep-alive comment cadence on the notification stream |
 | `MAX_SSE_STREAMS_PER_USER` | 5 | simultaneous notification streams per user; the sixth is a localized 429 |
 | Notification page | `take: 50` | newest notifications read for the bell |
@@ -650,14 +652,12 @@ rather than settling on a face nobody sent. `piece_moved` then waits out what is
 
 | Constant / literal | Value | What it paces |
 |---|---|---|
-| `PRESENCE_HEARTBEAT_MS` | 20000 | `POST /api/presence/heartbeat` while signed in (the backend's TTL is 45 s, §9, so two missed beats read offline) |
 | `ACCESS_TOKEN_REFRESH_MS` | 840000 (14 min) | proactive refresh, one minute before the 15-minute access token expires |
-| `ACTIVE_GAME_POLL_MS` | 10000 | the navbar's "rejoin your game" banner |
-| `ROOM_POLL_MS` | 5000 | the lobby's open-room list |
+| `ROOMS_DEBOUNCE_MS` | 500 (backend) | how long a burst of `rooms:changed` publishes is folded into one snapshot read before the diff is emitted |
+| `ROOMS_REPAIR_TICK_MS` | 30000 (backend) | recompute-and-emit-on-change, and count the diffs it emits (a steady non-zero count is a missed publish) |
 | Home friends poll (inline) | 12000 | the home page's friend list |
 | Home badge poll (inline) | 15000 | unread-notification and invite counts |
 | In-game friends poll (inline) | 5000 | the game page's friends panel |
-| Engine-error banner (inline) | 6000 | how long an engine error stays on screen |
 | Room-code "copied" (inline) | 1500 | the copy confirmation |
 | Notification toast | 9000 visible, 350 exit, 30 entrance | how long a toast stays, then its slide-out and the one-frame delay before sliding in |
 | `LOCK_TTL_MS` | 10000 | the cross-tab refresh lock in `lr.authRefreshLock`; a dead holder cannot wedge the other tabs |

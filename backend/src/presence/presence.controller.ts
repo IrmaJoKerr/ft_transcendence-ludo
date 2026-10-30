@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { PRESENCE_THROTTLE } from '../common/throttles';
 import { Request } from 'express';
@@ -8,13 +8,20 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('api/presence')
-// HTTP routes for the presence system (heartbeat, online count, logout
-// clear). All JWT-protected; delegates to PresenceService.
+// HTTP routes for the presence system. All JWT-protected; delegates to
+// PresenceService.
+//
+// Presence itself is read off the session socket now (RealtimeGateway): the
+// connection keeps the row refreshed and its close lets the TTL lapse, so the
+// shipped client calls nothing here. What remains is the REST fallback (a browser
+// whose socket cannot be established) and the badge's first-paint read.
 export class PresenceController {
   constructor(private readonly presence: PresenceService) {}
 
-  // Called every ~20s while the app is open; `playing` flips the status to
-  // "playing" instead of plain "online" while inside a match.
+  // Fallback heartbeat for a client without a session socket. `playing` flips the
+  // status to "playing" instead of plain "online" while inside a match. There is
+  // deliberately no DELETE: a logout disconnects the socket, and clearing the row
+  // on demand would contradict the connection-as-liveness rule (D3).
   @Throttle(PRESENCE_THROTTLE.heartbeat)
   @Post('heartbeat')
   @HttpCode(200)
@@ -23,19 +30,10 @@ export class PresenceController {
     return { ok: true };
   }
 
-  // Site-wide online count for the homepage badge bar.
+  // Site-wide online count for the homepage badge bar. Kept for first paint: the
+  // live number arrives as the `counts:online` socket event.
   @Get('online-count')
   async onlineCount() {
     return { count: await this.presence.getOnlineCount() };
-  }
-
-  // Called on logout (before the auth cookie is cleared) so a signed-out user
-  // reads as offline immediately instead of waiting out the heartbeat TTL.
-  @Throttle(PRESENCE_THROTTLE.clear)
-  @Delete('heartbeat')
-  @HttpCode(200)
-  async clear(@Req() req: Request) {
-    await this.presence.clear((req.user as { id: string }).id);
-    return { ok: true };
   }
 }

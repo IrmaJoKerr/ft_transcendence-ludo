@@ -23,7 +23,13 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
 3. **Settings**: on/off switches (sound, music, auto-roll and others), each with a string key and a default value.
 4. **Real-time match**: `activeMatch` (the engine credentials from `POST /api/match/create`, or from `POST /api/match/guest` for a guest), `guestSetup` (the guest launch payload, kept in memory for Play again) and `lastResult` (the finished-match data for the `ResultsModal` overlay). Neither guest field is persisted: a reload drops both, by design. See [`../guest-mode.md`](../guest-mode.md).
 5. **Helpers**: `addBot`, `removeBot`, `addPlayer`, `removePlayer`, `startGame`, `roll`, `endTurn`, `settingOn`, `toggleSetting`.
-6. **Session keep-alive**: a presence heartbeat every 20 seconds (`PRESENCE_HEARTBEAT_MS` / `sendPresenceHeartbeat()`) while signed in, plus a `/api/auth/refresh` call every 14 minutes, so the 15-minute access token never expires while a request is still waiting for a response. This is the **client → server** direction only, and it shows that the browser session is still active; keeping the notification SSE stream alive runs the other way and is handled server-side (`SSE_HEARTBEAT_MS`). See [`../architecture.md`](../architecture.md) → Connection liveness (two-direction heartbeats).
+6. **Session keep-alive**: one long-lived session socket while signed in (`sessionSocket.ts`, namespace
+   `/ws` on `/ws-socket.io`), plus a `/api/auth/refresh` call every 14 minutes, so the 15-minute access
+   token never expires while a request is still waiting for a response. Presence rides on the socket —
+   the connection itself is the liveness signal, so the store sends no periodic request at all;
+   `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect. Keeping the
+   notification SSE stream alive runs the other way and is handled server-side (`SSE_HEARTBEAT_MS`).
+   See [`../architecture.md`](../architecture.md) → Connection liveness.
 
 
 ---
@@ -352,4 +358,4 @@ toggleSetting(key)
 | `i18n.ts` | `i18n.changeLanguage` and `i18n.t` for default player names |
 | `api.ts` | `apiFetch` (refresh-and-retry), `fetchWithCsrf` (CSRF bootstrap + header), `refreshOnce` (called on the store's 14-minute timer, before the access token expires), and `translateErrorCode`, which turns an error code into text in the user's language |
 | `game/types.ts` | `PlayerColor` for `ActiveMatch` |
-| API (Application Programming Interface) | `/api/auth/me`, `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/2fa/verify`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/2fa`, `/api/presence/heartbeat` |
+| API (Application Programming Interface) | `/api/auth/me`, `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/2fa/verify`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/2fa`, `/api/presence/online-count` |

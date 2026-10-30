@@ -69,7 +69,7 @@ const STATUS_STYLE: Record<string, { label: string; color: string; border: strin
 
 export function Home() {
   const { t, i18n } = useTranslation();
-  const { user } = useApp();
+  const { user, sessionSocket } = useApp();
   const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
@@ -121,25 +121,29 @@ export function Home() {
     };
   }, []);
 
-  // 4b. HERO BADGE BAR: live site-wide online-player count (polled every 15s).
+  // 4b. HERO BADGE BAR: live site-wide online-player count. One read for first
+  // paint (the badge also renders signed out, where there is no socket), then the
+  // session socket pushes `counts:online` on every connection edge.
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchBadgeCounts = () => {
-      getApi<{ count: number }>('/api/presence/online-count')
-        .then((body) => {
-          setOnlineCount(body.count);
-        })
-        .catch((e) => {
-          console.error(e);
-        });
-    };
-    fetchBadgeCounts();
-    const iv = setInterval(fetchBadgeCounts, 15000);
-    return () => {
-      clearInterval(iv);
-    };
+    getApi<{ count: number }>('/api/presence/online-count')
+      .then((body) => {
+        setOnlineCount(body.count);
+      })
+      .catch((e) => {
+        console.error(e);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!sessionSocket) return;
+    const onCount = (event: { count: number }) => setOnlineCount(event.count);
+    sessionSocket.on('counts:online', onCount);
+    return () => {
+      sessionSocket.off('counts:online', onCount);
+    };
+  }, [sessionSocket]);
 
   // **5. HUB ARCADE CABINET: 3D ATTRACT MODE & PRESS START**
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

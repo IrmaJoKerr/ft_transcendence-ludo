@@ -236,8 +236,8 @@ An error response has one of two shapes:
    - [`POST /api/friends/invites/dismiss`](#post-apifriendsinvitesdismiss) — Dismiss your pending game invite
 
 16. **[Presence](#16-presence)** — Online/offline heartbeat
-   - [`POST /api/presence/heartbeat`](#post-apipresenceheartbeat) — Tell the server you're online (sent ~every 20s while the app is open)
-   - [`DELETE /api/presence/heartbeat`](#delete-apipresenceheartbeat) — Mark yourself offline (on logout)
+   - [`POST /api/presence/heartbeat`](#post-apipresenceheartbeat) — REST fallback only: presence itself rides the session socket now
+   - [`GET /api/presence/online-count`](#get-apipresenceonline-count) — first-paint read of the online badge (live updates: `counts:online`)
 
 17. **[Notifications](#17-notifications)** — Live stream + unread list + read state
    - [`GET /api/notifications/stream`](#get-apinotificationsstream) — Open a live stream of new notifications (SSE)
@@ -1501,7 +1501,9 @@ friend; 403 `MATCH_ROOM_FULL` if no seat is left for the friend.
 
 **Source:** `backend/src/match/match.controller.ts` — MatchModule
 
-List the PvP rooms the caller may enter. The list is computed **per caller**:
+List the PvP rooms the caller may enter. **This is the first-paint read now**: the same list is
+pushed as `rooms:list` over the session socket whenever a room changes, and the lobby does not poll.
+The list is computed **per caller**:
 
 - **Join rows** (`mySeat: false`) — PvP rooms stored as `WAITING` whose engine game has not started and
   which are not full.
@@ -1531,11 +1533,13 @@ safe-zone flag is stored inverted). The lobby renders them as the room browser's
 
 **Source:** `backend/src/match/match.controller.ts` — MatchModule
 
-List rooms (WAITING/ACTIVE) the current user is seated in — used to rejoin after a refresh. A room
-whose seat the engine has **finalized** (grace expired / End Game — `PlayerMeta.status` is `exited`)
-is filtered out via `isSeatFinalized()`, so a departed player is not offered a REJOIN MATCH button they
-can no longer use. The seat is checked whatever the stored hash status says: a room whose hash still
-reads `WAITING` can have live engine state behind it.
+List rooms (WAITING/ACTIVE) the current user is seated in — used to rejoin after a refresh. **This is
+the first-paint read now**: the same list is pushed as `rooms:mine` over the session socket whenever
+it changes (the navbar's rejoin banner subscribes to it). A room whose seat the engine has
+**finalized** (grace expired / End Game — `PlayerMeta.status` is `exited`) is filtered out via the
+snapshot's `finalizedIds`, so a departed player is not offered a REJOIN MATCH button they can no
+longer use. The seat is checked whatever the stored hash status says: a room whose hash still reads
+`WAITING` can have live engine state behind it.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:** Array of the user's room summaries.
@@ -2144,7 +2148,10 @@ Dismiss the current user's pending game invite.
 
 **Source:** `backend/src/presence/presence.controller.ts` — PresenceModule
 
-Send a presence heartbeat. Called every ~20s while the app is open.
+**REST fallback only.** Presence is read off the session socket: the connection refreshes the
+`presence:<userId>` row (45 s TTL) every 20 s while it lives, and `presence:playing` carries the
+"in a match" bit. The shipped client never calls this route; it stays for a browser whose socket
+cannot be established.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Body:**
@@ -2153,31 +2160,8 @@ Send a presence heartbeat. Called every ~20s while the app is open.
 {
   "playing": true
 }
-
 ```
 
-**Response:**
-
-```json
-{
-  "ok": true
-}
-
-```
-
-
----
----
-
-
-#### `DELETE /api/presence/heartbeat`
-
-**Source:** `backend/src/presence/presence.controller.ts` — PresenceModule
-
-Clear presence (e.g. on logout).
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Body:** None  
 **Response:**
 
 ```json
@@ -2196,7 +2180,8 @@ Clear presence (e.g. on logout).
 
 **Source:** `backend/src/presence/presence.controller.ts` — PresenceModule
 
-Get the site-wide count of currently online users (for the homepage badge bar).
+Get the site-wide count of currently online users (for the homepage badge bar). The badge is kept
+live by the `counts:online` socket event, so this read is only the first paint.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:**
@@ -2207,6 +2192,29 @@ Get the site-wide count of currently online users (for the homepage badge bar).
 }
 
 ```
+
+
+---
+---
+
+
+#### Socket events for presence (`/ws`, path `/ws-socket.io`)
+
+**Source:** `backend/src/realtime/realtime.gateway.ts` + `backend/src/presence/presence.service.ts`
+
+The handshake authenticates with the same httpOnly `token` cookie (no token ever reaches JS), so the
+session socket is a cookie-authenticated connection at the page's own origin.
+
+| Direction | Event | Payload | Meaning |
+|-----------|-------|---------|---------|
+| server → client | `presence:hello` | none | the socket is registered: authenticated, in `user:<id>`, presence connection counted |
+| client → server | `presence:playing` | `{ playing: boolean }` | sent on game enter/leave and re-asserted on every `connect`; per connection |
+| server → client | `counts:online` | `{ count: number }` | the site-wide online badge, coalesced to at most one push per 5 s |
+| server → client | `rooms:list` | `LobbyRoom[]` | the open lobby, filtered for this viewer (`mySeat` is per account); pushed after a `rooms:changed` burst, debounced 500 ms and diffed |
+| server → client | `rooms:mine` | `MyRoom[]` | this account's own seats (rejoin banner, "has an active game") |
+
+There is no client heartbeat event: the socket's own ping/pong (20 s / 20 s) is the liveness signal.
+A malformed `presence:playing` payload is refused by the DTO and dropped without an ack.
 
 
 ---
@@ -2242,7 +2250,7 @@ SSE stream — pushes new notifications to the browser in real time.
 
 Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_declined` | `game_invite` | `achievement` | `match_finished` | `match_cancelled` | `profile_updated` | `display_name_changed` | `friend_online` | `friend_offline` | `avatar_changed`
 
-**Keep-alive (server → client):** the server writes a `ping` frame into the stream every 20 s (`SSE_HEARTBEAT_MS`). Between notifications this response sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`), so the frame exists to satisfy the tunnel's socket requirements and stop the stream being treated as dead. It is unrelated to the **client → server** presence heartbeat ([`POST /api/presence/heartbeat`](#post-apipresenceheartbeat)), which is a separate request that writes nothing into this stream. See [architecture.md](architecture.md) → Connection liveness (two-direction heartbeats).
+**Keep-alive (server → client):** the server writes a `ping` frame into the stream every 20 s (`SSE_HEARTBEAT_MS`). Between notifications this response sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`), so the frame exists to satisfy the tunnel's socket requirements and stop the stream being treated as dead. It is unrelated to presence, which rides the session socket (the connection is the liveness signal and there is no heartbeat request). See [architecture.md](architecture.md) → Connection liveness.
 
 **Limits:** at most **5 simultaneous streams per user**; the sixth connection answers `429 NOTIFICATION_STREAM_LIMIT` and is not registered (`NotificationService.subscribe`). The route is also throttled to 60 connections/minute per address.
 

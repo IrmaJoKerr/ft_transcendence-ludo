@@ -11,6 +11,8 @@ import type { ReactNode } from 'react';
 import i18n from './i18n';
 import { BOT_POOL } from './theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
+import { connectSessionSocket } from './sessionSocket';
+import type { SessionSocket } from './sessionSocket';
 import type { PlayerColor } from './game/types';
 
 export type AuthUser = {
@@ -72,12 +74,9 @@ function storedTheme(): ThemeType {
   return 'synthwave';
 }
 
-// Presence heartbeat cadence: how often this client tells the backend it is
-// still online (POST /api/presence/heartbeat). Deliberately named apart from the
-// backend's SSE keep-alive, which keeps the notification stream from being reset.
-const PRESENCE_HEARTBEAT_MS = 20_000;
 // Refresh 1 minute early: access tokens expire at 15 minutes, so this keeps
-// the heartbeat off an expired token (see the store docs).
+// the session socket's reconnect handshake off an expired token (see the store
+// docs).
 const ACCESS_TOKEN_REFRESH_MS = 14 * 60 * 1000;
 /** settingOn/toggleSetting key for "show the rules popup when a match starts": read by Lobby's Rules button and Game.tsx. */
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
@@ -206,6 +205,9 @@ type AppState = {
   twoFactor: boolean;
   toggleTwoFactor: (currentPassword?: string) => Promise<string | null>;
   setPlaying: (playing: boolean) => void;
+  /** The session socket, or null while signed out (a guest never opens one).
+   * Presence rides on it; screens subscribe to its pushes. */
+  sessionSocket: SessionSocket | null;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
   guestSetup: GuestSetup | null;
@@ -434,54 +436,74 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return data?.result ?? 'error';
   }, []);
 
-  // Logout
+  // Logout. Presence needs no request of its own: signing out clears the user,
+  // which tears down the session socket, and the connection *is* the liveness
+  // signal (its close lets the presence row lapse on its TTL).
   const logout = useCallback(async () => {
-    // Clears presence immediately, before the auth cookie needed to identify
-    // the request is gone: otherwise the account reads "online" for up to
-    // the heartbeat TTL after signing out.
-    await fetchWithCsrf('/api/presence/heartbeat', {
-      method: 'DELETE',
-      credentials: 'include',
-    }).catch(() => undefined);
     await fetchWithCsrf('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
     setTwoFactor(false);
   }, []);
 
-  // Presence: a ref (not state) because it only drives an outgoing request,
+  // The session socket: one connection per signed-in tab, authenticated by the
+  // httpOnly cookie in the handshake. Presence is the connection itself, so there
+  // is no heartbeat request to send any more.
+  const [sessionSocket, setSessionSocket] = useState<SessionSocket | null>(null);
+  const socketRef = useRef<SessionSocket | null>(null);
+  // The effect keys on the id, not the object: a profile edit replaces `user` and
+  // must not tear down a healthy connection.
+  const sessionUserId = user?.id;
+  // Presence: a ref (not state) because it only drives an outgoing socket event,
   // never a render; Game.tsx flips it on mount/unmount via setPlaying.
   const playingRef = useRef(false);
-  const sendPresenceHeartbeat = useCallback((playing: boolean) => {
-    apiFetch('/api/presence/heartbeat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ playing }),
-    })
-      .then((res) => {
-        if (res.status === 401 || res.status === 403) setUser(null);
-      })
-      .catch(() => undefined);
+  const setPlaying = useCallback((playing: boolean) => {
+    playingRef.current = playing;
+    // Per connection (D3): the server stores the bit against this socket, so a
+    // sibling tab is unaffected. No socket (a guest, or before connect) is fine:
+    // every connect re-asserts the current bit below.
+    socketRef.current?.emit('presence:playing', { playing });
   }, []);
-  const setPlaying = useCallback(
-    (playing: boolean) => {
-      playingRef.current = playing;
-      if (user) sendPresenceHeartbeat(playing);
-    },
-    [user, sendPresenceHeartbeat],
-  );
 
-  // Presence heartbeat loop: tells the backend this account is still here every
-  // PRESENCE_HEARTBEAT_MS, so friends' presence dots can go stale correctly.
   useEffect(() => {
-    if (!user) return;
-    sendPresenceHeartbeat(playingRef.current);
-    const id = setInterval(() => sendPresenceHeartbeat(playingRef.current), PRESENCE_HEARTBEAT_MS);
-    return () => clearInterval(id);
-  }, [user, sendPresenceHeartbeat]);
+    if (!sessionUserId) return;
+    const socket = connectSessionSocket();
+    socketRef.current = socket;
+    setSessionSocket(socket);
 
-  // Proactive refresh so the heartbeat never hits the reactive 401 path in
-  // apiFetch (which recovers, but logs a console 401 first).
+    // A reconnected socket carries no state, so the flag is re-asserted on every
+    // connect rather than only on the enter/leave transition.
+    socket.on('connect', () => {
+      socket.emit('presence:playing', { playing: playingRef.current });
+    });
+
+    // The handshake is the one auth point on this transport (D4): the access
+    // token can be 15 minutes old by the time a reconnect reads the cookie, and
+    // only HTTP refreshes it. So a refused handshake refreshes and lets the
+    // client retry; persistent refusal means the session is gone, and signing out
+    // is better than looping against the refresh route.
+    let refused = 0;
+    socket.on('connect_error', (error) => {
+      if (error.message !== 'Authentication required' && error.message !== 'Invalid token') return;
+      refused += 1;
+      if (refused > 2) {
+        socket.disconnect();
+        setUser(null);
+        return;
+      }
+      void refreshOnce();
+    });
+
+    return () => {
+      socket.removeAllListeners();
+      socket.disconnect();
+      socketRef.current = null;
+      setSessionSocket(null);
+    };
+  }, [sessionUserId]);
+
+  // Proactive refresh so a reconnect handshake (and any apiFetch call) never hits
+  // the reactive 401 path with an expired access token. Auth, not state: it stays
+  // even though presence no longer sends anything periodically.
   useEffect(() => {
     if (!user) return;
     const id = setInterval(() => {
@@ -730,6 +752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       twoFactor,
       toggleTwoFactor,
       setPlaying,
+      sessionSocket,
       activeMatch,
       setActiveMatch,
       guestSetup,
@@ -774,6 +797,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       twoFactor,
       toggleTwoFactor,
       setPlaying,
+      sessionSocket,
       activeMatch,
       guestSetup,
       lastResult,

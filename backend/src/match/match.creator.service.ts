@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma.service';
 import { requireSecret, secret } from '../secrets';
 import Redis from 'ioredis';
 import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
+import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { hasLiveMatch } from './active-game';
@@ -300,6 +301,9 @@ export class MatchCreatorService {
 
     await this.redis.hset(`match:${gameId}`, updates);
     await this.redis.expire(`match:${gameId}`, 86400);
+    // A new room is a lobby change; best effort, the broadcaster's tick repairs a
+    // missed publish.
+    await publishRoomsChanged(this.redis);
 
     // A guest gets the opaque token minted for it: no JWT, no account lookups
     // (a `guest-` id has no user row), and the engine resolves it from the
@@ -379,6 +383,7 @@ export class MatchCreatorService {
     // Reclaiming the seat clears the reservation flag a "returned to lobby" leave
     // set, so the room counts this player again.
     await this.redis.hdel(`match:${gameId}`, `player${slotIndex + 1}_left`);
+    await publishRoomsChanged(this.redis);
 
     const mode = (data.gameType || 'PVP').toLowerCase();
     const username = await this.resolveUsername(userId);

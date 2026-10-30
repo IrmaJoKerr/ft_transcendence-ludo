@@ -30,6 +30,13 @@ end
 return left
 `;
 
+// --- Lobby invalidation: mirrored from backend/src/common/channels.ts ---
+// Every write to a match:* hash below can change the lobby list or somebody's
+// rejoin banner, so it publishes here. The backend's broadcaster answers by
+// re-reading one snapshot and diffing it per viewer, so the message carries no
+// payload; a missed publish is repaired by its 30 s tick.
+const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
+
 // A live room survives a redeploy, so a state written before the Barrier Buster
 // fields existed can load mid-game. Both fields feed arithmetic, where undefined
 // becomes NaN, so normalize them here, at the only read path. Zero means no token.
@@ -239,9 +246,21 @@ export class RedisGameStore {
     return Object.keys(data).length > 0 ? data : null;
   }
 
+  // Announce a match:* write to the backend's broadcaster. Best effort: the
+  // lobby is derived state, and a failed publish must never fail the move or the
+  // join that caused it (the broadcaster's repair tick covers the gap).
+  private async notifyRoomsChanged(): Promise<void> {
+    try {
+      await this.client.publish(ROOMS_CHANGED_CHANNEL, '1');
+    } catch (error) {
+      console.error('Failed to publish rooms:changed:', error);
+    }
+  }
+
   // Update specific fields in the match metadata hash
   async updateMatchData(gameId: string, fields: Record<string, string>): Promise<void> {
     await this.client.hmset(this.matchKey(gameId), fields);
+    await this.notifyRoomsChanged();
   }
 
   // SCAN all match metadata hashes.
@@ -274,7 +293,10 @@ export class RedisGameStore {
   // timer for the remainder of the window instead of restarting it.
   async setIdleSince(gameId: string, now: number): Promise<number> {
     const written = await this.client.hsetnx(this.matchKey(gameId), 'idleSince', now.toString());
-    if (written === 1) return now;
+    if (written === 1) {
+      await this.notifyRoomsChanged();
+      return now;
+    }
     const existing = await this.client.hget(this.matchKey(gameId), 'idleSince');
     return existing ? parseInt(existing, 10) : now;
   }
@@ -282,6 +304,7 @@ export class RedisGameStore {
   // Clear the idle stamp (room has ≥ 2 seated players again).
   async clearIdleSince(gameId: string): Promise<void> {
     await this.client.hdel(this.matchKey(gameId), 'idleSince');
+    await this.notifyRoomsChanged();
   }
 
   // Who played a colour, used for the end-of-game result
@@ -291,10 +314,12 @@ export class RedisGameStore {
 
   async setSeatUser(gameId: string, color: PlayerColor, userId: string): Promise<void> {
     await this.client.hset(this.matchKey(gameId), this.seatUserField(color), userId);
+    await this.notifyRoomsChanged();
   }
 
   async clearSeatUser(gameId: string, color: PlayerColor): Promise<void> {
     await this.client.hdel(this.matchKey(gameId), this.seatUserField(color));
+    await this.notifyRoomsChanged();
   }
 
   seatUserFrom(matchData: Record<string, string> | null, color: PlayerColor): string | undefined {
@@ -317,6 +342,7 @@ export class RedisGameStore {
       `player${slotIndex + 1}_left`,
       this.seatUserField(color),
     );
+    await this.notifyRoomsChanged();
     await this.setIdleSince(gameId, Date.now());
   }
 
@@ -330,6 +356,7 @@ export class RedisGameStore {
     const slotIndex = COLORS.indexOf(color);
     if (slotIndex <= 0) return; // unknown colour or host slot
     await this.client.hset(this.matchKey(gameId), `player${slotIndex + 1}_left`, '1');
+    await this.notifyRoomsChanged();
     await this.setIdleSince(gameId, Date.now());
   }
 
@@ -337,6 +364,7 @@ export class RedisGameStore {
   async abortMatch(gameId: string): Promise<void> {
     await this.client.hset(this.matchKey(gameId), 'status', 'ABORTED');
     await this.client.expire(this.matchKey(gameId), 3600);
+    await this.notifyRoomsChanged();
   }
 
   // Delete the engine-side game state/moves for a match.

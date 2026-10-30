@@ -155,8 +155,13 @@ gate:
 
 | Screen | Source of truth | What it does |
 |--------|-----------------|--------------|
-| `LudoLobby.tsx` (`/gamelobby`) | `GET /api/games/mine`, polled on mount and every `ROOM_POLL_MS` (5 s) | Greys out the host pass and the join-by-code field, and disables the JOIN button on rooms the caller holds no seat in (a REJOIN row stays enabled), each with a tooltip and an inline message. The header seat badge reads `ACTIVE ROOM: YES [IN-FLIGHT]` |
+| `LudoLobby.tsx` (`/gamelobby`) | `GET /api/games/mine` once on mount (and on every socket reconnect), then the `rooms:mine` push | Greys out the host pass and the join-by-code field, and disables the JOIN button on rooms the caller holds no seat in (a REJOIN row stays enabled), each with a tooltip and an inline message. The header seat badge reads `ACTIVE ROOM: YES [IN-FLIGHT]` |
 | `Lobby.tsx` (table, `/gamelobby/table`) | one-shot `GET /api/games/mine` on mount | Greys out LAUNCH and shows the lock message in the status box, with a tooltip |
+
+The lobby's room list follows the same shape: one `GET /api/games/rooms` for first paint, then
+`rooms:list` from the session socket (see
+[backend-match-module.md](../backend/backend-match-module.md) → Lobby invalidation). Neither the list
+nor the lock is polled.
 
 Neither screen trusts the store's persisted `activeMatch`: it survives a closed tab
 and would lock the screens forever after a game that ended off-screen. The

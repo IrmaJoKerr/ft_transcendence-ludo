@@ -11,6 +11,7 @@ import { NotificationBell } from './NotificationBell';
 import { useNotifications, type Notification } from '../hooks/useNotifications';
 import { getApi, postApi } from '../api';
 import type { ActiveMatch } from '../store';
+import type { MyRoom } from '../sessionSocket';
 import {
   RETRO_BTN,
   THEME_TRIGGER_BTN_BASE,
@@ -24,12 +25,8 @@ const REJOIN_EDGE = {
   boxShadow: '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.25)',
 };
 
-// Rejoin-banner poll interval. Raised from 2500 ms, because the badge only
-// needs to appear soon after a game is created in another tab or by invite.
-const ACTIVE_GAME_POLL_MS = 10_000;
-
-// Nav-label auto-sizing. See docs/frontend/frontend-components-system.md
-// ("RetroNavbar nav-label auto-sizing").
+// The rejoin banner rides the session socket (`rooms:mine`); the one REST read is
+// first paint and every reconnect, because the push carries only a diff.
 const NAV_LABEL_BASE_PX = 13.6; // ≈ 0.85rem; used before the first measurement
 const NAV_LABEL_MIN_PX = 9; // smallest size the fit may choose
 const NAV_LABEL_MAX_PX = 20; // largest size the fit may choose
@@ -58,7 +55,8 @@ export function RetroNavbar({
 }: RetroNavbarProps) {
   const { t } = useTranslation();
   const route = useRoute();
-  const { user, logout, lang, setLang, twoFactor, toggleTwoFactor, setActiveMatch } = useApp();
+  const { user, logout, lang, setLang, twoFactor, toggleTwoFactor, setActiveMatch, sessionSocket } =
+    useApp();
   const currentPath = activeRoute ?? route.path;
 
   // Below `xl` (1280px) the sidebar collapses to an icon rail; labels are
@@ -201,9 +199,7 @@ export function RetroNavbar({
       setActiveGame(null);
       return;
     }
-    getApi<Array<{ id: string; roomCode: string | null; status: string; gameType: string }>>(
-      '/api/games/mine',
-    )
+    getApi<MyRoom[]>('/api/games/mine')
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setActiveGame(data[0]);
@@ -216,9 +212,21 @@ export function RetroNavbar({
 
   useEffect(() => {
     fetchActiveGame();
-    const iv = setInterval(fetchActiveGame, ACTIVE_GAME_POLL_MS);
-    return () => clearInterval(iv);
   }, [user, currentPath, fetchActiveGame]);
+
+  // The push half: the same event the lobby uses. `rooms:mine` is the account's own
+  // seats, so the banner appears and disappears without a request.
+  useEffect(() => {
+    if (!sessionSocket) return;
+    const onMine = (rooms: MyRoom[]) => setActiveGame(rooms.length > 0 ? rooms[0] : null);
+    const onConnect = () => fetchActiveGame();
+    sessionSocket.on('rooms:mine', onMine);
+    sessionSocket.on('connect', onConnect);
+    return () => {
+      sessionSocket.off('rooms:mine', onMine);
+      sessionSocket.off('connect', onConnect);
+    };
+  }, [sessionSocket, fetchActiveGame]);
 
   const handleRejoinActive = async () => {
     if (!activeGame || isRejoining) return;

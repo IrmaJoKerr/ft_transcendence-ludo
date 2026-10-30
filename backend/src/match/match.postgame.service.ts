@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 import { AchievementsService } from '../achievements/achievements.service';
 import { NotificationService } from '../notification/notification.service';
 import { isBotUserId } from '../common/botname-enforce';
+import { publishRoomsChanged } from '../common/channels';
 import { ratingDeltaFor } from '../common/scoring';
 
 // Engine → backend payload for POST /api/game/end. Colors arrive uppercase
@@ -181,6 +182,8 @@ export class MatchPostgameService {
     });
 
     await this.redis.del(`match:${gameId}`);
+    // The room is gone from both lists.
+    await publishRoomsChanged(this.redis);
     return { message: 'Game processed', gameId };
   }
 

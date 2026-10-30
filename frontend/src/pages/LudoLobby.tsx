@@ -7,6 +7,7 @@ import type { PlayerColor } from '../game/types';
 import { useFitTextSize } from '../hooks/useFitTextSize';
 import { navigate } from '../router';
 import { useApp } from '../store';
+import type { LobbyRoom, MyRoom } from '../sessionSocket';
 import { COL } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
@@ -31,29 +32,11 @@ import {
   TICKET_ACTION_PILL,
 } from '../styles/tw';
 
-// How often the room list and the "am I already seated?" check are polled.
-// Original: 1000 ms. Recommended: 5000 ms. At 1 s those two endpoints sent
-// 120 requests/min per user, close to the 300 requests/min per-IP limit.
-const ROOM_POLL_MS = 5_000;
+// The lobby list and the "am I already seated?" flag are pushed over the session
+// socket now (`rooms:list` / `rooms:mine`); this screen sends no periodic request.
+// The one REST read below is first paint, before the socket connects.
 
-type Room = {
-  id: string;
-  roomCode: string;
-  host: string;
-  hostUsername?: string;
-  /** Host's immutable id : the key the room card's avatar is looked up by. */
-  hostId?: string;
-  hasAvatarPhoto?: boolean;
-  seats: number;
-  maxSeats: number;
-  mode: 'classic' | 'duel';
-  /** True when the viewer holds a seat in this room, so the row is a REJOIN row. */
-  mySeat?: boolean;
-  /** The room rules the room was created with (see backend room-rules.ts). */
-  clashEnabled: boolean;
-  noSafeZones: boolean;
-  freeExit: boolean;
-};
+type Room = LobbyRoom;
 
 type MatchResult = {
   gameId: string;
@@ -149,7 +132,7 @@ function RoomModes({ room }: { room: Room }) {
 
 export function LudoLobby() {
   const { t } = useTranslation();
-  const { user, setActiveMatch } = useApp();
+  const { user, setActiveMatch, sessionSocket } = useApp();
 
   // **CRT CONTROLS**
   const [crtEnabled, setCrtEnabled] = useState(true);
@@ -199,20 +182,38 @@ export function LudoLobby() {
   };
 
   const fetchHasActiveGame = () => {
-    getApi<Array<{ id: string }>>('/api/games/mine')
+    getApi<MyRoom[]>('/api/games/mine')
       .then((data) => setHasActiveGame(data.length > 0))
       .catch(() => {});
   };
 
+  // First paint only: the socket push carries every change after it connects.
   useEffect(() => {
     fetchRooms();
     fetchHasActiveGame();
-    const iv = setInterval(() => {
+  }, []);
+
+  // The push half. `rooms:list` is already filtered for this viewer, so the rows
+  // drop straight in; `rooms:mine` answers the "active game" lock. A reconnect
+  // refetches once, because the broadcaster only emits a diff and the socket may
+  // have missed a change while it was down.
+  useEffect(() => {
+    if (!sessionSocket) return;
+    const onRooms = (rooms: Room[]) => setRooms(rooms);
+    const onMine = (rooms: MyRoom[]) => setHasActiveGame(rooms.length > 0);
+    const onConnect = () => {
       fetchRooms();
       fetchHasActiveGame();
-    }, ROOM_POLL_MS);
-    return () => clearInterval(iv);
-  }, []);
+    };
+    sessionSocket.on('rooms:list', onRooms);
+    sessionSocket.on('rooms:mine', onMine);
+    sessionSocket.on('connect', onConnect);
+    return () => {
+      sessionSocket.off('rooms:list', onRooms);
+      sessionSocket.off('rooms:mine', onMine);
+      sessionSocket.off('connect', onConnect);
+    };
+  }, [sessionSocket]);
 
   const createRoom = async () => {
     if (lockedByActiveGame) {

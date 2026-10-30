@@ -204,29 +204,29 @@ revoked account's sockets.
 ---
 
 
-## Connection liveness (two-direction heartbeats)
+## Connection liveness (the socket's own ping/pong, plus the SSE keep-alive)
 
-Long-lived state is verified by **two independent heartbeats, one in each direction**. They are
-deliberately named apart, and neither substitutes for the other.
+Long-lived state is verified by the transport itself since the session socket shipped (socket
+consolidation, Phase 1). Two mechanisms remain, and they are deliberately named apart.
 
 | Direction | Constant | Where it is defined | Why it exists |
 | --- | --- | --- | --- |
-| **client → server** | `PRESENCE_HEARTBEAT_MS` (`sendPresenceHeartbeat()`) | `frontend/src/store.tsx` → `POST /api/presence/heartbeat` every 20 s while signed in (`DELETE` on logout) | Liveness of the **client**: proves the browser is still there. The server keeps a per-user Redis key with a 45 s TTL, so a crashed tab or a dropped network expires on its own and friends' presence dots correct themselves. |
-| **server → client** | `SSE_HEARTBEAT_MS` | `backend/src/notification/notification.controller.ts` → a `ping` frame written into the `/api/notifications/stream` SSE response every 20 s | Liveness of the **connection**: the SSE response otherwise sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`). The periodic frame satisfies the tunnel's socket requirements, so the stream is never treated as dead. |
+| **client → server** | `WS_PING_INTERVAL_MS` / `WS_PING_TIMEOUT_MS` (20 s / 20 s) | `backend/src/realtime/realtime.constants.ts` → the Socket.IO server options on the `/ws` namespace | Liveness of the **client**: a dead peer is detected at ~40 s, deliberately under the 45 s `PRESENCE_TTL_S`, so a closed tab closes its socket before its presence row lapses and every client-visible transition comes from a `disconnect`. The connection *is* the presence signal: `PresenceService` refreshes the row every 20 s while the socket lives, and the client sends no heartbeat message at all (`presence:playing` is the only client → server event, and it is state, not liveness). |
+| **server → client** | `SSE_HEARTBEAT_MS` | `backend/src/notification/notification.controller.ts` → a `ping` frame written into the `/api/notifications/stream` SSE response every 20 s | Liveness of the **SSE connection**: the response otherwise sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`). The periodic frame satisfies the tunnel's socket requirements, so the stream is never treated as dead. |
 
-**Why both are needed**
+**Why they are not the same thing**
 
-- The presence heartbeat is an ordinary **request/response on its own connection**. It contains no
-  application meaning for the notification stream and writes nothing into it, so it cannot keep that
-  stream alive.
-- The SSE keep-alive is **server-pushed** and has no application meaning for presence; the server
-  learns nothing about the client from it.
+- The socket's ping/pong is a **transport** mechanism. The server learns nothing about the
+  application from it beyond "this peer is still there", which is exactly what presence needs.
+- The SSE keep-alive is **server-pushed** on a different connection. It keeps that response alive
+  (and, because SSE has no replay, keeps live events such as `avatar_changed` from being lost during
+  a drop) and says nothing about presence.
 
-In short: the client → server beat answers *"is the user still connected?"*, while the
-server → client beat answers *"is our connection to them still usable?"* — the second exists
-specifically because the ngrok tunnel will not tolerate an idle socket. Because SSE has no replay,
-keeping the stream up is also what stops live events (for example `avatar_changed`) from being lost
-during a drop.
+Because the presence row has a TTL and the connection refreshes it, a **backend restart cannot strand
+a user as online**: the refresh stops, the row lapses within 45 s, and the connection set
+(`presence:conns:<userId>`) expires with it. The armed offline edge that publishes `friend_offline`
+is per process, so a restart loses the push but not the state — the next `/api/friends` read sees the
+truth.
 
 **The SSE stream must not be re-created for unrelated state changes.** On the client,
 `useNotifications` opens the stream in a `useEffect` whose dependency array contains the
@@ -240,24 +240,22 @@ of the time. Depending on the user id avoids this, because the id does not chang
 
 ### Client polling cadence
 
-The client's periodic requests use named constants, so an interval can be tuned in one place.
+The client's periodic requests use named constants, so an interval can be tuned in one place. **The
+lobby and the rejoin banner are no longer in this table**: since Phase 2 they are pushed over the
+session socket (`rooms:list` / `rooms:mine`), with one REST read for first paint and one per
+reconnect. Presence left it in Phase 1 (the connection is the liveness signal). What remains is one
+auth timer and the screens Phases 3-4 have not converted yet.
 
-| Constant | File | Value | What it polls |
-| --- | --- | --- | --- |
-| `ROOM_POLL_MS` | `frontend/src/pages/LudoLobby.tsx` | 5000 ms | the open-room list and the "am I already seated?" check (`GET /api/games/rooms`, `GET /api/games/mine`) |
-| `ACTIVE_GAME_POLL_MS` | `frontend/src/components/RetroNavbar.tsx` | 10000 ms | the rejoin banner (`GET /api/games/mine`) |
-| `PRESENCE_HEARTBEAT_MS` | `frontend/src/store.tsx` | 20000 ms | the presence heartbeat (`POST /api/presence/heartbeat`) |
+Presence has no cadence at all: the session socket's own ping/pong (20 s / 20 s,
+`realtime.constants.ts`) is the liveness signal, the backend refreshes the presence row every 20 s
+while the socket lives, and `presence:playing` is sent only on a transition (and on every reconnect).
 
-Both room endpoints walk the Redis `match:*` keyspace, so the interval is what bounds the request
-rate. At these values a user on the lobby page sends about 30 requests/min (24 for the room list and
-its own check, 6 for the rejoin banner). Two players sharing an IP therefore sit at about 60/min,
-well under the global limit of 300 requests/min per IP. A new room or a rejoin banner appears within
-a few seconds.
+Rooms work the same way. The backend's broadcaster reads **one snapshot** per `rooms:changed` burst
+(debounced 500 ms), derives each viewer's `rooms:list` / `rooms:mine` from it, and emits only the
+payloads that changed; a 30 s repair tick recomputes and counts any diff it had to emit. The Redis
+`SCAN` therefore runs once per human action instead of twice per user per 5 s, and a client that is
+idle sends nothing.
 
-Measured with two tabs on the lobby page: 60 Redis `SCAN`s/min = 60 poll requests (30 per user), i.e.
-6.7 Redis ops/s and 0.003% of one CPU core, with no throttled request. The engine's former idle sweep
-contributed one more `SCAN` per minute and is gone: the engine scans only in its wake pass, at boot
-and after a Redis reconnect (see [Engine restart recovery](#engine-restart-recovery-ludo-engine)).
 
 
 ---
@@ -294,7 +292,7 @@ Several distinct uses:
 
 - **Leaderboard cache** — `LeaderboardRedisService`, sorted sets keyed `leaderboard:{mode}`, backfilled from PostgreSQL when the set is empty (a Redis outage is surfaced as an error, not masked).
 - **Live game state** — `MatchService` (matchmaking and match lifecycle) and the engine's `RedisGameStore`, which holds the full `GameState` plus the match hash's durable `idleSince` stamp. It is the system of record the engine replays after a restart: see [Engine restart recovery](#engine-restart-recovery-ludo-engine).
-- **Presence** — heartbeat keys per user for online/offline/playing status (`PresenceService`). The heartbeat itself is the **client → server** direction; see [Connection liveness](#connection-liveness-two-direction-heartbeats).
+- **Presence** — `presence:<userId>` = `online` | `playing`, with a 45 s TTL refreshed by the account's live session socket (20 s server-side timer), plus `presence:conns:<userId>` (the set of that account's socket ids, same TTL) and the `presence:count` channel that carries the badge number (`PresenceService`). See [Connection liveness](#connection-liveness-the-sockets-own-pingpong-plus-the-sse-keep-alive).
 - **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
 - **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, public profile) rewrite it from Postgres, so a missed write or an eviction converges on the next read. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
 - **Auth state** — `refresh:<tokenHash>` (refresh token → user, 7-day TTL) with the `sessions:<userId>` set that revoke-all walks, plus the single-use `verify:<tokenHash>`, `reset:<tokenHash>` and `2fa:<pendingTokenHash>` challenge keys, and the staged email-change pair `emailchange:<tokenHash>` / `emailchange:user:<userId>` (`SessionService`, `TwoFactorService`). The reverse pointer's TTL is the change deadline: its Redis key-expiry event is what `MailService` subscribes to in order to email the old address when a staged change lapses.

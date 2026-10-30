@@ -67,10 +67,10 @@ export const NOTIFICATION_THROTTLE = {
   markAllRead: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;
 
-// presence.controller.ts : the 20 s heartbeat, with headroom for several tabs.
+// presence.controller.ts : the REST fallback heartbeat, with headroom for several
+// tabs. The shipped client does not call it: presence rides the session socket.
 export const PRESENCE_THROTTLE = {
   heartbeat: { default: { limit: 60, ttl: MINUTE } },
-  clear: { default: { limit: 10, ttl: MINUTE } },
 } satisfies RouteLimits;
 
 // user.controller.ts : avatar writes are the heaviest mutating requests.

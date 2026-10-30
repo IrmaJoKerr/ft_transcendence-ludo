@@ -4,9 +4,9 @@ export const WS_NAMESPACE = '/ws';
 export const WS_PATH = '/ws-socket.io';
 
 // Detection at ~40 s, deliberately below the 45 s presence TTL
-// (PRESENCE_TTL_S in presence.service.ts): a dead peer's socket closes before its
-// presence key lapses, so every transition comes from a disconnect, never a race
-// between the two timers.
+// (PRESENCE_TTL_S in presence/presence.constants.ts): a dead peer's socket closes
+// before its presence key lapses, so every transition comes from a disconnect,
+// never a race between the two timers.
 export const WS_PING_INTERVAL_MS = 20_000;
 export const WS_PING_TIMEOUT_MS = 20_000;
 
@@ -19,5 +19,20 @@ export const WS_MAX_EVENT_BYTES = 64 * 1024;
 export const userRoom = (userId: string): string => `user:${userId}`;
 
 // The readiness ack: emitted once a socket is registered (authenticated, in its
-// room). It is what tells a probe the connection counts, not merely opened.
+// room, presence connection counted). It is what tells a probe the connection
+// counts, not merely opened.
 export const EVENT_PRESENCE_HELLO = 'presence:hello';
+
+// The one client -> server event (D3): a per-connection "in a match" bit, sent on
+// game enter/leave and re-asserted on every connect.
+export const EVENT_PRESENCE_PLAYING = 'presence:playing';
+
+// The site-wide badge, pushed from the broadcaster's `presence:count` channel.
+export const EVENT_COUNTS_ONLINE = 'counts:online';
+
+// The lobby and the rejoin banner, from the broadcaster's `rooms:changed`
+// handling. `rooms:list` is per viewer because a row carries `mySeat` (D1);
+// `rooms:mine` is the account's own seats.
+export const EVENT_ROOMS_LIST = 'rooms:list';
+export const EVENT_ROOMS_MINE = 'rooms:mine';
+
