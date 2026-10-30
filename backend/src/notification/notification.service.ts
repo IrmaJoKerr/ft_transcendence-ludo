@@ -252,8 +252,8 @@ export class NotificationService implements OnModuleDestroy {
       read: false,
       createdAt: new Date().toISOString(),
     };
-    // Best-effort (transient toast only : nothing persisted). Never throws, so
-    // presence heartbeats/logout can't be disturbed by a delivery failure.
+    // Best-effort (transient toast only : nothing persisted). Never throws, so a
+    // socket open or a sign-out can't be disturbed by a delivery failure.
     try {
       await this.pub.publish(`notify:${userId}`, JSON.stringify(event));
     } catch (err) {

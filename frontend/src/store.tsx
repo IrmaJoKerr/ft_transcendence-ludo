@@ -208,6 +208,10 @@ type AppState = {
   /** The session socket, or null while signed out (a guest never opens one).
    * Presence rides on it; screens subscribe to its pushes. */
   sessionSocket: SessionSocket | null;
+  /** The last site-wide online count the socket pushed. The badge's only source
+   * (D11): there is no REST read, and it survives a screen remount because this
+   * listener lives as long as the connection. Null until the first push. */
+  onlineCount: number | null;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
   guestSetup: GuestSetup | null;
@@ -450,6 +454,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // is no heartbeat request to send any more.
   const [sessionSocket, setSessionSocket] = useState<SessionSocket | null>(null);
   const socketRef = useRef<SessionSocket | null>(null);
+  // The badge's number (D11). Read here rather than in the screen that paints it:
+  // the connect-time emit happens once per connection, so a listener owned by the
+  // connection cannot miss it the way a per-mount one would after a navigation.
+  const [onlineCount, setOnlineCount] = useState<number | null>(null);
   // The effect keys on the id, not the object: a profile edit replaces `user` and
   // must not tear down a healthy connection.
   const sessionUserId = user?.id;
@@ -476,6 +484,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       socket.emit('presence:playing', { playing: playingRef.current });
     });
 
+    // The site-wide badge. It arrives on every connection edge, and the gateway
+    // also hands a fresh socket the last number it pushed, so this is the badge's
+    // first paint as well as its updates.
+    socket.on('counts:online', (event) => setOnlineCount(event.count));
+
     // The handshake is the one auth point on this transport (D4): the access
     // token can be 15 minutes old by the time a reconnect reads the cookie, and
     // only HTTP refreshes it. So a refused handshake refreshes and lets the
@@ -498,6 +511,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       socket.disconnect();
       socketRef.current = null;
       setSessionSocket(null);
+      // The badge belongs to the connection: a signed-out screen must not paint
+      // the last number this session saw.
+      setOnlineCount(null);
     };
   }, [sessionUserId]);
 
@@ -753,6 +769,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleTwoFactor,
       setPlaying,
       sessionSocket,
+      onlineCount,
       activeMatch,
       setActiveMatch,
       guestSetup,
@@ -798,6 +815,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleTwoFactor,
       setPlaying,
       sessionSocket,
+      onlineCount,
       activeMatch,
       guestSetup,
       lastResult,

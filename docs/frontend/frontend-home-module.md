@@ -18,7 +18,7 @@
 
 The Home page is the main landing page after login (`/home`, full-screen). It also acts as the player dashboard, and shows:
 
-1. **Hero header** — the localized brand title, a greeting with the player's display name, and a live online-player count from `GET /api/presence/online-count` (polled every 15 seconds).
+1. **Hero header** — the localized brand title, a greeting with the player's display name, and a live online-player count pushed over the session socket (`counts:online` from the store, no request).
 2. **Arcade panel** — a window titled with the localized arena title, holding a 720×400 canvas that draws the sun, the star field, the horizon grid, four army nodes and the localized marquee, with a "press start" overlay. Clicking it, or pressing Space or Enter, opens `/gamelobby`.
 3. **Friends widget** — read from `GET /api/friends` + `GET /api/friends/requests`, refreshed every 12 seconds; shows live presence status.
 4. **Notifications** — bell icon and toasts from `useNotifications()`, which uses an SSE (Server-Sent Events) stream.
@@ -87,19 +87,20 @@ sequenceDiagram
     participant App as App.tsx
     participant Home as Home.tsx
     participant API as Backend
+    participant Store as store.tsx
     participant Notif as useNotifications()
 
     App->>Home: <Home /> (full-screen route)
     Home->>Notif: useNotifications() → bell + toasts
     Home->>API: getApi('/api/friends') + '/api/friends/requests'
-    Home->>API: getApi('/api/presence/online-count')
+    Home->>Store: onlineCount (pushed as counts:online)
     alt data loaded
-        API-->>Home: friends + online count
+        API-->>Home: friends
         Home->>Home: Render the arcade panel and the friends list
     else error
         Home->>Home: Render empty/loading states
     end
-    Note over Home: The friends list refreshes every 12 seconds; the online count every 15
+    Note over Home: The friends list refreshes every 12 seconds; the online count is pushed, never fetched
 ```
 
 ### Arcade attract-mode canvas
@@ -133,9 +134,9 @@ The marquee text is held in a ref, so a language switch only swaps the text and 
 ```
 <Home />
   ├── useNotifications() → notifications, unreadCount, markRead, markAllRead
-  ├── Fetch /api/friends + /api/friends/requests + /api/presence/online-count
-  │   ├── Friends → render the friends list with presence
-  │   └── Online count → render the hero badge
+  ├── Fetch /api/friends + /api/friends/requests
+  │   └── Friends → render the friends list with presence
+  ├── Read onlineCount from the store → render the hero badge (no request, D11)
   ├── Draw the arcade canvas (gradient, sun, stars, grid, army nodes, marquee)
   └── Space/Enter or a click on the arcade panel → navigate('/gamelobby')
 ```
@@ -147,7 +148,10 @@ The marquee text is held in a ref, so a language switch only swaps the text and 
 
 ## Hero Badge Bar
 
-The hero section shows a live site-wide badge with the number of **online players**, read from `GET /api/presence/online-count` and refreshed every 15 seconds.
+The hero section shows a live site-wide badge with the number of **online players**. It has no request
+of its own: the store's session socket receives `counts:online` on every connection edge, and the
+gateway also hands a freshly connected socket the last number it pushed, so the badge paints as soon
+as the socket registers (D11 removed the old first-paint `GET`).
 
 
 ---
@@ -158,8 +162,8 @@ The hero section shows a live site-wide badge with the number of **online player
 
 | Dependency | Purpose |
 |-----------|---------|
-| `api.ts` | `getApi` for `/api/friends`, `/api/friends/requests`, `/api/presence/online-count` |
-| `store.tsx` | `useApp` for user, settings, presence |
+| `api.ts` | `getApi` for `/api/friends`, `/api/friends/requests` |
+| `store.tsx` | `useApp` for user, settings and the badge's `onlineCount` (pushed over the session socket) |
 | `hooks/useNotifications.tsx` | Real-time notification bell + toasts |
 | `router.tsx` | `navigate` to `/gamelobby` and `/profile` |
 | `utils/audio.ts` | `retroAudio` sound effects |

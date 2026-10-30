@@ -365,7 +365,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `AchievementsModule` | `/api/achievements` | 16 Ludo achievements |
 | `StatsModule` | `/api/stats` | Per-player aggregates |
 | `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle, and the public guest door (`POST /api/match/guest`) |
-| `PresenceModule` | `/api/presence` | Online/offline/playing presence tracking |
+| `PresenceModule` | none (socket only) | Online/offline/playing tracking on the session socket; no HTTP routes since D11 |
 | `NotificationModule` | `/api/notifications` | Persisted notifications + SSE stream (Redis pub/sub) |
 
 ### Auth flow
@@ -581,11 +581,10 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── stats.controller.ts  # GET /api/stats
 │   │   │   ├── stats.service.ts     # aggregate stats card
 │   │   │   └── stats.module.ts
-│   │   ├── presence/             # Online/offline/playing tracking
-│   │   │   ├── presence.controller.ts    # heartbeat + online-count routes
-│   │   │   ├── presence.service.ts       # per-user presence keys with TTL
-│   │   │   ├── presence.module.ts
-│   │   │   └── dto/heartbeat.dto.ts      # in-match flag on the heartbeat
+│   │   ├── presence/             # Online/offline/playing tracking (socket only, no controller)
+│   │   │   ├── presence.service.ts       # per-user presence keys with TTL, the count cache
+│   │   │   ├── presence.constants.ts     # TTL, refresh, the count channel
+│   │   │   └── presence.module.ts
 │   │   ├── notification/         # Notifications (SSE + Redis pub/sub)
 │   │   │   ├── notification.controller.ts  # SSE stream + list/read/read-all
 │   │   │   ├── notification.service.ts     # persist + publish notifications
@@ -661,7 +660,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── main.tsx              # React entry point
 │       ├── App.tsx               # Root component (routes + auth guard)
 │       ├── router.tsx            # Custom window.location router
-│       ├── store.tsx             # React context + API + game/settings state + guest setup + presence heartbeat
+│       ├── store.tsx             # React context + API + game/settings state + guest setup + the session socket (and its online badge)
 │       ├── api.ts                # Typed fetch wrapper (refresh + retry, CSRF, ngrok, error-code translation)
 │       ├── socket.ts             # Socket.IO client types + connectSocket()
 │       ├── i18n.ts               # i18next init

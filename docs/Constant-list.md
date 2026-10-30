@@ -364,15 +364,13 @@ unthrottled here)
 | `ready` / `rejoin` | 60 | 1 min |
 | `exit` / `abort` | 30 | 1 min |
 
-**Notifications / presence / user / achievements**
+**Notifications / user / achievements**
 
 | Key | Limit | Window |
 |---|---|---|
 | `notifications.stream` | 60 | 1 min |
 | `notifications.markRead` | 120 | 1 min |
 | `notifications.markAllRead` | 30 | 1 min |
-| `presence.heartbeat` | 60 | 1 min |
-| `presence.clear` | 10 | 1 min |
 | `user.avatarUpload` / `avatarDelete` | 10 | 1 h |
 | `achievements.check` | 30 | 1 h |
 

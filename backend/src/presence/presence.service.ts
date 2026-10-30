@@ -32,9 +32,11 @@ export class PresenceService implements OnModuleDestroy {
   // userId -> the one armed offline-edge check. Fires when the row should have
   // lapsed and re-checks the connection set before publishing anything.
   private offlineTimers = new Map<string, NodeJS.Timeout>();
-  // The online count is a SCAN, so edges inside this window share one push.
+  // The online count is a SCAN, so edges inside this window share one push. The
+  // last number it produced is also what a fresh socket is handed (D11).
   private countTimer: NodeJS.Timeout | null = null;
   private lastCountPush = 0;
+  private lastCount: number | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -67,9 +69,9 @@ export class PresenceService implements OnModuleDestroy {
 
   // ── the session socket's side of presence (Phase 1) ───────────────────────
   // A session socket connected: join the account's connection set, (re)assert the
-  // presence row and start the per-connection refresh that keeps both alive. This
-  // is also where the `friend_online` edge now comes from (the heartbeat's
-  // `wasOffline` test moved here with the liveness signal).
+  // presence row and start the per-connection refresh that keeps both alive. The
+  // `friend_online` edge comes from here too (the old heartbeat's `wasOffline`
+  // test moved with the liveness signal).
   async openConnection(userId: string, socketId: string, playing = false): Promise<void> {
     // Register in memory before the first `await`: the client emits
     // `presence:playing` on its own `connect`, which can arrive before these
@@ -91,8 +93,13 @@ export class PresenceService implements OnModuleDestroy {
       this.notifyFriendsPresence(userId, 'online').catch((error) => {
         console.error('Failed to broadcast friend presence:', error);
       });
-      this.requestCountPush();
     }
+    // The count, when this account's arrival is an edge — or when this process has
+    // not pushed one yet. That second case is a restart: the row (and the set) live
+    // in Redis, so the first socket after it is not `wasOffline`, and with no REST
+    // read left (D11) no other path would ever tell its badge. The push coalesces,
+    // so a reconnect burst still costs one SCAN per window.
+    if (wasOffline || this.lastCount === null) this.requestCountPush();
   }
 
   // `presence:playing` (the only client -> server event): per connection (D3), so
@@ -126,23 +133,6 @@ export class PresenceService implements OnModuleDestroy {
     this.armOfflineEdge(userId);
   }
 
-  // Record a client heartbeat for a non-socket client (the REST fallback kept for
-  // first paint and for a browser whose socket cannot be established). The session
-  // socket does not use it: there the connection itself is the liveness signal.
-  async heartbeat(userId: string, playing: boolean): Promise<void> {
-    // First heartbeat after the key lapsed means a new online session, so broadcast
-    // "friend online" on this edge only (not on every beat: the key is refreshed
-    // for the whole session).
-    const wasOffline = (await this.redis.exists(this.key(userId))) === 0;
-    await this.writeStatus(userId, playing);
-    if (wasOffline) {
-      this.notifyFriendsPresence(userId, 'online').catch((error) => {
-        console.error('Failed to broadcast friend presence:', error);
-      });
-      this.requestCountPush();
-    }
-  }
-
   // Single-user lookup : e.g. a profile page for one specific account.
   async getStatus(userId: string): Promise<PresenceStatus> {
     const value = await this.redis.get(this.key(userId));
@@ -172,6 +162,14 @@ export class PresenceService implements OnModuleDestroy {
       count += keys.filter((key) => !key.startsWith(PRESENCE_CONNS_PREFIX)).length;
     } while (cursor !== '0');
     return count;
+  }
+
+  // The number the last push computed, for the badge's first paint (D11). A socket
+  // that connects between two coalesced pushes would otherwise wait for the next
+  // edge, so the gateway hands it this instead. Null until the first push — which
+  // the first connection triggers itself, so a cold start still paints at once.
+  currentCount(): number | null {
+    return this.lastCount;
   }
 
   // ── connection bookkeeping ────────────────────────────────────────────────
@@ -231,8 +229,8 @@ export class PresenceService implements OnModuleDestroy {
   }
 
   // The offline edge, once the row has actually lapsed. The TTL is the authority,
-  // so a row still alive (a reconnect, or the REST fallback heartbeating) only
-  // re-arms the check: publishing there would contradict the next status read.
+  // so a row still alive (a reconnect inside the TTL) only re-arms the check:
+  // publishing there would contradict the next status read.
   private async fireOfflineEdge(userId: string): Promise<void> {
     try {
       if ((await this.redis.scard(presenceConnsKey(userId))) > 0) return; // reconnected
@@ -270,6 +268,7 @@ export class PresenceService implements OnModuleDestroy {
     this.lastCountPush = Date.now();
     try {
       const count = await this.getOnlineCount();
+      this.lastCount = count;
       await this.redis.publish(PRESENCE_COUNT_CHANNEL, String(count));
     } catch (error) {
       console.error('Failed to publish the online count:', error);
@@ -277,7 +276,7 @@ export class PresenceService implements OnModuleDestroy {
   }
 
   // Transient presence toast to all accepted friends on coming online or
-  // logging out. Fire-and-forget : must never block heartbeat/logout.
+  // logging out. Fire-and-forget : must never block a connect or a sign-out.
   private async notifyFriendsPresence(userId: string, status: 'online' | 'offline'): Promise<void> {
     try {
       const friends = await this.prisma.db.friendship.findMany({

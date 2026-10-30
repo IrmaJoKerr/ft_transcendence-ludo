@@ -4,8 +4,8 @@
 
 - [Overview](#overview) — Online/offline presence tracking, driven by the session socket
 - [Files](#files) — Every source file in the module and its role
-- [Key Types / Interfaces](#key-types--interfaces) — The socket event's DTO, the fallback heartbeat DTO and the status values
-- [API Endpoints](#api-endpoints) — The REST fallback, plus the socket events that carry presence
+- [Key Types / Interfaces](#key-types--interfaces) — The socket event's DTO and the status values
+- [API Endpoints](#api-endpoints) — No REST surface (D11): the socket events that carry presence
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for connect, close and the count
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Dependencies](#dependencies) — Internal services this module relies on
@@ -36,15 +36,17 @@ The module provides:
 3. **Offline edge** — when the last connection of an account closes, a 45 s check is armed. It
    re-reads the connection set when it fires (a reconnect cancels the edge by construction) and
    publishes `friend_offline` once the row has actually lapsed.
-4. **Online count** — `GET /api/presence/online-count` for first paint, and a coalesced
-   `presence:count` publish (≤ 1 per 5 s) that the broadcaster turns into the `counts:online` socket
-   event. `presence:conns:*` keys are excluded: a connection set is not an account.
-5. **Presence broadcasts** — `friend_online` on the first connection of an account (or the first
-   fallback heartbeat), `friend_offline` from the offline edge; both are transient notifications to
-   every accepted friend, delivered over the existing notification stream.
-6. **REST fallback** — `POST /api/presence/heartbeat` still exists for a browser whose socket cannot
-   be established. The shipped client never calls it (`grep -rn "presence/heartbeat" frontend/src`
-   returns only comments).
+4. **Online count** — a coalesced `presence:count` publish (≤ 1 per 5 s) that the broadcaster turns
+   into the `counts:online` socket event, plus `currentCount()`, the cached number the gateway hands
+   a freshly connected socket so the badge paints without a request. `presence:conns:*` keys are
+   excluded: a connection set is not an account.
+5. **Presence broadcasts** — `friend_online` on the first connection of an account, `friend_offline`
+   from the offline edge; both are transient notifications to every accepted friend, delivered over
+   the existing notification stream.
+6. **No REST surface** — D11 deleted the module's controller outright: `POST /api/presence/heartbeat`
+   and `GET /api/presence/online-count` are gone (both `404`), and with them `PresenceService.heartbeat()`,
+   `HeartbeatDto` and `PRESENCE_THROTTLE`. A presence number or state has exactly one source: the
+   connection.
 
 > **Which direction this is.** The **client → server** presence heartbeat is gone: liveness is now
 > the socket's own ping/pong (20 s / 20 s in `realtime.constants.ts`, deliberately under the 45 s
@@ -62,11 +64,9 @@ The module provides:
 
 | File | Role |
 |------|------|
-| `presence.controller.ts` | HTTP routes: the fallback heartbeat POST and the online-count GET |
-| `presence.service.ts` | Connection bookkeeping (membership set, row, refresh timers, offline edge, count push), batched status lookup, friend toasts |
+| `presence.service.ts` | Connection bookkeeping (membership set, row, refresh timers, offline edge, count push and its cache), batched status lookup, friend toasts |
 | `presence.constants.ts` | The TTL (45 s), the 20 s refresh, the `presence:conns:` prefix, the `presence:count` channel and its 5 s coalescing window |
-| `presence.module.ts` | NestJS module — registers controller and service, exports the service |
-| `dto/heartbeat.dto.ts` | Validation schema for the fallback heartbeat body |
+| `presence.module.ts` | NestJS module — provides the service (no controller, D11) and exports it |
 
 
 ---
@@ -74,14 +74,6 @@ The module provides:
 
 
 ## Key Types / Interfaces
-
-### HeartbeatDto (REST fallback)
-
-```typescript
-class HeartbeatDto {
-  playing?: boolean;  // When true, status reads as "playing" instead of "online"
-}
-```
 
 ### PresencePlayingDto (the socket event)
 
@@ -114,13 +106,12 @@ refreshes it every 20 s, and a dead one stops refreshing.
 
 ## API Endpoints
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/presence/heartbeat` | JWT | REST fallback for a client without a session socket (the shipped client never calls it) |
-| `GET` | `/api/presence/online-count` | JWT | Site-wide online user count for first paint; live updates arrive as `counts:online` |
-
-There is deliberately no `DELETE /api/presence/heartbeat`: a logout disconnects the socket, and a
-disconnect never clears the row (D3). `PresenceService.clear()` was removed with the route.
+**None.** D11 (Phase 1.6) deleted `presence.controller.ts`, its two routes and the
+`PRESENCE_THROTTLE` entry: `POST /api/presence/heartbeat` and `GET /api/presence/online-count`
+both answer `404`, and `grep -rn "/api/presence" backend/src frontend/src` returns nothing. There is
+no REST fallback for a browser whose socket cannot be established, by design — a second transport
+would be a second source of truth for the same state. `PresenceService.clear()` went with the DELETE
+route in Phase 1 (D3: a close never clears the row).
 
 ### Socket events (`/ws` namespace, path `/ws-socket.io`)
 
@@ -128,7 +119,7 @@ disconnect never clears the row (D3). `PresenceService.clear()` was removed with
 |-----------|-------|---------|---------|
 | server → client | `presence:hello` | none | the socket is registered: authenticated, in `user:<id>`, presence connection counted |
 | client → server | `presence:playing` | `{ playing: boolean }` | sent on game enter/leave and re-asserted on every `connect` |
-| server → client | `counts:online` | `{ count: number }` | the site-wide badge, coalesced to ≤ 1 push per 5 s |
+| server → client | `counts:online` | `{ count: number }` | the site-wide badge: coalesced to ≤ 1 push per 5 s, and also emitted to a socket as it connects (the cached `currentCount()`) |
 
 
 ---
@@ -182,15 +173,17 @@ sequenceDiagram
 
 The armed check re-reads the connection set when it fires, so a reconnect inside the window cancels
 the edge instead of producing a false `friend_offline`. When it fires with no connections it reads
-the row's remaining TTL: still present → re-arm (a reconnect, or the REST fallback heartbeating);
-gone → publish `friend_offline` to every accepted friend and request a badge refresh.
+the row's remaining TTL: still present → re-arm (a reconnect inside the TTL); gone → publish
+`friend_offline` to every accepted friend and request a badge refresh.
 
 ### 3. The online count
 
 `openConnection` / the offline edge call `requestCountPush`, which publishes `presence:count` at most
 once per 5 s (leading edge, trailing fold). `RealtimeBroadcaster` subscribes to that channel, converts
 the value with `Number.isFinite`, and emits `counts:online { count }` to every socket. The count itself
-is a `SCAN presence:*` with the `presence:conns:` keys filtered out.
+is a `SCAN presence:*` with the `presence:conns:` keys filtered out, and the push caches the number in
+`lastCount`: `currentCount()` returns it, and the gateway emits it to a socket right after
+`presence:hello`, so a socket that connects between two coalesced pushes still paints at once (D11).
 
 
 ---
@@ -237,17 +230,14 @@ offline check fires
 
 ### Online Count Path
 ```
-GET /api/presence/online-count (JWT required)
-  ├── SCAN presence:* keys, minus the presence:conns: sets
-  └── 200 { count: <number of live presence rows> }
-```
-
-### Fallback Heartbeat Path
-```
-POST /api/presence/heartbeat (JWT required)
-  ├── SET presence:<userId> playing|online EX 45
-  ├── first beat after a lapse → friend_online + a badge refresh
-  └── 200 { ok: true }
+a connection edge (first connection, or an offline lapse)
+  ├── requestCountPush (coalesced to ≤ 1 per 5 s)
+  │   ├── SCAN presence:* keys, minus the presence:conns: sets
+  │   ├── cache the number (lastCount)
+  │   └── PUBLISH presence:count <n>
+  └── broadcaster → counts:online { count } to every socket
+a socket connects
+  └── currentCount() → counts:online { count } right after presence:hello (D11)
 ```
 
 
@@ -265,10 +255,10 @@ of the application uses:
 | `openConnection` | `openConnection(userId, socketId, playing?): Promise<void>` | Register a socket: membership set, row, refresh timer, `friend_online` on the edge |
 | `setPlaying` | `setPlaying(userId, socketId, playing): Promise<void>` | The `presence:playing` bit, per connection |
 | `closeConnection` | `closeConnection(userId, socketId): Promise<void>` | Remove only this socket's member; arm the offline check when it was the last |
-| `heartbeat` | `heartbeat(userId, playing): Promise<void>` | The REST fallback's write path |
 | `getStatus` | `getStatus(userId: string): Promise<PresenceStatus>` | Single-user lookup — e.g. profile pages |
 | `getStatuses` | `getStatuses(userIds: string[]): Promise<Record<string, PresenceStatus>>` | Batched lookup for friends lists |
 | `getOnlineCount` | `getOnlineCount(): Promise<number>` | Site-wide online count via SCAN, connection sets excluded |
+| `currentCount` | `currentCount(): number \| null` | The last number a push computed, for the gateway's connect-path emit; `null` until the first push |
 
 `PresenceStatus` is a type alias: `'online' | 'playing' | 'offline'`. A missing Redis key *is* the offline state — the TTL handles cleanup automatically.
 
@@ -284,8 +274,7 @@ of the application uses:
 | `Redis` (ioredis) | Presence rows, the per-account connection set, the `presence:count` publish |
 | `PrismaService` | Look up the user's accepted friends for presence broadcasts |
 | `NotificationService` | Push transient `friend_online` / `friend_offline` toasts |
-| `RealtimeGateway` | Calls the connection API from `handleConnection`, `handleDisconnect` and `presence:playing` |
-| `JwtAuthGuard` | Protects both presence endpoints |
+| `RealtimeGateway` | Calls the connection API from `handleConnection`, `handleDisconnect` and `presence:playing`, and emits `counts:online` from `currentCount()` |
 
 
 ---

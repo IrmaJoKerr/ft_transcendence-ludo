@@ -69,7 +69,7 @@ const STATUS_STYLE: Record<string, { label: string; color: string; border: strin
 
 export function Home() {
   const { t, i18n } = useTranslation();
-  const { user, sessionSocket } = useApp();
+  const { user, onlineCount } = useApp();
   const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
@@ -121,29 +121,10 @@ export function Home() {
     };
   }, []);
 
-  // 4b. HERO BADGE BAR: live site-wide online-player count. One read for first
-  // paint (the badge also renders signed out, where there is no socket), then the
-  // session socket pushes `counts:online` on every connection edge.
-  const [onlineCount, setOnlineCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    getApi<{ count: number }>('/api/presence/online-count')
-      .then((body) => {
-        setOnlineCount(body.count);
-      })
-      .catch((e) => {
-        console.error(e);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!sessionSocket) return;
-    const onCount = (event: { count: number }) => setOnlineCount(event.count);
-    sessionSocket.on('counts:online', onCount);
-    return () => {
-      sessionSocket.off('counts:online', onCount);
-    };
-  }, [sessionSocket]);
+  // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the
+  // session socket. D11 removed the first-paint REST read: the gateway hands a
+  // freshly connected socket the number it last pushed, and the store keeps that
+  // value for as long as the connection lives (so a remount still paints).
 
   // **5. HUB ARCADE CABINET: 3D ATTRACT MODE & PRESS START**
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

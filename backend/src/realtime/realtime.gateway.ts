@@ -104,6 +104,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     this.connected.set(data.userId, sockets);
     await this.presence.openConnection(data.userId, socket.id);
     socket.emit(EVENT_PRESENCE_HELLO);
+
+    // The badge's first paint (D11). The live number is a namespace emit from the
+    // broadcaster, but `presence:count` is coalesced to one push per 5 s, so a
+    // socket connecting between two edges would sit without a number. This hands
+    // it the cached one; a cold cache is not a hole, because the connection above
+    // started a push of its own.
+    const count = this.presence.currentCount();
+    if (count !== null) socket.emit(EVENT_COUNTS_ONLINE, { count });
   }
 
   // Only this socket's member leaves the account's connection set. The presence

@@ -235,9 +235,7 @@ An error response has one of two shapes:
    - [`GET /api/friends/invites/pending`](#get-apifriendsinvitespending) — Check whether you have a pending game invite
    - [`POST /api/friends/invites/dismiss`](#post-apifriendsinvitesdismiss) — Dismiss your pending game invite
 
-16. **[Presence](#16-presence)** — Online/offline heartbeat
-   - [`POST /api/presence/heartbeat`](#post-apipresenceheartbeat) — REST fallback only: presence itself rides the session socket now
-   - [`GET /api/presence/online-count`](#get-apipresenceonline-count) — first-paint read of the online badge (live updates: `counts:online`)
+16. **[Presence](#16-presence)** — No REST routes (D11): presence rides the session socket
 
 17. **[Notifications](#17-notifications)** — Live stream + unread list + read state
    - [`GET /api/notifications/stream`](#get-apinotificationsstream) — Open a live stream of new notifications (SSE)
@@ -2143,59 +2141,10 @@ Dismiss the current user's pending game invite.
 
 ### 16. Presence
 
-
----
----
-
-
-#### `POST /api/presence/heartbeat`
-
-**Source:** `backend/src/presence/presence.controller.ts` — PresenceModule
-
-**REST fallback only.** Presence is read off the session socket: the connection refreshes the
-`presence:<userId>` row (45 s TTL) every 20 s while it lives, and `presence:playing` carries the
-"in a match" bit. The shipped client never calls this route; it stays for a browser whose socket
-cannot be established.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Body:**
-
-```json
-{
-  "playing": true
-}
-```
-
-**Response:**
-
-```json
-{
-  "ok": true
-}
-
-```
-
-
----
----
-
-
-#### `GET /api/presence/online-count`
-
-**Source:** `backend/src/presence/presence.controller.ts` — PresenceModule
-
-Get the site-wide count of currently online users (for the homepage badge bar). The badge is kept
-live by the `counts:online` socket event, so this read is only the first paint.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Response:**
-
-```json
-{
-  "count": 12
-}
-
-```
+**No HTTP routes.** D11 (Phase 1.6) deleted `presence.controller.ts`, its two routes
+(`POST /api/presence/heartbeat`, `GET /api/presence/online-count`), its `HeartbeatDto` and the
+`PRESENCE_THROTTLE` entry; both paths now answer `404`. Presence is the session socket: the
+connection keeps the row alive, and the badge's number arrives on that connection too.
 
 
 ---
@@ -2213,7 +2162,7 @@ session socket is a cookie-authenticated connection at the page's own origin.
 |-----------|-------|---------|---------|
 | server → client | `presence:hello` | none | the socket is registered: authenticated, in `user:<id>`, presence connection counted |
 | client → server | `presence:playing` | `{ playing: boolean }` | sent on game enter/leave and re-asserted on every `connect`; per connection |
-| server → client | `counts:online` | `{ count: number }` | the site-wide online badge, coalesced to at most one push per 5 s |
+| server → client | `counts:online` | `{ count: number }` | the site-wide online badge, coalesced to at most one push per 5 s, and emitted to a freshly connected socket right after `presence:hello` (the badge's first paint, D11) |
 | server → client | `rooms:list` | `LobbyRoom[]` | the open lobby, filtered for this viewer (`mySeat` is per account); pushed after a `rooms:changed` burst, debounced 500 ms and diffed |
 | server → client | `rooms:mine` | `MyRoom[]` | this account's own seats (rejoin banner, "has an active game") |
 
