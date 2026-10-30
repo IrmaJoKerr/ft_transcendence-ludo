@@ -13,6 +13,31 @@ export const TOUCH_FLASH_MS = 120; // touch pad pressed state
 
 export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
 export const DICE_ROLL_ANIM_MS = 750; // dice spin before the path starts
+export const DICE_BRAKE_ARM_MS = 200; // a tap younger than this is a double tap, not a brake
+export const DICE_BRAKE_FLOOR_MS = 450; // shortest braked roll, so nothing teleports
+export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
 export const CARD_HOLD_MARGIN_MS = 200; // the receipt's one-way trip
+
+// When a roll in flight may land, all in one place because the brake's whole
+// behaviour is this clamp. `start` is the tap that opened the roll, `valueAt` the
+// moment the server's face arrived and `brakeAt` the tap that braked it (null when
+// nothing did). A brake moves the landing between the floor and the natural end and
+// never past it, so a roll can be shortened but never extended; the value itself is
+// never touched, and a slow answer wins over the shortened window rather than
+// settling on a face nobody sent.
+export const diceLandAt = (start: number, valueAt: number, brakeAt: number | null): number => {
+  if (brakeAt === null) return Math.max(valueAt, start + DICE_ROLL_ANIM_MS);
+  const braked = Math.min(
+    start + DICE_ROLL_ANIM_MS,
+    Math.max(
+      start + DICE_BRAKE_FLOOR_MS,
+      brakeAt + DICE_BRAKE_SETTLE_MS,
+      // A late answer still gets the near-miss, but never by pushing the landing
+      // past the natural end.
+      valueAt + DICE_BRAKE_SETTLE_MS,
+    ),
+  );
+  return Math.max(valueAt, braked);
+};

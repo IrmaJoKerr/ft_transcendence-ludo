@@ -9,10 +9,12 @@ import { ClashOverlay } from '../game/ClashOverlay';
 import {
   CARD_HOLD_MARGIN_MS,
   CLASH_RESULT_MS,
+  DICE_BRAKE_ARM_MS,
   DICE_ROLL_ANIM_MS,
   MOVE_STEP_ANIM_MS,
   PENDING_MOVE_GUARD_MS,
   RESULTS_MODAL_DELAY_MS,
+  diceLandAt,
 } from '../game/timing';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
@@ -231,6 +233,24 @@ export function Game() {
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
   const isRollingRef = useRef(false);
+  // One roll's clock, in refs: the brake window opens at the tap that started the
+  // roll and closes at the landing, so a tap is never judged against a stale render.
+  // `rollStartRef` stays null for a roll this device did not start, which is what
+  // keeps an opponent's or a bot's dice un-brakeable.
+  const rollStartRef = useRef<number | null>(null);
+  const rollBrakeAtRef = useRef<number | null>(null);
+  const rollLandAtRef = useRef<number | null>(null);
+  const rollLandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rollAnswerGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rollLandFnRef = useRef<(() => void) | null>(null);
+  const rollValueRef = useRef<number | null>(null);
+  // The face a braked die settles onto, null until the server's value is in hand;
+  // Die derives the near-miss it shows from it.
+  const [brakeTo, setBrakeTo] = useState<number | null>(null);
+  // The Space listener is bound once per match and would otherwise capture a stale
+  // `canRoll`; this ref always points at the newest `beginRoll` closure (assigned
+  // next to its definition, the same way `viewRef` is).
+  const beginRollRef = useRef<() => void>(() => {});
   const [displayedLastRolls, setDisplayedLastRolls] = useState<
     Partial<Record<PlayerColor, number>>
   >({});
@@ -452,8 +472,8 @@ export function Game() {
     });
 
     socket.on('disconnect', () => {
-      setIsRolling(false);
-      isRollingRef.current = false;
+      // A dropped socket ends the roll's clock too: nothing will ever land it.
+      resetRoll();
     });
 
     socket.on('game_joined', (state) => {
@@ -472,10 +492,12 @@ export function Game() {
           localizedBotName(t, roller?.username) ||
           localizedColor(t, rollerColor).toLowerCase();
         retroAudio.playLaserSound();
-        setIsRolling(true);
-        setTimeout(() => {
-          setIsRolling(false);
-          isRollingRef.current = false;
+        const arrivedAt = performance.now();
+        // Everything the landing does, in one body: a brake moves the landing
+        // earlier and a slow answer moves it later, and neither path skips the
+        // dispatch or the log.
+        const land = () => {
+          resetRoll();
           dispatch({ type: 'dice_rolled', ...(state as object) });
           setDisplayedLastRolls((prev) => ({ ...prev, [rollerColor]: e.value }));
           setMoveLogs((prev) => [
@@ -487,7 +509,22 @@ export function Game() {
             },
             ...prev.slice(0, 11),
           ]);
-        }, 750);
+        };
+        rollLandFnRef.current = land;
+        const start = rollStartRef.current;
+        if (start == null) {
+          // A roll this device did not start (an opponent's or a bot's): the die
+          // tumbles for the full window and there is no local tap to brake it.
+          setIsRolling(true);
+          scheduleLand(arrivedAt + DICE_ROLL_ANIM_MS);
+          return;
+        }
+        // This device's roll. A brake already taken means the near-miss can start
+        // now; either way only WHEN it lands changes, never the face.
+        rollValueRef.current = e.value;
+        const brakeAt = rollBrakeAtRef.current;
+        if (brakeAt != null) setBrakeTo(e.value);
+        scheduleLand(diceLandAt(start, arrivedAt, brakeAt));
         return;
       }
 
@@ -602,7 +639,12 @@ export function Game() {
         };
 
         if (isRollingRef.current) {
-          setTimeout(runStepAnimation, DICE_ROLL_ANIM_MS);
+          // Wait out what is LEFT of the spin rather than the whole constant: a
+          // braked roll is shorter, and the walk starts on the landed face.
+          const landAt = rollLandAtRef.current;
+          const wait =
+            landAt == null ? DICE_ROLL_ANIM_MS : Math.max(0, landAt - performance.now());
+          setTimeout(runStepAnimation, wait);
         } else {
           runStepAnimation();
         }
@@ -777,7 +819,9 @@ export function Game() {
         if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
         engineErrorTimerRef.current = setTimeout(() => setEngineError(null), 6000);
       }
-      setIsRolling(false);
+      // A refused roll must not leave the die spinning: the turn did not start, so
+      // there is nothing left to land.
+      resetRoll();
       pendingMoveRef.current = false;
     });
 
@@ -790,6 +834,10 @@ export function Game() {
       captureFxTimerRef.current = null;
       if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
       engineErrorTimerRef.current = null;
+      if (rollLandTimerRef.current) clearTimeout(rollLandTimerRef.current);
+      rollLandTimerRef.current = null;
+      if (rollAnswerGuardRef.current) clearTimeout(rollAnswerGuardRef.current);
+      rollAnswerGuardRef.current = null;
       setAnimatingPiece(null);
       setCaptureFx(null);
     };
@@ -842,33 +890,99 @@ export function Game() {
       if (v.turnPhase === 'WAITING_FOR_MOVE' || v.legalMoves.length > 0) return;
       if (isRollingRef.current || isMovingPieceRef.current) return;
       e.preventDefault();
-      isRollingRef.current = true;
-      setIsRolling(true);
-      retroAudio.playUiBeep(980, 0.08, 'sawtooth');
-      socketRef.current?.emit('roll_dice');
-      setTimeout(() => {
-        if (isRollingRef.current) {
-          isRollingRef.current = false;
-          setIsRolling(false);
-        }
-      }, 2000);
+      // Through the ref: this listener is bound once per match, so it would hold a
+      // stale `canRoll` if it called `beginRoll` directly.
+      beginRollRef.current();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeMatch, user]);
 
-  const rollDice = () => {
+  // Clear the timers of the roll in flight. The landing and the "the server never
+  // answered" guard never need to run together, so one helper covers both.
+  const clearRollTimers = () => {
+    if (rollLandTimerRef.current != null) clearTimeout(rollLandTimerRef.current);
+    if (rollAnswerGuardRef.current != null) clearTimeout(rollAnswerGuardRef.current);
+    rollLandTimerRef.current = null;
+    rollAnswerGuardRef.current = null;
+  };
+
+  // Put the die back at rest and forget the roll. The landing, a refusal and a
+  // dropped socket all end here, so no path leaves a die spinning forever.
+  const resetRoll = () => {
+    clearRollTimers();
+    rollStartRef.current = null;
+    rollBrakeAtRef.current = null;
+    rollLandAtRef.current = null;
+    rollLandFnRef.current = null;
+    rollValueRef.current = null;
+    isRollingRef.current = false;
+    setIsRolling(false);
+    setBrakeTo(null);
+  };
+
+  // Start a roll this device owns. The clock starts at the tap, not at the server's
+  // answer, so the brake window is the same length whatever the round trip is.
+  const beginRoll = () => {
     if (!canRoll || isRolling || isRollingRef.current || isMovingPieceRef.current) return;
+    clearRollTimers();
+    rollStartRef.current = performance.now();
+    rollBrakeAtRef.current = null;
+    rollLandAtRef.current = null;
+    rollLandFnRef.current = null;
+    rollValueRef.current = null;
     isRollingRef.current = true;
     setIsRolling(true);
+    setBrakeTo(null);
     retroAudio.playUiBeep(980, 0.08, 'sawtooth');
     socketRef.current?.emit('roll_dice');
-    setTimeout(() => {
-      if (isRollingRef.current) {
-        isRollingRef.current = false;
-        setIsRolling(false);
-      }
+    // No answer: give the die back rather than leave it spinning forever.
+    rollAnswerGuardRef.current = setTimeout(() => {
+      rollAnswerGuardRef.current = null;
+      if (isRollingRef.current) resetRoll();
     }, 2000);
+  };
+  // Assigned every render, so the Space listener bound once per match always calls
+  // the newest closure (the same pattern as `viewRef`).
+  beginRollRef.current = beginRoll;
+
+  // Schedule the landing. `rollLandAtRef` is what the move animation reads, so a
+  // braked roll does not make the piece wait for time the roll no longer has.
+  const scheduleLand = (landAt: number) => {
+    if (rollLandTimerRef.current != null) clearTimeout(rollLandTimerRef.current);
+    rollLandAtRef.current = landAt;
+    rollLandTimerRef.current = setTimeout(
+      () => {
+        rollLandTimerRef.current = null;
+        const land = rollLandFnRef.current;
+        rollLandFnRef.current = null;
+        land?.();
+      },
+      Math.max(0, landAt - performance.now()),
+    );
+  };
+
+  // The die's one handler, three states: at rest it starts a roll, a spinning roll
+  // THIS device started brakes once it is armed, anything else is ignored (another
+  // seat's roll, a tap inside the arming window, a roll already braked). The brake
+  // moves only WHEN the die lands: the value stays the server's, dispatched as it
+  // arrived at the landing below.
+  const tapDie = () => {
+    if (!isRollingRef.current) {
+      beginRoll();
+      return;
+    }
+    const start = rollStartRef.current;
+    if (start == null || rollBrakeAtRef.current != null) return;
+    const now = performance.now();
+    if (now - start < DICE_BRAKE_ARM_MS) return;
+    rollBrakeAtRef.current = now;
+    const value = rollValueRef.current;
+    // The answer is still in flight: its handler completes the brake, since only it
+    // knows when the face arrived.
+    if (value == null) return;
+    setBrakeTo(value);
+    scheduleLand(diceLandAt(start, now, now));
   };
 
   const movePiece = (pieceId: string) => {
@@ -2515,13 +2629,36 @@ export function Game() {
                               })}
                     </div>
 
+                    {/* The die IS the brake. A tap while it is at rest rolls, a tap
+                        on a spinning roll this device started shortens it, and it
+                        stays ENABLED while spinning on purpose: a disabled button
+                        cannot report the tap. */}
                     <div style={{ height: 90, display: 'grid', placeItems: 'center' }}>
-                      <Die value={view.diceValue ?? 0} rolling={isRolling} />
+                      <button
+                        type="button"
+                        onClick={tapDie}
+                        aria-label={isRolling ? t('game.rolling') : t('game.rollDiceBtn')}
+                        style={{
+                          display: 'grid',
+                          placeItems: 'center',
+                          padding: 0,
+                          border: 'none',
+                          background: 'transparent',
+                          font: 'inherit',
+                          cursor: isRolling || canRoll ? 'pointer' : 'default',
+                        }}
+                      >
+                        <Die
+                          value={view.diceValue ?? 0}
+                          rolling={isRolling}
+                          brakeTo={brakeTo}
+                        />
+                      </button>
                     </div>
 
                     <button
                       className={RETRO_BTN}
-                      onClick={rollDice}
+                      onClick={beginRoll}
                       disabled={!canRoll || isRolling}
                       style={{
                         width: '100%',

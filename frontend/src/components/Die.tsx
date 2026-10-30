@@ -10,24 +10,46 @@ const PIP_MAP: Partial<Record<number, number[]>> = {
   6: [0, 2, 3, 5, 6, 8],
 };
 
-export function Die({ value, rolling }: { value: number; rolling: boolean }) {
+export function Die({
+  value,
+  rolling,
+  brakeTo = null,
+}: {
+  value: number;
+  rolling: boolean;
+  // Set while a braked roll decelerates: the face the server sent, whose neighbour
+  // is shown until the roll lands. Null whenever no brake is running.
+  brakeTo?: number | null;
+}) {
   const [displayValue, setDisplayValue] = useState(value || 1);
 
   useEffect(() => {
-    if (!rolling) {
-      setDisplayValue(value || 1);
+    if (!rolling || brakeTo != null) {
+      // At rest the face is the server's value. A braked die holds its last random
+      // face and the near-miss below takes over.
+      if (!rolling) setDisplayValue(value || 1);
       return;
     }
 
-    // Slower, deliberate tumble through random faces while rolling
-    const interval = setInterval(() => {
+    // The tumble accelerates rather than ticking at a fixed rate, so it reads as
+    // energy being spent. `brakeTo` stops it: the brake's own settle is the
+    // deceleration, and it must not be interrupted by another random face.
+    let delay = 120;
+    let timer: ReturnType<typeof setTimeout>;
+    const flip = () => {
       setDisplayValue(Math.floor(Math.random() * 6) + 1);
-    }, 110);
+      delay = Math.max(55, Math.round(delay * 0.86));
+      timer = setTimeout(flip, delay);
+    };
+    timer = setTimeout(flip, delay);
 
-    return () => clearInterval(interval);
-  }, [rolling, value]);
+    return () => clearTimeout(timer);
+  }, [rolling, value, brakeTo]);
 
-  const on = PIP_MAP[rolling ? displayValue : value || displayValue] ?? [];
+  // The neighbouring face, never 0 or 7: what the braked die slows onto before the
+  // real value lands.
+  const nearMiss = brakeTo == null ? null : brakeTo === 6 ? 5 : brakeTo + 1;
+  const on = PIP_MAP[nearMiss ?? (rolling ? displayValue : value || displayValue)] ?? [];
 
   return (
     <div
@@ -43,7 +65,11 @@ export function Die({ value, rolling }: { value: number; rolling: boolean }) {
         gridTemplateRows: '1fr 1fr 1fr',
         padding: 13,
         gap: 3,
-        animation: rolling ? 'shake 0.65s ease-in-out infinite' : 'none',
+        // A braked die wobbles more slowly: the same keyframes, longer, which is
+        // what makes the settle look like a slowdown.
+        animation: rolling
+          ? `shake ${nearMiss == null ? 0.62 : 0.95}s ease-in-out infinite`
+          : 'none',
         border: '1px solid #cbb99a',
         transition: 'transform 0.2s ease',
       }}

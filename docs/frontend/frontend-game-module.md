@@ -41,10 +41,10 @@ The Game page (`/game`) is the real-time gameplay screen. It has:
 |------|------|
 | `src/pages/Game.tsx` | Game page: socket handlers, waiting room, roster, controls, rules deck and results wiring |
 | `src/components/Board.tsx` | Board component: renders the Ludo track, pieces, bases, safe-zone stars, chain badges and token pips |
-| `src/components/Die.tsx` | Die component: dice face rendering with roll animation |
+| `src/components/Die.tsx` | Die component: dice face rendering, the accelerating tumble and a braked die's near-miss settle |
 | `src/game/ClashOverlay.tsx` | Clash QTE: phases, press bars, result card, keyboard listener and touch pads |
 | `src/game/reducer.ts` | Pure reducer that turns engine events into local view state |
-| `src/game/timing.ts` | Client-side presentation delays shared with the engine's timing contract |
+| `src/game/timing.ts` | Client-side presentation delays shared with the engine's timing contract, plus the dice brake's landing clamp |
 | `src/game/types.ts` | GameState, PlayerColor, LegalMove, MoveResult and others |
 | `src/socket.ts` | Socket.IO client: `connectSocket()`, typed Server/Client event maps |
 | `src/utils/device.ts` | `isMobileOS()` predicate that selects the touch pad path |
@@ -129,7 +129,8 @@ sequenceDiagram
 
 ### 2. Dice Roll
 
-Sequence of steps when the player clicks the die.
+Sequence of steps when the player clicks the die. A second tap on the spinning die
+brakes it: the roll lands somewhere between 450 ms and its natural 750 ms window.
 ```mermaid
 sequenceDiagram
     participant User
@@ -137,11 +138,16 @@ sequenceDiagram
     participant Socket as Game socket
     participant Engine as ludo-engine
 
-    User->>Game: Click the die
+    User->>Game: Click the die (or the Roll button)
     Game->>Socket: roll_dice
+    Game->>Game: Tumble starts, brake window opens
     Engine->>Engine: Roll + work out legal moves
     Engine-->>Game: dice_rolled (value + movable pieces)
-    Game->>Game: Highlight which pieces can move
+    opt Die tapped again, 200 ms or later
+        User->>Game: Tap the spinning die
+        Game->>Game: Brake: land between 450 ms and 750 ms
+    end
+    Game->>Game: Land on the server's face, highlight which pieces can move
 ```
 
 ### 3. Piece Movement
@@ -191,9 +197,12 @@ Game mounts with activeMatch
 
 ### Dice Roll Path
 ```
-User clicks die
-  └── emit('roll_dice')
-       └── on 'dice_rolled' → dispatch { value, legalMoves, bonusRoll, currentTurn } → highlight pieces
+User clicks die (or taps the die at rest)
+  └── emit('roll_dice'), tumble starts, brake window opens at the tap
+       ├── tap the spinning die again after 200 ms → brake: land at 450..750 ms
+       └── on 'dice_rolled' → the landing timer holds the value
+            └── land at diceLandAt(start, valueAt, brakeAt)
+                 └── dispatch { value, legalMoves, bonusRoll, currentTurn } → highlight pieces
 ```
 
 ### Piece Move Path
@@ -226,6 +235,7 @@ on 'game_ended' { winner, resultDetail }
 - **Refresh safety for cached matches.** After a browser refresh, a cached `activeMatch` can arrive with no `mode`. The page reads it again from `GET /api/games/mine`, so a hotseat or PvE (player versus environment) game can never be treated as a plain PvP rejoin.
 - **"RETURN TO LOBBY" does not leave the match.** The button only navigates back to `/gamelobby`: it emits no `leave_game` and calls no exit endpoint. Unmounting the page drops the socket, which opens the engine's 45 s disconnect grace window for that seat. Inside the window the lobby offers a **REJOIN** row for the room (`GET /api/games/rooms` → `mySeat: true`, and `GET /api/games/mine` still lists it), and rejoining restores the same colour and pieces. Once the window expires the engine marks the seat `exited` and parks its pieces at `step = -1`; both endpoints then stop advertising the room to that player: the seat stays behind as a ghost, and the player is free to start or join another game.
 - **`dice_rolled` is matched to the turn before the event** (`game/reducer.ts`). On the no-move and third-six-forfeit paths the engine advances `currentTurn` before it emits, so the event's own `currentTurn` can already name the *next* player while the rolled value belongs to the player who rolled.
+- **Tapping a spinning die brakes it, and the brake never touches the value** (`pages/Game.tsx` + `components/Die.tsx`). One handler covers the die's three states: at rest it starts a roll, a roll this device started brakes once `DICE_BRAKE_ARM_MS` (200 ms) has passed, and everything else — another seat's roll, a tap inside the arming window, a roll already braked — is ignored. The clock opens at the tap that started the roll, not at the server's answer, so the window lasts the same whatever the round trip is, and `rollStartRef` stays null for a roll this device did not start, which is what keeps an opponent's or a bot's dice un-brakeable. The landing is `diceLandAt(start, valueAt, brakeAt)` in `game/timing.ts`: without a brake it is the full `DICE_ROLL_ANIM_MS` (750 ms), with one it is `max(450 ms from the start, 150 ms after the tap, 150 ms after the answer)` and never past the natural end — a roll can be shortened, never extended, and a slow answer wins over the shortened window rather than settling on a face nobody sent. The die slows onto the neighbouring face (`brakeTo ± 1`, never 0 or 7) and lands on the server's value, which the dispatch carries untouched. `piece_moved` then waits out what is LEFT of the spin (`rollLandAtRef`) instead of the whole constant, so a braked roll does not leave the walk sitting still for time the roll no longer has. The die is the tap surface and its button is never disabled — that is the requirement the brake needs — while the ROLL button keeps its disabled-while-spinning state, because a brake labelled ROLLING… would need new copy in three locales before it could mean anything.
 - **Bot names are translated.** Engine bots are named `bot-<color>`; `localizedBotName(t, name)` turns that into a translated "bot-<colour>" and keeps the "(assistant)" name the lobby assigned the seat, so French renders "bot-red (Siri)" as "bot-rouge (Siri)". Names that do not match are returned unchanged. Used by this page and `ResultsModal`.
 - **Turn labels fall back to a translated colour word.** The live turn announcement pill, the game status marquee bar, the status line under the pilot banner, the turn-swap notice, the paused-reconnect banner and the roll-log and capture-log fallbacks all name the seat in control. When a seat has no name to show, they read the colour word through `localizedColor(t, color)`, which maps a `PlayerColor` to the shared `lobby.color*` keys, so French shows "Rouge" where English shows "Red". `utils/botName.ts` exports it next to `localizedBotName`, and the callers upper-case it where the English label is all caps.
 - **`nextTurn` mirrors the engine's turn advance** (`game/reducer.ts`). It walks `state.players[]` in order and gives the turn to the next seat that has not left. A disconnected seat with an open grace window holds the turn, so the prediction must not skip past it; otherwise the board would name the wrong pilot in control between the move and the next server frame.
@@ -258,7 +268,7 @@ on 'game_ended' { winner, resultDetail }
 | `game/reducer.ts` | Pure state reducer for engine events (`GameViewState`, `initialView`, `applyEvent`) |
 | `game/types.ts` | `GameState`, `PlayerMeta`, `PlayerColor`, `LegalMove`, `MoveResult`, `ClashState` |
 | `game/ClashOverlay.tsx` | Clash QTE overlay for keyboard, touch pads and the result card |
-| `game/timing.ts` | Client presentation delays (`CLASH_*`, `MOVE_STEP_ANIM_MS`, `RESULTS_MODAL_DELAY_MS`, guards) |
+| `game/timing.ts` | Client presentation delays (`CLASH_*`, `MOVE_STEP_ANIM_MS`, `DICE_BRAKE_*`, `diceLandAt`, `RESULTS_MODAL_DELAY_MS`, guards) |
 | `components/Board.tsx` | Renders Ludo board track, pieces, bases, safe-zone stars, chain badges and token pips |
 | `components/Die.tsx` | Renders the dice face and the roll animation |
 | `components/UserAvatar.tsx` | Pilot-card avatar: the account photo when one is known to exist, otherwise the generated DiceBear avatar (bots and hotseat's local seats have no account, so they take the generated path; the host's own seat keeps the store's `/me` photo instead) |

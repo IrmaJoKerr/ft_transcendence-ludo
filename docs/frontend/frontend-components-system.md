@@ -42,7 +42,7 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/components/RetroAuthLayout.tsx` | Retro-styled authentication page container (`tag`, optional `topRight` pinned 12px inside the card's top-right corner, `children`), and `NeonCheck`: the terms tick glyph |
 | `src/components/LanguageSwitcher.tsx` | Segmented EN/MS/FR switch in two renderings: the compact `pill` used by `Login` (`topRight`) and `LegalPage`, and the two-line `tabs` used by the `RetroNavbar` account popover |
 | `src/components/Board.tsx` | Ludo board: tracks, bases, pieces, legal-move highlights. Every safe square (the four tinted starts and the four pre-start cells) wears the same `SafeStar` — white core, black outline, so it stays legible on both the near-black track and the four neon start cells — and the `noSafeZones` rule withholds all eight together |
-| `src/components/Die.tsx` | Dice component: face rendering with roll animation |
+| `src/components/Die.tsx` | Dice component: face rendering, accelerating roll tumble and a braked die's near-miss settle |
 | `src/components/UserAvatar.tsx` | Avatar image: keyed by the immutable `userId`; requests the photo only when the seat is not a bot and a photo is known to exist (payload flag or a live `avatar_changed` override, which the backend pushes to that user's own clients only), otherwise renders the DiceBear default. A failed load marks that id broken for the session so it is not retried; an optional `onPhotoError` callback runs when that happens, so a parent component can show a message (the Profile page uses it to show a warning in the user's language) |
 | `src/dicebear.ts` | DiceBear helper: generates an avatar data URI (Uniform Resource Identifier) (`avataaars`/`bottts`/`identicon`) |
 | `src/components/OAuthButtons.tsx` | OAuth provider buttons (42, GitHub, Google) |
@@ -101,8 +101,10 @@ type BoardProps = {
 
 ```typescript
 type DieProps = {
-  value: number;         // 1-6
-  rolling?: boolean;     // If true, shows rolling animation
+  value: number;                // 1-6, the server's face once the roll lands
+  rolling?: boolean;            // If true, tumbles through random faces
+  brakeTo?: number | null;      // Set by a braked roll: shows the neighbour of this
+                                // face until the roll lands (the near-miss)
 }
 ```
 
@@ -157,10 +159,12 @@ sequenceDiagram
     participant Game as Game.tsx
     participant Die as Die.tsx
 
-    Game->>Die: <Die value={dice} rolling={rolling} />
-    alt rolling = true
+    Game->>Die: <Die value={dice} rolling={rolling} brakeTo={brakeTo} />
+    alt brakeTo is set (braked roll)
+        Die->>Die: Slow the shake, hold the near-miss face
+    else rolling = true
         Die->>Die: Apply shake animation CSS
-        Die->>Die: Cycle through random face values
+        Die->>Die: Flip through random faces, the interval shrinking
     else rolling = false
         Die->>Die: Render static face for value
     end
@@ -216,8 +220,9 @@ sequenceDiagram
 
 ### Die Path
 ```
-<Die value={dice} rolling={rolling} />
-  ├── rolling = true → shake animation, cycle faces
+<Die value={dice} rolling={rolling} brakeTo={brakeTo} />
+  ├── brakeTo set → near-miss face (brakeTo ± 1), slower shake
+  ├── rolling = true → accelerating face flips, shake
   └── rolling = false → render static face
        └── Render 3x3 pip grid for value
 ```
