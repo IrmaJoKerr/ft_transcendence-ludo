@@ -473,6 +473,12 @@ export const ms = {
     noSafeZonesDesc: 'Petak bintang tidak lagi melindungi (hardcore)',
     freeExit: 'Keluar Bebas',
     freeExitDesc: 'Sebarang guling membebaskan penjara, bukan hanya 6',
+    // Mutator pertukaran huruf. "Huruf", bukan "kekunci": pada tablet memang tiada
+    // kekunci dan pad memaparkan huruf.
+    clashKeyShift: 'Perubahan Mengejut Semasa Clash',
+    clashKeyShiftDesc: 'Huruf yang perlu ditekan bertukar sekali atau dua kali semasa clash',
+    clashKeyShiftCount: 'Pertukaran',
+    clashKeyShiftWarn: 'HURUF BERTUKAR!',
     // Clash QTE
     clashPressHint: 'Tekan kekunci anda berulang kali untuk mengisi bar — {{seconds}}s untuk menang!',
     clashYou: 'ANDA',
@@ -828,6 +834,8 @@ export const ms = {
       'Mendarat di atas tembok — dua buah atau lebih bertindan — bukan satu pertarungan tetapi satu Clash bagi setiap pertahanan, setiap pusingan perlumbaan kekunci yang baharu: menang semuanya berturut-turut dan petak itu milik anda, kalah satu dan tembok itu bertahan.',
     rulesPage6Touch:
       'Pada tablet anda mengetik bulatan yang memegang kekunci anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
+    rulesPage6KeyShift:
+      'Hos juga boleh menghidupkan kejutan semasa clash: huruf yang perlu ditekan bertukar sekali atau dua kali semasa perlumbaan. Amaran berkelip sebelum setiap pertukaran dan pad mengocok semula hurufnya, jadi terus membaca — ibu jari yang kekal pada huruf lama hanya mengisi bar sehingga pertukaran itu.',
     rulesPage7Header: '// TANPA ZON SELAMAT (HARDCORE)',
     rulesPage7Title: '💀 Tiada tempat bersembunyi',
     rulesPage7Body:

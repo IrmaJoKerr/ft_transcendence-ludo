@@ -6,6 +6,15 @@
 export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
 export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys still hidden
 export const CLASH_PRESS_MS = 5000; // press race window
+// The key-shift mutator's schedule, measured from `countdownDeadline` (the instant
+// the press phase opens). Every switch is DRAWN inside its window, so two switches
+// never land on a metronome. Worst case (2500 + 1100) still leaves 1400 ms of the
+// 5000 ms press window after the last switch, and the 1100 ms press cap means at
+// least ten presses are still available on the final letter.
+export const CLASH_SWITCH_FIRST_MIN_MS = 2000; // earliest first switch
+export const CLASH_SWITCH_FIRST_MAX_MS = 2500; // latest first switch
+export const CLASH_SWITCH_GAP_MIN_MS = 800; // shortest gap between two switches
+export const CLASH_SWITCH_GAP_MAX_MS = 1100; // longest gap between two switches
 // The result card, ADDED from the same two beats the client adds (it mirrors
 // `frontend/src/game/timing.ts`): the gesture the card plays, then the headline's read
 // time. The engine never draws the card, but it owns the freeze stamped on the game and

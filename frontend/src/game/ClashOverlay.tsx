@@ -12,6 +12,10 @@ import {
   CLASH_RESULT_MS,
   CLASH_FIGHT_FLASH_MS,
   CLASH_UI_TICK_MS,
+  CLASH_SWITCH_WARN_MS,
+  CLASH_SWITCH_WARN_HOLD_MS,
+  CLASH_SWITCH_FLIP_MS,
+  CLASH_SWITCH_PAD_STAGGER_MS,
   TOUCH_FLASH_MS,
 } from './timing';
 
@@ -71,6 +75,23 @@ function useIsPortrait(touchMode: boolean): boolean {
     return () => mq.removeEventListener('change', onChange);
   }, [touchMode]);
   return portrait;
+}
+
+/** True while the OS asks for reduced motion; false where the query is unsupported. */
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
 }
 
 function phaseAt(clash: NonNullable<GameViewState['clash']>, now: number): ClashPhase {
@@ -206,28 +227,65 @@ function RoundBadge({ round, total }: { round: number; total: number }) {
   );
 }
 
-/** Large bold key chip — fixed static border, highlighted for the owning player, dimmed otherwise. */
-function KeyBadge({ label, emphasized }: { label: string; emphasized: boolean }) {
+/**
+ * Large bold key chip — fixed static border, highlighted for the owning player, dimmed
+ * otherwise. On a key-shift room the chip FLIPS when the server switches letters: the
+ * wrapper carries the perspective and the fixed KEY_BADGE_W x KEY_BADGE_H box (so the
+ * layout cannot jump), and the face rotates on Y. `flipping` is set half a flip before
+ * the switch instant, so the face is edge-on exactly when the new letter becomes live
+ * and turns back into view carrying it. No ancestor here clips: `overflow: hidden`
+ * would silently defeat the 3D transform.
+ */
+function KeyBadge({
+  label,
+  emphasized,
+  flipping = false,
+  flash = false,
+  reduced = false,
+}: {
+  label: string;
+  emphasized: boolean;
+  flipping?: boolean;
+  /** One border flash as the new letter lands. */
+  flash?: boolean;
+  /** Reduced motion: cross-fade instead of a flip, at the same instants. */
+  reduced?: boolean;
+}) {
+  const face: CSSProperties = {
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 10,
+    fontSize: 54,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    lineHeight: 1,
+    width: KEY_BADGE_W,
+    height: KEY_BADGE_H,
+    fontFamily: "'Atkinson Hyperlegible Next', sans-serif",
+    border: `2px solid ${emphasized ? 'var(--accent-yellow)' : 'var(--text-muted)'}`,
+    color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
+    boxShadow: flash || emphasized ? '0 0 14px var(--accent-yellow)' : 'none',
+    // The return leg uses an overshooting curve, so the incoming face lands just past
+    // its resting size and settles: the "1.06 and back" bounce, in one transition.
+    transition: reduced
+      ? `opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`
+      : `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3, 1.5, .5, 1), opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`,
+    transform: reduced
+      ? 'none'
+      : `rotateY(${flipping ? 90 : 0}deg) scale(${flipping ? 0.96 : 1})`,
+    opacity: flipping ? 0.45 : 1,
+  };
   return (
     <div
       style={{
         marginTop: 12,
-        display: 'inline-grid',
-        placeItems: 'center',
-        borderRadius: 10,
-        fontSize: 54,
-        fontWeight: 700,
-        textTransform: 'uppercase',
-        lineHeight: 1,
+        display: 'inline-block',
         width: KEY_BADGE_W,
         height: KEY_BADGE_H,
-        fontFamily: "'Atkinson Hyperlegible Next', sans-serif",
-        border: `2px solid ${emphasized ? 'var(--accent-yellow)' : 'var(--text-muted)'}`,
-        color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
-        boxShadow: emphasized ? '0 0 14px var(--accent-yellow)' : 'none',
+        perspective: 600,
       }}
     >
-      {label === 'Space' ? 'SPACE' : label.toUpperCase()}
+      <div style={face}>{label === 'Space' ? 'SPACE' : label.toUpperCase()}</div>
     </div>
   );
 }
@@ -235,14 +293,24 @@ function KeyBadge({ label, emphasized }: { label: string; emphasized: boolean })
 /**
  * Draw one side's four circles: the side's own required key plus three decoys
  * from the same nine-key set. Pure module scope, so the draw is not an impure
- * call made during render, and the component memoises it per round.
+ * call made during render, and the component memoises it per round and switch.
  *
  * `round` rotates the pool before the shuffle, so a chain's consecutive rounds
  * cannot draw the same layout even if the engine happened to pick the same key.
+ * `switchIndex` adds to that rotation for the same reason one level down: the pad
+ * MUST re-scramble at every key switch, or a letter the schedule is about to ask for
+ * would already be under the thumb and the re-read cost (the whole point of the
+ * mutator) would vanish.
  */
-function drawPad(side: 'defender' | 'attacker', acceptKey: string, round: number): string[] {
+function drawPad(
+  side: 'defender' | 'attacker',
+  acceptKey: string,
+  round: number,
+  switchIndex = 0,
+): string[] {
   const pool = [...(side === 'attacker' ? ATTACKER_KEYS : DEFENDER_KEYS)];
-  const shift = ((round % pool.length) + pool.length) % pool.length;
+  const turns = round + switchIndex;
+  const shift = ((turns % pool.length) + pool.length) % pool.length;
   for (let i = 0; i < shift; i++) {
     const head = pool.shift();
     if (head != null) pool.push(head);
@@ -271,6 +339,9 @@ function TouchPad({
   color,
   acceptKey,
   round,
+  switchIndex = 0,
+  flipping = false,
+  reduced = false,
   active,
   onPress,
 }: {
@@ -278,18 +349,33 @@ function TouchPad({
   color: PlayerColor;
   acceptKey: string;
   round: number;
+  /** Which switch of the schedule this pad is drawn for: a new index re-scrambles. */
+  switchIndex?: number;
+  /** Edge-on while the key shifts, so the circles land their new letters with it. */
+  flipping?: boolean;
+  reduced?: boolean;
   active: boolean;
   /** The click handler. `count` is the tap weight (1 = one press). */
   onPress: (key: string, count: number) => void;
 }) {
   const { t } = useTranslation();
-  const [pressed, setPressed] = useState<string | null>(null);
+  // The lit circle remembers WHICH switch draw it was pressed under, so a scramble
+  // clears the flash by derivation instead of by a reset effect (which would mean a
+  // second render pass for a 120 ms visual).
+  const [pressed, setPressed] = useState<{ key: string; index: number } | null>(null);
   const flashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Re-drawn every round, so muscle memory cannot replace reading the correct
-  // circle. The decoys can never be the other side's key, because the two key
-  // sets are disjoint.
-  const keys = useMemo(() => drawPad(side, acceptKey, round), [acceptKey, side, round]);
+  // Re-drawn every round AND every switch, so muscle memory cannot replace reading
+  // the correct circle. The decoys can never be the other side's key, because the
+  // two key sets are disjoint.
+  const keys = useMemo(
+    () => drawPad(side, acceptKey, round, switchIndex),
+    [acceptKey, side, round, switchIndex],
+  );
+
+  // A scrambled pad must not keep a circle lit: a press from before the switch no
+  // longer matches this draw, so nothing shows.
+  const lit = pressed && pressed.index === switchIndex ? pressed.key : null;
 
   useEffect(
     () => () => {
@@ -300,7 +386,7 @@ function TouchPad({
 
   const tap = (key: string) => {
     if (!active) return;
-    setPressed(key);
+    setPressed({ key, index: switchIndex });
     if (flashRef.current) clearTimeout(flashRef.current);
     flashRef.current = setTimeout(() => setPressed(null), TOUCH_FLASH_MS);
     // Cheap extra, not a requirement: Android honours this, iOS ignores it.
@@ -341,41 +427,54 @@ function TouchPad({
           gap: TOUCH_GAP,
         }}
       >
-        {keys.map((k) => (
-          <button
+        {keys.map((k, index) => (
+          // The wrapper owns the switch flip and the button keeps its 90 ms press
+          // flash, so the two transforms never fight over one transition. The
+          // stagger lands the four new letters in a diagonal sweep from the first
+          // circle, each starting CLASH_SWITCH_PAD_STAGGER_MS after the one before.
+          <div
             key={k}
-            type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              tap(k);
-            }}
-            onContextMenu={(e) => e.preventDefault()}
             style={{
-              width: TOUCH_BUTTON,
-              height: TOUCH_BUTTON,
-              borderRadius: '50%',
-              border: `2px solid ${pressed === k ? 'var(--accent-yellow)' : COLORS[color]}`,
-              background: pressed === k ? COLORS[color] : 'rgba(13, 2, 33, 0.85)',
-              color: pressed === k ? '#12100a' : 'var(--text-main)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 40,
-              fontWeight: 900,
-              lineHeight: 1,
-              display: 'grid',
-              placeItems: 'center',
-              // pointerdown, not click: no 300 ms delay and no ghost click.
-              touchAction: 'manipulation',
-              WebkitTapHighlightColor: 'transparent',
-              userSelect: 'none',
-              cursor: active ? 'pointer' : 'default',
-              opacity: active ? 1 : 0.75,
-              transform: pressed === k ? 'scale(0.94)' : 'none',
-              transition: 'transform 90ms linear, background 90ms linear',
-              boxShadow: pressed === k ? `0 0 16px ${COLORS[color]}` : 'none',
+              perspective: 600,
+              transform: !reduced && flipping ? 'rotateX(90deg)' : 'none',
+              transition: `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3,.7,.2,1) ${index * CLASH_SWITCH_PAD_STAGGER_MS}ms`,
             }}
           >
-            {k.toUpperCase()}
-          </button>
+            <button
+              key={k}
+              type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                tap(k);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                width: TOUCH_BUTTON,
+                height: TOUCH_BUTTON,
+                borderRadius: '50%',
+                border: `2px solid ${lit === k ? 'var(--accent-yellow)' : COLORS[color]}`,
+                background: lit === k ? COLORS[color] : 'rgba(13, 2, 33, 0.85)',
+                color: lit === k ? '#12100a' : 'var(--text-main)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 40,
+                fontWeight: 900,
+                lineHeight: 1,
+                display: 'grid',
+                placeItems: 'center',
+                // pointerdown, not click: no 300 ms delay and no ghost click.
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                userSelect: 'none',
+                cursor: active ? 'pointer' : 'default',
+                opacity: active ? 1 : 0.75,
+                transform: lit === k ? 'scale(0.94)' : 'none',
+                transition: 'transform 90ms linear, background 90ms linear',
+                boxShadow: lit === k ? `0 0 16px ${COLORS[color]}` : 'none',
+              }}
+            >
+              {k.toUpperCase()}
+            </button>
+          </div>
         ))}
       </div>
     </div>
@@ -402,16 +501,80 @@ export function ClashOverlay({
   const phase = phaseAt(clash, now);
   const touchMode = useMemo(() => isMobileOS(), []);
   const portrait = useIsPortrait(touchMode);
+  const reduced = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Key-shift schedule. `keyIndex` is which letter of each side's schedule the SERVER
+  // is accepting; `flipping` is the half-flip before a switch (the badge is edge-on
+  // exactly at the instant), `flash` the beat after it, `warning` the 400 ms lead.
+  const offsetMs = clash.serverOffset ?? 0;
+  const shiftSchedule = clash.switchAt ?? [];
+  // The switch state that the timers drive, stamped with the clash it belongs to: a
+  // chain's next round is a new clash, so a value left over from the last round must
+  // not apply. Comparing `startedAt` during render is a derive, not a reset effect, so
+  // a new round starts at zero without a second render pass.
+  const [shift, setShift] = useState({
+    startedAt: clash.startedAt,
+    index: 0,
+    flipping: false,
+    flash: false,
+    warning: false,
+  });
+  const current = shift.startedAt === clash.startedAt ? shift : { ...shift, startedAt: clash.startedAt, index: 0, flipping: false, flash: false, warning: false };
+  // The letter is ALSO derived from the clock, so a client that (re)joins mid-press
+  // shows the live letter immediately instead of waiting for a timer it never saw
+  // armed. `now` is the 250 ms render tick, so the derived index can lag by up to one
+  // tick; each switch timer sets the exact index at its instant, and the later of the
+  // two wins. The clamp is the schedule length: an index past the last letter is the
+  // last letter.
+  const scheduleLength = Math.max(1, clash.attackerKeys?.length ?? 1, clash.defenderKeys?.length ?? 1);
+  const derivedIndex = shiftSchedule.filter((at) => now + offsetMs >= at).length;
+  const keyIndex = Math.min(Math.max(derivedIndex, current.index), scheduleLength - 1);
+  const { flipping, flash, warning } = current;
+
+  // Schedule every switch on the SERVER clock. `serverOffset` (derived once by the
+  // reducer from the frame's `serverNow`) turns an absolute engine stamp into a local
+  // delay, so a device whose clock is minutes out still flips when the engine
+  // switches. Timers, not the render tick: a tick could be a quarter second late. A
+  // switch already in the past is left alone, which makes a mid-clash `state_update`
+  // (the effect re-runs) a no-op instead of a replayed blip of every switch.
+  useEffect(() => {
+    const at = clash.switchAt ?? [];
+    if (!at.length) return;
+    const startedAt = clash.startedAt;
+    const patch = (next: Partial<typeof shift>) =>
+      setShift((prev) =>
+        prev.startedAt === startedAt
+          ? { ...prev, ...next }
+          : { startedAt, index: 0, flipping: false, flash: false, warning: false, ...next },
+      );
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const later = (serverAt: number, fn: () => void) => {
+      timers.push(setTimeout(fn, Math.max(0, serverAt - offsetMs - Date.now())));
+    };
+    at.forEach((when, i) => {
+      if (Date.now() + offsetMs >= when) return;
+      later(when - CLASH_SWITCH_WARN_MS, () => patch({ warning: true }));
+      later(when - CLASH_SWITCH_FLIP_MS, () => patch({ flipping: true }));
+      later(when, () => patch({ index: i + 1, flipping: false, flash: true }));
+      later(when + CLASH_SWITCH_WARN_HOLD_MS, () => patch({ warning: false }));
+      later(when + CLASH_SWITCH_FLIP_MS, () => patch({ flash: false }));
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [clash.startedAt, clash.switchAt, offsetMs]);
 
   const attackerIsMe = clash.attacker === myColor;
   const defenderIsMe = clash.defender === myColor;
   const iAmInClash = attackerIsMe || defenderIsMe || allowBothSides;
-  const myKey = attackerIsMe ? clash.attackerKey : clash.defenderKey;
+  // The live letter per side: the schedule's current element, or the round's opening
+  // letter on a room with the mutator off (and on any frame from an older engine).
+  const attackerKey = clash.attackerKeys?.[keyIndex] ?? clash.attackerKey;
+  const defenderKey = clash.defenderKeys?.[keyIndex] ?? clash.defenderKey;
+  const myKey = attackerIsMe ? attackerKey : defenderKey;
   // Hotseat: a single device owns BOTH seats, so both sides' keys are accepted.
   const listenerKeys = useMemo(
-    () => (allowBothSides ? [clash.attackerKey, clash.defenderKey] : [myKey]),
-    [allowBothSides, clash.attackerKey, clash.defenderKey, myKey],
+    () => (allowBothSides ? [attackerKey, defenderKey] : [myKey]),
+    [allowBothSides, attackerKey, defenderKey, myKey],
   );
   // One clash is one round today; a chain re-randomises the pad per round.
   const round = clash.round ?? 1;
@@ -751,6 +914,23 @@ export function ClashOverlay({
                       {t('game.clashFight')}
                     </div>
                   )}
+                  {/* The warning's line is always in the layout and only its visibility
+                      changes: a banner that appears mid-press would otherwise shove the
+                      two key badges down for the 700 ms it shows. It never names the
+                      letter the switch is about to ask for. */}
+                  <div
+                    style={{
+                      marginTop: 6,
+                      height: 22,
+                      visibility: warning ? 'visible' : 'hidden',
+                      fontFamily: 'var(--font-heading)',
+                      fontSize: 18,
+                      letterSpacing: '.22em',
+                      color: 'var(--accent-pink)',
+                    }}
+                  >
+                    {t('game.clashKeyShiftWarn')}
+                  </div>
                   <div
                     style={{
                       marginTop: 10,
@@ -761,7 +941,13 @@ export function ClashOverlay({
                     }}
                   >
                     <div style={{ textAlign: 'center' }}>
-                      <KeyBadge label={clash.defenderKey} emphasized={defenderIsMe} />
+                      <KeyBadge
+                        label={defenderKey}
+                        emphasized={defenderIsMe}
+                        flipping={flipping}
+                        flash={flash}
+                        reduced={reduced}
+                      />
                       <Bar
                         color={clash.defender}
                         presses={clash.defenderPresses}
@@ -780,7 +966,13 @@ export function ClashOverlay({
                       {t('game.clashVersus')}
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                      <KeyBadge label={clash.attackerKey} emphasized={attackerIsMe} />
+                      <KeyBadge
+                        label={attackerKey}
+                        emphasized={attackerIsMe}
+                        flipping={flipping}
+                        flash={flash}
+                        reduced={reduced}
+                      />
                       <Bar
                         color={clash.attacker}
                         presses={clash.attackerPresses}
@@ -825,8 +1017,11 @@ export function ClashOverlay({
               <TouchPad
                 side="defender"
                 color={clash.defender}
-                acceptKey={clash.defenderKey}
+                acceptKey={defenderKey}
                 round={round}
+                switchIndex={keyIndex}
+                flipping={flipping}
+                reduced={reduced}
                 active={pressable}
                 onPress={onKeyPress}
               />
@@ -847,8 +1042,11 @@ export function ClashOverlay({
               <TouchPad
                 side="attacker"
                 color={clash.attacker}
-                acceptKey={clash.attackerKey}
+                acceptKey={attackerKey}
                 round={round}
+                switchIndex={keyIndex}
+                flipping={flipping}
+                reduced={reduced}
                 active={pressable}
                 onPress={onKeyPress}
               />

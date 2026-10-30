@@ -476,6 +476,14 @@ export const en = {
     noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
     freeExit: 'Free Exit',
     freeExitDesc: 'Any roll leaves prison, not just a 6',
+    // The key-shift mutator. "Letter", not "key": on a tablet there is no key at
+    // all and the pad shows letters. The wording says switch/change/bertukar
+    // throughout and keeps "flip" for the animation, so the copy survives a change
+    // of animation.
+    clashKeyShift: 'Mid-Clash Surprise Change',
+    clashKeyShiftDesc: 'The required letter switches once or twice mid-clash',
+    clashKeyShiftCount: 'Switches',
+    clashKeyShiftWarn: 'LETTER SWITCHING!',
     // Clash QTE
     clashPressHint: 'Spam your key to fill the bar — {{seconds}}s to win!',
     clashYou: 'YOU',
@@ -836,6 +844,11 @@ export const en = {
       'Landing on a wall — two or more pieces stacked — is not one fight but one clash per defender, each round a fresh key race: win them back to back and the square is yours, lose one and the wall holds.',
     rulesPage6Touch:
       'On a tablet you tap the circle holding your key instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
+    // The mutator's page-six paragraph. It names the warning and the re-scramble
+    // (the two things the player actually has to react to), and never claims the
+    // switch is announced in advance of the warning itself.
+    rulesPage6KeyShift:
+      'The host can also turn on a mid-clash surprise: the required letter switches once or twice during the race. A warning flashes before each switch and the pad re-draws its letters, so keep reading — a thumb parked on the old letter only fills the bar until the switch.',
     rulesPage7Header: '// NO SAFE ZONES (HARDCORE)',
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:

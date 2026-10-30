@@ -58,4 +58,13 @@ export class CreateGuestMatchDto {
   @IsOptional()
   @IsBoolean()
   freeExit?: boolean;
+
+  // Key-shift mutator: 0 off, 1 or 2 switches. Validated here because this route
+  // takes a DTO class; the other create routes rely on room-rules.ts's clamp, which
+  // also forces 0 whenever clash mode is off.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(2)
+  clashKeyShift?: 0 | 1 | 2;
 }

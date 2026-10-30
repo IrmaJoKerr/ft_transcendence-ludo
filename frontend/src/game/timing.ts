@@ -19,6 +19,14 @@ export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // Card D
 export const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
 export const CLASH_UI_TICK_MS = 250; // overlay re-render cadence
 export const TOUCH_FLASH_MS = 120; // touch pad pressed state
+// Key-shift presentation, all measured off the engine's absolute switch stamps, so a
+// switch lands when the SERVER switches and never when a 250 ms tick happens to fire.
+// The flip is anchored so the NEW letter is face-on at the switch instant: the badge
+// is edge-on CLASH_SWITCH_FLIP_MS before it, and the two halves make a 220 ms flip.
+export const CLASH_SWITCH_WARN_MS = 400; // warning leads its switch by this much
+export const CLASH_SWITCH_WARN_HOLD_MS = 300; // and lingers this long after it
+export const CLASH_SWITCH_FLIP_MS = 110; // half a flip: edge-on exactly at the switch
+export const CLASH_SWITCH_PAD_STAGGER_MS = 40; // per-circle landing delay
 
 export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
 export const DICE_ROLL_ANIM_MS = 750; // dice spin before the path starts

@@ -29,11 +29,28 @@ import type { Rng } from './rng';
 // strict check the string "false" would read as truthy in the match hash.
 function normalizeRoomRules(raw: unknown): RoomRules {
   const input = (raw ?? {}) as Partial<RoomRules>;
+  const clashEnabled = input.clashEnabled === true;
   return {
-    clashEnabled: input.clashEnabled === true,
+    clashEnabled,
     noSafeZones: input.noSafeZones === true,
     freeExit: input.freeExit === true,
+    clashKeyShift: clampClashKeyShift(input.clashKeyShift, clashEnabled),
   };
+}
+
+// The key-shift count: 0 (off), 1 or 2, never anything else. The create routes read
+// one `@Body('x')` at a time, so no ValidationPipe runs and this can arrive as a
+// string, a float, an array or a boolean; the join also reads it back out of a flat
+// Redis hash, where the same laxity applies. A room without clash mode can only hold
+// 0, because the mutator has nothing to change. The Nest app carries its own copy in
+// `backend/src/match/room-rules.ts` (separate package, no shared import path), and
+// `room-rules-harness.ts` asserts the two agree value for value.
+export function clampClashKeyShift(raw: unknown, clashEnabled: boolean): 0 | 1 | 2 {
+  if (!clashEnabled) return 0;
+  const n =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }
 
 // The game engine core: roll/move handling, per-game operation locking,
@@ -639,7 +656,7 @@ export class LudoEngine {
     await this.emitModifiersUpdate(gameId);
   }
 
-  // Broadcast the room's current rules (one object, all three) to the room. Read
+  // Broadcast the room's current rules (one object, all four) to the room. Read
   // back out of the state, never echoed from the caller: the clients mirror the
   // room itself, so a stored value and a broadcast value cannot disagree.
   async emitModifiersUpdate(gameId: string): Promise<void> {
@@ -651,6 +668,7 @@ export class LudoEngine {
       clashEnabled: state.clashMode,
       noSafeZones: state.noSafeZones,
       freeExit: state.freeExit,
+      clashKeyShift: state.clashKeyShift,
     });
   }
 

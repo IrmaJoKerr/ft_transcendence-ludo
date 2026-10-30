@@ -23,6 +23,7 @@ import {
 } from '../game/timing';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
+import type { RoomRules } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
 import { useApp, type ResultPlayer } from '../store';
 import { SEAT_COLORS } from '../theme';
@@ -1123,14 +1124,28 @@ export function Game() {
     return () => clearTimeout(timer);
   }, [view.clash]);
 
-  // The three room rules travel as ONE object both ways, so a fourth rule is a
-  // field rather than a fifth positional boolean. The engine enforces host-only
+  // The room rules travel as ONE object both ways, so a fifth rule is a field
+  // rather than a fifth positional boolean. The engine enforces host-only
   // (MODIFIERS_HOST_ONLY) and echoes back what it actually persisted.
-  const updateModifiers = (rules: {
-    clashEnabled: boolean;
-    noSafeZones: boolean;
-    freeExit: boolean;
-  }) => socketRef.current?.emit('update_modifiers', rules);
+  const updateModifiers = (rules: RoomRules) => socketRef.current?.emit('update_modifiers', rules);
+
+  // The key-shift row's own count. Re-enabling the mutator restores this instead of
+  // resetting to 1, while the room's canonical value stays `view.clashKeyShift` (the
+  // engine forces 0 when clash is off, so the view cannot remember the count for us).
+  const [clashShiftCount, setClashShiftCount] = useState<1 | 2>(1);
+  useEffect(() => {
+    if (view.clashKeyShift === 1 || view.clashKeyShift === 2) setClashShiftCount(view.clashKeyShift);
+  }, [view.clashKeyShift]);
+
+  // The key-shift row replaces the whole rule object like the toggles do, so the
+  // other three fields are echoed from the view rather than guessed.
+  const emitKeyShift = (next: 0 | 1 | 2) =>
+    updateModifiers({
+      clashEnabled: view.clashMode,
+      noSafeZones: view.noSafeZones,
+      freeExit: view.freeExit,
+      clashKeyShift: next,
+    });
 
   const selectColor = (color: PlayerColor) => {
     if (activeMatch?.mode === 'pvp') return;
@@ -2507,6 +2522,9 @@ export function Game() {
                                         : view.noSafeZones,
                                     freeExit:
                                       rule.key === 'freeExit' ? e.target.checked : view.freeExit,
+                                    // The mutator's count rides every payload; the engine
+                                    // forces it to 0 while clash mode is off.
+                                    clashKeyShift: view.clashKeyShift,
                                   });
                                 }}
                                 style={{
@@ -2518,6 +2536,80 @@ export function Game() {
                               />
                             </label>
                           ))}
+                          {/* The key-shift mutator: one row under the clash toggle, a
+                              checkbox and its 1 / 2 count. Both are disabled unless clash
+                              mode is on, because the engine forces the count to 0 there.
+                              The count lives in local state so re-enabling restores it
+                              instead of resetting to 1. A native <select> is the first in
+                              the app, so it carries its own dark styling. */}
+                          <label
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 8,
+                              fontSize: '0.78rem',
+                              fontFamily: 'var(--font-mono)',
+                              color: 'var(--text-main)',
+                              cursor: view.clashMode ? 'pointer' : 'not-allowed',
+                              opacity: view.clashMode ? 1 : 0.55,
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 4,
+                              padding: '7px 10px',
+                              background: 'rgba(0, 0, 0, 0.4)',
+                            }}
+                          >
+                            <span
+                              style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}
+                            >
+                              <span>🔀 {t('game.clashKeyShift')}</span>
+                              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                                {t('game.clashKeyShiftDesc')}
+                              </span>
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <select
+                                aria-label={t('game.clashKeyShiftCount')}
+                                value={clashShiftCount}
+                                disabled={!view.clashMode}
+                                onChange={(e) => {
+                                  const next = e.target.value === '2' ? 2 : 1;
+                                  setClashShiftCount(next);
+                                  retroAudio.playUiBeep(520, 0.05);
+                                  // A count only means something with the mutator on.
+                                  emitKeyShift(view.clashKeyShift > 0 ? next : 0);
+                                }}
+                                style={{
+                                  background: 'rgba(0, 0, 0, 0.6)',
+                                  color: 'var(--text-main)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 3,
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '0.72rem',
+                                  padding: '1px 3px',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <option value={1}>1</option>
+                                <option value={2}>2</option>
+                              </select>
+                              <input
+                                type="checkbox"
+                                checked={view.clashKeyShift > 0}
+                                disabled={!view.clashMode}
+                                onChange={(e) => {
+                                  retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
+                                  emitKeyShift(e.target.checked ? clashShiftCount : 0);
+                                }}
+                                style={{
+                                  accentColor: 'var(--accent-pink)',
+                                  width: 15,
+                                  height: 15,
+                                  cursor: view.clashMode ? 'pointer' : 'not-allowed',
+                                }}
+                              />
+                            </span>
+                          </label>
                         </div>
                         <div
                           style={{
@@ -3495,6 +3587,9 @@ export function Game() {
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.9rem' }}>
                     {t('gameExtra.rulesPage6Chain')}
+                  </p>
+                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.9rem' }}>
+                    {t('gameExtra.rulesPage6KeyShift')}
                   </p>
                   <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                     {t('gameExtra.rulesPage6Touch')}

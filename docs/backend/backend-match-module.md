@@ -423,8 +423,9 @@ GET /api/games/rooms
   │   │   (a started room is visible only to its own reclaimable seats)
   │   └── room full → skip
   └── Every row carries mySeat, so the lobby knows to rejoin instead of join,
-      plus readRoomRules(hash): clashEnabled, noSafeZones, freeExit, which the
-      browser shows as the MODES cell (absent fields read as the standard room)
+      plus readRoomRules(hash): clashEnabled, noSafeZones, freeExit and
+      clashKeyShift, which the browser shows as the MODES cell (absent fields read
+      as the standard room; the switch count is 0 unless clash mode is on)
 ```
 
 
@@ -435,6 +436,8 @@ GET /api/games/rooms
 ## Implementation Notes
 
 - **Room rules are normalized once, at the service boundary** (`match.creator.service.ts`). `normalizeRoomRules` applies the defaults and the coercion for every caller, and `roomRuleHashFields` writes the result in the same `HSET` as the seats, so a room never exists without its rules. Keys and defaults live in `room-rules.ts`; the engine freezes them at join, and the lobby may change them only while the room is WAITING.
+
+- **The key-shift count is clamped in two places, on purpose.** `clashKeyShift` is the one rule that is a number (0, 1 or 2 switches per clash) rather than a boolean, so it carries its own clamp: `clampClashKeyShift` in `backend/src/match/room-rules.ts` on this side of the wire, and the same body in `backend/app/ludo-engine/src/engine.ts` on the engine side, which the join also reads through when it builds a game from the match hash. The two are separate packages with no shared import path, so `room-rules-harness.ts` compares the two function bodies instead of trusting a comment: same text, same behaviour. Both force 0 whenever `clashEnabled` is false, so "the mutator is on but clash is off" cannot be stored or read, and a junk value (a string, a float, a boolean, an array) clamps to a legal count rather than reaching the state.
 
 
 ---

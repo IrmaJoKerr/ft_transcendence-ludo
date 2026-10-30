@@ -92,7 +92,7 @@ export class LobbyManager {
 
   // Change the room rules before the game starts: clash, star shield, free exit.
   // Host only, WAITING only, because a mid-game flip would invalidate validated
-  // moves. The payload replaces all three fields; errors carry i18n codes.
+  // moves. The payload replaces all four fields; errors carry i18n codes.
   async updateModifiers(gameId: string, userId: string, rules: RoomRules): Promise<void> {
     const data = await this.store.getMatchData(gameId);
     if (data?.status !== 'WAITING') {
@@ -108,12 +108,17 @@ export class LobbyManager {
       clashEnabled: String(rules.clashEnabled),
       noSafeZones: String(rules.noSafeZones),
       freeExit: String(rules.freeExit),
+      // Flat hash string; written even when 0 so the hash describes its own room,
+      // and the engine treats absence as the standard room all the same.
+      clashKeyShift: String(rules.clashKeyShift),
     });
     const state = await this.store.loadGameState(gameId);
     if (state) {
       state.clashMode = rules.clashEnabled;
       state.noSafeZones = rules.noSafeZones;
       state.freeExit = rules.freeExit;
+      // The clamp already forced 0 when clash is off, so the two cannot disagree.
+      state.clashKeyShift = rules.clashKeyShift;
       await this.store.saveGameState(gameId, state);
     }
   }

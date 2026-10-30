@@ -5,6 +5,7 @@ import type { GameSocket } from './auth';
 import { JoinManager } from './join-manager';
 import type { RoomRegistry } from './room-context';
 import { finalizeDeparture } from '../player-handler';
+import { keyFor } from '../clash';
 import type { PlayerColor, PieceId } from '../types';
 
 // SocketHandlers maps socket events to engine actions; the join_game flow
@@ -192,9 +193,12 @@ export class SocketHandlers {
           : clash.defender === color;
 
         let pressColor: PlayerColor | null = null;
-        if (key === clash.attackerKey && ownsAttacker) {
+        // The live letter per side, not the round's opening one: on a key-shift room
+        // the schedule moves underneath the handler, and the press is judged against
+        // whichever letter the engine is accepting at this instant.
+        if (key === keyFor(clash, clash.attacker) && ownsAttacker) {
           pressColor = clash.attacker;
-        } else if (key === clash.defenderKey && ownsDefender) {
+        } else if (key === keyFor(clash, clash.defender) && ownsDefender) {
           pressColor = clash.defender;
         }
         if (!pressColor) return;

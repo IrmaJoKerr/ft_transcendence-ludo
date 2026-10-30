@@ -61,12 +61,17 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [hasActiveGame, setHasActiveGame] = useState(false);
-  // The three room rules chosen on this screen travel with the create body as
-  // separate fields of ONE payload. A standard room is false/false/false:
-  // safe zones are stored inverted, so `noSafeZones: false` means they protect.
+  // The room rules chosen on this screen travel with the create body as separate
+  // fields of ONE payload. A standard room is false/false/false/0: safe zones are
+  // stored inverted, so `noSafeZones: false` means they protect, and the key-shift
+  // count is 0 (off) unless clash mode is on.
   const [clashEnabled, setClashEnabled] = useState(false);
   const [noSafeZones, setNoSafeZones] = useState(false);
   const [freeExit, setFreeExit] = useState(false);
+  // The mutator's count, kept apart from whether it is on, so re-enabling restores
+  // 1 or 2 instead of resetting: `clashKeyShift` is the value that ships.
+  const [clashShiftCount, setClashShiftCount] = useState<1 | 2>(1);
+  const [clashKeyShift, setClashKeyShift] = useState<0 | 1 | 2>(0);
 
   // Backend-authoritative mirror of the state lock: /api/games/mine lists every room
   // this player is seated in after a game started, so an empty answer means this screen
@@ -138,6 +143,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
           clashEnabled,
           noSafeZones,
           freeExit,
+          // The mutator only exists with clash mode on; the engine clamps it too.
+          clashKeyShift: clashEnabled ? clashKeyShift : 0,
         };
         const res = await postApi<{
           gameId: string;
@@ -197,11 +204,12 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
             ? seatColors
             : undefined,
         // Room rules, one field each, so the backend persists them in the same
-        // create call (no second transaction). All three default to the standard
-        // game: clash off, free exit off, safe zones ON.
+        // create call (no second transaction). All four default to the standard
+        // game: clash off, free exit off, safe zones ON, no key switch.
         clashEnabled,
         noSafeZones,
         freeExit,
+        clashKeyShift: clashEnabled ? clashKeyShift : 0,
       });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
@@ -1055,6 +1063,77 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           />
                         </label>
                       ))}
+                      {/* The key-shift mutator, one row under the clash toggle: a
+                          checkbox and its 1 / 2 count. Both are disabled unless clash
+                          mode is on, because the engine forces the count to 0 there.
+                          The count is kept apart so re-enabling restores it. */}
+                      <label
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          fontSize: '0.78rem',
+                          fontFamily: 'var(--font-mono)',
+                          color: 'var(--text-main)',
+                          cursor: clashEnabled ? 'pointer' : 'not-allowed',
+                          opacity: clashEnabled ? 1 : 0.55,
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 4,
+                          padding: '7px 10px',
+                          background: 'rgba(0, 0, 0, 0.4)',
+                        }}
+                      >
+                        <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                          <span>🔀 {t('game.clashKeyShift')}</span>
+                          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                            {t('game.clashKeyShiftDesc')}
+                          </span>
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <select
+                            aria-label={t('game.clashKeyShiftCount')}
+                            value={clashShiftCount}
+                            disabled={!clashEnabled}
+                            onChange={(e) => {
+                              const next = e.target.value === '2' ? 2 : 1;
+                              setClashShiftCount(next);
+                              retroAudio.playUiBeep(520, 0.05);
+                              if (clashKeyShift > 0) setClashKeyShift(next);
+                            }}
+                            style={{
+                              background: 'rgba(0, 0, 0, 0.6)',
+                              color: 'var(--text-main)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 3,
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.72rem',
+                              padding: '1px 3px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value={1}>1</option>
+                            <option value={2}>2</option>
+                          </select>
+                          <input
+                            type="checkbox"
+                            checked={clashEnabled && clashKeyShift > 0}
+                            disabled={!clashEnabled}
+                            onChange={(e) => {
+                              // Same pair as the rule toggles: ON reads like a seat
+                              // added, OFF like one removed.
+                              retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
+                              setClashKeyShift(e.target.checked ? clashShiftCount : 0);
+                            }}
+                            style={{
+                              accentColor: 'var(--accent-pink)',
+                              width: 15,
+                              height: 15,
+                              cursor: clashEnabled ? 'pointer' : 'not-allowed',
+                            }}
+                          />
+                        </span>
+                      </label>
                     </div>
 
                     {/* Status Info Box */}

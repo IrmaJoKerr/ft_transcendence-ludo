@@ -33,11 +33,15 @@ return left
 // A live room survives a redeploy, so a state written before the Barrier Buster
 // fields existed can load mid-game. Both fields feed arithmetic, where undefined
 // becomes NaN, so normalize them here, at the only read path. Zero means no token.
+// One legacy-state default: a game state written before the key-shift mutator
+// existed has no count at all, and the engine must read it as the standard room
+// rather than an undefined that silently compares unequal to every schedule.
 function withBarrierDefaults(state: GameState): GameState {
   for (const player of state.players) {
     if (player.barrierTokens === undefined) player.barrierTokens = 0;
     if (player.stats.barrierBreaks === undefined) player.stats.barrierBreaks = 0;
   }
+  if (state.clashKeyShift !== 1 && state.clashKeyShift !== 2) state.clashKeyShift = 0;
   return state;
 }
 
@@ -100,6 +104,9 @@ export class RedisGameStore {
     activeColors: PlayerColor[] = COLORS,
     noSafeZones = false,
     freeExit = false,
+    // Sixth rule, last so every existing positional call keeps its meaning: the
+    // key-shift mutator's switch count for this room.
+    clashKeyShift: 0 | 1 | 2 = 0,
   ): Promise<void> {
     const pieces: Piece[] = [];
     for (const color of COLORS) {
@@ -150,6 +157,7 @@ export class RedisGameStore {
       clashMode,
       noSafeZones,
       freeExit,
+      clashKeyShift,
     };
 
     await this.saveGameState(gameId, state);

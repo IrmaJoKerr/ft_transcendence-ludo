@@ -38,8 +38,15 @@ export class MatchController {
     @Body('clashEnabled') clashEnabled?: boolean,
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,
+    // Clamped in room-rules.ts: 0 (off), 1 or 2, and 0 unless clash mode is on.
+    @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
   ) {
-    return this.match.createInvite(req.user.id, { clashEnabled, noSafeZones, freeExit });
+    return this.match.createInvite(req.user.id, {
+      clashEnabled,
+      noSafeZones,
+      freeExit,
+      clashKeyShift,
+    });
   }
 
   // PvP: Join by invite code
@@ -85,6 +92,7 @@ export class MatchController {
     @Body('clashEnabled') clashEnabled?: boolean,
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,
+    @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
   ) {
     if (mode !== 'pvp' && mode !== 'pve' && mode !== 'hotseat') {
       throw new BadRequestException({
@@ -106,7 +114,7 @@ export class MatchController {
       botColors,
       botNames,
       seatColors,
-      { clashEnabled, noSafeZones, freeExit },
+      { clashEnabled, noSafeZones, freeExit, clashKeyShift },
     );
   }
 

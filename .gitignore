@@ -60,6 +60,9 @@ Transcendence_subject_5thAug.pdf
 !.yarn/versions
 
 # testing
+# The verification harnesses live outside the checkout
+# (/home/bleow/Coding/Transcendence/Test-harnesses); a stray copy here is never tracked.
+/Test-harnesses/
 /coverage
 /playwright-report
 /e2e-results.json

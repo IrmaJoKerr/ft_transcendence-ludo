@@ -84,8 +84,20 @@ export interface MoveResult {
 export interface ClashState {
   attacker: PlayerColor;
   defender: PlayerColor;
+  // The round's opening letter per side (the legacy story for a room with the
+  // key-shift mutator off).
   attackerKey: string; // the key the attacker must mash
   defenderKey: string; // the key the defender must mash
+  // Key-shift mutator: one schedule per side, plus the absolute instants the letters
+  // change. Absent on a room with the mutator off; the overlay then reads the
+  // opening letters above and renders no switch at all.
+  attackerKeys?: string[];
+  defenderKeys?: string[];
+  switchAt?: number[];
+  // `serverNow - Date.now()` as the frame landed, derived once by the reducer. The
+  // overlay schedules the switches on the server clock, so a skewed device flips when
+  // the server actually switches instead of showing a letter nobody accepts.
+  serverOffset?: number;
   target: number; // presses needed to win
   duration: number; // press window in seconds
   startedAt: number;
@@ -154,6 +166,9 @@ export interface GameState {
   // as false: safe zones on.
   noSafeZones: boolean; // star squares capture-immune when false
   freeExit?: boolean; // any roll leaves prison (absent reads as false)
+  // Key-shift mutator: 0, 1 or 2 switches per clash (absent reads as 0, and it is
+  // always 0 while clash mode is off).
+  clashKeyShift?: 0 | 1 | 2;
   pendingCapture?: PendingCapture; // capture held until its clash resolves
   resultCardUntil?: number; // engine timestamp: input freeze while the card shows
 }

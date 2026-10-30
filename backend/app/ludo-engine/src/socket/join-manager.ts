@@ -1,4 +1,5 @@
 import type { LudoEngine } from '../engine';
+import { clampClashKeyShift } from '../engine';
 import type { RedisGameStore } from '../redis';
 import type { LudoBot } from '../bot';
 import { isBotSeat } from '../bot';
@@ -98,14 +99,16 @@ export class JoinManager {
             ? (matchData.seatColors.split(',') as PlayerColor[])
             : SLOT_COLORS.slice(0, playerCount);
           // The room rules travel with the match hash instead of being hardcoded: the
-          // move gate checks clashMode, the star checks noSafeZones and a prison exit
-          // checks freeExit. Only a literal 'true' turns a rule on.
+          // move gate checks clashMode, the star checks noSafeZones, a prison exit
+          // checks freeExit and a clash reads the key-shift count. Only a literal
+          // 'true' turns a rule on; the shift is clamped, and 0 unless clash is on.
           await this.store.createGame(
             effectiveGameId,
             matchData.clashEnabled === 'true',
             seatColors,
             matchData.noSafeZones === 'true',
             matchData.freeExit === 'true',
+            clampClashKeyShift(matchData.clashKeyShift, matchData.clashEnabled === 'true'),
           );
           state = await this.store.loadGameState(effectiveGameId);
         }

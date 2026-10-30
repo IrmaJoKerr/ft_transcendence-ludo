@@ -90,6 +90,14 @@ export class EventPublisher {
             type: 'clash_start',
             attackerKey: event.attackerKey,
             defenderKey: event.defenderKey,
+            // Key-shift schedule: the letters each side will be asked for, and the
+            // instants they change. Constant field set: empty arrays and 0 on a room
+            // with the mutator off, so a client never has to guess at the shape.
+            attackerKeys: event.attackerKeys,
+            defenderKeys: event.defenderKeys,
+            switchAt: event.switchAt,
+            keyShift: event.keyShift,
+            serverNow: event.serverNow,
             target: event.target,
             duration: event.duration,
             attacker: event.attacker,
@@ -189,6 +197,7 @@ export class EventPublisher {
             clashEnabled: event.clashEnabled,
             noSafeZones: event.noSafeZones,
             freeExit: event.freeExit,
+            clashKeyShift: event.clashKeyShift,
           }),
         );
         break;

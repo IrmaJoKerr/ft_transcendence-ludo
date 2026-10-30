@@ -89,6 +89,10 @@ place". The client mirrors the shared subset in §13 with the same names and val
 | `CLASH_ANNOUNCE_MS` | 1500 | "CLASH!" flash; keys still hidden |
 | `CLASH_COUNTDOWN_MS` | 3000 | GET READY, then 3-2-1; keys still hidden |
 | `CLASH_PRESS_MS` | 5000 | the press race window (the `duration` on the wire is this ÷ 1000) |
+| `CLASH_SWITCH_FIRST_MIN_MS` | 2000 | earliest first key switch, measured from the press window opening (`countdownDeadline`) |
+| `CLASH_SWITCH_FIRST_MAX_MS` | 2500 | latest first key switch |
+| `CLASH_SWITCH_GAP_MIN_MS` | 800 | shortest gap between two switches |
+| `CLASH_SWITCH_GAP_MAX_MS` | 1100 | longest gap; the worst case (2500 + 1100) still leaves 1.4 s of the press window after the last switch |
 | `RESULT_FX_MS` | 1300 | the result card's gesture, mirrored from the client (the engine never draws it, but the card's length is its freeze) |
 | `RESULT_HEADLINE_READ_MS` | 1300 | the beat the card's headline gets once the gesture stops |
 | `CLASH_RESULT_MS` | 2600 | the card, **added** from the two rows above rather than written down: the client shows it, the engine freezes input for it and arms the chain's next round on it |
@@ -598,6 +602,17 @@ those, so these values decide the card animation, never the game state.
 | `RESULT_HEADLINE_READ_MS` 🔗 | 1300 | the headline's own time once the gesture has stopped |
 | `MOVE_STEP_ANIM_MS` 🔗 | 180 | one board step of the path animation |
 | `DICE_ROLL_ANIM_MS` 🔗 | 750 | dice spin before the path starts |
+
+**Key-shift presentation** — client-only, because the engine sends the absolute switch instants and the
+overlay schedules its own timers against them. Nothing here decides the game; the server judges a press
+against the live letter on its own clock.
+
+| Constant | Value | What it shows |
+|---|---|---|
+| `CLASH_SWITCH_WARN_MS` | 400 | how far ahead the "LETTER SWITCHING!" banner fires (it never names the new letter) |
+| `CLASH_SWITCH_WARN_HOLD_MS` | 300 | how long the banner lingers after the switch |
+| `CLASH_SWITCH_FLIP_MS` | 110 | one half of the 220 ms badge flip: the face is edge-on exactly AT the switch, so the new letter is never late |
+| `CLASH_SWITCH_PAD_STAGGER_MS` | 40 | per-circle landing delay when the touch pad re-scrambles (0/40/80/120 ms) |
 
 **Client-only**
 

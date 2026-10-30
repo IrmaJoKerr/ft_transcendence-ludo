@@ -65,8 +65,21 @@ export interface PlayerMeta {
 export interface ClashState {
   attacker: PlayerColor;
   defender: PlayerColor;
+  // The round's OPENING letter per side. A room with the mutator off (the default)
+  // has nothing else, so these stay the whole story there; a room with it on also
+  // carries `attackerKeys` / `defenderKeys`, whose element 0 is these.
   attackerKey: string; // key the attacker must mash
   defenderKey: string; // key the defender must mash
+  // Key-shift mutator: one schedule per side, drawn at clash start (one letter, plus
+  // one per switch). Element i replaces element i-1 at `switchAt[i-1]`; the letters
+  // are distinct, so a switch never re-shows the letter already on screen. Absent on
+  // a room with the mutator off, which reads as the opening letter alone.
+  attackerKeys?: string[];
+  defenderKeys?: string[];
+  // The switch instants, absolute on the engine clock, first one at
+  // countdownDeadline + 2000..2500 and each next 800..1100 after the one before.
+  // Length equals the room's switch count (0, 1 or 2).
+  switchAt?: number[];
   target: number; // presses needed to win
   duration: number; // press window seconds (CLASH_PRESS_MS / 1000)
   startedAt: number;
@@ -115,6 +128,12 @@ export interface PendingCapture {
   // because the wall is gone once the chain resolves; a won chain credits that many
   // barrierBreaks. A lone defender pays nothing.
   barrierBattles?: number;
+  // The key-shift seam: the letter each seat ended its last round on. Round n+1 of a
+  // chain opens on a different letter per seat, so the seam between two rounds is
+  // visibly a new letter rather than looking like no switch at all. Optional because
+  // a record written before the mutator existed (or by a room with it off) has none;
+  // the draw then falls back to an unconstrained pick.
+  lastKeys?: Partial<Record<PlayerColor, string>>;
 }
 
 // What one round of a chain needs beyond the two colours: which round it is, how
@@ -133,13 +152,17 @@ export interface DisconnectState {
   reconnectDeadline: number;
 }
 
-// The three room rules as one object, in both directions of the wire: the host's
+// The four room rules as one object, in both directions of the wire: the host's
 // rules panel sends them and `modifiers_updated` broadcasts them, in the shape the
 // create body, match hash and full `state_update` all carry.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
+  // Key-shift mutator: how many times the required letter changes mid-clash (0, 1
+  // or 2). Clamped at every boundary and forced to 0 whenever `clashEnabled` is
+  // false, so "the mutator is on but clash is off" cannot be stored or read.
+  clashKeyShift: 0 | 1 | 2;
 };
 
 // The complete server-side state of one Ludo game, persisted to Redis.
@@ -166,12 +189,15 @@ export interface GameState {
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
   pausedReason?: string; // rationale for the pause (e.g. 'disconnect_grace')
   clash?: ClashState; // live clash QTE, absent when none is running
-  // The three room rules, frozen when the room is created (lobby.ts can still
+  // The four room rules, frozen when the room is created (lobby.ts can still
   // change them while it is WAITING), all phrased so that false is the standard
   // game: clash in the QTE, star squares protecting, prison exits needing a 6.
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
   noSafeZones: boolean; // true: hardcore mod, star squares capture-immune no more
   freeExit: boolean; // true: any roll leaves prison, and the first step out counts as part of the roll (exit lands on the roll)
+  // Key-shift mutator: 0, 1 or 2 switches of the required letter per clash. Always 0
+  // while clash mode is off, and the default for a state written before it existed.
+  clashKeyShift: 0 | 1 | 2;
   pendingCapture?: PendingCapture; // capture held until the clash resolves
   resultCardUntil?: number; // input freeze while the clash result card shows
 }
@@ -262,6 +288,20 @@ export type GameEvent =
       gameId: string;
       attackerKey: string;
       defenderKey: string;
+      // Key-shift schedules: one letter per side plus one per switch, and the absolute
+      // instants the letters change. Both sides travel on the one frame the room
+      // already received (a hotseat socket owns both seats and needs both); the client
+      // renders its own seat's schedule. Empty arrays on a room with the mutator off,
+      // so the frame's field set is constant.
+      attackerKeys: string[];
+      defenderKeys: string[];
+      switchAt: number[];
+      keyShift: 0 | 1 | 2;
+      // The engine clock at the instant the frame was built. The overlay derives one
+      // offset per clash from it and schedules the switches on the SERVER clock, so a
+      // skewed client does not flip early and show a letter the server is not yet
+      // accepting. It never gates a press: `recordPress` judges on the server clock.
+      serverNow: number;
       target: number;
       duration: number;
       attacker: PlayerColor;
@@ -317,7 +357,7 @@ export type GameEvent =
       remainingDefenderIds?: PieceId[];
     }
   // Host changed the room rules while the room was still waiting. One object in,
-  // one object out: the same three fields the panel sent, carrying what was
+  // one object out: the same four fields the panel sent, carrying what was
   // actually persisted, so the waiting room mirrors the room and never guesses.
   | {
       type: 'modifiers_updated';
@@ -325,4 +365,5 @@ export type GameEvent =
       clashEnabled: boolean;
       noSafeZones: boolean;
       freeExit: boolean;
+      clashKeyShift: 0 | 1 | 2;
     };

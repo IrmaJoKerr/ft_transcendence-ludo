@@ -40,6 +40,7 @@ export class MatchQueryService {
       clashEnabled: boolean;
       noSafeZones: boolean;
       freeExit: boolean;
+      clashKeyShift: 0 | 1 | 2;
     }> = [];
     do {
       const [nextCursor, keys] = await this.redis.scan(cursor, 'MATCH', 'match:*', 'COUNT', 100);
@@ -109,6 +110,7 @@ export class MatchQueryService {
         clashEnabled: r.clashEnabled,
         noSafeZones: r.noSafeZones,
         freeExit: r.freeExit,
+        clashKeyShift: r.clashKeyShift,
       };
     });
   }

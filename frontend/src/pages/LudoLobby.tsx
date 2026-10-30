@@ -79,7 +79,7 @@ function hueForHost(host: string): string {
 const ROOM_GRID_COLUMNS =
   'minmax(0, 0.95fr) minmax(0, 1.45fr) minmax(0, 0.7fr) minmax(0, 0.85fr) minmax(0, 1.55fr) 104px';
 
-// The three room rules, in the same order and with the same icons/accents as the
+// The room rules, in the same order and with the same icons/accents as the
 // create-screen toggles, so a chip in the list reads as the switch that made it.
 const ROOM_MODES = [
   { key: 'clashEnabled', icon: '⚔️', label: 'game.clashMode', hue: '#ff007f' },

@@ -5,8 +5,12 @@
 import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
 
 // `clash_start` may omit these three (older payloads); the reducer fills them.
+// `serverNow` is the frame's engine stamp for the clock offset; it is not part of
+// the stored clash state, only of the frame.
 type ClashPayload = Omit<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'> &
-  Partial<Pick<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'>>;
+  Partial<Pick<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'>> & {
+    serverNow?: number;
+  };
 
 export type ClashResult = {
   // Who attacked this round, whatever the outcome: the result FX is picked from it
@@ -54,6 +58,8 @@ export type GameViewState = {
   clashResult: ClashResult | null;
   /** Room rule: clash minigame on. */
   clashMode: boolean;
+  /** Room rule: how many times the required letter changes mid-clash (0, 1 or 2). */
+  clashKeyShift: 0 | 1 | 2;
   /** Room rule, inverted: true is hardcore, i.e. star squares no longer protect. */
   noSafeZones: boolean;
   /** Any roll leaves prison instead of only a 6; false until the engine sends it. */
@@ -79,9 +85,10 @@ export function initialView(myColor: PlayerColor): GameViewState {
     pauseTurnOwner: undefined,
     clash: null,
     clashResult: null,
-    // All three room rules default false: a standard room is clash off, free
-    // exit off, safe zones ON (the inverted flag is what makes that uniform).
+    // All room rules default false: a standard room is clash off, free exit off,
+    // safe zones ON (the inverted flag is what makes that uniform), no key switch.
     clashMode: false,
+    clashKeyShift: 0,
     noSafeZones: false,
     freeExit: false,
     resultCardUntil: undefined,
@@ -126,8 +133,21 @@ export function applyEvent(
         readyPlayers: s.readyPlayers ?? state.readyPlayers,
         paused: s.paused ?? false,
         pauseTurnOwner: s.pauseTurnOwner ?? undefined,
-        clash: s.clash ?? state.clash,
+        clash: s.clash
+          ? {
+              ...s.clash,
+              // The key-shift schedule rides the state, but its clock offset does not:
+              // only a `clash_start` frame carries `serverNow`. A rebuild of the SAME
+              // clash keeps the offset the frame gave it; a different clash starts at 0
+              // (the device clock), which is how every other deadline already reads.
+              serverOffset:
+                state.clash && state.clash.startedAt === s.clash.startedAt
+                  ? (state.clash.serverOffset ?? 0)
+                  : 0,
+            }
+          : state.clash,
         clashMode: s.clashMode ?? state.clashMode,
+        clashKeyShift: s.clashKeyShift ?? state.clashKeyShift,
         noSafeZones: s.noSafeZones ?? state.noSafeZones,
         freeExit: s.freeExit ?? state.freeExit,
         resultCardUntil: s.resultCardUntil ?? state.resultCardUntil,
@@ -184,6 +204,8 @@ export function applyEvent(
       return {
         ...state,
         clashMode: Boolean(event.clashEnabled),
+        clashKeyShift:
+          event.clashKeyShift === 1 || event.clashKeyShift === 2 ? event.clashKeyShift : 0,
         noSafeZones: Boolean(event.noSafeZones),
         freeExit: Boolean(event.freeExit),
       };
@@ -213,7 +235,10 @@ export function applyEvent(
       const c = event as unknown as ClashPayload;
       // Payloads may omit the press counts (bars start empty) and the target
       // (the overlay then falls back to its own CLASH_TARGET constant). The
-      // chain's round fields pass straight through when the engine sends them.
+      // chain's round fields pass straight through when the engine sends them, and so
+      // does the key-shift schedule. The clock offset is derived HERE, at receipt,
+      // because that is the only moment the frame's server stamp can be compared with
+      // this device's clock; every switch is then scheduled on the server clock.
       return {
         ...state,
         clash: {
@@ -221,6 +246,7 @@ export function applyEvent(
           target: c.target ?? 42,
           attackerPresses: c.attackerPresses ?? 0,
           defenderPresses: c.defenderPresses ?? 0,
+          serverOffset: typeof c.serverNow === 'number' ? c.serverNow - Date.now() : 0,
         },
         clashResult: null,
       };

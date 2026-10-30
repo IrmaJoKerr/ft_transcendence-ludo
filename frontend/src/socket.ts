@@ -2,13 +2,16 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { ClashPhase, GameState, PlayerColor, LegalMove, MoveResult } from './game/types';
 
-// The three room rules travel as ONE object in both directions (create body and
-// `update_modifiers` / `modifiers_updated`): a fourth rule is a field, not a
-// fifth positional boolean. See the room-rule payload design note in todo.md.
+// The room rules travel as ONE object in both directions (create body and
+// `update_modifiers` / `modifiers_updated`): a fifth rule is a field, not a fifth
+// positional boolean. See the room-rule payload design note in todo.md.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
+  // 0 off, 1 or 2 switches of the required letter per clash; the engine forces 0
+  // whenever clash mode is off, and echoes back what it stored.
+  clashKeyShift: 0 | 1 | 2;
 };
 
 // The clash frames the engine emits. The chain fields (round / totalRounds /
@@ -17,6 +20,15 @@ export type RoomRules = {
 export type ClashStartEvent = {
   attackerKey: string;
   defenderKey: string;
+  // Key-shift schedule: one letter per side plus one per switch, and the absolute
+  // instants the letters change. Empty on a room with the mutator off.
+  attackerKeys: string[];
+  defenderKeys: string[];
+  switchAt: number[];
+  keyShift: 0 | 1 | 2;
+  // The engine clock when the frame was built, for the overlay's clock offset. Not
+  // persisted with the clash: it is a transport detail of this frame.
+  serverNow: number;
   target: number;
   duration: number;
   attacker: PlayerColor;

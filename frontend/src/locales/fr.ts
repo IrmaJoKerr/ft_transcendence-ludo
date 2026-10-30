@@ -477,6 +477,12 @@ export const fr = {
     noSafeZonesDesc: 'Les cases étoilées ne protègent plus (hardcore)',
     freeExit: 'Sortie libre',
     freeExitDesc: 'Tout lancer libère la prison, pas seulement un 6',
+    // Le mutateur de changement de lettre. « Lettre », pas « touche » : sur
+    // tablette il n'y a pas de touche du tout et le pad affiche des lettres.
+    clashKeyShift: 'Changement surprise en plein clash',
+    clashKeyShiftDesc: 'La lettre demandée change une ou deux fois pendant le clash',
+    clashKeyShiftCount: 'Changements',
+    clashKeyShiftWarn: 'LA LETTRE CHANGE !',
     // Clash QTE
     clashPressHint:
       'Appuyez sans arrêt sur votre touche pour remplir la barre — {{seconds}}s pour gagner !',
@@ -836,6 +842,8 @@ export const fr = {
       "Atterrir sur un mur — deux pièces ou plus empilées — n'est pas un seul combat mais un Clash par défenseur, chaque manche étant une nouvelle course aux touches : gagnez-les d'affilée et la case est à vous, perdez-en une et le mur tient.",
     rulesPage6Touch:
       "Sur tablette, vous touchez le cercle de votre touche au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
+    rulesPage6KeyShift:
+      "L'hôte peut aussi activer une surprise en plein clash : la lettre demandée change une ou deux fois pendant la course. Un avertissement clignote avant chaque changement et le pad redistribue ses lettres, alors continuez à lire — un pouce resté sur l'ancienne lettre ne remplit la barre que jusqu'au changement.",
     rulesPage7Header: '// SANS ZONES SÛRES (HARDCORE)',
     rulesPage7Title: '💀 Nulle part où se cacher',
     rulesPage7Body:

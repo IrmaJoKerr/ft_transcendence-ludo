@@ -541,7 +541,7 @@ export class SocketServer {
         this.handlers.handleSelectColor(socket, color);
       });
 
-      // One object each way: the host's rules panel sends the three rules as
+      // One object each way: the host's rules panel sends the four rules as
       // `{clashEnabled, noSafeZones, freeExit}`, never as positional booleans.
       socket.on('update_modifiers', (rules: unknown) => {
         this.handlers.handleUpdateModifiers(socket, rules);
