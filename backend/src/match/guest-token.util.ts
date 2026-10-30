@@ -17,7 +17,7 @@ export function guestTokenKey(token: string): string {
   return `guesttok:${hashGuestToken(token)}`;
 }
 
-// The guest's seat id, unique per mint. Never per-IP: hasLiveMatch scans
+// The guest's seat id, unique per mint. Never per-IP: findLiveMatch scans
 // `player1_id`, so a shared id would give a second guest on the same NAT the first
 // guest's MATCH_ACTIVE_GAME refusal.
 export function guestUserId(token: string): string {

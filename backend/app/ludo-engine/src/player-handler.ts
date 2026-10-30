@@ -1,4 +1,4 @@
-import type { GameState, PlayerColor, GameEvent } from './types';
+import type { GameState, PlayerColor, GameEvent, DepartureReason } from './types';
 import type { RedisGameStore } from './redis';
 import { DISCONNECT_GRACE_MS, SINGLE_SOCKET_DISCONNECT_GRACE_MS } from './timing';
 
@@ -274,12 +274,6 @@ export async function handlePlayerReady(
 
 // Unified exit-path helper functions
 
-export type DepartureReason =
-  | 'timeout' // grace window expired
-  | 'leave' // left a live game (socket leave_game or a tab-close prune)
-  | 'end_game' // End Game button: frees the seat
-  | 'waiting_leave'; // left a waiting room: reversible, keeps the seat
-
 // The one place a seat leaves a game. The reason selects the per-case body:
 // a waiting-room leave is reversible, the other reasons mark the seat exited.
 export async function finalizeDeparture(
@@ -323,6 +317,9 @@ export async function finalizeDeparture(
   player.status = 'exited';
   player.isConnected = false;
   player.isFinished = true;
+  // The reason is the seat's record, not a fifth status: a reloaded client labels
+  // the seat from it, and three sites branch on status alone.
+  player.departedReason = reason;
 
   // End Game button frees the seat outright so the room can hand it to someone else.
   if (reason === 'end_game') {

@@ -3,6 +3,9 @@
 
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
+// Mirror of the engine's DepartureReason: why a seat left. The seat keeps the
+// reason so a reloaded client can still label it.
+export type DepartureReason = 'timeout' | 'leave' | 'end_game' | 'waiting_leave';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
 export type PieceId = string;
 // Clash QTE phases: announce flash, 3-2-1 countdown, then the press race.
@@ -36,6 +39,10 @@ export interface PlayerMeta {
   bonusRoll: boolean;
   isFinished: boolean;
   finishedAt?: string;
+  // Why this seat left, written by the engine when it finalized the seat. 'leave'
+  // is a sign-out (or a manual leave of a live room) and renders "Aborted"; absent
+  // while the seat is still in the game.
+  departedReason?: DepartureReason;
   // Barrier Buster tokens this seat still holds, dealt at game start
   // (STARTING_BUSTER_TOKENS). Display only: the engine owns the counter and re-reads
   // the field when a move spends one; the board never decides it.

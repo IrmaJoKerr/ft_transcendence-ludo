@@ -6,6 +6,7 @@ import type {
   PieceId,
   GameEvent,
   RoomRules,
+  DepartureReason,
 } from './types';
 import type { RedisGameStore } from './redis';
 import { MoveValidator } from './move-validator';
@@ -15,7 +16,7 @@ import {
   handlePlayerDisconnect,
   handlePlayerReconnect,
   handlePlayerReady,
-  expireDisconnectedPlayer,
+  finalizeDeparture,
 } from './player-handler';
 import type { LobbyManager } from './lobby';
 import type { ClashManager } from './clash';
@@ -614,21 +615,25 @@ export class LudoEngine {
     await this.emitLobbyUpdate(gameId);
   }
 
-  // Replay a grace window expiry under the game lock, so the server sweep can
-  // settle windows lost to a restart.
-  async expireDisconnectedPlayer(
+  // The socket layer's one way into finalizeDeparture under the game lock: a grace
+  // window replay passes 'timeout', a sign-out's `match:abandon` passes 'leave'.
+  // Both land here so a departure cannot interleave with a join, a turn or a
+  // concurrent departure for the same game.
+  async finalizeSeatDeparture(
     gameId: string,
     color: PlayerColor,
+    reason: DepartureReason,
     notifyAbort?: (gameId: string) => void,
   ): Promise<void> {
     return this.withGameLock(gameId, () =>
-      expireDisconnectedPlayer(
+      finalizeDeparture(
         this.store,
         (e) => {
           this.emit(e);
         },
         gameId,
         color,
+        reason,
         notifyAbort,
       ),
     );

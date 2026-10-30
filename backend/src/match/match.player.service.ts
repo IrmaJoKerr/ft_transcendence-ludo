@@ -8,7 +8,7 @@ import { isBotUserId } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
-import { hasLiveMatch } from './active-game';
+import { findLiveMatch, ENDED_MATCH_STATUSES } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
 import { readRoomRules } from './room-rules';
 import { signEngineToken } from './engine-token.util';
@@ -51,7 +51,7 @@ export class MatchPlayerService {
 
     // Strict lock: a caller with a live match must not open a second room, even
     // one they used to play in.
-    if (await this.hasActiveMatch(userId)) {
+    if (await findLiveMatch(this.redis, userId)) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
         message:
@@ -131,9 +131,17 @@ export class MatchPlayerService {
     if (!data.id)
       throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
 
+    // A closed room is not a room. The hash outlives the game by its short TTL, but
+    // the engine state behind it is gone (teardownRoom deletes it), so a token minted
+    // here would point into nothing. A WAITING room never carries one of these
+    // statuses, so the seat reclaim below is untouched.
+    if (ENDED_MATCH_STATUSES.includes(data.status)) {
+      throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
+    }
+
     // Strict lock: you may not join a second room while your current match is
     // still live (rejoining your own live room is fine).
-    if (await this.hasActiveMatchExcept(userId, gameId)) {
+    if (await findLiveMatch(this.redis, userId, gameId)) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
         message:
@@ -428,17 +436,5 @@ export class MatchPlayerService {
       select: { displayName: true },
     });
     return user?.displayName ?? undefined;
-  }
-
-  // Whether the caller holds a seat in a live game right now: the strict state
-  // lock. While one is live the caller must not open or enter a second room.
-  private async hasActiveMatch(userId: string): Promise<boolean> {
-    return hasLiveMatch(this.redis, userId);
-  }
-
-  // Like hasActiveMatch, but the room the caller is trying to rejoin does not
-  // count: rejoining your own live room must still work.
-  private async hasActiveMatchExcept(userId: string, exceptGameId: string): Promise<boolean> {
-    return hasLiveMatch(this.redis, userId, exceptGameId);
   }
 }

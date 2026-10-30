@@ -12,7 +12,7 @@ import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
-import { hasLiveMatch } from './active-game';
+import { findLiveMatch } from './active-game';
 import { GUEST_TOKEN_TTL_S, GuestLimitService, guestIpHash } from './guest-limit.service';
 import { guestTokenKey, guestUserId, mintGuestToken } from './guest-token.util';
 import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
@@ -199,7 +199,7 @@ export class MatchCreatorService {
     // Strict lock: a caller already in a live game must not open a second room,
     // whatever the mode. Checked before the PvP reuse below. Guests skip it: their
     // per-mint id can never match, and the scan would be wasted work.
-    if (!opts.guestToken && (await hasLiveMatch(this.redis, userId))) {
+    if (!opts.guestToken && (await findLiveMatch(this.redis, userId))) {
       throw new ForbiddenException({
         code: 'MATCH_ACTIVE_GAME',
         message:

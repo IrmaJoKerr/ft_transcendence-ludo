@@ -20,3 +20,22 @@ export async function publishRoomsChanged(redis: {
     console.error('Failed to publish rooms:changed:', error);
   }
 }
+
+// `match:abandon` carries { gameId, userId }: the engine resolves the seat colour
+// from the match hash and finalizes the departure itself, under the same game lock
+// its grace replay takes, because the backend cannot write the engine state. Best
+// effort like `rooms:changed`: with the engine down or the message lost, the seat's
+// 46 s / 1 h reconnect window still ends it.
+export const MATCH_ABANDON_CHANNEL = 'match:abandon';
+
+export async function publishMatchAbandon(
+  redis: { publish(channel: string, message: string): Promise<unknown> },
+  gameId: string,
+  userId: string,
+): Promise<void> {
+  try {
+    await redis.publish(MATCH_ABANDON_CHANNEL, JSON.stringify({ gameId, userId }));
+  } catch (error) {
+    console.error('Failed to publish match:abandon:', error);
+  }
+}

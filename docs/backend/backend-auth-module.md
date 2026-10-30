@@ -161,7 +161,7 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])
 | `POST` | `/api/auth/refresh` | None (refresh cookie) | Rotate refresh token, issue fresh access token |
 | `POST` | `/api/auth/forgot-password` | None | Email reset link (generic response — no enumeration) |
 | `POST` | `/api/auth/reset-password` | None | Redeem reset token with new password |
-| `POST` | `/api/auth/logout` | None | Revoke refresh token, clear both cookies |
+| `POST` | `/api/auth/logout` | None | Revoke refresh token, clear both cookies, and end the player's live match (`match:abandon` → ludo-engine) |
 | `GET` | `/api/auth/me` | JWT | Return current user from cookie |
 | `GET` | `/api/auth/profile` | JWT | Full profile for the Edit-Profile card (email, providers, hasPassword) |
 | `PATCH` | `/api/auth/profile` | JWT | Update profile (display name, email, 2FA, OAuth). Email changes are verify-then-commit; sensitive fields need `currentPassword` |
@@ -524,13 +524,23 @@ sequenceDiagram
     participant User
     participant Site as Your App
     participant Server as Backend
+    participant Engine as Ludo Engine
 
     User->>Site: Click "Sign out"
     Site->>Server: POST /api/auth/logout
     Server->>Server: Cancel the session and clear the cookies
+    Server->>Server: findLiveMatch(redis, userId)
+    opt the account still holds a seat in a live room
+        Server->>Engine: publish match:abandon { gameId, userId }
+        Engine->>Engine: finalizeDeparture(..., 'leave') under the game lock
+        Engine-->>Site: player_exited + state_update, or game_expired when the room ends
+    end
     Server-->>Site: Done
     Site-->>User: Go to the login page
 ```
+
+A session cannot outlive the game it was playing (D7): the revoked refresh token's user is looked up with `findLiveMatch()`, and a live room is handed to the engine, which owns the departure — seat parked, turn advanced, room torn down when fewer than two active humans are left. The publish is best effort, so a Redis failure never blocks the sign-out; the seat then ends through its own disconnect window instead (see [match module → Sign-out ends the match](backend-match-module.md#sign-out-ends-the-match)).
+
 
 
 ---

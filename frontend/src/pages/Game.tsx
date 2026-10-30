@@ -2021,7 +2021,11 @@ export function Game() {
                                       color: isOut ? '#ff0055' : '#ffb300',
                                     }}
                                   >
-                                    {isOut ? t('game.pilotLeft') : t('game.reconnecting')}
+                                    {isOut
+                                      ? playerMeta.departedReason === 'leave'
+                                        ? t('game.pilotAborted')
+                                        : t('game.pilotLeft')
+                                      : t('game.reconnecting')}
                                   </span>
                                 )}
                               </div>
@@ -3030,7 +3034,11 @@ export function Game() {
                   return (
                     <CyberButton
                       label={
-                        isBotOrHotseat ? t('gameExtra.abortSimulationBtn') : t('game.abortMatchBtn')
+                        activeMatch.mode === 'hotseat'
+                          ? t('gameExtra.quitToMenuBtn')
+                          : isBotOrHotseat
+                            ? t('gameExtra.abortSimulationBtn')
+                            : t('game.abortMatchBtn')
                       }
                       shortcut="ESC"
                       variant="danger"
@@ -3083,6 +3091,16 @@ export function Game() {
         onProceed={() => {
           setIsAbortModalOpen(false);
           endGame();
+          // Hotseat: the End Game path ends the room (single-instance rooms are torn
+          // down by the post-game flow, so nothing is left to resume), and the menu is
+          // where the player came from. No result card to read and nobody else to
+          // inform.
+          if (activeMatch.mode === 'hotseat') {
+            setLastResult(null);
+            setShowResultsModal(false);
+            setActiveMatch(null);
+            navigate('/gamelobby');
+          }
         }}
         cancelLabel={t('gameExtra.cancelBtn')}
         proceedLabel={t('gameExtra.confirmAbortBtn')}

@@ -45,7 +45,7 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | `match.query.service.ts` | Browse queries: open rooms, my rooms |
 | `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, persists the clash tallies, achievements) |
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
-| `active-game.ts` | The strict state lock — `hasLiveMatch()`: does this player already hold a seat in a live game? Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, `POST /api/game/:id/invite` and rejoin refusal |
+| `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, `POST /api/game/:id/invite`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
 | `match.module.ts` | NestJS module — registers all services, PrismaService |
 
@@ -164,6 +164,8 @@ Deliberately **not** terminal:
 
 The helper is fail-open: a missing key, unreadable value, or schema drift returns `false`, which keeps the match advertised rather than locking a legitimate player out.
 
+A torn-down room has no engine state at all (teardown deletes `game:{gameId}`), so this helper cannot refuse a rejoin into it — that gate is the hash status, checked first in `MatchPlayerService.rejoin()`: a hash reading `ABORTED` (or legacy `ENDED`) answers `404 MATCH_GAME_NOT_FOUND`, the same statuses the strict lock below ignores. A `WAITING` room never carries one of them, so reclaiming a lobby seat is unaffected.
+
 ### `isEngineGameStarted(redis, gameId)`
 
 Answers: has the engine's ready-check already started this game? A room is only a lobby until then, and a game that has started accepts no new seats.
@@ -184,13 +186,14 @@ It reports `true` for any engine status other than `waiting` and `false` when th
 
 **Source:** `backend/src/match/active-game.ts`
 
-One live game per player. `hasLiveMatch(redis, userId, exceptGameId?)` answers whether this player already holds a seat in a live game, and it is the single implementation behind every "one game at a time" refusal:
+One live game per player. `findLiveMatch(redis, userId, exceptGameId?)` returns the room this player already holds a seat in — `{ gameId }`, or `null` — and it is the single implementation behind every "one game at a time" refusal (a caller that only needs the boolean tests the result):
 
 | Call site | Effect when a live game exists |
 |-----------|--------------------------------|
 | `MatchCreatorService.createMatchLocked()` — `POST /api/match/create`, `/api/match/pve`, `/api/match/pvp/invite` | `403 MATCH_ACTIVE_GAME`, checked before the idempotent PvP reuse lookup so a mid-game caller is never handed any room |
 | `MatchPlayerService.joinMatch()` — `POST /api/match/join/:code`, `POST /api/game/:id/invite` (seats the invited friend), `POST /api/friends/:friendId/invite` (seats the challenged friend) | `403 MATCH_ACTIVE_GAME` |
-| `MatchPlayerService.rejoin()` — `POST /api/game/:id/rejoin` | `403 MATCH_ACTIVE_GAME` for a **different** room; the room being rejoined never counts (`exceptGameId`), so reclaiming your own seat still works |
+| `MatchPlayerService.rejoin()` — `POST /api/game/:id/rejoin` | `403 MATCH_ACTIVE_GAME` for a **different** room; the room being rejoined never counts (`exceptGameId`), so reclaiming your own seat still works. Checked after the closed-room gate above (`404` for `ABORTED`/`ENDED`) |
+| `AuthService.logout()` — `POST /api/auth/logout` | not a refusal: the revoked token already names the user, so the same answer decides which room to publish `match:abandon` for, and the engine ends that seat (see [Sign-out ends the match](#sign-out-ends-the-match)) |
 
 A room counts as live when the caller is seated in it and either
 
@@ -200,6 +203,14 @@ A room counts as live when the caller is seated in it and either
 Rooms whose hash says `ABORTED` (an abort, or the engine's expiry teardown) are finished and never lock their players out, even while the hash lingers for the rest of its TTL; a room finished by its results has no hash at all (the game-end callback deletes it), and a legacy `ENDED` value written by an older build is treated as finished too. A `WAITING` lobby room is not live either: a player may keep one lobby room open and still create or join elsewhere — the create reuse lookup hands their existing seat back instead of opening a second room.
 
 The check is backend-authoritative because the backend owns the `match:*` state. The frontend mirrors it as a hint only: `LudoLobby` greys out host/join (with a tooltip) while `/api/games/mine` reports a room, and `Lobby`'s launch button does the same from a one-shot `/api/games/mine` read. `NotificationToast` goes further on accept: if a challenge arrives while another game is stored in `activeMatch`, it `POST`s `/api/game/:id/abort` for that game first — which marks that room `ABORTED`, however far along it was — so switching rooms cannot trip this lock. A refused create/join surfaces as the localized `errors.MATCH_ACTIVE_GAME` message wherever the request was made.
+
+### Sign-out ends the match
+
+Signing out must not leave a live room behind a seat that can never come back (D7). `AuthService.logout` revokes the refresh token — `SessionService.revoke()` returns the `userId` it already read, so no second lookup — and then asks `findLiveMatch()` which room that account holds. When there is one, it publishes `match:abandon` with `{ gameId, userId }` through `publishMatchAbandon()` in `common/channels.ts`.
+
+The backend stops there on purpose. The room state belongs to the ludo-engine, and the departure is not a hash write: `finalizeDeparture` parks the seat's pieces, advances the turn, publishes `player_exited` + `state_update`, and tears the room down when fewer than two active humans remain (a 2-player room and any PvE room therefore end; a 3-4 player room plays on with the seat `exited`). The engine's `MatchAbandonSubscriber` owns that call and applies it under the game lock, exactly like a grace-window expiry. No `MatchModule` dependency is added to `AuthModule`: `active-game.ts` imports only `ioredis` and `seat-finalization.ts`, so `AuthService` calls it directly with the Redis client it already holds.
+
+Both steps are best effort and independent. A Redis hiccup on the publish is logged, never surfaced: the sign-out itself already happened, and the seat still ends through its own disconnect window — `handlePlayerDisconnect` opens one on the closing socket, and its expiry finalizes the same seat with `'timeout'` instead of `'leave'`.
 
 
 ---

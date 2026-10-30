@@ -7,22 +7,31 @@ import { isEngineGameStarted } from './seat-finalization';
 
 // Hash statuses that mean the room is over: not a live game for anyone. ENDED is no
 // longer written; it stays listed so a hash left by an older build cannot lock its
-// players out for the rest of its TTL.
-const ENDED_MATCH_STATUSES = ['ABORTED', 'ENDED'];
+// players out for the rest of its TTL. Exported because rejoin refuses the same two
+// statuses: a closed room is not a room to hand a token back into.
+export const ENDED_MATCH_STATUSES = ['ABORTED', 'ENDED'];
 
-// The four seat ids of a match hash, in slot order.
-function seatIdsOf(data: Record<string, string>): string[] {
+// The four seat ids of a match hash, in slot order. Shared with the account
+// deletion sweep, which aborts every room a deleted user sits in (not just the
+// one live room the strict lock allows).
+export function matchSeatIds(data: Record<string, string>): string[] {
   return [data.player1_id, data.player2_id, data.player3_id, data.player4_id];
 }
 
-// Whether this user holds a seat in a live (in-progress) game right now. Pass
+// The user's live game. Sign-out publishes on this room id, and a caller that
+// only needs the boolean reads the return as a truth test.
+export interface LiveMatch {
+  gameId: string;
+}
+
+// The live (in-progress) game this user holds a seat in right now, or null. Pass
 // `exceptGameId` to exempt one room: rejoining your own live room must still
 // work, so that room never counts as "a second game".
-export async function hasLiveMatch(
+export async function findLiveMatch(
   redis: Redis,
   userId: string,
   exceptGameId?: string,
-): Promise<boolean> {
+): Promise<LiveMatch | null> {
   let cursor = '0';
   do {
     const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', 'match:*', 'COUNT', 100);
@@ -30,12 +39,15 @@ export async function hasLiveMatch(
     for (const key of keys) {
       if (exceptGameId && key === `match:${exceptGameId}`) continue;
       const data = await redis.hgetall(key);
-      if (!seatIdsOf(data).includes(userId)) continue;
+      if (!matchSeatIds(data).includes(userId)) continue;
       if (ENDED_MATCH_STATUSES.includes(data.status)) continue;
-      if (data.status === 'ACTIVE') return true;
+      // The hash's own id is authoritative; the key suffix covers a hash written
+      // without one.
+      const gameId = data.id ?? key.slice('match:'.length);
+      if (data.status === 'ACTIVE') return { gameId };
       // The hash can lag behind the engine, so the engine state decides too.
-      if (await isEngineGameStarted(redis, data.id)) return true;
+      if (await isEngineGameStarted(redis, gameId)) return { gameId };
     }
   } while (cursor !== '0');
-  return false;
+  return null;
 }

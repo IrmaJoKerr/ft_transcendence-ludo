@@ -1,5 +1,13 @@
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
+// Why a seat left. `waiting_leave` is reversible and keeps the seat; the other
+// reasons mark it exited. It lives beside the seat because finalizeDeparture
+// persists it there.
+export type DepartureReason =
+  | 'timeout' // grace window expired
+  | 'leave' // left a live game (socket leave_game, a tab-close prune, or a sign-out)
+  | 'end_game' // End Game button: frees the seat
+  | 'waiting_leave'; // left a waiting room: reversible, keeps the seat
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
 // Clash QTE phases: flash, 3-2-1 countdown, then the press race.
 export type ClashPhase = 'announce' | 'countdown' | 'pressing';
@@ -37,6 +45,11 @@ export interface PlayerMeta {
   bonusRoll: boolean; // extra roll granted (6/capture)
   isFinished: boolean; // all four pieces home
   finishedAt?: string; // ISO time of finishing
+  // Why this seat left, written by finalizeDeparture on the live-game paths. The
+  // client labels the seat from it ("Aborted" for a leave); a reloaded client reads
+  // it back from the state. Absent while the seat is still in the game, and on the
+  // reversible waiting-room leave.
+  departedReason?: DepartureReason;
   stats: {
     // per-game tallies for postgame scoring
     turns: number;

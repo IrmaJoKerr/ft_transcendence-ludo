@@ -98,8 +98,10 @@ export class SessionService implements OnModuleDestroy {
     return { reused: true };
   }
 
-  // Revoke a single session (logout on this device).
-  async revoke(token: string): Promise<void> {
+  // Revoke a single session (logout on this device). Returns the account the
+  // token belonged to: logout needs it to end that account's live match, and this
+  // lookup already reads it. An unknown or expired token returns null.
+  async revoke(token: string): Promise<string | null> {
     const h = this.hash(token);
     const userId = await this.redis.get(`refresh:${h}`);
     await this.redis.del(`refresh:${h}`);
@@ -107,6 +109,7 @@ export class SessionService implements OnModuleDestroy {
       await this.redis.srem(`sessions:${userId}`, h);
       await this.publishRevoked(userId);
     }
+    return userId;
   }
 
   // Revoke every session a user has (e.g. after a password reset).

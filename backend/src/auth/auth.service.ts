@@ -27,6 +27,8 @@ import { requireSecret, secret } from '../secrets';
 import { NotificationService } from '../notification/notification.service';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
 import { isReservedBotName } from '../common/botname-enforce';
+import { publishMatchAbandon } from '../common/channels';
+import { findLiveMatch, matchSeatIds } from '../match/active-game';
 
 const SALT_ROUNDS = 10;
 // Also where the SPA lives; /api on the same origin reaches the backend
@@ -520,9 +522,21 @@ export class AuthService implements OnModuleDestroy {
     };
   }
 
-  // Revoke the given refresh token : logout on this device.
+  // Revoke the given refresh token : logout on this device. A live room cannot
+  // outlive the sign-out: the engine owns the departure (seat parked, turn
+  // advanced, `player_exited`), so this publishes the room and the player and lets
+  // it finalize the seat under its game lock (D7). The revoke already reads the
+  // userId, so the id costs no second lookup, and the publish is best effort: a
+  // missed message falls back to the seat's own reconnect window.
   async logout(refreshToken?: string) {
-    if (refreshToken) await this.session.revoke(refreshToken);
+    const userId = refreshToken ? await this.session.revoke(refreshToken) : null;
+    if (!userId) return;
+    try {
+      const live = await findLiveMatch(this.redis, userId);
+      if (live) await publishMatchAbandon(this.redis, live.gameId, userId);
+    } catch (error) {
+      console.error('logout match:abandon error:', (error as Error).message);
+    }
   }
 
   // Build the canonical user payload shared by every auth response (PublicUser).
@@ -892,12 +906,7 @@ export class AuthService implements OnModuleDestroy {
         cursor = nextCursor;
         for (const key of keys) {
           const data = await this.redis.hgetall(key);
-          const seated = [
-            data.player1_id,
-            data.player2_id,
-            data.player3_id,
-            data.player4_id,
-          ].includes(userId);
+          const seated = matchSeatIds(data).includes(userId);
           if (seated && (data.status === 'WAITING' || data.status === 'ACTIVE')) {
             await this.redis.hset(key, 'status', 'ABORTED');
             await this.redis.expire(key, 3600);

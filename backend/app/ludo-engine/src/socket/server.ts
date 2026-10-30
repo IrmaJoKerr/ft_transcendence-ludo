@@ -6,6 +6,7 @@ import { RedisGameStore } from '../redis';
 import { getOrCreateBot, isBotSeat } from '../bot';
 import { EventPublisher } from './event-publisher';
 import { RedisBroadcaster } from './redis-broadcaster';
+import { MatchAbandonSubscriber } from './abandon-subscriber';
 import { ResultSubmitter } from './result-submitter';
 import { SocketHandlers } from './socket-handlers';
 import { BotTurnScheduler } from './bot-scheduler';
@@ -70,6 +71,9 @@ export class SocketServer {
   private clashManager: ClashManager;
   private publisher: EventPublisher;
   private broadcaster: RedisBroadcaster;
+  // Sign-out departures: the backend publishes `match:abandon`, this applies
+  // finalizeDeparture in this process (the room state lives here, not there).
+  private abandon: MatchAbandonSubscriber;
   private resultSubmitter: ResultSubmitter;
   private handlers: SocketHandlers;
   private botScheduler: BotTurnScheduler;
@@ -92,6 +96,9 @@ export class SocketServer {
     const lobbyManager = new LobbyManager(this.store);
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();
+    this.abandon = new MatchAbandonSubscriber(this.store, this.engine, (gameId) => {
+      this.cleanupGame(gameId);
+    });
     // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
     // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan.
     this.idleLobby = new IdleLobbyWatcher(this.store, this.rooms, IDLE_LOBBY_TIMEOUT_MS, (gameId) =>
@@ -241,6 +248,7 @@ export class SocketServer {
     });
 
     this.broadcaster.start(this.io);
+    this.abandon.start();
     this.setupSocketHandlers();
     // Boot-time clash recovery: re-arm the persisted QTE phase timers and sweep
     // every 5 s for an orphaned or stalled clash. The wake pass below replays the
@@ -260,6 +268,7 @@ export class SocketServer {
   async stop(): Promise<void> {
     await this.store.disconnect();
     await this.broadcaster.disconnect();
+    await this.abandon.disconnect();
     this.httpServer.close();
   }
   // Drop a room's in-memory state: its RoomContext (seat bindings + timers) and
@@ -344,7 +353,7 @@ export class SocketServer {
     for (const disc of state.disconnectedPlayers) {
       if (Date.now() < disc.reconnectDeadline) continue;
       // Re-checks the deadline itself, so racing an in-flight grace timer is safe.
-      await this.engine.expireDisconnectedPlayer(gameId, disc.color, (id) => {
+      await this.engine.finalizeSeatDeparture(gameId, disc.color, 'timeout', (id) => {
         this.cleanupGame(id);
       });
     }

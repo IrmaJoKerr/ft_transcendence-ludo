@@ -111,6 +111,7 @@ input/output. Each event is documented in full below; see
 | `socket/post-game.ts` | End-of-game flow — post-game timeout and room teardown |
 | `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel. One case per event type: a type with no case is dropped silently, which is how the `turn_skipped` frame went missing until the live `barrier-buster` probe caught it (every frame the SPA consumes needs a published-frame assertion or a live probe) |
 | `socket/redis-broadcaster.ts` | `RedisBroadcaster` — forwards Redis `game:*` messages into the matching Socket.IO room |
+| `socket/abandon-subscriber.ts` | `MatchAbandonSubscriber` — subscribes to the backend's `match:abandon` channel and finalizes the signed-out seat through `engine.finalizeSeatDeparture(..., 'leave')`, so a sign-out ends the live match from the engine that owns the room state |
 | `socket/result-submitter.ts` | POST /api/game/end callback to backend — submits the human seats that finished; skips a seat whose account cannot be recovered and logs the colour; posts nothing when no account resolves; reports the piece count read from the board rather than from a cached tally; carries the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them for the two clash achievements |
 
 
@@ -298,7 +299,7 @@ deadlines in one scan, then sleeps. It has two triggers:
 
 For every `game:{gameId}` key the pass rebuilds that room's `RoomContext` and replays what is due:
 
-1. grace windows whose `reconnectDeadline` has passed (`expireDisconnectedPlayer`);
+1. grace windows whose `reconnectDeadline` has passed (`finalizeSeatDeparture(gameId, color, 'timeout')`, which wraps `finalizeDeparture`);
 2. a bot seat holding the turn, re-armed from the persisted state (`isBotSeat`), so no client has to rejoin for the bots to resume;
 3. the post-game timer of a finished room;
 4. the idle window of a WAITING room below quorum.
@@ -475,7 +476,7 @@ The window is only opened for a **live** seat (`status === 'active'` and not fin
 
 A rename is carried through the reconnect: the `join_game` payload's `displayName` is persisted and republished on `player_reconnected`, because the rest of the room only sees that event — a live game never re-broadcasts the whole lobby roster.
 
-Expiry is not tied to the in-process timer: the window itself lives in Redis (`disconnectedPlayers[].reconnectDeadline`), so `expireDisconnectedPlayer` is also replayed by a 1-minute server sweep and once at startup. A restart between disconnect and expiry therefore still kicks the seat out, instead of leaving it `disconnected` with the turn held on it forever.
+Expiry is not tied to the in-process timer: the window itself lives in Redis (`disconnectedPlayers[].reconnectDeadline`), so the same expiry is also replayed by a 1-minute server sweep and once at startup, through `engine.finalizeSeatDeparture(gameId, color, 'timeout')`. A restart between disconnect and expiry therefore still kicks the seat out, instead of leaving it `disconnected` with the turn held on it forever.
 
 Advancing a turn always resets the turn-scoped snapshot (`turnPhase` → `WAITING_FOR_ROLL`, and `pendingLegalMoves` / `pendingDiceValue` / `pendingIsFirstRoll` cleared) plus the new player's `consecutiveSixes` / `hasRolled` / `bonusRoll`, so whoever inherits the turn can roll immediately. Without that, a prune landing mid-`WAITING_FOR_MOVE` kept the *departed* player's pending moves: the next player could neither roll (`Invalid turn phase`) nor move, freezing the game.
 
@@ -486,6 +487,21 @@ Because `player_exited` carries only `{ color }`, a live exit also republishes t
 The pause is cleared when its owner reconnects (`handlePlayerReconnect`, which also resumes the same turn with its pending dice and moves), when the seat is pruned (`finalizeDeparture`, which then advances the turn), and by a defensive owner-only check in `join-manager` on `join_game`. Another player's reconnect must not clear a pause that belongs to a seat still inside its grace window.
 
 **Room teardown is emitted from one place.** `teardownRoom` emits `game_expired`, marks the match `ABORTED`, deletes the engine game state, and runs the cleanup callback. Callers do not emit `game_expired` themselves, so a client never receives it twice.
+
+### Sign-out departures (`match:abandon`)
+
+`POST /api/auth/logout` revokes the refresh token and then, if the account still holds a seat in a live room, publishes `match:abandon` with `{ gameId, userId }`: signing out ends the match instead of parking the seat for a reconnect that can no longer happen (D7). The backend cannot apply it — the room state lives here — so `MatchAbandonSubscriber` (its own Redis connection, subscribed in `start()` and closed in `stop()`, like the rooms broadcaster) resolves the seat and calls `engine.finalizeSeatDeparture(gameId, color, 'leave')`: the same `finalizeDeparture` under the same game lock as every other exit path.
+
+The handler is a filter over an idempotent write:
+
+| Condition | Result |
+|---|---|
+| the `match:*` hash is gone, `ABORTED` or `ENDED` | dropped — the room is already over |
+| the engine state is missing or not `active` | dropped — a finished room keeps its state for the post-game window, and a WAITING room belongs to the idle watcher |
+| the `userId` owns no seat in the hash | dropped — the account is not seated in this room |
+| otherwise | `finalizeDeparture(..., 'leave')`: pieces parked, seat `exited`, turn advanced, `player_exited` + `state_update` published, and quorum decides between a continuing 3-4 player room and a teardown |
+
+A redelivered message costs nothing: `finalizeDeparture` no-ops on a seat that already left. The grace window stays the fallback — with the engine down or the message lost, the socket's own disconnect still opens a window whose expiry ends the seat — and `handlePlayerDisconnect` refuses to open one for a seat the abandon already marked `exited`, so the departing client never shows "Reconnecting…" after its sign-out. The seat also records why it left (`departedReason`, `'leave'` here, `'timeout'` from a grace expiry), which is what lets a client label the empty seat **Aborted** rather than **Left**.
 
 
 ---

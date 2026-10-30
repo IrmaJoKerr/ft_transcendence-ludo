@@ -401,6 +401,8 @@ export const en = {
     lastRolled: 'Last Rolled',
     reconnecting: 'Reconnecting…',
     pilotLeft: 'LEFT',
+    // A seat the engine finalized with 'leave': its account signed out mid-game.
+    pilotAborted: 'ABORTED',
     rolledValue: 'Rolled a {{value}}',
     bonusSuffix: ' (bonus)',
     capturedPiece: 'Captured a {{color}} piece!',
@@ -792,6 +794,9 @@ export const en = {
     cancelBtn: 'CANCEL',
     confirmAbortBtn: 'CONFIRM ABORT',
     abortSimulationBtn: 'ABORT SIMULATION',
+    // Hotseat has no matchmaking to return to and no second player to inform: the
+    // control ends the room through the End Game path and leaves for the menu.
+    quitToMenuBtn: 'QUIT TO MENU',
     abortVersionTag: 'ARENA.{{code}}',
     rulesModalTitle: 'ARENA PROTOCOLS & RULES',
     rulesVersionTag: 'RULES.v42.SYS',

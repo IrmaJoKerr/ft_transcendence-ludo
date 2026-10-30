@@ -91,6 +91,7 @@ export interface PlayerMeta {
   bonusRoll: boolean;    // Rolled a 6 → rolls again
   isFinished: boolean;   // true when all 4 pieces in goal
   finishedAt?: string;   // ISO timestamp
+  departedReason?: DepartureReason;  // Why the seat left a live game: 'timeout' | 'leave' | 'end_game'
   stats: {
     turns: number;             // Turns taken by the seat this game
     captures: number;          // Enemy pieces sent home
@@ -119,7 +120,12 @@ wall.
 client with the roster. The full pipeline is in [`avatar-system.md`](../avatar-system.md).
 
 **Seat statuses.** `active` = playing; `disconnected` = in the reconnect grace window;
-`inactive` = left a waiting room; `exited` = left a live game.
+`inactive` = left a waiting room; `exited` = left a live game. A live departure also records *why* in
+`departedReason` (`DepartureReason` in `types.ts`): `'timeout'` for a grace-window expiry, `'leave'`
+for a manual leave or a sign-out, `'end_game'` for the End Game button. The status says the seat is
+gone, the reason is what a client labels it from — a `'leave'` seat reads **Aborted**, a timeout
+reads **Left** — and because it is a persisted field it survives a reload. The reversible
+waiting-room leave writes neither.
 
 **Turn order is derived from `state.players[]` (players-as-truth).** `advanceTurnInState` scans the
 array forward from `currentTurn` and picks the next seat that can play: `active` seats take the
