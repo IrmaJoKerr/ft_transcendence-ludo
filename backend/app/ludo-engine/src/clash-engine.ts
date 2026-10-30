@@ -6,17 +6,16 @@ import {
   CLASH_RESULT_MS,
   CLASH_RESULT_FREEZE_MS,
   CARD_HOLD_MIN_MS,
-  CLASH_BOT_WIN_MS_BASE,
-  CLASH_BOT_LOSE_MS_BASE,
-  CLASH_BOT_JITTER_MS,
-  CLASH_BOT_VS_BOT_WIN_CHANCE,
-  CLASH_BOT_VS_HUMAN_WIN_CHANCE,
+  CLASH_BOT_FAST_VS_BOT,
+  CLASH_BOT_FAST_VS_HUMAN,
 } from './clash';
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
 import { BARRIER_BUSTER_TOKEN_CAP } from './types';
-import { createRng, randFloat, seedFrom } from './rng';
+import { createRng, seedFrom } from './rng';
 import type { Rng } from './rng';
+import { botPace, botPressTimes } from './clash-pace';
+import type { BotPace } from './clash-pace';
 import type {
   PlayerColor,
   GameEvent,
@@ -28,7 +27,7 @@ import type {
 } from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
-import { CLASH_SWEEP_INTERVAL_MS } from './timing';
+import { CLASH_PRESS_MS, CLASH_SWEEP_INTERVAL_MS } from './timing';
 
 // The chain ledger, read from a deferred capture as plain arrays so one round
 // resolves without changing the persisted shape. A capture written before the
@@ -78,7 +77,11 @@ export class ClashEngine {
   ) {}
 
   // Start the QTE and arm its phase timers. Bot pressers begin exactly at
-  // press-phase start, because they press their own side instead of hunting keys.
+  // press-phase start, because they press their own side instead of hunting keys:
+  // each bot side is handed a pace profile (fast 38 presses / casual 33, see
+  // clash-pace.ts) and paces itself from the window's real opening. The profile
+  // also fixes its reaction pause — 120 ms for a touch-typist, 500 ms of choice
+  // reaction for a casual one — so the hesitation is a constant, not a draw.
   // `info` names the round inside a chain (absent: the single-defender case).
   async startClash(
     gameId: string,
@@ -101,17 +104,41 @@ export class ClashEngine {
     // whole random shape replays from a single seed.
     const rng = createRng(seedFrom(this.random));
     await this.clashManager.startClash(gameId, attacker, defender, info, rng);
-    this.armClashPhaseTimers(gameId, () => {
-      if (attackerIsBot || defenderIsBot) {
-        if (attackerIsBot && defenderIsBot) {
-          const attackerWins = rng() < CLASH_BOT_VS_BOT_WIN_CHANCE;
-          this.simulateBotPressers(gameId, attacker, attackerWins, info?.round ?? 1, rng);
-          this.simulateBotPressers(gameId, defender, !attackerWins, info?.round ?? 1, rng);
-        } else {
-          const botSide = attackerIsBot ? attacker : defender;
-          const botWins = rng() < CLASH_BOT_VS_HUMAN_WIN_CHANCE;
-          this.simulateBotPressers(gameId, botSide, botWins, info?.round ?? 1, rng);
-        }
+    this.armClashPhaseTimers(gameId, (pressStartAt) => {
+      if (!attackerIsBot && !defenderIsBot) return;
+      const round = info?.round ?? 1;
+      if (attackerIsBot && defenderIsBot) {
+        // The ASSIGNMENT is drawn, not the outcome: one side runs the fast
+        // profile and the other the casual one, so a bot-vs-bot chain does not
+        // always favour the attacker.
+        const attackerFast = rng() < CLASH_BOT_FAST_VS_BOT;
+        this.simulateBotPressers(
+          gameId,
+          attacker,
+          botPace(attackerFast ? 'fast' : 'casual'),
+          round,
+          pressStartAt,
+          rng,
+        );
+        this.simulateBotPressers(
+          gameId,
+          defender,
+          botPace(attackerFast ? 'casual' : 'fast'),
+          round,
+          pressStartAt,
+          rng,
+        );
+      } else {
+        const botSide = attackerIsBot ? attacker : defender;
+        const fast = rng() < CLASH_BOT_FAST_VS_HUMAN;
+        this.simulateBotPressers(
+          gameId,
+          botSide,
+          botPace(fast ? 'fast' : 'casual'),
+          round,
+          pressStartAt,
+          rng,
+        );
       }
     });
   }
@@ -119,7 +146,13 @@ export class ClashEngine {
   // Arm the announce/countdown/press timers off the deadlines ClashManager
   // already persisted. The delays are computed against `now`, so a re-arm after
   // a restart resumes a clash mid-phase instead of restarting its window.
-  private armClashPhaseTimers(gameId: string, onPressStart?: () => void): void {
+  private armClashPhaseTimers(
+    gameId: string,
+    // Called when the press phase opens, with the absolute time it opened: bot
+    // pressers schedule against that anchor, not against the timer's own firing
+    // moment, so a late phase flip cannot shift their whole schedule.
+    onPressStart?: (pressStartAt: number) => void,
+  ): void {
     const existing = this.clashTimers.get(gameId);
     if (existing) clearTimeout(existing);
 
@@ -197,7 +230,9 @@ export class ClashEngine {
           countdownDeadline: st.clash.countdownDeadline,
           pressDeadline: st.clash.pressDeadline,
         });
-        onPressStart?.();
+        // The window opens exactly at the deadline the state carries, so that is
+        // the anchor handed to the pressers (a bot pays its reaction from here).
+        onPressStart?.(st.clash.pressDeadline - CLASH_PRESS_MS);
       });
       // press -> resolve
       scheduleUnlocked(Math.max(0, clash.pressDeadline - now), () =>
@@ -686,20 +721,30 @@ export class ClashEngine {
     });
   }
 
-  // Bot mashing at a jittered human pace. The caller pre-rolls the winner: fast
-  // presses (CLASH_BOT_WIN_MS_BASE ± jitter) against slow ones, so the winner
-  // arrives first. `armedRound` keeps a previous round's presser out of the next.
-  // `rng` is the clash's own generator, so the pacing replays with the round.
+  // Bot mashing at a fitted human pace. `pace` is the profile — 38 presses on
+  // fast, 33 on casual — and botPressTimes owns the whole shape (the profile's
+  // constant reaction pause, the opening ramp, jitter as the mash tempo, one
+  // stumble), so the COUNT is what the profile says rather than a side effect of
+  // an interval. `armedRound` keeps a previous round's presser out of the next.
+  // `startAt` anchors the schedule to the press window's real opening, and each
+  // timer targets an absolute time on that anchor, so a late hop shortens the next
+  // wait instead of pushing the rest of the schedule out of the window. `rng` is
+  // the clash's own generator, so the pacing replays with the round.
   private simulateBotPressers(
     gameId: string,
     botColor: PlayerColor,
-    winner: boolean,
+    pace: BotPace,
     armedRound = 1,
+    startAt = Date.now(),
     rng: Rng = createRng(seedFrom(this.random)),
   ): void {
+    const times = botPressTimes(pace, startAt, rng);
+    let next = 0;
     const schedulePress = () => {
-      const base = winner ? CLASH_BOT_WIN_MS_BASE : CLASH_BOT_LOSE_MS_BASE;
-      const delay = base + randFloat(rng, 0, CLASH_BOT_JITTER_MS);
+      if (next >= times.length) return;
+      // Re-anchored every hop: a press that lands late shortens the next wait
+      // instead of pushing the rest of the schedule back with it.
+      const delay = Math.max(0, times[next] - Date.now());
       setTimeout(() => {
         void (async () => {
           try {
@@ -710,7 +755,9 @@ export class ClashEngine {
 
             // No lock here: this chain is armed from inside the lock and
             // recordClashPress would re-enter it and deadlock. The single chain
-            // plus the press cap make the counting idempotent.
+            // plus the press cap make the counting idempotent. This call also
+            // bypasses CLASH_PRESS_CAP_MS (the cap lives in ClashManager), which is
+            // why the fast base is 111 and not something under it.
             const count = await this.store.recordClashPress(gameId, botColor);
             // Broadcast so every client's bars advance live (the store does not
             // publish; human presses get there via ClashManager).
@@ -724,6 +771,7 @@ export class ClashEngine {
             console.error(`[clash] bot press ERROR ${gameId}/${botColor}:`, err);
             return; // Never re-arm on persistent failure: the sweep cleans up.
           }
+          next += 1;
           schedulePress();
         })();
       }, delay);

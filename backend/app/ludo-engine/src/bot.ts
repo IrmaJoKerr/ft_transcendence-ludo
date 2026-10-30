@@ -2,7 +2,7 @@ import type { LudoEngine } from './engine';
 import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
 import { MoveValidator } from './move-validator';
-import { CLASH_BOT_VS_BOT_WIN_CHANCE, CLASH_BOT_VS_HUMAN_WIN_CHANCE } from './clash';
+import { CLASH_BOT_FAST_VS_BOT, CLASH_BOT_FAST_VS_HUMAN } from './clash';
 import { BOT_PREFIX } from './socket/auth';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
@@ -122,7 +122,9 @@ export class LudoBot {
   }
 
   // Odds the bot takes the landing square. With clash mode off the capture always
-  // applies. Under clash mode each round is an independent draw: one round scores
+  // applies. Under clash mode the bot's pace profile is drawn per round, and only
+  // the FAST profile (38 presses) beats a defender who does not press at all, so
+  // for a passive seat the draw chance is also the win chance: one round scores
   // `p`, a wall of R defenders scores `p ** R`. See the bot doc for p per seat.
   private captureOdds(state: GameState, move: LegalMove): number {
     if (!state.clashMode) return 1;
@@ -134,8 +136,8 @@ export class LudoBot {
       defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
     const perRound =
       defenderColor && isBotSeat(state, defenderColor)
-        ? CLASH_BOT_VS_BOT_WIN_CHANCE
-        : CLASH_BOT_VS_HUMAN_WIN_CHANCE;
+        ? CLASH_BOT_FAST_VS_BOT
+        : CLASH_BOT_FAST_VS_HUMAN;
     // A capture always has at least one defender; the `> 0` guard is for a move
     // list written before `captureCount` existed, where the field is undefined.
     const rounds = move.captureCount > 0 ? move.captureCount : 1;

@@ -20,9 +20,11 @@ export {
   CARD_HOLD_MIN_MS,
   CLASH_SWEEP_GRACE_MS,
   CLASH_PRESS_CAP_MS,
-  CLASH_BOT_WIN_MS_BASE,
-  CLASH_BOT_LOSE_MS_BASE,
+  CLASH_BOT_FAST_MS_BASE,
+  CLASH_BOT_CASUAL_MS_BASE,
   CLASH_BOT_JITTER_MS,
+  CLASH_BOT_FAST_REACTION_MS,
+  CLASH_BOT_CASUAL_REACTION_MS,
 } from './timing';
 import {
   CLASH_ANNOUNCE_MS,
@@ -35,10 +37,13 @@ export const CLASH_TARGET = 42; // presses needed to win the race
 // on a circle is slower and less repeatable than a held key; the clamp keeps the
 // wire from asking for more, so the cap's ceiling stays 2x and no further.
 export const CLASH_TAP_COUNT_MAX = 2;
-// Bot presser tuning: the engine pre-rolls the winner, so the winning bot
-// presses faster than the losing one while both look human.
-export const CLASH_BOT_VS_BOT_WIN_CHANCE = 0.5; // bot vs bot: coin flip
-export const CLASH_BOT_VS_HUMAN_WIN_CHANCE = 0.25; // bot vs human: bot win chance
+// Bot pacing draws: which profile a bot side runs at. The profile decides the
+// press count (38 fast, 33 casual, see clash-pace.ts), so these are the odds of
+// DRAWING the fast profile, not a handicap multiplier. Against a passive human
+// that is also the odds of winning the clash, which is what the bot's move
+// valuation (captureOdds in bot.ts) discounts by.
+export const CLASH_BOT_FAST_VS_HUMAN = 0.25; // vs a human seat: 1 in 4 draws fast
+export const CLASH_BOT_FAST_VS_BOT = 0.5; // bot vs bot: coin flip decides who is fast
 
 // Fight a wall in ascending piece-id order so a chain is deterministic across
 // loads and state rebuilds. Ids are `{color}-{index}`; a malformed id sorts last,

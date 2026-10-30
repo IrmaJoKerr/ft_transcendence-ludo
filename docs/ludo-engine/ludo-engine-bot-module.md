@@ -57,7 +57,9 @@ Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot
 ```
 
 The credit is discounted by the odds the bot wins the clash the capture starts,
-which is what stops a bot from walking into a wall it will probably lose:
+which is what stops a bot from walking into a wall it will probably lose. `p` is
+the odds of DRAWING THE FAST PACE PROFILE (38 presses vs 33, `clash-pace.ts`),
+which against a defender who does not press is also the odds of winning the round:
 
 ```typescript
 // captureOdds(state, move):
@@ -69,6 +71,8 @@ which is what stops a bot from walking into a wall it will probably lose:
 // and its colour from the landing square via MoveValidator.findPiecesAtPosition.
 // One round vs a human: 7000 x 0.25 = 1750. A wall of 2: 437. Already beaten:
 // no positional score reaches 1560, so a sure capture still ranks first.
+// A human who presses well beats even the fast profile, so these are upper
+// bounds on the real odds, not a hidden handicap.
 ```
 
 ### Move scoring (`scoreMove`)
@@ -238,5 +242,5 @@ takeTurn()
 | `LudoEngine` | Rolls the dice and executes moves |
 | `RedisGameStore` | Loads/saves game state |
 | `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the defender's colour |
-| `clash.ts` | `CLASH_BOT_VS_HUMAN_WIN_CHANCE` / `CLASH_BOT_VS_BOT_WIN_CHANCE`: the same odds the clash pressers are pre-rolled against |
+| `clash.ts` | `CLASH_BOT_FAST_VS_HUMAN` / `CLASH_BOT_FAST_VS_BOT`: the odds the clash draws the FAST pace profile (38 presses vs 33, `clash-pace.ts`), which is what a passive defender turns into a win |
 | `socket/auth.ts` | `isBotUserId()` for bot detection |

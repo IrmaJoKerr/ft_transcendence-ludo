@@ -446,10 +446,28 @@ landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a l
 and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
 keeps a state written before the field existed reading as 0.
 
-**Bot pressers.** A bot side presses at a jittered pace: `CLASH_BOT_WIN_MS_BASE` for the pre-rolled
-winner and `CLASH_BOT_LOSE_MS_BASE` for the loser, so the winner reaches the target first. A presser
-carries the round it was armed for, so a chain that has moved to a new round is not pressed by the
-old schedule.
+**Bot pressers.** A bot side is given a PACE PROFILE, and the profile is the contract: it fixes the press
+count (the fast profile presses 38 times, the casual one 33) AND the reaction pause in front of them, both
+counted from the press window's opening. The pause is a CONSTANT per profile, never drawn: 120 ms for the
+fast profile, which is a touch-typist reading the letter through muscle memory (100–150 ms in the studies),
+and 500 ms for the casual one, which pays choice reaction time, decoding the symbol and picking the finger
+(400–600 ms). The hesitation IS the profile, so a fast bot always opens at the same moment. `clash-pace.ts`
+owns the rest of the shape — the opening mash ramp (×1.25, ×1.15, ×1.07 on the first three gaps), a uniform
+`0..CLASH_BOT_JITTER_MS` on every gap, one casual-only stumble (p = 0.03, +150..250 ms), with the jitter
+being the ONLY draw left: it is the mash tempo, not the reaction — and then FITS the whole schedule into the
+5 s window: if the drawn jitter would run past `CLASH_PRESS_MS`, the jitter is scaled down, never the base
+(`CLASH_BOT_FAST_MS_BASE` 111, `CLASH_BOT_CASUAL_MS_BASE` 129) and never the count, so the last press is
+always the nth one and lands ~100 ms before the deadline. The casual pause is the expensive half of that
+budget (500 ms of the window is hesitation, leaving ~210 ms of jitter room for its 32 gaps), so the fit
+compresses casual jitter harder than the fast one, which usually keeps its full spread. The fast base sits
+just above `CLASH_PRESS_CAP_MS` because bots reach the store directly; a base under the cap would silently
+lose presses the day they are routed through the capped path. 38 is still below `CLASH_TARGET` (42), so a
+fast bot cannot knock a side out early: it can only win the comparison at the deadline. Which side runs fast
+is drawn, not pre-rolled: `CLASH_BOT_FAST_VS_BOT` (0.5) splits a bot-vs-bot clash one fast / one casual, and
+`CLASH_BOT_FAST_VS_HUMAN` (0.25) is the odds a lone bot draws the fast profile. Each presser is scheduled
+against absolute times from the window's opening, so a late timer shortens the next wait instead of drifting
+the tail, and it carries the round it was armed for, so a chain that has moved to a new round is not pressed
+by the old schedule.
 
 
 ---
