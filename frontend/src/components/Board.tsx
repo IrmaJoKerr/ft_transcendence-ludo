@@ -2,72 +2,11 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COL, type ColorKey } from '../theme';
+import { TRACK_CELLS, stepToCell } from '../game/boardGeometry';
+import { CaptureBurst } from './CaptureBurst';
 
 const CELL_BG = '#050515';
 const LINE = '#00f0ff';
-
-// Track geometry: the engine uses logical steps (0-57); the UI maps them to
-// board cells. (15×15 cross board has exact 4-fold symmetry).
-type Cell = { r: number; c: number };
-
-const RED_SEGMENT: Cell[] = [
-  { r: 6, c: 1 },
-  { r: 6, c: 2 },
-  { r: 6, c: 3 },
-  { r: 6, c: 4 },
-  { r: 6, c: 5 },
-  { r: 5, c: 6 },
-  { r: 4, c: 6 },
-  { r: 3, c: 6 },
-  { r: 2, c: 6 },
-  { r: 1, c: 6 },
-  { r: 0, c: 6 },
-  { r: 0, c: 7 },
-  { r: 0, c: 8 },
-];
-
-/** 90° clockwise rotation about the 15×15 grid's center (7,7). */
-function rotate90({ r, c }: Cell): Cell {
-  return { r: c, c: 14 - r };
-}
-
-function rotateN(cell: Cell, n: number): Cell {
-  let out = cell;
-  for (let i = 0; i < n; i++) out = rotate90(out);
-  return out;
-}
-
-/** The full 52-cell shared outer loop, track position 1-52 → board cell. */
-const TRACK_CELLS: Cell[] = [0, 1, 2, 3].flatMap((rot) =>
-  RED_SEGMENT.map((cell) => rotateN(cell, rot)),
-);
-
-const RED_HOME_LANE: Cell[] = [
-  { r: 7, c: 1 },
-  { r: 7, c: 2 },
-  { r: 7, c: 3 },
-  { r: 7, c: 4 },
-  { r: 7, c: 5 },
-];
-
-const HOME_LANES: Record<ColorKey, Cell[]> = {
-  red: RED_HOME_LANE,
-  green: RED_HOME_LANE.map((cell) => rotateN(cell, 1)),
-  yellow: RED_HOME_LANE.map((cell) => rotateN(cell, 2)),
-  blue: RED_HOME_LANE.map((cell) => rotateN(cell, 3)),
-};
-
-const TRACK_OFFSET: Record<ColorKey, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
-
-/** Map a piece's logical step (1-57) to a board cell, or null if not on the board (base/goal). */
-function stepToCell(color: ColorKey, step: number): Cell | null {
-  if (step >= 52 && step <= 56) return HOME_LANES[color][step - 52];
-  if (step >= 1 && step <= 51) {
-    const trackPos = ((step + TRACK_OFFSET[color] - 1) % 52) + 1;
-    return TRACK_CELLS[trackPos - 1];
-  }
-  return null;
-}
 
 const PATH_MAP: Record<ColorKey, string> = {
   yellow: `
@@ -556,7 +495,7 @@ export function Board({
         );
       }
       cells.push(
-        <div key={`p${key}`} style={style}>
+        <div key={`p${key}`} style={style} data-cell={key}>
           {inner}
         </div>,
       );
@@ -622,76 +561,36 @@ export function Board({
         50%  { transform: scale(1.24); }
         100% { transform: scale(1); }
       }
-      @keyframes captureRing {
-        from { transform: scale(.2); opacity: .9; }
-        to   { transform: scale(1.9); opacity: 0; }
-      }
-      @keyframes captureSpark {
-        from { transform: translate(0,0) scale(1); opacity: 1; }
-        to   { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; }
-      }
     `;
     document.head.appendChild(style);
   }, []);
 
   const enginePieces: ReactNode[] = [];
 
-  // Capture burst FX: transient ring + sparks on the landing cell. Positioned
-  // like enginePieces (grid row/col), above them (zIndex 11), non-interactive.
+  // Capture burst FX: transient ring + sparks on the landing cell. The grid cell holds
+  // a zero-size, self-centred anchor, which is what puts CaptureBurst's origin exactly
+  // on the cell's centre; it sits above the pieces (zIndex 11) and takes no input.
   if (fx && fx.to >= 1 && fx.to <= 57) {
     const ck = fx.color as ColorKey;
     const cell = stepToCell(ck, fx.to);
     if (cell) {
-      const col = COL[ck];
-      let uid = 0;
-      const spark = (dx: number, dy: number, size: number, bg: string) => (
-        <div
-          key={`fx-s${uid++}`}
-          style={
-            {
-              gridRow: cell.r + 1,
-              gridColumn: cell.c + 1,
-              width: size,
-              height: size,
-              alignSelf: 'center',
-              justifySelf: 'center',
-              borderRadius: '50%',
-              background: bg,
-              pointerEvents: 'none',
-              zIndex: 11,
-              '--dx': `${dx}px`,
-              '--dy': `${dy}px`,
-              animation: 'captureSpark 600ms ease-out forwards',
-            } as CSSProperties & Record<'--dx' | '--dy', string>
-          }
-        />
-      );
       enginePieces.push(
         <div
           key="fx-ring"
           style={{
             gridRow: cell.r + 1,
             gridColumn: cell.c + 1,
-            width: 34,
-            height: 34,
+            position: 'relative',
+            width: 0,
+            height: 0,
             alignSelf: 'center',
             justifySelf: 'center',
-            borderRadius: '50%',
-            border: `3px solid ${col.base}`,
-            boxShadow: `0 0 12px ${col.base}aa`,
             pointerEvents: 'none',
             zIndex: 11,
-            animation: 'captureRing 600ms ease-out forwards',
           }}
-        />,
-        spark(0, -20, 7, '#ffffff'),
-        spark(0, 20, 7, col.base),
-        spark(-20, 0, 6, '#ffffff'),
-        spark(20, 0, 6, col.base),
-        spark(-14, -14, 5, col.base),
-        spark(14, -14, 5, '#ffffff'),
-        spark(-14, 14, 5, '#ffffff'),
-        spark(14, 14, 5, col.base),
+        >
+          <CaptureBurst color={COL[ck].base} />
+        </div>,
       );
     }
   }

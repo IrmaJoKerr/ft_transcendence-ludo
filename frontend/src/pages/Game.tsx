@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Board } from '../components/Board';
+import { CaptureBurst } from '../components/CaptureBurst';
 import { Die } from '../components/Die';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import type { PlayerColor, PlayerMeta } from '../game/types';
 import { ClashOverlay } from '../game/ClashOverlay';
+import { stepToCell } from '../game/boardGeometry';
 import {
+  CAPTURE_FX_AFTER_CARD_MS,
+  CAPTURE_FX_CARD_OPACITY,
+  CAPTURE_FX_MS,
   CARD_HOLD_MARGIN_MS,
   CLASH_RESULT_MS,
   DICE_BRAKE_ARM_MS,
@@ -115,6 +120,34 @@ const CARD_ROOM_OVERHANG = 46;
 // sledgehammer) reads as "breaker", which is what the toggle actually does. One
 // constant, so switching glyphs is one edit.
 const BUSTER_GLYPH = '🧨';
+
+/**
+ * Where a capture's burst belongs on screen: the viewport centre of the cell the mover
+ * landed on. Measured from the board at the moment the move lands, because the clash
+ * result card is a fixed layer drawn OVER the board — the card's dim copy of the burst
+ * has to be placed in the same space as the board's own copy, not guessed at. Null when
+ * the step has no cell (a home entry) or the board is not rendered, which skips the FX.
+ *
+ * The lookup is `data-cell` on the board's squares (`components/Board.tsx`): one board
+ * is mounted at a time, so the key is unique.
+ */
+function captureBurstAnchor(
+  color: PlayerColor,
+  to: number,
+): { color: string; x: number; y: number } | null {
+  if (to < 1 || to > 57) return null;
+  const cell = stepToCell(color, to);
+  if (!cell) return null;
+  const el = document.querySelector(`[data-cell="${cell.r},${cell.c}"]`);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0) return null;
+  return {
+    color: SEAT_HUES[color],
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+}
 
 export function Game() {
   const { t } = useTranslation();
@@ -280,6 +313,14 @@ export function Game() {
   // is captured. Set at the end of the mover's walk and cleared after the burst
   // plays out, so it is visual only and never touches game state.
   const [captureFx, setCaptureFx] = useState<{ color: string; to: number } | null>(null);
+  // A clash capture lands behind the result card, so the card gets a dim copy of the
+  // burst at the cell (viewport coordinates, measured when the move landed) while the
+  // board's real copy waits for the card to go. Alive exactly as long as the card.
+  const [cardCaptureFx, setCardCaptureFx] = useState<{
+    color: string;
+    x: number;
+    y: number;
+  } | null>(null);
   // Barrier Buster: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
   // (`PlayerMeta.barrierArmed`), and the engine blocks an unarmed seat at a wall.
@@ -369,6 +410,9 @@ export function Game() {
     prevTurnRef.current = effectiveTurn;
   }, [effectiveTurn, view.status, view.players, localNames, t]);
   const captureFxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The board burst a clash card is holding back: set when the settling move lands,
+  // fired `CAPTURE_FX_AFTER_CARD_MS` after the card goes (see the `view.clash` effect).
+  const pendingCardBurstRef = useRef<{ color: string; to: number } | null>(null);
   // Friend-invite picker (waiting room, PvP only): lets the host invite an
   // online accepted friend into THIS room (POST /api/game/:id/invite).
   const [friends, setFriends] = useState<
@@ -547,6 +591,9 @@ export function Game() {
           // again (a 6 or a capture), which is also what the reducer uses to pick whose turn
           // it is. Read here only to say so in the log.
           bonusRoll?: boolean;
+          // Set only when this move settled a clash: the result card is about to take the
+          // screen, which moves the capture burst out of the board (see below).
+          clashOutcome?: 'attacker_won' | 'defender_won';
         };
         const path = e.path ?? [];
         // A wall break on the wire: the engine credits one when the landing square stood TWO
@@ -593,7 +640,16 @@ export function Game() {
               ...prev.slice(0, 11),
             ]);
             retroAudio.playExplosionSound();
-            setCaptureFx({ color: e.color, to: e.to });
+            if (e.clashOutcome) {
+              // The clash result card is taking the screen in this same frame, and the
+              // board's burst would burn down behind its backdrop. So the card gets a dim
+              // copy at the landing cell now, and the real burst is held until the card
+              // goes (the `view.clash` effect below).
+              pendingCardBurstRef.current = { color: e.color, to: e.to };
+              setCardCaptureFx(captureBurstAnchor(e.color, e.to));
+            } else {
+              setCaptureFx({ color: e.color, to: e.to });
+            }
           }
           // A capture re-rolls the same seat. Say so when the capture was not a wall break:
           // the wall line already names its own re-roll, and the board looks like it is simply
@@ -840,6 +896,8 @@ export function Game() {
       rollAnswerGuardRef.current = null;
       setAnimatingPiece(null);
       setCaptureFx(null);
+      setCardCaptureFx(null);
+      pendingCardBurstRef.current = null;
     };
     // Keyed on identity fields only, never the whole activeMatch object, so
     // patching it after connect can't reopen the socket (see the game docs).
@@ -1044,6 +1102,27 @@ export function Game() {
     if (!cardId) return;
     socketRef.current?.emit('clash_card_hold', cardId, CLASH_RESULT_MS + CARD_HOLD_MARGIN_MS);
   }, [view.clashResult]);
+
+  // The clash card owns the capture burst. While it is up the card wears a dim copy
+  // (rendered with it, below), and the moment the card goes the board gets the real one:
+  // CAPTURE_FX_AFTER_CARD_MS later, so the two never share a frame. The card can leave
+  // two ways — its own CLASH_RESULT_MS timer and the engine releasing the clash early —
+  // and both narrow to `view.clash` going null, which is what this watches. A chain's
+  // intermediate rounds never set a pending burst, so only the settling move fires.
+  useEffect(() => {
+    if (view.clash) return;
+    const pending = pendingCardBurstRef.current;
+    if (!pending) return;
+    pendingCardBurstRef.current = null;
+    setCardCaptureFx(null);
+    const timer = setTimeout(() => {
+      setCaptureFx(pending);
+      if (captureFxTimerRef.current) clearTimeout(captureFxTimerRef.current);
+      captureFxTimerRef.current = setTimeout(() => setCaptureFx(null), CAPTURE_FX_MS);
+    }, CAPTURE_FX_AFTER_CARD_MS);
+    return () => clearTimeout(timer);
+  }, [view.clash]);
+
   // The three room rules travel as ONE object both ways, so a fourth rule is a
   // field rather than a fifth positional boolean. The engine enforces host-only
   // (MODIFIERS_HOST_ONLY) and echoes back what it actually persisted.
@@ -3574,6 +3653,27 @@ export function Game() {
           onComplete={clearClash}
           allowBothSides={activeMatch.mode === 'hotseat'}
         />
+      )}
+
+      {/* The clash card's dim copy of the capture burst: the same ring and sparks at the
+          cell the capture landed on, held for exactly as long as the card. It is pinned
+          above the overlay (zIndex 1000) because the card covers the middle of the board,
+          so a copy behind it would be invisible on half the loop. The board's own burst
+          fires once the card is gone (see the `view.clash` effect). */}
+      {view.clash && cardCaptureFx && (
+        <div
+          style={{
+            position: 'fixed',
+            left: cardCaptureFx.x,
+            top: cardCaptureFx.y,
+            width: 0,
+            height: 0,
+            zIndex: 1000,
+            pointerEvents: 'none',
+          }}
+        >
+          <CaptureBurst color={cardCaptureFx.color} opacity={CAPTURE_FX_CARD_OPACITY} />
+        </div>
       )}
 
       {/* Game Results Modal Popup */}

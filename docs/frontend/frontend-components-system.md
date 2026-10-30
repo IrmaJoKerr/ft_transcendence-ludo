@@ -41,7 +41,8 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/components/railButton.ts` | Shared rail-button styles: `railButtonStyle(active)` and `railHoverHandlers(active, edge)`, used by the navbar rail buttons |
 | `src/components/RetroAuthLayout.tsx` | Retro-styled authentication page container (`tag`, optional `topRight` pinned 12px inside the card's top-right corner, `children`), and `NeonCheck`: the terms tick glyph |
 | `src/components/LanguageSwitcher.tsx` | Segmented EN/MS/FR switch in two renderings: the compact `pill` used by `Login` (`topRight`) and `LegalPage`, and the two-line `tabs` used by the `RetroNavbar` account popover |
-| `src/components/Board.tsx` | Ludo board: tracks, bases, pieces, legal-move highlights. Every safe square (the four tinted starts and the four pre-start cells) wears the same `SafeStar` — white core, black outline, so it stays legible on both the near-black track and the four neon start cells — and the `noSafeZones` rule withholds all eight together |
+| `src/components/Board.tsx` | Ludo board: tracks, bases, pieces, legal-move highlights. Every safe square (the four tinted starts and the four pre-start cells) wears the same `SafeStar` — white core, black outline, so it stays legible on both the near-black track and the four neon start cells — and the `noSafeZones` rule withholds all eight together. Cell geometry (step → board cell) lives in `src/game/boardGeometry.ts`, and the capture burst it draws is `src/components/CaptureBurst.tsx` |
+| `src/components/CaptureBurst.tsx` | The capture burst: one expanding ring plus eight sparks, drawn around a 0×0 anchor at the caller's origin so the caller decides where on screen it goes. `opacity` scales the whole thing. Pure cosmetic, no input |
 | `src/components/Die.tsx` | Dice component: face rendering, accelerating roll tumble and a braked die's near-miss settle |
 | `src/components/UserAvatar.tsx` | Avatar image: keyed by the immutable `userId`; requests the photo only when the seat is not a bot and a photo is known to exist (payload flag or a live `avatar_changed` override, which the backend pushes to that user's own clients only), otherwise renders the DiceBear default. A failed load marks that id broken for the session so it is not retried; an optional `onPhotoError` callback runs when that happens, so a parent component can show a message (the Profile page uses it to show a warning in the user's language) |
 | `src/dicebear.ts` | DiceBear helper: generates an avatar data URI (Uniform Resource Identifier) (`avataaars`/`bottts`/`identicon`) |
@@ -97,6 +98,21 @@ type BoardProps = {
 }
 ```
 
+### CaptureBurst Component
+
+```typescript
+type CaptureBurstProps = {
+  color: string;      // the seat's base colour, used by the ring and half the sparks
+  opacity?: number;   // multiplies the whole burst; the clash card's copy uses
+                      // CAPTURE_FX_CARD_OPACITY (0.7), the board's uses 1
+}
+```
+
+No positioning props: the burst is drawn around a 0×0 anchor at its parent's origin and
+the caller places the parent. The board puts that anchor in the landing cell's centre
+(`gridRow`/`gridColumn` + `alignSelf`/`justifySelf: center`), and `Game.tsx` pins it over
+the same cell in viewport coordinates for the clash card's dim copy.
+
 ### Die Component
 
 ```typescript
@@ -148,6 +164,7 @@ sequenceDiagram
     Board->>Board: Render track paths (colored cells)
     Board->>Board: Render home stretch + goal area
     Board->>Board: Render pieces for each player
+    Board->>Board: Anchor CaptureBurst on the landing cell (fx prop)
     Board->>Board: Highlight legal moves when dice rolled
 ```
 
@@ -215,6 +232,7 @@ sequenceDiagram
        ├── Render home stretches
        ├── Render goal area
        ├── Render pieces
+       ├── fx set → anchor CaptureBurst on that cell
        └── Highlight legal moves
 ```
 
@@ -285,6 +303,7 @@ Per-constant notes:
 - **Overlays rendered through a portal.** `NotificationBell`'s dropdown and `RetroNavbar`'s account popover both render into `<body>`. A high `z-index` cannot escape an ancestor's stacking context (the sticky sidebar's `position: sticky` creates one, which traps even very large z-indices), so the overlays render outside it. Their position comes from the trigger's current `getBoundingClientRect()` instead of CSS anchoring.
 - **Avatars are keyed by the immutable user id, and a version marker is appended when the URL changes.** `UserAvatar` takes `userId` (the photo key) and keeps `username` only as the DiceBear seed and alt text, so a display-name rename can never invalidate an avatar URL. It requests `/api/user/id/<userId>/avatar` only when the seat is not a bot **and** a photo is known to exist: the payload's `hasAvatarPhoto` or a live `avatar_changed` override in `avatarCache.ts` (the SSE event is pushed to that user's own clients only, so this only matters for the signed-in user's own photo). Anything else renders the DiceBear default, so a user without a photo never causes a 404 request. **A change also appends `?v=<stamp>`**, because React re-rendering is not enough on its own: a byte-identical image URL can be served from the browser's in-memory image cache without any request, so `no-cache` never gets the chance to revalidate. The stamp value comes from the SSE event (or `Date.now()` for the uploader's own client, so its own view needs no SSE); the event only ever reaches the owner's own clients, so other accounts pick the change up on their next profile/roster fetch. A failed load records that id in the store's `broken` set, so the session stops retrying it. `ResultsModal` passes each row's own `userId`, `hasAvatarPhoto`, and `avatarStyle` from `LastResult` (carried from the engine's roster), so an opponent with a photo is shown with it, a bot or a non-host hotseat seat renders the generated avatar, and no row requests a URL that would 404. In hotseat, `Game.tsx` stamps the store's `/me` id onto the host's own seat (the colour that device joined the match with), so the host's row is the one local seat that keeps a photo. The viewer's own row keeps the store's live `/me` flag instead, because the profile page writes it on upload or delete. **The arena lobby's seat roster and the game's pilot cards use the same three-field contract**: the host's own seat passes the store's `/me` facts (photo, style), while each local hotseat pilot seat passes only its typed-in name and a bot seat passes its assistant-name label, so those seats render the generated avatar and request nothing. The full pipeline (storage, the shared Redis record, caching and freshness) is described in [`avatar-system.md`](../avatar-system.md).
 - **`DeleteAccountModal` is a two-step dialog.** Accounts created through a provider have no password, so they set one first, because deletion always requires the password. They then confirm with that password and an acknowledgement checkbox. On success the store's `logout()` clears the session and the user lands on `/login`.
+- **The capture burst is one visual, placed by its callers.** `CaptureBurst` renders a ring and eight sparks around a 0×0 anchor at its parent's origin and takes no position of its own: the board anchors it inside the landing cell, and `Game.tsx` re-anchors the same component in viewport coordinates when a clash result card is covering the board. The two copies therefore cannot drift apart, and `CAPTURE_FX_MS` is the single source for how long a burst runs (it is interpolated into the inline `animation` strings; the keyframes carry no duration). The burst's keyframes are injected once by the component under `capture-fx-keyframes`, so the board and the card share one definition.
 - **CJK label sizing (`RetroNavbar` account popover).** CJK (Chinese, Japanese and Korean) glyphs fill the em box, while Latin letters take up roughly half of it, so Latin labels use a smaller px value and look the same size.
 - **RetroNavbar compact mode.** Below Tailwind's `xl` breakpoint (1280px) the sidebar collapses to an icon-only rail. The labels are hidden from JavaScript rather than by CSS, because parts of the bar are plain inline styles. Every page that renders the bar uses the same threshold with `w-[88px] xl:w-[270px]`.
 - **RetroNavbar track layout.** The nav track uses `overflow-y: auto` only as a fallback. The track is not shifted vertically, because at short window heights a shift pushes the last item over the theme button.
@@ -300,7 +319,8 @@ Per-constant notes:
 | Component | Depends On | Purpose |
 |-----------|-----------|---------|
 | `RetroAuthLayout` | `styles/tw.ts` | `GRID_BACKGROUND` class constant, inline styles |
-| `Board` | `theme.ts` | `COL`, inline styles |
+| `Board` | `theme.ts`, `game/boardGeometry.ts`, `CaptureBurst` | `COL`, the step → cell mapping, and the landing cell's burst |
+| `CaptureBurst` | `react`, `game/timing.ts` | Its own keyframes and the burst's one duration constant; no theme import, the caller passes the CSS colour |
 | `Die` | `react` | Inline `shake` animation and pip-grid faces (no theme import) |
 | `OAuthButtons` | `theme.ts` | `btnOutline` style |
 | `RetroNavbar` | `store.tsx` | `useApp` for `user`, `lang`, `setLang`, `logout` |

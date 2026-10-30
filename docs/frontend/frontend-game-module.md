@@ -41,10 +41,12 @@ The Game page (`/game`) is the real-time gameplay screen. It has:
 |------|------|
 | `src/pages/Game.tsx` | Game page: socket handlers, waiting room, roster, controls, rules deck and results wiring |
 | `src/components/Board.tsx` | Board component: renders the Ludo track, pieces, bases, safe-zone stars, chain badges and token pips |
+| `src/components/CaptureBurst.tsx` | The capture burst (ring + eight sparks) around a caller-placed anchor; the board and the clash card's dim copy share it |
 | `src/components/Die.tsx` | Die component: dice face rendering, the accelerating tumble and a braked die's near-miss settle |
 | `src/game/ClashOverlay.tsx` | Clash QTE: phases, press bars, result card, keyboard listener and touch pads |
+| `src/game/boardGeometry.ts` | Logical step → board cell mapping (track loop, home lanes, per-colour offsets), shared by the board and the capture burst's anchor |
 | `src/game/reducer.ts` | Pure reducer that turns engine events into local view state |
-| `src/game/timing.ts` | Client-side presentation delays shared with the engine's timing contract, plus the dice brake's landing clamp |
+| `src/game/timing.ts` | Client-side presentation delays shared with the engine's timing contract, the dice brake's landing clamp, and the capture burst's length, card opacity and post-card beat |
 | `src/game/types.ts` | GameState, PlayerColor, LegalMove, MoveResult and others |
 | `src/socket.ts` | Socket.IO client: `connectSocket()`, typed Server/Client event maps |
 | `src/utils/device.ts` | `isMobileOS()` predicate that selects the touch pad path |
@@ -169,6 +171,12 @@ sequenceDiagram
             Note over Game: the chain applies the move on its last round
         end
         Engine-->>Game: piece_moved (with state_update, after any clash card)
+        opt The move captured, and a clash settled it
+            Note over Game: piece_moved and clash_result arrive together
+            Game->>Game: card copy of the burst at the cell, CAPTURE_FX_CARD_OPACITY
+            Note over Game: the card ends (its timer, or the engine's release)
+            Game->>Game: CAPTURE_FX_AFTER_CARD_MS later the board's own burst fires
+        end
         Game->>Game: Update the board
     else No
         Game->>User: Shake the piece ("can't move that one")
@@ -211,6 +219,10 @@ User clicks piece
   ├── Check if piece is in legalMoves for current dice
   │   ├── Yes → emit('move_piece', pieceId)
   │   │   └── on 'piece_moved' → dispatch → update board
+  │   │        └── captured → capture burst on the landing cell
+  │   │             └── clash settled the move → the card wears a dim copy
+  │   │                  (CAPTURE_FX_CARD_OPACITY), the board's burst waits for the
+  │   │                  card to go + CAPTURE_FX_AFTER_CARD_MS
   │   └── No → show invalid feedback
 ```
 
@@ -236,6 +248,7 @@ on 'game_ended' { winner, resultDetail }
 - **"RETURN TO LOBBY" does not leave the match.** The button only navigates back to `/gamelobby`: it emits no `leave_game` and calls no exit endpoint. Unmounting the page drops the socket, which opens the engine's 45 s disconnect grace window for that seat. Inside the window the lobby offers a **REJOIN** row for the room (`GET /api/games/rooms` → `mySeat: true`, and `GET /api/games/mine` still lists it), and rejoining restores the same colour and pieces. Once the window expires the engine marks the seat `exited` and parks its pieces at `step = -1`; both endpoints then stop advertising the room to that player: the seat stays behind as a ghost, and the player is free to start or join another game.
 - **`dice_rolled` is matched to the turn before the event** (`game/reducer.ts`). On the no-move and third-six-forfeit paths the engine advances `currentTurn` before it emits, so the event's own `currentTurn` can already name the *next* player while the rolled value belongs to the player who rolled.
 - **Tapping a spinning die brakes it, and the brake never touches the value** (`pages/Game.tsx` + `components/Die.tsx`). One handler covers the die's three states: at rest it starts a roll, a roll this device started brakes once `DICE_BRAKE_ARM_MS` (200 ms) has passed, and everything else — another seat's roll, a tap inside the arming window, a roll already braked — is ignored. The clock opens at the tap that started the roll, not at the server's answer, so the window lasts the same whatever the round trip is, and `rollStartRef` stays null for a roll this device did not start, which is what keeps an opponent's or a bot's dice un-brakeable. The landing is `diceLandAt(start, valueAt, brakeAt)` in `game/timing.ts`: without a brake it is the full `DICE_ROLL_ANIM_MS` (750 ms), with one it is `max(450 ms from the start, 150 ms after the tap, 150 ms after the answer)` and never past the natural end — a roll can be shortened, never extended, and a slow answer wins over the shortened window rather than settling on a face nobody sent. The die slows onto the neighbouring face (`brakeTo ± 1`, never 0 or 7) and lands on the server's value, which the dispatch carries untouched. `piece_moved` then waits out what is LEFT of the spin (`rollLandAtRef`) instead of the whole constant, so a braked roll does not leave the walk sitting still for time the roll no longer has. The die is the tap surface and its button is never disabled — that is the requirement the brake needs — while the ROLL button keeps its disabled-while-spinning state, because a brake labelled ROLLING… would need new copy in three locales before it could mean anything.
+- **The capture burst survives the clash card, dimmed, and then fires for real** (`pages/Game.tsx` + `components/CaptureBurst.tsx` + `game/timing.ts`). The engine emits `piece_moved` immediately before `clash_result` (`clash-engine.ts:560`/`:565`), so a clash's capture lands in the same frame the result card takes the screen — and the overlay's `rgba(0,0,0,.72)` plus `blur(4px)` backdrop burned the whole 600 ms burst down where nobody could see it. The burst is now one component, `CaptureBurst`, drawn around a caller-placed 0×0 anchor: the board anchors it in the landing cell exactly as before, and `Game.tsx` pins a second copy over the same cell in viewport coordinates (measured from the cell's `data-cell` square at the moment the move lands, via `stepToCell` in `game/boardGeometry.ts`) at `CAPTURE_FX_CARD_OPACITY` (0.7) for exactly as long as the card. That copy sits above the overlay (`zIndex 1000`) on purpose: the card covers the middle of the board, so a copy behind it would vanish on about half the loop, which is the half a landing most often lands on. The real burst is held in `pendingCardBurstRef` and fired when `view.clash` goes null — the card's own `CLASH_RESULT_MS` timer and an early engine release both narrow to that one signal — `CAPTURE_FX_AFTER_CARD_MS` (50 ms) later, so the two never share a frame and the board punctuates once the player can see it again. A chain's intermediate rounds emit no `piece_moved`, so only the settling move defers anything, and a lost clash captures nothing, so it defers nothing. All three numbers are constants in `game/timing.ts`; `CAPTURE_FX_MS` is also interpolated into both copies' inline `animation` strings, which keeps the keyframes free of a hard-coded 600.
 - **Bot names are translated.** Engine bots are named `bot-<color>`; `localizedBotName(t, name)` turns that into a translated "bot-<colour>" and keeps the "(assistant)" name the lobby assigned the seat, so French renders "bot-red (Siri)" as "bot-rouge (Siri)". Names that do not match are returned unchanged. Used by this page and `ResultsModal`.
 - **Turn labels fall back to a translated colour word.** The live turn announcement pill, the game status marquee bar, the status line under the pilot banner, the turn-swap notice, the paused-reconnect banner and the roll-log and capture-log fallbacks all name the seat in control. When a seat has no name to show, they read the colour word through `localizedColor(t, color)`, which maps a `PlayerColor` to the shared `lobby.color*` keys, so French shows "Rouge" where English shows "Red". `utils/botName.ts` exports it next to `localizedBotName`, and the callers upper-case it where the English label is all caps.
 - **`nextTurn` mirrors the engine's turn advance** (`game/reducer.ts`). It walks `state.players[]` in order and gives the turn to the next seat that has not left. A disconnected seat with an open grace window holds the turn, so the prediction must not skip past it; otherwise the board would name the wrong pilot in control between the move and the next server frame.
@@ -268,7 +281,9 @@ on 'game_ended' { winner, resultDetail }
 | `game/reducer.ts` | Pure state reducer for engine events (`GameViewState`, `initialView`, `applyEvent`) |
 | `game/types.ts` | `GameState`, `PlayerMeta`, `PlayerColor`, `LegalMove`, `MoveResult`, `ClashState` |
 | `game/ClashOverlay.tsx` | Clash QTE overlay for keyboard, touch pads and the result card |
-| `game/timing.ts` | Client presentation delays (`CLASH_*`, `MOVE_STEP_ANIM_MS`, `DICE_BRAKE_*`, `diceLandAt`, `RESULTS_MODAL_DELAY_MS`, guards) |
+| `game/timing.ts` | Client presentation delays (`CLASH_*`, `MOVE_STEP_ANIM_MS`, `DICE_BRAKE_*`, `CAPTURE_FX_*`, `diceLandAt`, `RESULTS_MODAL_DELAY_MS`, guards) |
+| `game/boardGeometry.ts` | `stepToCell` and `TRACK_CELLS`: the step → cell mapping the board renders from and the burst's anchor is measured on |
+| `components/CaptureBurst.tsx` | The capture burst's ring and sparks, anchored by whoever draws it (board cell, or the clash card's cell copy) |
 | `components/Board.tsx` | Renders Ludo board track, pieces, bases, safe-zone stars, chain badges and token pips |
 | `components/Die.tsx` | Renders the dice face and the roll animation |
 | `components/UserAvatar.tsx` | Pilot-card avatar: the account photo when one is known to exist, otherwise the generated DiceBear avatar (bots and hotseat's local seats have no account, so they take the generated path; the host's own seat keeps the store's `/me` photo instead) |

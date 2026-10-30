@@ -19,6 +19,9 @@ export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
 export const CARD_HOLD_MARGIN_MS = 200; // the receipt's one-way trip
+export const CAPTURE_FX_MS = 600; // the capture burst's own length (its keyframes read it)
+export const CAPTURE_FX_CARD_OPACITY = 0.7; // the burst as it reads over the clash card
+export const CAPTURE_FX_AFTER_CARD_MS = 50; // beat between the card leaving and the real burst
 
 // When a roll in flight may land, all in one place because the brake's whole
 // behaviour is this clamp. `start` is the tap that opened the roll, `valueAt` the
