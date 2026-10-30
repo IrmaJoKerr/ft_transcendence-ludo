@@ -5,7 +5,16 @@
 export const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("CLASH!")
 export const CLASH_COUNTDOWN_MS = 3000; // GET READY, then 3-2-1
 export const CLASH_PRESS_MS = 5000; // keys and bars race
-export const CLASH_RESULT_MS = 2000; // Card D result card, and the hold forecast
+
+// Card D is ADDED from its two beats instead of being one guessed number: the gesture
+// (game/ResultFx.tsx, which plays all five of its animations inside this budget) and
+// the headline, which needs to be read once nothing on the stage is moving any more.
+// The engine mirrors these two rather than the sum, because the sum is also its input
+// freeze and the chain's next-round timer: re-timing a gesture moves the card on both
+// sides at once, and no third place has to be edited to keep up.
+export const RESULT_FX_MS = 1300; // how long the gesture lasts (1.2 s was the floor)
+export const RESULT_HEADLINE_READ_MS = 1300; // the headline after the gesture stops
+export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // Card D: 2.6 s
 
 export const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
 export const CLASH_UI_TICK_MS = 250; // overlay re-render cadence

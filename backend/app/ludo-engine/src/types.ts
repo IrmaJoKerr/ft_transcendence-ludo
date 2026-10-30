@@ -291,6 +291,10 @@ export type GameEvent =
   | {
       type: 'clash_result';
       gameId: string;
+      // Who attacked, independent of who won this round: it is what the client's
+      // result FX is picked from (a won single round, a won chain round, a broken
+      // wall, or the attacker behind the shield), so the card never has to infer it.
+      attacker: PlayerColor;
       winner: PlayerColor;
       loser: PlayerColor;
       winnerPresses: number;

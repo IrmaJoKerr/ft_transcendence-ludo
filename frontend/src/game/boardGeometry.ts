@@ -66,3 +66,53 @@ export function stepToCell(color: ColorKey, step: number): Cell | null {
   }
   return null;
 }
+
+/**
+ * The invader glyph each seat's pieces are drawn with, in an 11×8 pixel grid. Lives
+ * here rather than in `components/Board.tsx` so the board's `Sphere` and the clash
+ * result's "trussed piece" share ONE piece: a result FX that invented its own token
+ * would be a second, subtly different piece on the same screen.
+ */
+export const PIECE_GLYPH: Record<ColorKey, string> = {
+  yellow: `
+    M2,0 h1 v1 h-1 z  M8,0 h1 v1 h-1 z
+    M3,1 h1 v1 h-1 z  M7,1 h1 v1 h-1 z
+    M2,2 h7 v1 h-7 z
+    M1,3 h2 v1 h-2 z  M4,3 h3 v1 h-3 z  M8,3 h2 v1 h-2 z
+    M0,4 h11 v1 h-11 z
+    M0,5 h1 v1 h-1 z  M2,5 h7 v1 h-7 z  M10,5 h1 v1 h-1 z
+    M0,6 h1 v1 h-1 z  M2,6 h1 v1 h-1 z  M8,6 h1 v1 h-1 z  M10,6 h1 v1 h-1 z
+    M3,7 h2 v1 h-2 z  M6,7 h2 v1 h-2 z
+  `,
+  red: `
+    M0,0 h1 v2 h-1 z  M10,0 h1 v2 h-1 z
+    M2,1 h7 v1 h-7 z
+    M1,2 h2 v1 h-2 z  M4,2 h3 v1 h-3 z  M8,2 h2 v1 h-2 z
+    M0,3 h11 v1 h-11 z
+    M0,4 h1 v1 h-1 z  M2,4 h7 v1 h-7 z  M10,4 h1 v1 h-1 z
+    M0,5 h1 v1 h-1 z  M2,5 h1 v1 h-1 z  M8,5 h1 v1 h-1 z  M10,5 h1 v1 h-1 z
+    M3,6 h2 v1 h-2 z  M6,6 h2 v1 h-2 z
+    M2,7 h1 v1 h-1 z  M8,7 h1 v1 h-1 z
+  `,
+  green: `
+    M4,0 h3 v1 h-3 z
+    M3,1 h5 v1 h-5 z
+    M2,2 h7 v1 h-7 z
+    M1,3 h2 v1 h-2 z  M4,3 h3 v1 h-3 z  M8,3 h2 v1 h-2 z
+    M0,4 h11 v1 h-11 z
+    M1,5 h1 v1 h-1 z  M3,5 h5 v1 h-5 z  M9,5 h1 v1 h-1 z
+    M0,6 h1 v1 h-1 z  M10,6 h1 v1 h-1 z
+    M1,7 h1 v1 h-1 z  M9,7 h1 v1 h-1 z
+  `,
+  blue: `
+    M3,0 h5 v1 h-5 z
+    M1,1 h9 v1 h-9 z
+    M0,2 h11 v1 h-11 z
+    M0,3 h2 v1 h-2 z  M4,3 h3 v1 h-3 z  M9,3 h2 v1 h-2 z
+    M0,4 h11 v1 h-11 z
+    M2,5 h2 v1 h-2 z  M7,5 h2 v1 h-2 z
+    M1,6 h1 v1 h-1 z  M4,6 h1 v1 h-1 z  M6,6 h1 v1 h-1 z  M9,6 h1 v1 h-1 z
+    M0,7 h1 v1 h-1 z  M10,7 h1 v1 h-1 z
+  `,
+};
+

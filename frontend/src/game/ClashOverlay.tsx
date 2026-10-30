@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClashResult, GameViewState } from './reducer';
 import type { ClashPhase, PlayerColor } from './types';
 import { isMobileOS } from '../utils/device';
+import { ResultFx, type ResultFxKind } from './ResultFx';
 import {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
@@ -430,6 +431,29 @@ export function ClashOverlay({
           ? t('game.clashChainBroken')
           : t('game.clashChainRepulsed');
 
+  // Which gesture the result card plays (game/ResultFx.tsx). Five outcomes, all read
+  // from fields the frame already carries: `winner === attacker` splits a won round
+  // from a lost one, `totalRounds > 1` says the square is a wall, and `continues` says
+  // the wall still stands. A 1v1 is therefore the ropes or the shield, a wall is the
+  // raspberry, one brick out, or the crumble.
+  const fxAttacker = result?.attacker ?? clash.attacker;
+  const fxAttackerWon = result ? result.winner === fxAttacker : false;
+  const fxIsWall = (result?.totalRounds ?? 1) > 1;
+  const fxDefender = !result
+    ? clash.defender
+    : result.winner === fxAttacker
+      ? result.loser
+      : result.winner;
+  const fxKind: ResultFxKind = !fxAttackerWon
+    ? fxIsWall
+      ? 'raspberry'
+      : 'shield'
+    : fxIsWall
+      ? result?.continues
+        ? 'brick'
+        : 'crumble'
+      : 'ropes';
+
   // The overlay swallows every tap: a stray tap must not emit a roll or a move and
   // spend rate-limit tokens. A native non-passive listener is required, because
   // preventDefault on a passive one is ignored.
@@ -555,6 +579,23 @@ export function ClashOverlay({
               }}
             >
               {result.continues ? t('game.clashRoundOver') : t('game.clashOver')}
+            </div>
+            {/* The gesture the card is about, above the headline it explains. Keyed on
+                the card id so a chain's next round remounts it: new animation, new
+                sound, same card. */}
+            <div
+              style={{
+                width: 'min(60vw, 420px)',
+                height: 'clamp(120px, 24vmin, 240px)',
+                margin: '0 auto 4px',
+              }}
+            >
+              <ResultFx
+                key={result.cardId ?? `round-${result.round ?? 1}`}
+                kind={fxKind}
+                attacker={fxAttacker}
+                defender={fxDefender}
+              />
             </div>
             <div
               style={{

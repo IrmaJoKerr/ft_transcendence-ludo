@@ -181,38 +181,212 @@ export class RetroAudioEngine {
     }
   }
 
+  // One noise recipe for every impact: a white-noise buffer through a filter that
+  // sweeps `fromHz` → `toHz` over `seconds` (a bandpass holds its centre instead, for
+  // rustles). The explosion is the original caller; the clash wall, the shot and the
+  // rope are the same body with their own bands, so there is one place where a hit is
+  // shaped instead of four near-copies.
+  private noiseBurst(
+    seconds: number,
+    fromHz: number,
+    toHz: number,
+    peak = 1.5,
+    mode: 'lowpass' | 'bandpass' = 'lowpass',
+  ) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const bufferSize = Math.floor(ctx.sampleRate * seconds);
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1; // White noise
+    }
+
+    const whiteNoise = ctx.createBufferSource();
+    whiteNoise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = mode;
+    filter.frequency.setValueAtTime(fromHz, ctx.currentTime);
+    if (mode === 'bandpass') filter.Q.setValueAtTime(0.9, ctx.currentTime);
+    else filter.frequency.linearRampToValueAtTime(toHz, ctx.currentTime + seconds);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(this.volume * peak, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + seconds);
+
+    whiteNoise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    whiteNoise.start();
+    whiteNoise.stop(ctx.currentTime + seconds);
+  }
+
   // Play Explosion FX for arcade games
   playExplosionSound() {
     if (this.muted) return;
     try {
       this.initContext();
-      if (!this.ctx) return;
-      const bufferSize = this.ctx.sampleRate * 0.25;
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const output = buffer.getChannelData(0);
+      this.noiseBurst(0.25, 1000, 100);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
 
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1; // White noise
+  // Clash result FX — the loser is tied up: two ratchet clicks (the old handcuff click
+  // recipe, re-purposed), then a short bandpassed rustle as the rope bites.
+  playRopeBind() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const click = (at: number, freq: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, at);
+        gain.gain.setValueAtTime(this.volume * 1.1, at);
+        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.008);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + 0.008);
+      };
+      click(ctx.currentTime, 900);
+      click(ctx.currentTime + 0.06, 1400);
+      this.noiseBurst(0.12, 2400, 2400, 0.9, 'bandpass');
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // Clash result FX — the sword snaps on the shield: a 900 Hz metallic clang (with a
+  // 1340 Hz square partial, which is what makes it read as metal), then a 2.2 kHz square
+  // shard with a fast decay.
+  playSwordBreak() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const clang = [
+        { freq: 900, type: 'triangle' as OscillatorType, gain: 1 },
+        { freq: 1340, type: 'square' as OscillatorType, gain: 0.25 },
+      ];
+      for (const partial of clang) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = partial.type;
+        osc.frequency.setValueAtTime(partial.freq, ctx.currentTime);
+        gain.gain.setValueAtTime(this.volume * partial.gain, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
       }
 
-      const whiteNoise = this.ctx.createBufferSource();
-      whiteNoise.buffer = buffer;
+      const shardAt = ctx.currentTime + 0.06;
+      const shard = ctx.createOscillator();
+      const shardGain = ctx.createGain();
+      shard.type = 'square';
+      shard.frequency.setValueAtTime(2200, shardAt);
+      shardGain.gain.setValueAtTime(this.volume * 0.6, shardAt);
+      shardGain.gain.exponentialRampToValueAtTime(0.001, shardAt + 0.1);
+      shard.connect(shardGain);
+      shardGain.connect(ctx.destination);
+      shard.start(shardAt);
+      shard.stop(shardAt + 0.1);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
 
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
-      filter.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.25);
+  // Clash result FX — a round won on a wall: the shot lands (a 12 ms crack), then the
+  // brick goes (a square falling 620 → 180 Hz).
+  playBrickHit() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      this.noiseBurst(0.012, 5000, 3000, 1.2);
+      const ctx = this.ctx;
+      const at = ctx.currentTime + 0.01;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(620, at);
+      osc.frequency.exponentialRampToValueAtTime(180, at + 0.26);
+      gain.gain.setValueAtTime(this.volume * 0.9, at);
+      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.26);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.26);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
 
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(this.volume * 1.5, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+  // Clash result FX — the wall comes down: the explosion recipe stretched to a
+  // collapse, over a 60 Hz sub that carries the weight.
+  playWallCrumble() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      this.noiseBurst(0.9, 800, 90);
+      const ctx = this.ctx;
+      const sub = ctx.createOscillator();
+      const gain = ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(60, ctx.currentTime);
+      sub.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.8);
+      gain.gain.setValueAtTime(this.volume * 1.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      sub.connect(gain);
+      gain.connect(ctx.destination);
+      sub.start();
+      sub.stop(ctx.currentTime + 0.8);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
 
-      whiteNoise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
+  // Clash result FX — taunt: a sawtooth blown through an ~18 Hz amplitude wobble,
+  // which is what makes it read as a raspberry rather than a bass note.
+  playRaspberry() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const wobble = ctx.createOscillator();
+      const wobbleDepth = ctx.createGain();
 
-      whiteNoise.start();
-      whiteNoise.stop(this.ctx.currentTime + 0.25);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, ctx.currentTime);
+      gain.gain.setValueAtTime(this.volume * 0.55, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+      wobble.type = 'sine';
+      wobble.frequency.setValueAtTime(18, ctx.currentTime);
+      wobbleDepth.gain.setValueAtTime(this.volume * 0.5, ctx.currentTime);
+
+      wobble.connect(wobbleDepth);
+      wobbleDepth.connect(gain.gain);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+      wobble.start();
+      wobble.stop(ctx.currentTime + 0.5);
     } catch (e) {
       console.debug('Audio error:', e);
     }

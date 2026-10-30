@@ -6,7 +6,15 @@
 export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
 export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys still hidden
 export const CLASH_PRESS_MS = 5000; // press race window
-export const CLASH_RESULT_MS = 2000; // result card, displayed by the client
+// The result card, ADDED from the same two beats the client adds (it mirrors
+// `frontend/src/game/timing.ts`): the gesture the card plays, then the headline's read
+// time. The engine never draws the card, but it owns the freeze stamped on the game and
+// the chain's next-round timer, so it has to know the sum to the millisecond; keeping
+// the two parts here means re-timing the gesture moves the card on both sides at once
+// instead of leaving a hand-computed 2600 to update.
+export const RESULT_FX_MS = 1300; // the result card's gesture (ResultFx.tsx)
+export const RESULT_HEADLINE_READ_MS = 1300; // the headline once the gesture stops
+export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // 2600
 export const CLASH_RESULT_FREEZE_MS = 4000; // input freeze CEILING: a card hold only shortens it
 export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
 export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start

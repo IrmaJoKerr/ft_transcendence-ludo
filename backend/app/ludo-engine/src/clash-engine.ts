@@ -446,6 +446,7 @@ export class ClashEngine {
           type: 'clash_result',
           gameId,
           cardId,
+          attacker: pc.attacker,
           winner: pc.attacker,
           loser: defenderColor,
           winnerPresses: aCount,
@@ -566,6 +567,10 @@ export class ClashEngine {
         type: 'clash_result',
         gameId,
         cardId,
+        // The attacker is named even when they LOST this round: the client picks the
+        // shield gesture from `winner !== attacker`, and the seat colour of the card
+        // from it.
+        attacker: pc.attacker,
         winner: attackerWon ? pc.attacker : defenderColor,
         loser: attackerWon ? defenderColor : pc.attacker,
         winnerPresses: attackerWon ? aCount : dCount,

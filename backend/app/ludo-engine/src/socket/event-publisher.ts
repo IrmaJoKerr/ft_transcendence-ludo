@@ -143,6 +143,10 @@ export class EventPublisher {
           JSON.stringify({
             type: 'clash_result',
             cardId: event.cardId,
+            // Named before the winner because the client's result FX is picked from
+            // it: `winner === attacker` splits won from lost, and the chain flags
+            // split the won cases into ropes, brick and crumble.
+            attacker: event.attacker,
             winner: event.winner,
             loser: event.loser,
             winnerPresses: event.winnerPresses,

@@ -9,6 +9,10 @@ type ClashPayload = Omit<ClashState, 'target' | 'attackerPresses' | 'defenderPre
   Partial<Pick<ClashState, 'target' | 'attackerPresses' | 'defenderPresses'>>;
 
 export type ClashResult = {
+  // Who attacked this round, whatever the outcome: the result FX is picked from it
+  // (`winner === attacker` splits a won round from a lost one). Optional so a frame from
+  // an older engine still reads; the overlay falls back to the live clash's attacker.
+  attacker?: PlayerColor;
   winner: PlayerColor;
   loser: PlayerColor;
   winnerPresses: number;

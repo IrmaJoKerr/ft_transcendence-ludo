@@ -89,7 +89,9 @@ place". The client mirrors the shared subset in §13 with the same names and val
 | `CLASH_ANNOUNCE_MS` | 1500 | "CLASH!" flash; keys still hidden |
 | `CLASH_COUNTDOWN_MS` | 3000 | GET READY, then 3-2-1; keys still hidden |
 | `CLASH_PRESS_MS` | 5000 | the press race window (the `duration` on the wire is this ÷ 1000) |
-| `CLASH_RESULT_MS` | 2000 | how long the client shows the result card |
+| `RESULT_FX_MS` | 1300 | the result card's gesture, mirrored from the client (the engine never draws it, but the card's length is its freeze) |
+| `RESULT_HEADLINE_READ_MS` | 1300 | the beat the card's headline gets once the gesture stops |
+| `CLASH_RESULT_MS` | 2600 | the card, **added** from the two rows above rather than written down: the client shows it, the engine freezes input for it and arms the chain's next round on it |
 | `CLASH_RESULT_FREEZE_MS` | 4000 | input-freeze **ceiling**: a client card hold can only shorten it |
 | `CARD_HOLD_MIN_MS` | 250 | floor for a reported card hold: a client that asks for less is raised to this |
 | `CLASH_SWEEP_GRACE_MS` | 15000 | outer cleanup bound measured from the clash start |
@@ -591,7 +593,9 @@ those, so these values decide the card animation, never the game state.
 | `CLASH_ANNOUNCE_MS` 🔗 | 1500 | Card A: the "CLASH!" splash |
 | `CLASH_COUNTDOWN_MS` 🔗 | 3000 | GET READY, then 3-2-1 |
 | `CLASH_PRESS_MS` 🔗 | 5000 | the press race window, used for the card's CSS reveal and the "press for 5 seconds" copy; the live bar itself follows the server deadline |
-| `CLASH_RESULT_MS` 🔗 | 2000 | Card D: the result card, and the card hold the client reports |
+| `CLASH_RESULT_MS` 🔗 | 2600 | Card D: the result card, and the card hold the client reports (`RESULT_FX_MS + RESULT_HEADLINE_READ_MS`, added on both sides) |
+| `RESULT_FX_MS` 🔗 | 1300 | how long the card's gesture plays (`game/ResultFx.tsx` keeps every animation inside it) |
+| `RESULT_HEADLINE_READ_MS` 🔗 | 1300 | the headline's own time once the gesture has stopped |
 | `MOVE_STEP_ANIM_MS` 🔗 | 180 | one board step of the path animation |
 | `DICE_ROLL_ANIM_MS` 🔗 | 750 | dice spin before the path starts |
 
@@ -795,7 +799,7 @@ that mirrors it. A change is not complete until the mirror is edited too.
 
 | Value | Owner | Mirror | Note |
 |---|---|---|---|
-| Clash windows 1500 / 3000 / 5000 / 2000 | ⚙️ `timing.ts` | 🖥️ `game/timing.ts` | same names on both sides |
+| Clash windows 1500 / 3000 / 5000 / 2600 | ⚙️ `timing.ts` | 🖥️ `game/timing.ts` | same names on both sides; the card is added from `RESULT_FX_MS + RESULT_HEADLINE_READ_MS` |
 | `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 | ⚙️ `timing.ts` | 🖥️ `game/timing.ts` | the engine paces bot turns with the client's animation |
 | Key grids `u i o h j k b n m` / `q w e a s d z x c` | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` (touch decoys) | the sets are disjoint so a decoy cannot be the other side's key |
 | Tap weight 2 (`CLASH_TAP_COUNT_MAX`) | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` `TOUCH_TAP_COUNT` | the engine clamps: a heavier tap is cut to 2 |
