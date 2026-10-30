@@ -4,10 +4,10 @@ import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { JwtPayload } from './jwt-payload';
 import { requireSecret } from '../secrets';
-import { SESSION_TOKEN_AUDIENCE, TOKEN_ISSUER } from './auth.constants';
+import { ACCESS_COOKIE, SESSION_TOKEN_AUDIENCE, TOKEN_ISSUER } from './auth.constants';
 
 function extractFromCookie(req: Request): string | null {
-  return req.cookies.token ?? null;
+  return req.cookies[ACCESS_COOKIE] ?? null;
 }
 
 @Injectable()

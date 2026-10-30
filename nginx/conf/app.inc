@@ -131,6 +131,26 @@ location /socket.io/ {
     proxy_send_timeout 3600s;
 }
 
+# ═══════════════════════════════════════════════════════
+# SESSION WEBSOCKET PROXY: same-origin wss://<host>/ws-socket.io/ to backend.
+# One socket per tab, authenticated by the `token` cookie; its own path so it
+# cannot collide with the engine's default /socket.io/ above.
+# ═══════════════════════════════════════════════════════
+location /ws-socket.io/ {
+    set $backend_upstream http://backend:3000;
+    proxy_pass $backend_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # Long-lived sockets: an idle SPA tab must not be cut at the 60s default.
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}
+
 # Deny access to hidden files (e.g. .htaccess, .git, .env)
 location ~ /\. {
     deny all;

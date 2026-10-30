@@ -53,6 +53,13 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // The session socket: a distinct path, so this prefix cannot shadow or be
+      // shadowed by /socket.io above (prefixes match from the start).
+      '/ws-socket.io': {
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
     },
     // Bind mounts on macOS don't deliver inotify events reliably, so file
     // changes only reach HMR via polling when containerised.

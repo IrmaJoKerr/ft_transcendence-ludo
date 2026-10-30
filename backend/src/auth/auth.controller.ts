@@ -29,9 +29,8 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { GoogleAuthGuard, GithubAuthGuard, FortyTwoAuthGuard } from './oauth.guards';
 import { requireSecret, isTunnelRequest } from '../secrets';
 import { CSRF_COOKIE, issueCsrfCookie, isValidCsrfToken } from '../common/csrf';
+import { ACCESS_COOKIE } from './auth.constants';
 
-// Access-token cookie: JwtStrategy reads this
-const ACCESS_COOKIE = 'token';
 const ACCESS_MAX_AGE_MS = 15 * 60 * 1000; // 15 min
 // Refresh-token cookie, only the auth routes need it, so it's scoped to
 // /api/auth rather than sent on every API call. Long-lived.

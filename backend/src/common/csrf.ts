@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { originOf, publishedOrigins } from './origin';
 import { secret } from '../secrets';
 
 // CSRF protection for mutating routes, with two controls: an Origin allow-list
@@ -70,42 +71,6 @@ export function issueCsrfCookie(res: Response): string {
   return token;
 }
 
-// A request's own host is trusted, plus the URLs the app is published on. The
-// dev server is included because Vite proxies /api and keeps the browser on
-// http://localhost:5173. LAN is only added when `make lan` wrote LAN_IP.
-let allowedOrigins: Set<string> | null = null;
-function originAllowList(): Set<string> {
-  if (allowedOrigins) return allowedOrigins;
-  const values = [
-    process.env.FRONTEND_URL,
-    process.env.NGROK_FRONTEND_URL,
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-  ];
-  if (process.env.LAN_IP) {
-    values.push(`https://${process.env.LAN_IP}:${process.env.HTTPS_PORT ?? '8443'}`);
-  }
-  const set = new Set<string>();
-  for (const value of values) {
-    if (!value) continue;
-    const origin = originOf(value);
-    if (origin) set.add(origin);
-  }
-  allowedOrigins = set;
-  return set;
-}
-
-// Returns the serialized origin, or null for a value a browser reports as
-// "null" (sandboxed iframe, opaque origin) or an unparseable string.
-function originOf(value: string): string | null {
-  try {
-    const origin = new URL(value).origin;
-    return origin === 'null' ? null : origin;
-  } catch {
-    return null;
-  }
-}
-
 function reject(res: Response, code: string, message: string): void {
   res.status(403).json({ code, message });
 }
@@ -141,7 +106,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     const host = req.get('host');
     const sameHost =
       presented !== null && host !== undefined ? new URL(presented).host === host : false;
-    if (presented === null || (!sameHost && !originAllowList().has(presented))) {
+    if (presented === null || (!sameHost && !publishedOrigins().has(presented))) {
       reject(res, 'CSRF_ORIGIN_REJECTED', 'Cross-site request blocked');
       return;
     }

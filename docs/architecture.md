@@ -96,7 +96,7 @@ attaches to the `transcendence_network` bridge and reaches the others by service
 | `ludo-engine` | `…-ludo-engine` (node:22-alpine) | `node dist/index.js` — **Socket.IO game engine + inline bot AI** on 3001 (clients reach it same-origin via nginx; the host port exists for local `npm run dev`) | `127.0.0.1:3001 → 3001` | redis (healthy) |
 | `frontend` | `…-frontend` (node:22-alpine) | `publish.sh` — builds the **React SPA**, publishes it into the `spa_dist` volume, then watches the bind-mounted `./frontend/src` (`/app/src` in the container) and `package.json` and republishes on change (long-running build job) | — | — |
 | `frontend-dev` *(profile: dev)* | `…-frontend-dev` (node:22-alpine, `Dockerfile.dev`) | `npm run dev` — **Vite dev server with HMR**, serves source from the bind mount | `8080 → 8080` | backend, ludo-engine |
-| `nginx` | `…-nginx` (debian + nginx-extras) | `nginx.sh` waits for the backend health check, then `exec nginx -g "daemon off;"` — **TLS reverse proxy**: serves the SPA and proxies `/api/*` + `/socket.io/*`. Two listeners share one server body (`conf/app.inc`): `:443` for direct clients, `:444` for the ngrok tunnel (loopback-published, resolves the real client IP) | `8443 → 443`, `127.0.0.1:8444 → 444` | frontend (healthy), backend, ludo-engine |
+| `nginx` | `…-nginx` (debian + nginx-extras) | `nginx.sh` waits for the backend health check, then `exec nginx -g "daemon off;"` — **TLS reverse proxy**: serves the SPA and proxies `/api/*` + `/socket.io/*` (engine) + `/ws-socket.io/*` (session socket). Two listeners share one server body (`conf/app.inc`): `:443` for direct clients, `:444` for the ngrok tunnel (loopback-published, resolves the real client IP) | `8443 → 443`, `127.0.0.1:8444 → 444` | frontend (healthy), backend, ludo-engine |
 
 ### Volumes
 
@@ -188,6 +188,16 @@ selected per request from the `Host` header (`isTunnelRequest` in
 (`frontend/src/socket.ts` → `connectSocket`). The browser never needs to know the
 engine's real hostname or port. The inline bot AI connects internally inside the
 engine process.
+
+**Session realtime** — the backend also runs a per-tab session socket (namespace
+`/ws` on path `/ws-socket.io`, `backend/src/realtime/`), authenticated in the
+handshake by the same httpOnly `token` cookie the API uses and never by a token
+the page can read. nginx (and the Vite dev proxy) forward `/ws-socket.io/` to
+`backend:3000`, so it is same-origin like everything else. Phase 0 of the socket
+consolidation ([`todo.md`](../todo.md#socket-consolidation)) ships the transport
+only — the client does not connect yet; presence, rooms, friends and
+notifications move onto it in Phases 1-4, and session revocation already closes a
+revoked account's sockets.
 
 
 ---
@@ -578,10 +588,16 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── presence.service.ts       # per-user presence keys with TTL
 │   │   │   ├── presence.module.ts
 │   │   │   └── dto/heartbeat.dto.ts      # in-match flag on the heartbeat
-│   │   └── notification/         # Notifications (SSE + Redis pub/sub)
-│   │       ├── notification.controller.ts  # SSE stream + list/read/read-all
-│   │       ├── notification.service.ts     # persist + publish notifications
-│   │       └── notification.module.ts
+│   │   ├── notification/         # Notifications (SSE + Redis pub/sub)
+│   │   │   ├── notification.controller.ts  # SSE stream + list/read/read-all
+│   │   │   ├── notification.service.ts     # persist + publish notifications
+│   │   │   └── notification.module.ts
+│   │   └── realtime/             # Session socket (todo.md P2, Phase 0 transport only)
+│   │       ├── realtime.gateway.ts             # cookie handshake gate + per-user room
+│   │       ├── realtime-broadcaster.service.ts # Redis subscriber → socket frames
+│   │       ├── realtime.constants.ts           # namespace, path, ping cadence, room name
+│   │       ├── session-auth.ts                 # cookie read + token verification
+│   │       └── realtime.module.ts
 │   │
 │   ├── app/
 │   │   ├── ludo-engine/          # Standalone game engine (port 3001)

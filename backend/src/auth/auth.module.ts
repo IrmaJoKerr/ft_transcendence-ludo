@@ -16,7 +16,7 @@ import { SessionService } from './session.service';
 import { LoginLockoutService } from './login-lockout.service';
 import { PrismaService } from '../prisma.service';
 import { requireSecret } from '../secrets';
-import { SESSION_TOKEN_AUDIENCE, TOKEN_ISSUER } from './auth.constants';
+import { sessionJwtOptions } from './session-jwt';
 import { NotificationModule } from '../notification/notification.module';
 import { AvatarMetaModule } from '../avatar/avatar-meta.module';
 
@@ -27,22 +27,7 @@ import { AvatarMetaModule } from '../avatar/avatar-meta.module';
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({
-      secret: requireSecret('JWT_SECRET'),
-      // Session tokens are short-lived (15m); SessionService refresh tokens
-      // (7 days) mint new ones. Every token carries our issuer plus the API
-      // audience, and every jwt.verify() requires both.
-      signOptions: {
-        expiresIn: '15m',
-        issuer: TOKEN_ISSUER,
-        audience: SESSION_TOKEN_AUDIENCE,
-      },
-      verifyOptions: {
-        issuer: TOKEN_ISSUER,
-        audience: SESSION_TOKEN_AUDIENCE,
-        algorithms: ['HS256'],
-      },
-    }),
+    JwtModule.register(sessionJwtOptions(requireSecret('JWT_SECRET'))),
     NotificationModule,
     AvatarMetaModule,
   ],

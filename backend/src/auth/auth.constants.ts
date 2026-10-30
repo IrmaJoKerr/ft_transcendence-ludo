@@ -29,3 +29,14 @@ export const TOKEN_ISSUER = 'ft_transcendence';
 export const SESSION_TOKEN_AUDIENCE = 'ft_transcendence-api';
 export const OAUTH_LINK_AUDIENCE = 'oauth-link';
 export const OAUTH_LINK_TTL = '10m';
+
+// Access-token cookie: JwtStrategy reads it from req.cookies, the session socket
+// reads it from the handshake's Cookie header. The refresh token has its own
+// cookie in auth.controller.ts (scoped to /api/auth).
+export const ACCESS_COOKIE = 'token';
+
+// Published when a user's sessions are revoked: the session socket subscribes to
+// `auth:revoked:*` and disconnects that account's sockets by push, so a socket
+// cannot outlive the session that opened it. One message per account, no
+// session id, so every tab of that account is covered.
+export const AUTH_REVOKED_PREFIX = 'auth:revoked:';

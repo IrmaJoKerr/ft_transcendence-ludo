@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { createHash, randomBytes } from 'node:crypto';
+import { AUTH_REVOKED_PREFIX } from './auth.constants';
 import { secret } from '../secrets';
 
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // refresh tokens live 7 days
@@ -102,7 +103,10 @@ export class SessionService implements OnModuleDestroy {
     const h = this.hash(token);
     const userId = await this.redis.get(`refresh:${h}`);
     await this.redis.del(`refresh:${h}`);
-    if (userId) await this.redis.srem(`sessions:${userId}`, h);
+    if (userId) {
+      await this.redis.srem(`sessions:${userId}`, h);
+      await this.publishRevoked(userId);
+    }
   }
 
   // Revoke every session a user has (e.g. after a password reset).
@@ -111,6 +115,7 @@ export class SessionService implements OnModuleDestroy {
     const keys = hashes.map((h) => `refresh:${h}`);
     if (keys.length) await this.redis.del(...keys);
     await this.redis.del(`sessions:${userId}`);
+    await this.publishRevoked(userId);
   }
 
   // Revoke every session EXCEPT the one carrying `keepToken`.
@@ -124,6 +129,15 @@ export class SessionService implements OnModuleDestroy {
     else if (revokeHashes.length > 0) await this.redis.srem(`sessions:${userId}`, ...revokeHashes);
     const keys = revokeHashes.map((h) => `refresh:${h}`);
     if (keys.length) await this.redis.del(...keys);
+    // The push is per account (D4 carries no session id), so the kept device
+    // loses its socket too and reconnects at once with its still-valid cookie.
+    if (revokeHashes.length > 0) await this.publishRevoked(userId);
+  }
+
+  // The socket layer closes a revoked account's sockets by push, so an access
+  // token that outlives its session cannot keep a connection receiving events.
+  private async publishRevoked(userId: string): Promise<void> {
+    await this.redis.publish(`${AUTH_REVOKED_PREFIX}${userId}`, '1');
   }
 }
 

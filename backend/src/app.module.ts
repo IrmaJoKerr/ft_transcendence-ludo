@@ -12,10 +12,11 @@ import { StatsModule } from './player-stats/stats.module';
 import { MatchModule } from './match/match.module';
 import { PresenceModule } from './presence/presence.module';
 import { NotificationModule } from './notification/notification.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 // Root NestJS module. Registers every feature module (auth, user, friends,
-// leaderboard, achievements, stats, match, presence, notification) plus the
-// global rate-limit guard. NestJS bootstraps this from main.ts.
+// leaderboard, achievements, stats, match, presence, notification, realtime) plus
+// the global rate-limit guard. NestJS bootstraps this from main.ts.
 @Module({
   imports: [
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
@@ -28,6 +29,7 @@ import { NotificationModule } from './notification/notification.module';
     MatchModule,
     PresenceModule,
     NotificationModule,
+    RealtimeModule,
   ],
   providers: [
     PrismaService,
