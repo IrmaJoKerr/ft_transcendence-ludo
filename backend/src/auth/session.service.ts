@@ -12,13 +12,43 @@ const REUSE_GRACE_MS = 15_000;
 
 export type RotateResult = { userId: string; newToken: string } | { reused: true } | null;
 
+// One live session per account (D8), as one atomic step: drop every sibling
+// refresh key, then write the new one. Read-then-write in JavaScript is not
+// enough, because the two calls that can overlap — a login and a rotation
+// already in flight — would each read the set before the other writes: both
+// hashes survive (two live sessions) or both get deleted (none). Redis runs a
+// script without interleaving, so the later call always sees the earlier
+// session and evicts it, and "the newest login wins" becomes true rather than
+// likely. Returns how many siblings it evicted; zero is the ordinary refresh.
+const ISSUE_SESSION = `
+local key = KEYS[1]
+local newHash = ARGV[1]
+local userId = ARGV[2]
+local ttl = tonumber(ARGV[3])
+local evicted = 0
+for _, h in ipairs(redis.call('SMEMBERS', key)) do
+  if h ~= newHash then
+    redis.call('DEL', 'refresh:' .. h)
+    evicted = evicted + 1
+  end
+end
+redis.call('DEL', key)
+redis.call('SET', 'refresh:' .. newHash, userId, 'EX', ttl)
+redis.call('SADD', key, newHash)
+redis.call('EXPIRE', key, ttl)
+return evicted
+`;
+
 @Injectable()
 // Refresh-token session store in Redis: minting, rotation and revocation of
 // the 7-day refresh tokens that back the 15-min JWT access tokens. Used by
 // auth.service.ts (login, refresh, logout, password reset).
 export class SessionService implements OnModuleDestroy {
   // Redis client holding refresh:<sha256(token)> -> userId, plus a
-  // sessions:<userId> set indexing all of a user's live sessions.
+  // sessions:<userId> set indexing the account's live sessions. The set holds at
+  // most one hash (D8), and stays the list `issue`, `revokeAll` and
+  // `revokeAllExcept` walk: deleting a refresh key alone would leave a hash
+  // behind for the next sweep to try.
   private redis: Redis;
 
   constructor() {
@@ -39,14 +69,23 @@ export class SessionService implements OnModuleDestroy {
     return createHash('sha256').update(value).digest('hex');
   }
 
-  // Mint a new refresh token for a user and record it as a live session.
+  // Mint a new refresh token for a user and record it as a live session. One
+  // session per account (D8): the newest login takes the account over, so the
+  // others are revoked in the same atomic step that writes this one.
   async issue(userId: string): Promise<string> {
     const token = randomBytes(32).toString('hex');
-    const h = this.hash(token);
-    await this.redis.set(`refresh:${h}`, userId, 'EX', REFRESH_TTL_S);
-    // Track it under the user so resetPassword can revoke every session at once.
-    await this.redis.sadd(`sessions:${userId}`, h);
-    await this.redis.expire(`sessions:${userId}`, REFRESH_TTL_S); // TTL of the longest session
+    const evicted = await this.redis.eval(
+      ISSUE_SESSION,
+      1,
+      `sessions:${userId}`,
+      this.hash(token),
+      userId,
+      REFRESH_TTL_S,
+    );
+    // The push closes the superseded device's sockets (D4), so a login from
+    // another machine ends the first one at once. A rotation evicts nothing
+    // (its consumed hash was already removed), so an ordinary refresh is silent.
+    if (Number(evicted) > 0) await this.publishRevoked(userId);
     return token;
   }
 

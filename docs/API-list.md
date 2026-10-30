@@ -394,6 +394,8 @@ Public. Resends a signup verification link if the address exists and is still un
 
 Authenticate. With 2FA enabled, returns a `pendingToken` and emails a code; with 2FA disabled, sets the session cookies. An address that is not yet verified cannot sign in: the reply is a 200 notice with the code `AUTH_EMAIL_NOT_VERIFIED`.
 
+Signing in also ends the account's other sessions (D8, one live session per account): the previous refresh token is deleted and that client's socket is closed by the revocation push, so the newest login takes the account over. Tabs of one browser share the cookie jar and are unaffected.
+
 **Headers:** None  
 **Body:**
 
@@ -516,6 +518,8 @@ Silent re-authentication. Trade a valid refresh token for a fresh access token +
 ```
 
 **Errors:** 401 `AUTH_NOT_AUTHENTICATED` when the refresh cookie is absent; 401 `AUTH_SESSION_EXPIRED` for an unknown/expired token; 401 `AUTH_SESSION_REUSED` when an already-rotated token is presented outside the 15 s two-tab grace window — the server then revokes **every** session for that user. A rotation inside the grace window whose replacement is still live is treated as the cross-tab race and returns `AUTH_SESSION_EXPIRED` without revoking anything, so the SPA's `/me` probe can settle it.
+
+A rotation does not end the account's other sessions by surprise: it mints through the same `issue`, but its own consumed hash is already out of `sessions:<userId>` by then, so there is nothing to evict and no revocation is published.
 
 
 ---

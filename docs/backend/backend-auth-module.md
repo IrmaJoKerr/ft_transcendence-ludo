@@ -6,7 +6,7 @@
 - [Files](#files) — Every source file in the module and its role
 - [Key Types / Interfaces](#key-types--interfaces) — DTOs, JWT payload, and validation constraints
 - [API Endpoints](#api-endpoints) — All routes with method, path, auth, and description
-- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for registration, login, 2FA, OAuth, JWT validation, and logout
+- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for registration, login, 2FA, OAuth, JWT validation, logout, and one live session per account
 - [Logic Paths Summary](#logic-paths-summary) — Plain-text decision trees for quick reference
 - [Email delivery](#email-delivery) — `MailService`: SMTP transport settings, dev fallback, the lapsed-email-change notice, and send-failure behaviour
 - [Localization](#localization) — Per-language transactional-email copy (`i18n/email-messages.ts`)
@@ -61,7 +61,7 @@ the single-use emailed tokens.
 | `oauth.guards.ts` | Guard classes: `GoogleAuthGuard`, `GithubAuthGuard`, `FortyTwoAuthGuard` — pick strategy per request host |
 | `mail.service.ts` | SMTP email sending — verification links, 2FA codes, password-reset and email-change links (degrades to console logging without SMTP config). Selects the copy from the recipient's `User.language` (see [Localization](#localization)). Also owns the Redis keyspace subscription that emails the lapsed-email-change notice (see [Email delivery](#email-delivery)) |
 | `i18n/email-messages.ts` | Transactional-email copy per language (`en` / `fr` / `ms`) — lives at `src/i18n/`, consumed by `mail.service.ts` (see [Localization](#localization)) |
-| `session.service.ts` | Redis-backed refresh-token management with rotation and revocation |
+| `session.service.ts` | Redis-backed refresh-token management with rotation, one live session per account (D8) and revocation |
 | `twofactor.service.ts` | Redis-backed short-lived auth state, stored hashed and single-use: signup verification tokens (`verify:`), password-reset tokens (`reset:`), 2FA login challenges (`2fa:`) and staged email changes (`emailchange:` + its `emailchange:user:<id>` reverse pointer) |
 | `dto/register.dto.ts` | Validation schema for `POST /api/auth/register` |
 | `dto/login.dto.ts` | Validation schema for `POST /api/auth/login` |
@@ -431,7 +431,9 @@ callers presenting the same token cannot both mint a session. The consumed hash 
 within 15 s whose replacement is still live is the two-tab race described in
 `frontend/src/authRefreshLock.ts` and is answered as `AUTH_SESSION_EXPIRED` without revoking
 anything; a replay outside that window is treated as theft — every session of the user is revoked
-and the response is `401 AUTH_SESSION_REUSED`.
+and the response is `401 AUTH_SESSION_REUSED`. A rotation mints through `issue` too, and a rotation
+publishes no revocation: `rotate` removes the consumed hash from `sessions:<userId>` before it mints,
+so `issue` finds no sibling to evict (see [One live session per account](#9-one-live-session-per-account-d8)).
 
 The client side of that race lives in the same file. One tab claims the refresh with a timestamped
 `localStorage` record (write, then read back, since there is no compare-and-set) and posts the result
@@ -541,6 +543,59 @@ sequenceDiagram
 
 A session cannot outlive the game it was playing (D7): the revoked refresh token's user is looked up with `findLiveMatch()`, and a live room is handed to the engine, which owns the departure — seat parked, turn advanced, room torn down when fewer than two active humans are left. The publish is best effort, so a Redis failure never blocks the sign-out; the seat then ends through its own disconnect window instead (see [match module → Sign-out ends the match](backend-match-module.md#sign-out-ends-the-match)).
 
+### 9. One live session per account (D8)
+
+A second sign-in from another machine ends the first; tabs of one browser do not, because they
+share the cookie jar and there is nothing to see at that layer. `SessionService.issue` is the one
+door every sign-in goes through (password login, the 2FA completion path, the OAuth callback, and
+`rotate` for a refresh), so the rule lives there:
+
+```mermaid
+sequenceDiagram
+    participant A as Browser A (signed in)
+    participant B as Browser B
+    participant Server as Backend
+    participant Redis
+    participant Sock as Session socket
+
+    B->>Server: POST /api/auth/login
+    Server->>Redis: EVAL issue-session (smembers, del siblings, set, sadd)
+    Redis-->>Server: evicted = 1
+    Server->>Redis: PUBLISH auth:revoked:<userId>
+    Redis-->>Sock: revocation
+    Sock->>A: disconnect (io server disconnect)
+    Server-->>B: 200 + new cookies
+    A->>Server: POST /api/auth/refresh (deleted cookie)
+    Server-->>A: 401 AUTH_SESSION_EXPIRED
+```
+
+- **One script, not read-then-write.** Evicting the siblings and writing the new token is a single
+  Lua script (`ISSUE_SESSION`). The two calls that can overlap — a login and a rotation already in
+  flight, or two logins in the same instant — would each read `sessions:<userId>` before the other
+  wrote, and leave either two live hashes or none. Redis runs the script without interleaving, so
+  the later call always sees the earlier session and evicts it: exactly one `refresh:<h>` survives,
+  and the ordering is "newest wins" rather than "usually".
+- **The push is per account.** `auth:revoked:<userId>` carries no session id (D4), and under D8 that
+  key *is* the superseded client. The backend closes every socket of that account, so the displaced
+  browser loses its presence connection immediately. Socket.IO does not auto-reconnect a socket the
+  server closed (`io server disconnect`), so it stays down unless the page reconnects.
+- **What is *not* cut.** The access token already in the superseded browser's cookie jar is a bearer
+  token valid for its remaining ≤15 minutes: REST calls still pass with it, and a reload can open a
+  socket with it again. That window is the price of a stateless JWT and is accepted; the refresh
+  token — the long-lived half — is gone at once, so the browser is signed out at its next refresh.
+  It is not a device registry either: revoking on login can only see the cookie the browser sent,
+  which does not identify a machine.
+- **Quietly, not as theft.** The superseded browser holds a cookie whose record was *deleted*, not
+  consumed, so its refresh finds no `refresh-used:<h>` record and is answered `401
+  AUTH_SESSION_EXPIRED` without `revokeAll`: it signs itself out instead of tripping reuse detection
+  and signing the new device out too. `REUSE_GRACE_MS` (15 s) keeps its own job — two tabs posting
+  the same cookie before either response lands — and is not what covers this handover.
+- **Cost, stated plainly.** Two windows side by side log each other out forever, and a user with a
+  desktop and a laptop re-logs on each switch. The 4-socket per-user cap stays as a resource guard,
+  no longer as the de-facto "one device" enforcement.
+- **Proved live.** `Test-harnesses/one-session/` logs in twice against the running stack and checks
+  the eviction, the socket disconnect, the 401, the silent rotation and the two-tab case (18 checks).
+
 
 
 ---
@@ -581,7 +636,7 @@ POST /api/auth/login
   │   ├── MailService.send2faCode(email, code, ...)  // every call emails a fresh code
   │   └── Return { twoFactorRequired: true, pendingToken }
   └── If 2FA disabled:
-      ├── SessionService.issue(userId) → refreshToken
+      ├── SessionService.issue(userId) → refreshToken   // evicts the account's other sessions (D8)
       ├── Jwt.sign({ sub, username }) → accessToken
       ├── Set both cookies
       └── Return { twoFactorRequired: false, user }
