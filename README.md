@@ -271,13 +271,14 @@ All project documentation lives under `docs/`, grouped by category. Each file is
 
 #### Overview
 
-| Document                                       | Responsibility                                                                                                       |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)   | System topology, services, request paths, data layer, security & threat model, secrets, make targets, file structure |
-| [docs/API-list.md](docs/API-list.md)           | Complete HTTP + WebSocket API reference                                                                              |
-| [docs/avatar-system.md](docs/avatar-system.md) | Avatar storage, Redis metadata, caching and freshness, seat rendering                                                |
-| [docs/guest-mode.md](docs/guest-mode.md)       | Anonymous PvE door: opaque token registry, per-address budgets, settlement, frontend flow                            |
-| [docs/security_measures.md](docs/security_measures.md) | What the app implements to protect itself, layer by layer, and the threat each measure addresses |
+| Document                                               | Responsibility                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)           | System topology, services, request paths, data layer, security & threat model, secrets, make targets, file structure |
+| [docs/API-list.md](docs/API-list.md)                   | Complete HTTP + WebSocket API reference                                                                              |
+| [docs/Constant-list.md](docs/Constant-list.md)         | Every tunable in the app: its value, the file that owns it, and the mirror it must agree with                        |
+| [docs/avatar-system.md](docs/avatar-system.md)         | Avatar storage, Redis metadata, caching and freshness, seat rendering                                                |
+| [docs/guest-mode.md](docs/guest-mode.md)               | Anonymous PvE door: opaque token registry, per-address budgets, settlement, frontend flow                            |
+| [docs/security_measures.md](docs/security_measures.md) | What the app implements to protect itself, layer by layer, and the threat each measure addresses                     |
 
 #### Deployment
 

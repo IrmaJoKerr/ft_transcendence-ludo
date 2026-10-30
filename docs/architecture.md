@@ -684,6 +684,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 └── docs/                         # Documentation
     ├── architecture.md           # Full architecture reference (this file)
     ├── API-list.md               # Complete HTTP + WebSocket API reference
+    ├── Constant-list.md          # Every tunable: value, owner file, and the mirror it must agree
     ├── avatar-system.md          # Avatar pipeline: storage, caching, freshness, seats
     ├── guest-mode.md             # Anonymous PvE door: registry, budgets, settlement, frontend flow
     ├── Ludo_Rules.md             # Classic Ludo rules
