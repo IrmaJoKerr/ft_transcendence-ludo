@@ -414,8 +414,13 @@ export const en = {
     rolledValue: 'Rolled a {{value}}',
     bonusSuffix: ' (bonus)',
     capturedPiece: 'Captured a {{color}} piece!',
+    // A clash lost: the attacker went home instead. The engine names both seats, so the
+    // line cannot blame the defender the way the old capturedPiece call did.
+    failcapturePiece: '{{attacker}} attacked {{victim}}: repulsed, sent home',
+    // A clash lost against a square that stood two or more defenders (a wall).
+    wallAttackFailed: '{{attacker}} attacked the {{victim}} wall: repulsed',
     bonusRollAgain: 'Capture: roll again',
-    wallBrokenBonusRoll: 'Wall was broken. Bonus roll awarded.',
+    wallBrokenBonusRoll: '{{attacker}} broke the {{victim}} wall: bonus roll',
     inviteBtn: 'Invite',
     inviteSent: 'Invited',
     noFriendsToInvite: 'No friends to invite yet.',
@@ -447,7 +452,7 @@ export const en = {
     statusSelectPiece: '// SELECT PIECE TO MOVE',
     statusRivalTurn: '// {{name}} TURN...',
     rollDiceBtn: 'ROLL DICE',
-    // Barrier Buster control: arm it, then tap the prison exit. The armed state is
+    // Wall Breaker control: arm it, then tap the prison exit. The armed state is
     // a second label, so the commitment is readable before the tap spends a token.
     barrierBusterBtn: 'BARRIER BUSTER',
     barrierBusterArmedBtn: 'BARRIER BUSTER: ARMED',
@@ -472,7 +477,7 @@ export const en = {
     skipBustTitle: 'Skip breaking the wall: keep the token and pass the turn',
     skipBustDisabledTitle: 'Nothing to decline: no wall attack is holding the turn',
     // Recon log line when a held turn is passed by Skip.
-    bustSkipped: '{{name}} skips: the Barrier Buster stays in hand',
+    bustSkipped: '{{name}} skips: the Wall Breaker is saved for later',
     reconLogsTitle: '// RECON LOGS',
     noReconLogged: 'NO TELEMETRY LOGGED',
     // Room rules: the host's three toggles. `noSafeZones` is the INVERTED flag,
@@ -778,12 +783,12 @@ export const en = {
     chainBadgeTitle: 'Wall of {{rounds}}: this attack is {{rounds}} clash rounds',
     chainPricedBadgeTitle:
       'Wall of {{rounds}}: this attack breaks it, costs one token, and is {{rounds}} clash rounds',
-    // Barrier Buster tooltips: the seat's remaining tokens (the pips next to the
+    // Wall Breaker tooltips: the seat's remaining tokens (the pips next to the
     // bay label) and the 🔓 price tag on a piece whose only legal move is the
     // token-priced exit.
     barrierTokensTitle:
-      'Barrier Buster ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
-    armedBadgeTitle: 'Barrier Buster: this exit costs one token',
+      'Wall Breaker ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
+    armedBadgeTitle: 'Wall Breaker: this exit costs one token',
   },
   gameExtra: {
     diceRollLabel: 'DICE ROLL:',
@@ -883,7 +888,7 @@ export const en = {
     rulesPage9Header: '// BARRIER BUSTER',
     rulesPage9Title: '🔓 One token, one wall',
     rulesPage9Body:
-      'Every pilot is dealt one Barrier Buster token at the start of the game. When your roll lands a piece exactly on a wall, that landing costs one token. Arm the toggle in the token column beside the roster, then tap that piece. The arm lasts one turn: an unarmed piece is simply blocked by the wall. The roll must still reach the wall by itself, because the token buys the landing and nothing else: it never carries a piece past a square.',
+      'Every pilot is dealt one Wall Breaker token at the start of the game. When your roll lands a piece exactly on a wall, that landing costs one token. Arm the toggle in the token column beside the roster, then tap that piece. The arm lasts one turn: an unarmed piece is simply blocked by the wall. The roll must still reach the wall by itself, because the token buys the landing and nothing else: it never carries a piece past a square.',
     rulesPage9Body2:
       'The token pays for the attempt, not for the win: it is spent as soon as the fight begins, and a lost clash does not return it. A clash won against exactly one defender earns one token back, and three is the most a pilot may hold. A wall parked on a protected star is never a target. SKIP is offered only when the roll can reach nothing but a wall; it passes the turn and keeps the token in hand.',
   },

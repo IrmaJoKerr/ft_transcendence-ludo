@@ -100,12 +100,13 @@ export interface PlayerMeta {
     clashAttacksWon: number;   // Clash rounds won as attacker (achMercilessAttacker)
     barrierBreaks: number;     // Barriers torn down: token-priced exits that won their chain (achTearDownThisWall)
   };
-  barrierTokens?: number;      // Barrier Buster tokens in hand (absent on a state written before the token = 0)
-  barrierArmed?: boolean;      // Barrier Buster arm switch for THIS turn (absent = disarmed, which is the safe default)
+  barrierTokens?: number;      // Wall Breaker tokens in hand (absent on a state written before the token = 0)
+  barrierArmed?: boolean;      // Wall Breaker arm switch for THIS turn (absent = disarmed, which is the safe default)
+  lastRoll?: number | null;    // The face this seat's die last landed on, stamped by the true roller (absent = never rolled)
 }
 ```
 
-The Barrier Buster fields are safe-by-default on purpose. A live room survives a redeploy
+The Wall Breaker fields are safe-by-default on purpose. A live room survives a redeploy
 in Redis, so a `GameState` written before the token existed can still be loaded mid-game; the two
 NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) where `undefined - 1` is
 `NaN`, and a `NaN` seat would stay broken for the rest of the match (the boolean `barrierArmed` has
@@ -204,6 +205,7 @@ export interface GameState {
   paused?: boolean;                // True while frozen on a disconnected seat's turn
   pauseTurnOwner?: PlayerColor;    // The seat the paused turn is waiting on
   pausedReason?: string;           // e.g. 'disconnect_grace'
+  log?: LogEntry[];                // The recon panel: newest LOG_CAP (30) lines, semantic (kind + colours), never rendered text
 }
 ```
 
@@ -374,7 +376,7 @@ move_piece(pieceId)
   ├── Reject if the clash result card is still up (state.resultCardUntil in the future)
   ├── Validate game active and turnPhase = WAITING_FOR_MOVE
   ├── Verify pieceId is in pendingLegalMoves (server snapshot from the roll)
-  ├── Priced Barrier Buster move →
+  ├── Priced Wall Breaker move →
   │   ├── Require the seat to be ARMED (arm_barrier) and to hold a token, else refuse
   │   └── Spend the token here, on the ATTEMPT, inside the game lock and against the freshly
   │       loaded state: a replayed emit finds the move gone and spends nothing, a repulsed
@@ -397,9 +399,9 @@ move_piece(pieceId)
       └── saveGameState; emit piece_moved (+ game_ended if finished)
 ```
 
-### Barrier Buster Path
+### Wall Breaker Path
 
-The Barrier Buster is the token-priced LANDING: `STARTING_BUSTER_TOKENS` per seat, dealt by `createGame`, that pays
+The Wall Breaker is the token-priced LANDING: `STARTING_BUSTER_TOKENS` per seat, dealt by `createGame`, that pays
 for a fight on a wall the roll reaches exactly. It never crosses a barrier and never waives the
 exit-roll gate: the roll still has to reach the wall's square exactly. The route does not matter (an
 armed prison exit, an on-board landing and a free-exit landing all pay the same one token), so with

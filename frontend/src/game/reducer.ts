@@ -46,8 +46,6 @@ export type GameViewState = {
   status: GameState['status'];
   myColor: PlayerColor;
   readyPlayers: PlayerColor[];
-  /** Last dice value rolled by each color (populated from dice_rolled events). */
-  lastRolls: Partial<Record<PlayerColor, number>>;
   /** True when the game is paused waiting for a disconnected player. */
   paused: boolean;
   /** Whose turn the paused game is waiting on. Undefined when not paused. */
@@ -80,7 +78,6 @@ export function initialView(myColor: PlayerColor): GameViewState {
     status: 'waiting',
     myColor,
     readyPlayers: [],
-    lastRolls: {},
     paused: false,
     pauseTurnOwner: undefined,
     clash: null,
@@ -212,19 +209,25 @@ export function applyEvent(
     case 'my_color_changed':
       return { ...state, myColor: event.color as PlayerColor };
     case 'game_started':
-      return { ...state, status: 'active', lastRolls: {} };
+      return { ...state, status: 'active' };
     case 'dice_rolled': {
       const legalMoves = (event.legalMoves as LegalMove[] | undefined) ?? [];
-      // Key the roll to the PRE-event turn: the engine advances currentTurn before
-      // emitting on no-move/3x6 forfeit, so event.currentTurn can be the next player.
-      const roller = state.currentTurn;
+      // The frame names the seat that rolled. The engine advances the turn before
+      // emitting on a no-move roll or the third-six forfeit, so `event.currentTurn` is
+      // the NEXT seat; the roller has to come from the frame, never from a guess. The
+      // face lands on that seat so the roster's MiniDie matches the die on the table.
+      const roller = event.color as PlayerColor | undefined;
       return {
         ...state,
         diceValue: event.value as number,
         legalMoves,
         turnPhase: legalMoves.length > 0 ? 'WAITING_FOR_MOVE' : 'WAITING_FOR_ROLL',
         currentTurn: (event.currentTurn as PlayerColor | undefined) ?? state.currentTurn,
-        lastRolls: { ...state.lastRolls, [roller]: event.value as number },
+        players: roller
+          ? state.players.map((p) =>
+              p.color === roller ? { ...p, lastRoll: event.value as number } : p,
+            )
+          : state.players,
       };
     }
     case 'piece_moved':
@@ -331,7 +334,7 @@ export function applyEvent(
         ),
       };
     case 'turn_skipped':
-      // A held turn passed without a move: Skip on the armed Barrier Buster exit.
+      // A held turn passed without a move: Skip on the armed Wall Breaker exit.
       // No piece moved, so nothing else needs re-deriving, and the engine names
       // the seat that takes over.
       return {

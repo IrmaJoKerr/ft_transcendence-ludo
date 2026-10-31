@@ -2504,7 +2504,7 @@ socket.emit('move_piece', pieceId);
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleArmBarrier`)
 
-Arm or disarm the Barrier Buster for the current turn (clash mode only). Armed means this seat may land on a wall; disarmed means the wall blocks it. The flag is turn-scoped and is cleared when the turn advances.
+Arm or disarm the Wall Breaker for the current turn (clash mode only). Armed means this seat may land on a wall; disarmed means the wall blocks it. The flag is turn-scoped and is cleared when the turn advances.
 
 ```js
 socket.emit('arm_barrier', true);
@@ -2528,7 +2528,7 @@ socket.emit('arm_barrier', true);
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSkipBust`)
 
-Decline the held Barrier Buster turn: a PASS, not a re-roll. The dice are spent, the turn advances, and the token stays in hand.
+Decline the held Wall Breaker turn: a PASS, not a re-roll. The dice are spent, the turn advances, and the token stays in hand.
 
 ```js
 socket.emit('skip_bust');

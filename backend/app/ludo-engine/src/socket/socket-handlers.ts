@@ -98,7 +98,7 @@ export class SocketHandlers {
     })();
   }
 
-  // 'skip_bust' event: decline the armed Barrier Buster exit holding the turn. The
+  // 'skip_bust' event: decline the armed Wall Breaker exit holding the turn. The
   // engine owns the rule (the move must be on the table, never on a 6), so this only
   // repeats the turn and ownership pre-check, then passes. Errors go to that socket.
   handleSkipBust(socket: GameSocket): void {
@@ -125,7 +125,7 @@ export class SocketHandlers {
     })();
   }
 
-  // 'arm_barrier' event: the Barrier Buster switch, clash mode only. Armed means
+  // 'arm_barrier' event: the Wall Breaker switch, clash mode only. Armed means
   // this turn may break a wall, and every wall landing spends a token; disarmed means
   // a wall blocks it. The engine owns the flag; this repeats the ownership check.
   handleArmBarrier(socket: GameSocket, armed: boolean): void {

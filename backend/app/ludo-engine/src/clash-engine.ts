@@ -415,7 +415,7 @@ export class ClashEngine {
 
       if (continues) {
         // INTERMEDIATE round: the defender goes home, the ledger advances, and the
-        // next round waits for the card. The move-level calls (executeMove, recordMove,
+        // next round waits for the card. The move-level calls (executeMove,
         // applyMoveOutcome, piece_moved) run once when the chain ends, never here.
         if (attackerMeta) attackerMeta.stats.clashAttacksWon++;
         if (defenderPiece) {
@@ -483,6 +483,11 @@ export class ClashEngine {
       };
 
       const result = MoveValidator.executeMove(state, pendingMove, pc.diceValue);
+      // The square's shape as the attack began: 1 for a single piece, R for a wall.
+      // Stamped on the result so the log (and any client) reads the landing instead of
+      // re-deriving it from the ids, which a repulse rewrites to the attacker's own.
+      const defenderCount = pc.capturedPieceIds.length;
+      const wallBroken = defenderCount >= 2;
       if (!attackerWon) {
         // REPULSE: the attacker goes home and the defender holds the square.
         // executeMove walked the mover to `to` with isCapture=false, so re-home it and
@@ -497,6 +502,11 @@ export class ClashEngine {
         result.capturedPieceIds = [pc.pieceId];
         result.bonusRoll = false;
         result.clashOutcome = 'defender_won';
+        // capturedPieceIds now names the ATTACKER, so the defender's colour has to
+        // travel on its own field or the log cannot name the seat that held the square.
+        result.defenderColor = defenderColor;
+        result.defenderCount = defenderCount;
+        result.wallBroken = false;
       } else {
         // FINAL APPLICATION: the ledger decides who goes home, not the board. A
         // legacy capture (R = 1, no ledger) sends its whole recorded stack home
@@ -511,10 +521,15 @@ export class ClashEngine {
         }
         result.captured = capturedIds.length > 0;
         result.capturedPieceIds = capturedIds;
-        result.bonusRoll = pc.diceValue === 6 || result.captured;
+        // A broken wall pays the re-roll its own entry: the message names the wall as
+        // the reason, so it must not be right only because a capture also pays one.
+        result.bonusRoll = pc.diceValue === 6 || result.captured || wallBroken;
+        result.defenderColor = defenderColor;
+        result.defenderCount = defenderCount;
+        result.wallBroken = wallBroken;
         if (attackerMeta) {
           if (capturedIds.length > 0) attackerMeta.stats.captures += capturedIds.length;
-          // The Barrier Buster credit (achTearDownThisWall): 1 when the landing square
+          // The Wall Breaker credit (achTearDownThisWall): 1 when the landing square
           // stood 2 or more defenders, stamped at move time. Only a chain won end to end
           // reaches here. `?? 0` keeps an older seat record from turning the tally to NaN.
           if (pc.barrierBattles) {
@@ -534,20 +549,10 @@ export class ClashEngine {
         result.clashOutcome = 'attacker_won';
       }
 
-      // Record history, apply the outcome, then clear clash + pendingCapture on
-      // the same object so everything lands in one save.
-      await this.store.recordMove(gameId, {
-        ply: result.ply,
-        color: result.color,
-        diceValue: result.diceValue,
-        pieceId: result.pieceId,
-        from: result.from,
-        to: result.to,
-        captured: result.captured,
-        enteredHome: result.enteredHome,
-        timestamp: Date.now(),
-      });
-      applyMoveOutcome(state, result, pc.diceValue, attackerWon);
+      // Apply the outcome, then clear clash + pendingCapture on the same object so
+      // everything lands in one save. `log` is the narrative the resolution wrote: the
+      // capture (or the repulse) and any re-roll it paid.
+      const { log } = applyMoveOutcome(state, result, pc.diceValue, attackerWon);
       delete state.clash;
       delete state.pendingCapture;
       // Freeze all input while the result card shows (covers human and hotseat;
@@ -558,7 +563,7 @@ export class ClashEngine {
       this.armCardHold(state, cardId, [pc.attacker, defenderColor], false);
       await this.store.saveGameState(gameId, state);
 
-      this.emit({ type: 'piece_moved', gameId, result });
+      this.emit({ type: 'piece_moved', gameId, result, log });
       // A won chain can move the attacker's hand (a lone defender pays one token
       // back, a wall pays nothing) and a chain also ends any staged capture, so the
       // clients get a full-state frame to refresh the token column.

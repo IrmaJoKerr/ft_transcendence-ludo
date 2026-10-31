@@ -70,7 +70,7 @@ function Yard({
   ck: ColorKey;
   basePieces: Array<{ id: string; armed: boolean }>;
   goalCount: number;
-  /** Barrier Buster tokens this seat still holds (0 = none, and no chip shows). */
+  /** Wall Breaker tokens this seat still holds (0 = none, and no chip shows). */
   barrierTokens: number;
   legalPieceIds: Set<string>;
   onPieceClick?: (pieceId: string) => void;
@@ -130,7 +130,7 @@ function Yard({
           {t('board.goalLabel')} {goalCount}/4
         </span>
       </div>
-      {/* Barrier Buster pips: one per token still in hand. Rendered next to the bay
+      {/* Wall Breaker pips: one per token still in hand. Rendered next to the bay
           label (not on a piece) because a token outlives a single piece and the
           seat's whole supply is what the player spends. */}
       {barrierTokens > 0 && (
@@ -342,7 +342,7 @@ type BoardProps = {
     isHomeEntry: boolean;
     /** Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds. */
     captureCount?: number;
-    /** Barrier Buster exit: the move costs one token, so the piece wears the 🔓 price tag. */
+    /** Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag. */
     spendsBarrierToken?: boolean;
   }>;
   onPieceClick?: (pieceId: string) => void;
@@ -359,7 +359,7 @@ type BoardProps = {
    */
   noSafeZones?: boolean;
   /**
-   * True while the player has armed the Barrier Buster control for this roll: only
+   * True while the player has armed the Wall Breaker control for this roll: only
    * then is a token-priced exit a tap target (and badged), so tapping a piece can
    * never spend a token by accident. Client-local state, owned by Game.tsx.
    */
@@ -378,7 +378,7 @@ export function Board({
   bustArmed = false,
 }: BoardProps = {}) {
   const { t } = useTranslation();
-  // A Barrier Buster exit is not a plain tap target: arming it is the player's
+  // A Wall Breaker exit is not a plain tap target: arming it is the player's
   // explicit choice in Game.tsx, so until then the piece is not tappable or badged.
   // The engine offers at most one exit per piece per roll.
   const bustPieceIds = new Set(
@@ -389,12 +389,12 @@ export function Board({
   );
   // Clash chain preview: an attack on a stack of defenders costs one QTE round per
   // defender, so the legal piece wears a ×R badge. Plain moves and single defenders
-  // show nothing; a Barrier Buster bust shows the size of the wall it lands on.
+  // show nothing; a Wall Breaker bust shows the size of the wall it lands on.
   const chainCounts = new Map<string, number>();
   for (const m of legalMoves ?? []) {
     if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
   }
-  // Barrier Buster exits in the pool: their piece is still in the base but is
+  // Wall Breaker exits in the pool: their piece is still in the base but is
   // playable, so it gets the 🔓 price tag only while armed; that is what makes
   // the badge mean "this tap spends the token".
   const armedPieceIds = bustArmed ? bustPieceIds : new Set<string>();

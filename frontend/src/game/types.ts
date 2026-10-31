@@ -11,6 +11,33 @@ export type PieceId = string;
 // Clash QTE phases: announce flash, 3-2-1 countdown, then the press race.
 export type ClashPhase = 'announce' | 'countdown' | 'pressing';
 
+// Mirror of the engine's log record: one line of the game's narrative, stored
+// semantically (colours and values, never rendered text) so the recon panel paints it
+// in the language the client holds at render time.
+export type LogKind =
+  | 'roll'
+  | 'thirdSixForfeit'
+  | 'capturedPiece'
+  | 'failcapturePiece'
+  | 'wallBrokenBonusRoll'
+  | 'wallAttackFailed'
+  | 'bonusRollAgain'
+  | 'bustSkipped'
+  | 'playerAborted';
+
+export interface LogEntry {
+  kind: LogKind;
+  at: number;
+  color: PlayerColor; // the seat the line is about; the panel's dot colour
+  value?: number; // roll: the face
+  bonus?: boolean; // roll: the roll carried a bonus re-roll
+  victim?: PlayerColor; // capture/repulse: the defender's colour
+  wall?: boolean; // capture: the landing square stood two or more defenders
+}
+
+// The panel shows the newest entries; the engine caps the stored log at the same size.
+export const LOG_CAP = 30;
+
 export interface Piece {
   id: PieceId;
   color: PlayerColor;
@@ -43,14 +70,18 @@ export interface PlayerMeta {
   // is a sign-out (or a manual leave of a live room) and renders "Aborted"; absent
   // while the seat is still in the game.
   departedReason?: DepartureReason;
-  // Barrier Buster tokens this seat still holds, dealt at game start
+  // Wall Breaker tokens this seat still holds, dealt at game start
   // (STARTING_BUSTER_TOKENS). Display only: the engine owns the counter and re-reads
   // the field when a move spends one; the board never decides it.
   barrierTokens?: number;
-  // The Barrier Buster arm switch, mirrored from the engine (clash mode only):
+  // The Wall Breaker arm switch, mirrored from the engine (clash mode only):
   // armed means this seat may break a wall this turn (1 token per wall), disarmed
   // means a wall blocks the landing. Server-owned; the UI renders it.
   barrierArmed?: boolean;
+  // The face this seat's die last landed on (server-stamped). The roster's MiniDie
+  // renders it, so a rejoined client shows the right face instead of guessing the
+  // roller from currentTurn. Absent on a state written before the field existed.
+  lastRoll?: number | null;
 }
 
 export interface LegalMove {
@@ -63,7 +94,7 @@ export interface LegalMove {
   // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
   // ×R badge reads it, so the price of an attack is visible before the click.
   captureCount?: number;
-  // The Barrier Buster variant of a prison exit: one token, landing on the barrier
+  // The Wall Breaker variant of a prison exit: one token, landing on the barrier
   // the roll reaches exactly. The player arms it explicitly, and a piece carries at
   // most one exit, so a click names the piece alone.
   spendsBarrierToken?: boolean;
@@ -83,6 +114,12 @@ export interface MoveResult {
   bonusRoll: boolean;
   // Set only on a move that came out of a clash: who won the press race.
   clashOutcome?: 'attacker_won' | 'defender_won';
+  // Clash fields: the defender's colour (capturedPieceIds names the ATTACKER on a
+  // repulse), the square's size, and whether the attack broke a wall. Stamped by the
+  // engine, so the panel reads the square instead of re-deriving it.
+  defenderColor?: PlayerColor;
+  defenderCount?: number;
+  wallBroken?: boolean;
 }
 
 // One live clash QTE. Deadlines are absolute (server timestamps), which is what
@@ -178,4 +215,8 @@ export interface GameState {
   clashKeyShift?: 0 | 1 | 2;
   pendingCapture?: PendingCapture; // capture held until its clash resolves
   resultCardUntil?: number; // engine timestamp: input freeze while the card shows
+  // The narrative the recon panel renders, newest last. Shipped in `game_joined` only
+  // (each event frame carries the lines it wrote), so a reload, a rejoin, a second tab
+  // or an engine restart rebuilds the panel from the snapshot.
+  log?: LogEntry[];
 }

@@ -5,7 +5,7 @@ import { CaptureBurst } from '../components/CaptureBurst';
 import { Die } from '../components/Die';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
-import type { PlayerColor, PlayerMeta } from '../game/types';
+import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../game/types';
 import { ClashOverlay } from '../game/ClashOverlay';
 import { stepToCell } from '../game/boardGeometry';
 import {
@@ -110,7 +110,15 @@ function MiniDie({ value }: { value: number }) {
 // color, regardless of the Lobby seat-picker's own (unrelated) display order.
 const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
-// The Barrier Buster hand cap, mirrored from the engine
+// The recon panel's one write: a frame's entries arrive oldest-first and the panel
+// shows newest-first, capped at LOG_CAP (the engine's own bound). Kept pure and
+// module-level so a socket handler never closes over a stale render.
+function withLog(prev: LogEntry[], entries?: LogEntry[]): LogEntry[] {
+  if (!entries?.length) return prev;
+  return [...[...entries].reverse(), ...prev].slice(0, LOG_CAP);
+}
+
+// The Wall Breaker hand cap, mirrored from the engine
 // (types.ts BARRIER_BUSTER_TOKEN_CAP): the wall-break cell draws exactly this many
 // glyph slots, so an empty hand reads as empty rather than as a row that vanished.
 const BARRIER_BUSTER_TOKEN_CAP = 3;
@@ -265,7 +273,7 @@ export function Game() {
   );
   const viewRef = useRef(view);
   viewRef.current = view;
-  const [moveLogs, setMoveLogs] = useState<Array<{ ck: PlayerColor; text: string }>>([]);
+  const [moveLogs, setMoveLogs] = useState<LogEntry[]>([]);
   const moveLogContainerRef = useRef<HTMLDivElement>(null);
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
@@ -288,9 +296,6 @@ export function Game() {
   // `canRoll`; this ref always points at the newest `beginRoll` closure (assigned
   // next to its definition, the same way `viewRef` is).
   const beginRollRef = useRef<() => void>(() => {});
-  const [displayedLastRolls, setDisplayedLastRolls] = useState<
-    Partial<Record<PlayerColor, number>>
-  >({});
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
@@ -325,7 +330,7 @@ export function Game() {
     x: number;
     y: number;
   } | null>(null);
-  // Barrier Buster: the token-priced exit is armed explicitly, so a tap in prison can
+  // Wall Breaker: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
   // (`PlayerMeta.barrierArmed`), and the engine blocks an unarmed seat at a wall.
   const bustMoves = useMemo(
@@ -532,19 +537,22 @@ export function Game() {
 
     socket.on('game_joined', (state) => {
       dispatch({ type: 'game_joined', ...(state as object) });
+      // The snapshot is the reconciliation point: a reload, a rejoin, a second tab or an
+      // engine restart rebuild the whole panel from the log the engine stored. The
+      // stored order is oldest-first; the panel renders newest-first.
+      setMoveLogs([...((state as { log?: LogEntry[] }).log ?? [])].reverse().slice(0, LOG_CAP));
     });
 
     const handleEngineEvent = (state: unknown) => {
       const type = (state as { type?: string }).type;
 
       if (type === 'dice_rolled') {
-        const e = state as { value: number; bonusRoll: boolean; forfeited?: boolean };
-        const rollerColor = viewRef.current.currentTurn;
-        const roller = viewRef.current.players.find((p) => p.color === rollerColor);
-        const rollerName =
-          localizedBotName(t, roller?.displayName) ||
-          localizedBotName(t, roller?.username) ||
-          localizedColor(t, rollerColor).toLowerCase();
+        const e = state as {
+          value: number;
+          bonusRoll: boolean;
+          forfeited?: boolean;
+          log?: LogEntry[];
+        };
         retroAudio.playLaserSound();
         const arrivedAt = performance.now();
         // Everything the landing does, in one body: a brake moves the landing
@@ -553,16 +561,9 @@ export function Game() {
         const land = () => {
           resetRoll();
           dispatch({ type: 'dice_rolled', ...(state as object) });
-          setDisplayedLastRolls((prev) => ({ ...prev, [rollerColor]: e.value }));
-          setMoveLogs((prev) => [
-            {
-              ck: rollerColor,
-              text: e.forfeited
-                ? t('game.thirdSixForfeit', { name: rollerName })
-                : `${t('game.rolledValue', { value: e.value })}${e.bonusRoll ? t('game.bonusSuffix') : ''}`,
-            },
-            ...prev.slice(0, 11),
-          ]);
+          // The engine wrote the line (a roll, or the third-six forfeit) and the frame
+          // carries it; the panel never derives one of its own.
+          setMoveLogs((prev) => withLog(prev, e.log));
         };
         rollLandFnRef.current = land;
         const start = rollStartRef.current;
@@ -597,36 +598,14 @@ export function Game() {
           capturedPieceIds?: string[];
           to: number;
           path?: number[];
-          // The engine's hand-off decision for this move: true means the SAME seat rolls
-          // again (a 6 or a capture), which is also what the reducer uses to pick whose turn
-          // it is. Read here only to say so in the log.
-          bonusRoll?: boolean;
           // Set only when this move settled a clash: the result card is about to take the
           // screen, which moves the capture burst out of the board (see below).
           clashOutcome?: 'attacker_won' | 'defender_won';
+          // The lines the engine wrote for this move (a capture and its re-roll, or the
+          // repulse). The panel renders these; it derives none of its own.
+          log?: LogEntry[];
         };
         const path = e.path ?? [];
-        // A wall break on the wire: the engine credits one when the landing square stood TWO
-        // or more defenders, and those ids ride the result, so the count is the same test the
-        // credit uses (a repulse lists only the attacker itself, a lone defender lists one).
-        const wallBroken = e.captured && (e.capturedPieceIds?.length ?? 0) >= 2;
-
-        // Extract color of captured piece if a capture occurred
-        let victimColor = '';
-        if (e.captured) {
-          if (e.capturedPieceIds && e.capturedPieceIds.length > 0) {
-            victimColor = localizedColor(
-              t,
-              e.capturedPieceIds[0].split('-')[0] as PlayerColor,
-            ).toUpperCase();
-          } else {
-            const victim = viewRef.current.pieces.find(
-              (p) => p.color !== e.color && p.step === e.to,
-            );
-            if (victim) victimColor = localizedColor(t, victim.color).toUpperCase();
-          }
-          if (!victimColor) victimColor = 'OPPONENT';
-        }
 
         const finishMove = () => {
           if (animTimerRef.current) {
@@ -635,20 +614,10 @@ export function Game() {
           }
           setAnimatingPiece(null);
           dispatch({ type: 'piece_moved', ...(state as object) });
+          // The engine wrote this move's lines (a capture and its re-roll, or the repulse
+          // that sent the attacker home) and the frame carries them.
+          setMoveLogs((prev) => withLog(prev, e.log));
           if (e.captured) {
-            // One line per capture: a wall break names the wall and the re-roll it awarded,
-            // because that is the bigger event (a whole stack went home); anything else names
-            // the piece it sent home.
-            setMoveLogs((prev) => [
-              {
-                ck: e.color,
-                text:
-                  wallBroken && e.bonusRoll === true
-                    ? t('game.wallBrokenBonusRoll')
-                    : t('game.capturedPiece', { color: victimColor }),
-              },
-              ...prev.slice(0, 11),
-            ]);
             retroAudio.playExplosionSound();
             if (e.clashOutcome) {
               // The clash result card is taking the screen in this same frame, and the
@@ -660,15 +629,6 @@ export function Game() {
             } else {
               setCaptureFx({ color: e.color, to: e.to });
             }
-          }
-          // A capture re-rolls the same seat. Say so when the capture was not a wall break:
-          // the wall line already names its own re-roll, and the board looks like it is simply
-          // "still your turn" otherwise (the roll control alone is quiet about why).
-          if (e.captured && e.bonusRoll === true && !wallBroken) {
-            setMoveLogs((prev) => [
-              { ck: e.color, text: t('game.bonusRollAgain') },
-              ...prev.slice(0, 11),
-            ]);
           }
           const settleMs = e.captured ? 600 : 350;
           if (captureFxTimerRef.current) clearTimeout(captureFxTimerRef.current);
@@ -730,19 +690,10 @@ export function Game() {
           setActiveMatch({ ...activeMatchRef.current, color: mine.color });
         }
       } else if (type === 'turn_skipped') {
-        // The held turn passed without a move: the armed Barrier Buster exit was
-        // declined. The reducer clears the moves and moves the turn on; this is the
-        // log line, named for the seat that skipped (read before the re-render).
-        const skipper = viewRef.current.currentTurn;
-        const skipperSeat = viewRef.current.players.find((p) => p.color === skipper);
-        const skipperName =
-          localizedBotName(t, skipperSeat?.displayName) ||
-          localizedBotName(t, skipperSeat?.username) ||
-          localizedColor(t, skipper);
-        setMoveLogs((prev) => [
-          { ck: skipper, text: t('game.bustSkipped', { name: skipperName }) },
-          ...prev.slice(0, 11),
-        ]);
+        // The held turn passed without a move: the armed Wall Breaker exit was
+        // declined. The reducer clears the moves and moves the turn on; the engine wrote
+        // the line naming the seat that skipped, and the frame carries it.
+        setMoveLogs((prev) => withLog(prev, (state as { log?: LogEntry[] }).log));
       } else if (type === 'game_ended') {
         const e = state as { winner: PlayerColor; resultDetail: string };
         retroAudio.playUiBeep(1100, 0.3, 'sawtooth');
@@ -795,20 +746,11 @@ export function Game() {
     // actually persisted, not what was asked for.
     socket.on('modifiers_updated', handleEngineEvent);
 
-    socket.on(
-      'player_aborted',
-      (e: { color: PlayerColor; username: string; displayName?: string }) => {
-        setMoveLogs((prev) => [
-          {
-            ck: e.color,
-            text: t('game.playerAborted', {
-              name: localizedBotName(t, e.displayName) || localizedBotName(t, e.username),
-            }),
-          },
-          ...prev.slice(0, 11),
-        ]);
-      },
-    );
+    socket.on('player_aborted', (e: { color: PlayerColor; username: string; log?: LogEntry[] }) => {
+      // The engine wrote the line into the snapshot and onto this frame; the panel
+      // renders it as-is, so the departing seat is named the same way after a rejoin.
+      setMoveLogs((prev) => withLog(prev, e.log));
+    });
 
     const buildAbandonedResult = () => {
       let players: ResultPlayer[] = toResultPlayers(viewRef.current.players);
@@ -1059,7 +1001,7 @@ export function Game() {
     if (viewRef.current.clash) return;
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
       return;
-    // A Barrier Buster exit is only ever sent while the player has armed it. The
+    // A Wall Breaker exit is only ever sent while the player has armed it. The
     // board hides it from the tap targets too, so this is the second gate on the
     // same rule and a stray tap can never spend a token.
     const mine = viewRef.current.legalMoves.filter((m) => m.pieceId === pieceId);
@@ -1360,7 +1302,7 @@ export function Game() {
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
-  // The Barrier Buster control: offered only while this device owns the turn and the
+  // The Wall Breaker control: offered only while this device owns the turn and the
   // seat holds a token. Never on a 6, because that roll already leaves prison on the
   // room's rules, so no armed variant exists.
   const canOfferBust =
@@ -1387,6 +1329,43 @@ export function Game() {
           : t('game.botTurn', { name: localizedColor(t, effectiveTurn) }).toUpperCase();
   const turnAccent =
     view.status === 'waiting' ? 'var(--accent-cyan)' : SEAT_HUES[effectiveTurn] || '#00f0ff';
+
+  // One recon line, painted here: the entry stores colours and values, never text, so a
+  // language switch (or a rejoin in another language) re-renders every line instead of
+  // freezing the wording the event happened in.
+  const seatName = (color: PlayerColor): string => {
+    const seat = view.players.find((p) => p.color === color);
+    return (
+      localizedBotName(t, seat?.displayName) ||
+      localizedBotName(t, seat?.username) ||
+      localizedColor(t, color).toLowerCase()
+    );
+  };
+  const renderLog = (entry: LogEntry): string => {
+    const victim = entry.victim ? localizedColor(t, entry.victim).toUpperCase() : '';
+    switch (entry.kind) {
+      case 'roll':
+        return `${t('game.rolledValue', { value: entry.value ?? 0 })}${
+          entry.bonus ? t('game.bonusSuffix') : ''
+        }`;
+      case 'thirdSixForfeit':
+        return t('game.thirdSixForfeit', { name: seatName(entry.color) });
+      case 'capturedPiece':
+        return t('game.capturedPiece', { color: victim });
+      case 'failcapturePiece':
+        return t('game.failcapturePiece', { attacker: seatName(entry.color), victim });
+      case 'wallBrokenBonusRoll':
+        return t('game.wallBrokenBonusRoll', { attacker: seatName(entry.color), victim });
+      case 'wallAttackFailed':
+        return t('game.wallAttackFailed', { attacker: seatName(entry.color), victim });
+      case 'bonusRollAgain':
+        return t('game.bonusRollAgain');
+      case 'bustSkipped':
+        return t('game.bustSkipped', { name: seatName(entry.color) });
+      case 'playerAborted':
+        return t('game.playerAborted', { name: seatName(entry.color) });
+    }
+  };
 
   return (
     <>
@@ -1889,7 +1868,9 @@ export function Game() {
                               : isHotseat
                                 ? t('game.localPlayer')
                                 : 'Pilot');
-                        const lastRoll = displayedLastRolls[ck];
+                        // The engine stamps the face on the seat that actually rolled, so a
+                        // rejoined client shows it instead of guessing from the turn.
+                        const lastRoll = playerMeta.lastRoll;
 
                         return (
                           <div
@@ -2051,7 +2032,7 @@ export function Game() {
                                 justifyContent: 'flex-end',
                               }}
                             >
-                              {lastRoll !== undefined && lastRoll > 0 && (
+                              {typeof lastRoll === 'number' && lastRoll > 0 && (
                                 <MiniDie value={lastRoll} />
                               )}
                             </div>
@@ -2868,7 +2849,7 @@ export function Game() {
                       {isRolling ? t('game.rolling').toUpperCase() : t('game.rollDiceBtn')}
                     </button>
 
-                    {/* Barrier Buster: the token is spent on the FIRST tap that
+                    {/* Wall Breaker: the token is spent on the FIRST tap that
                         commits it, so the control has two steps. Arm it here, then
                         tap the prison exit on the board; Skip declines and keeps
                         the token. Both render only while the roll actually offers
@@ -2970,16 +2951,18 @@ export function Game() {
                   ) : (
                     moveLogs.map((ml, i) => {
                       const dotColor =
-                        ml.ck === 'red'
+                        ml.color === 'red'
                           ? '#ff007f'
-                          : ml.ck === 'green'
+                          : ml.color === 'green'
                             ? '#00ff88'
-                            : ml.ck === 'yellow'
+                            : ml.color === 'yellow'
                               ? '#ffe600'
                               : '#00f0ff';
                       return (
                         <div
-                          key={i}
+                          // Entries carry no id: the newest line is always at index 0, so
+                          // the pair (engine stamp, index) is stable enough to key on.
+                          key={`${ml.at}-${i}`}
                           style={{
                             display: 'flex',
                             gap: 8,
@@ -2990,7 +2973,7 @@ export function Game() {
                           }}
                         >
                           <span style={{ color: dotColor, fontWeight: 'bold' }}>●</span>
-                          <span>{ml.text}</span>
+                          <span>{renderLog(ml)}</span>
                         </div>
                       );
                     })

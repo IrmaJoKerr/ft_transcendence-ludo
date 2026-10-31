@@ -6,10 +6,11 @@
 - [Files](#files) — Every source file and its role
 - [Key Types / Interfaces](#key-types--interfaces) — Redis key patterns and data structures
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for state persistence and pub/sub
-- [What Redis Spawns Per Game Session](#what-redis-spawns-per-game-session) — The 3 keys created per game
+- [What Redis Spawns Per Game Session](#what-redis-spawns-per-game-session) — The 2 keys created per game
 - [How the Engine Handles Multiple Bots](#how-the-engine-handles-multiple-bots) — Cached per-color bot instances + server-driven turns
 - [Piece-Level State](#piece-level-state-why-no-board-is-ever-built) — Why no board is ever built (incl. memory footprint + grid comparison)
 - [Data Structures](#data-structures) — Redis key patterns and value formats
+- [The game log](#the-game-log) — `state.log` + `players[].lastRoll`: the recon panel's server-side record
 - [Dependencies](#dependencies) — External dependencies
 
 
@@ -22,9 +23,8 @@
 The Redis Infrastructure module provides the persistence and messaging layer for the Ludo Engine. It uses Redis for:
 
 1. **Game state persistence** — stores active game state in Redis so games survive engine restarts and players can reconnect.
-2. **Move history** — keeps the last 200 moves per game in a list.
-3. **Match metadata** — a hash per match holding the seats, colors, and status (the lobby source of truth; readiness lives in the game state blob).
-4. **Pub/sub messaging** — publishes game events to Redis channels for cross-instance broadcasting.
+2. **Match metadata** — a hash per match holding the seats, colors, and status (the lobby source of truth; readiness lives in the game state blob).
+3. **Pub/sub messaging** — publishes game events to Redis channels for cross-instance broadcasting.
 
 
 ---
@@ -68,13 +68,13 @@ class RedisGameStore {
   async saveGameState(gameId: string, state: GameState): Promise<void>                                 // Save the full GameState (+ 24h expire)
 
   // Move history
-  async recordMove(gameId: string, move: Move): Promise<void>                                          // Append a move (LPUSH + trim to 200)
+  async saveGameState(gameId: string, state: GameState): Promise<void>                               // HSET the whole state blob + EXPIRE 86400
 
   // Match metadata (lobby / color selection)
   async getMatchData(gameId: string): Promise<Record<string, string> | null>                           // Read the match hash (seats, colors, status)
   async updateMatchData(gameId: string, fields: Record<string, string>): Promise<void>                 // Update specific match-hash fields
   async scanMatchKeys(): Promise<string[]>                                                             // SCAN all match:* hashes
-  async scanGameKeys(): Promise<string[]>                                                              // SCAN all game:* hashes (skips the :moves lists)
+  async scanGameKeys(): Promise<string[]>                                                              // SCAN all game:* hashes
   async setIdleSince(gameId: string, now: number): Promise<number>                                     // Stamp idle time (room < 2 seated) with HSETNX, so an existing window is never restarted; returns the effective stamp the caller arms its timer from
   async clearIdleSince(gameId: string): Promise<void>                                                  // Clear the idle stamp (room ≥ 2 seated)
   async clearMatchSeat(gameId: string, color: PlayerColor): Promise<void>                              // Free a non-host seat (delete its row and account record)
@@ -85,7 +85,7 @@ class RedisGameStore {
   async abortMatch(gameId: string): Promise<void>                                                      // Mark a match ABORTED with a short TTL
 
   // Teardown / publish
-  async deleteGame(gameId: string): Promise<void>                                                      // Delete game state + move history for a match
+  async deleteGame(gameId: string): Promise<void>                                                      // Delete the game state hash for a match
   async publish(gameId: string, message: string): Promise<void>                                        // Publish a message on game:{gameId} (pub/sub)
 }
 ```
@@ -140,32 +140,35 @@ sequenceDiagram
 
 Every live game creates a small set of Redis keys. There is **no per-cell or
 per-board structure** — the board is never built or stored as a grid. Each game
-session creates exactly three keys:
+session creates exactly two keys:
 
 | Key | Type | What it holds |
 |-----|------|---------------|
 | `game:{gameId}` | Hash | **One** field `state` = the whole game state as one JSON blob (the one true copy) |
-| `game:{gameId}:moves` | List | Last 200 moves (LPUSH + LTRIM), for replay/turn-log |
 | `match:{gameId}` | Hash | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_left`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot) |
 
 Readiness is stored inside the game `state` blob (`state.readyPlayers`), not in the match hash.
 
-That's the whole picture: **3 keys per game** — no matter how many pieces are
+That's the whole picture: **2 keys per game** — no matter how many pieces are
 moving, how many bots are seated, or how many cells the board has. When the
 game ends (or the room is aborted/expired), `deleteGame` / `abortMatch` removes
 them or gives them a short expiry.
 
+There is no separate move-history key: the recon log a player reads after a
+reload is the bounded `state.log` array inside the state blob (see
+[the game log](#the-game-log)), so one write per move persists both the board
+and the narrative.
+
 ```mermaid
 flowchart LR
     G["Game session<br/>gameId"] --> K1[("game:{gameId}<br/>Hash — field 'state'<br/>= GameState JSON")]
-    G --> K2[("game:{gameId}:moves<br/>List — last 200 moves")]
     G --> K3[("match:{gameId}<br/>Hash — seats, status")]
     G --> C["game:{gameId}<br/>pub/sub channel"]
 ```
 
 ### The pub/sub channel
 
-On top of the three keys, each game also has a Redis pub/sub channel
+On top of the two keys, each game also has a Redis pub/sub channel
 `game:{gameId}`. The engine sends every event (roll, move, capture, game end)
 to it; `RedisBroadcaster` picks it up and passes it to the Socket.IO room, so
 all clients stay in sync even across several engine instances.
@@ -299,7 +302,7 @@ engine never stores a 15×15 grid or a cell→piece map.
 
 1. **Nothing to create or keep in order.** There is no board structure in
    Redis to build, update, or tear down — only the one `GameState` JSON blob
-   (3 keys per game total).
+   (2 keys per game total).
 2. **A move just changes a piece's step.** A move is `piece.step = to`, plus a
    capture (opponent pieces' `step = 0`). Two pieces on the same spot are found
    by asking "which other piece has the same track position as this node?" —
@@ -332,10 +335,9 @@ player count only changes the `players` array, not the piece array.
 
 | Key | Approx. size |
 |-----|--------------|
-| `game:{gameId}` (state) | ~2 KB (16 pieces + 2 players) |
-| `game:{gameId}:moves` | 0 → ~30 KB (last 200 moves) |
+| `game:{gameId}` (state) | ~2 KB (16 pieces + 2 players, plus up to 30 log lines) |
 | `match:{gameId}` (lobby hash) | ~0.5 KB |
-| **Total per PvP game** | **~2.5 KB**, up to ~32 KB in a long game |
+| **Total per PvP game** | **~2.5 KB** |
 
 #### PvE (e.g. 1 human + 3 bots)
 
@@ -344,10 +346,9 @@ Bots make the game slightly heavier because **all 4 seats are filled**, so the
 
 | Key | Approx. size |
 |-----|--------------|
-| `game:{gameId}` (state) | ~2.3 KB (16 pieces + 4 players) |
-| `game:{gameId}:moves` | 0 → ~30 KB |
+| `game:{gameId}` (state) | ~2.3 KB (16 pieces + 4 players, plus up to 30 log lines) |
 | `match:{gameId}` (lobby hash) | ~0.5 KB |
-| **Total per PvE game** | **~2.8 KB**, up to ~33 KB in a long game |
+| **Total per PvE game** | **~2.8 KB** |
 
 So a PvE game costs only a few hundred extra bytes over PvP in Redis — the
 bots do **not** multiply the state. The extra footprint from bots shows up
@@ -413,7 +414,6 @@ model already *is* the occupancy map: **16 nodes with a `step` field answer
 | Pattern | Type | TTL | Description |
 |---------|------|-----|-------------|
 | `game:{gameId}` | Hash | 86400s (24h) | One field `state` = serialized GameState JSON |
-| `game:{gameId}:moves` | List | — | Move history, trimmed to 200 entries |
 | `match:{gameId}` | Hash | 3600s (aborted) | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_left`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot). **Co-owned** — mutated by both the engine (via `RedisGameStore` helpers) and Nest (via `match/*.service.ts`). The backend reads `game:{gameId}` state through `isSeatFinalized()` only to check seat liveness; it never writes to `game:*`. |
 | `guesttok:{sha256(token)}` | Hash | 3600s (1h) | Guest handshake registry, written by the backend: `gameId`, `color`, `mode`, `ip`. The engine reads it at handshake and deletes it on abort settlement; the record is the authority for the room and the seat. |
 | `guest:abort:{sha256(ip)}`, `guest:live:{sha256(ip)}`, `guest:rooms:live` | Counter | 21600s, 3600s self-heal | Guest-mode budgets, **co-owned** with the backend. The engine increments the abort counter and frees both live slots when a guest aborts or finishes. See [guest-mode.md](../guest-mode.md). |
@@ -427,14 +427,18 @@ Game state is stored as JSON under the `state` field of the game hash:
 {
   "id": "uuid",
   "pieces": [{ "id": "red-0", "color": "red", "step": 0 }],
-  "players": [{ "color": "red", "status": "active", "isBot": false }],
+  "players": [{ "color": "red", "status": "active", "isBot": false, "lastRoll": 4 }],
   "currentTurn": "red",
   "turnPhase": "WAITING_FOR_ROLL",
   "pendingLegalMoves": [],
   "status": "waiting",
-  "readyPlayers": []
+  "readyPlayers": [],
+  "log": [{ "kind": "roll", "color": "red", "value": 4, "bonus": false, "at": 1767225600000 }]
 }
 ```
+
+`log` is the newest 30 lines, oldest first (see [the game log](#the-game-log)); `lastRoll` is
+the face that seat's die last landed on, absent until its first roll.
 
 
 ---
@@ -464,7 +468,7 @@ loadGameState(gameId)
 ```
 
 `withBarrierDefaults` is the ONE door the state comes back through: a live room survives a redeploy in
-Redis, so a `GameState` without the Barrier Buster fields can be loaded mid-game, and it is normalised
+Redis, so a `GameState` without the Wall Breaker fields can be loaded mid-game, and it is normalised
 there. Both NUMERIC fields feed
 arithmetic (`barrierTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
 to `BARRIER_BUSTER_TOKEN_CAP`, `stats.barrierBreaks += 1` when a barrier chain is won), and `undefined - 1` is
@@ -475,12 +479,33 @@ belt and braces for a state that is handed around in memory. `barrierArmed` need
 read as `=== true`, so an absent field is simply off. `0` is also the honest reading: a state without
 the fields deals no token and has broken no wall.
 
-### Record Move Path
+### The game log
+
+The recon panel a player reads is engine state, not client text. `state.log` is an
+array of at most `LOG_CAP` (30) semantic entries — `kind`, the seat colour, the face or the
+victim colour, never a rendered sentence — appended by `pushLog()` (`game-log.ts`) at the
+same sites that emit the frames, so the entry rides the `saveGameState` the move was going
+to write anyway:
+
 ```
-recordMove(gameId, move)
-  ├── LPUSH game:{gameId}:moves <JSON>
-  └── LTRIM game:{gameId}:moves 0 199
+rollDice            → roll | thirdSixForfeit        (engine.ts)
+applyMoveOutcome    → capturedPiece, failcapturePiece, wallBrokenBonusRoll,
+                      wallAttackFailed, bonusRollAgain   (turn.ts, both the plain move
+                      and the resolved clash pass through it)
+skipArmedBust       → bustSkipped                    (engine.ts)
+handleEndGame       → playerAborted                  (socket/post-game.ts)
 ```
+
+Two rules keep it honest. It ships **in `game_joined` only**: `state_update` strips it in
+`EventPublisher`, and every event frame (`dice_rolled`, `piece_moved`, `turn_skipped`,
+`player_aborted`) carries the entries it just wrote in its own `log` field, so a live client
+never re-derives a line and a rejoining client rebuilds the panel from one snapshot. And the
+same seat field `players[].lastRoll` is stamped by the true roller in `rollDice`, so a
+rejoined client shows the right face on the right seat instead of guessing the roller from
+`currentTurn` (which the engine has already advanced on a forfeit or a no-move roll).
+
+Because the entries store colours rather than names, a language switch re-renders the whole
+panel in the new language — including lines from before the switch.
 
 ### Publish Event Path
 ```

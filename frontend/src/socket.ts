@@ -104,13 +104,13 @@ export type ClientEvents = {
   join_game: (gameId: string, color: PlayerColor, userId?: string, displayName?: string) => void;
   roll_dice: () => void;
   move_piece: (pieceId: string) => void;
-  // Decline the armed Barrier Buster exit that is holding the turn: the token
+  // Decline the armed Wall Breaker exit that is holding the turn: the token
   // stays in hand, the dice are spent and the turn passes.
   skip_bust: () => void;
   // One press of this player's clash key. The server proves ownership and
   // applies the press cap; a decoy (touch pad) press is discarded there.
   clash_input: (key: string, count?: number) => void;
-  // The Barrier Buster arm switch (clash mode only). The engine owns the flag:
+  // The Wall Breaker arm switch (clash mode only). The engine owns the flag:
   // armed means this seat may break a wall this turn, and every wall landing
   // spends one token.
   arm_barrier: (armed: boolean) => void;

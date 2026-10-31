@@ -22,6 +22,7 @@ import type { LobbyManager } from './lobby';
 import type { ClashManager } from './clash';
 import { orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
+import { pushLog } from './game-log';
 import { createRng, randInt, seedFrom } from './rng';
 import type { Rng } from './rng';
 
@@ -171,6 +172,9 @@ export class LudoEngine {
       const diceValue = randInt(rand, 1, 6);
 
       currentPlayer.hasRolled = true;
+      // The seat's die face, stamped by the true roller. A forfeit advances the turn
+      // below, so a rejoining client could not read the roller off currentTurn.
+      currentPlayer.lastRoll = diceValue;
       // Per-player 6-streak (classic rule): every 6 grants a bonus roll; the
       // third consecutive 6 forfeits the turn. Lives on PlayerMeta so it
       // resets on turn advance.
@@ -185,15 +189,20 @@ export class LudoEngine {
           state.pendingDiceValue = undefined;
           state.pendingIsFirstRoll = undefined;
           advanceTurnInState(state);
+          // The forfeit IS the line: the roll itself is not logged on this path, which
+          // is what the panel showed before the log moved server-side.
+          const rollLog = pushLog(state, { kind: 'thirdSixForfeit', color: currentPlayer.color });
           await this.store.saveGameState(gameId, state);
           this.emit({
             type: 'dice_rolled',
             gameId,
+            color: currentPlayer.color,
             value: diceValue,
             legalMoves: [],
             bonusRoll: false,
             currentTurn: state.currentTurn,
             forfeited: true,
+            log: [rollLog],
           });
           return { value: diceValue, legalMoves: [], bonusRoll: false };
         }
@@ -216,14 +225,22 @@ export class LudoEngine {
           state.turnPhase = 'WAITING_FOR_ROLL';
           advanceTurnInState(state);
         }
+        const rollLog = pushLog(state, {
+          kind: 'roll',
+          color: currentPlayer.color,
+          value: diceValue,
+          bonus: sixBonus,
+        });
         await this.store.saveGameState(gameId, state);
         this.emit({
           type: 'dice_rolled',
           gameId,
+          color: currentPlayer.color,
           value: diceValue,
           legalMoves: [],
           bonusRoll: sixBonus,
           currentTurn: state.currentTurn,
+          log: [rollLog],
         });
         return { value: diceValue, legalMoves: [], bonusRoll: sixBonus };
       }
@@ -232,15 +249,23 @@ export class LudoEngine {
       state.turnPhase = 'WAITING_FOR_MOVE';
       state.pendingLegalMoves = legalMoves;
 
+      const rollLog = pushLog(state, {
+        kind: 'roll',
+        color: currentPlayer.color,
+        value: diceValue,
+        bonus: sixBonus,
+      });
       await this.store.saveGameState(gameId, state);
 
       this.emit({
         type: 'dice_rolled',
         gameId,
+        color: currentPlayer.color,
         value: diceValue,
         legalMoves,
         bonusRoll: sixBonus,
         currentTurn: state.currentTurn,
+        log: [rollLog],
       });
       return { value: diceValue, legalMoves, bonusRoll: sixBonus };
     });
@@ -294,7 +319,7 @@ export class LudoEngine {
       const moverWasArmed =
         state.players.find((p) => p.color === moverColor)?.barrierArmed === true;
 
-      // A Barrier Buster move pays its token here, inside the game lock and once: the
+      // A Wall Breaker move pays its token here, inside the game lock and once: the
       // pending move is cleared below, so a replay finds nothing and cannot spend a
       // second token. The debit is the attempt; a lost chain keeps the token spent.
       if (pendingMove.spendsBarrierToken) {
@@ -412,27 +437,16 @@ export class LudoEngine {
         }
       }
 
-      // Record move history
-      await this.store.recordMove(gameId, {
-        ply: result.ply,
-        color: result.color,
-        diceValue: result.diceValue,
-        pieceId: result.pieceId,
-        from: result.from,
-        to: result.to,
-        captured: result.captured,
-        enteredHome: result.enteredHome,
-        timestamp: Date.now(),
-      });
-
       // Apply the move outcome: sync piece mirrors, bump the counter, run the win
       // check, update stats and hand off the turn. Returns the winner if the game
-      // finished; `attackerWon` is true for an already-resolved move.
-      const winner = applyMoveOutcome(state, result, diceValue, true);
+      // finished; `attackerWon` is true for an already-resolved move. `log` is the
+      // narrative this move wrote: a capture, its re-roll or a repulse. It rides the
+      // same frame the move already sends, so a live client never re-derives a line.
+      const { winner, log } = applyMoveOutcome(state, result, diceValue, true);
 
       await this.store.saveGameState(gameId, state);
 
-      this.emit({ type: 'piece_moved', gameId, result });
+      this.emit({ type: 'piece_moved', gameId, result, log });
       // A token spend or any turn change sends a full-state frame: the count and the
       // arm switch ride players[], and a stale frame would show a token or an arm the
       // seat no longer holds.
@@ -474,9 +488,18 @@ export class LudoEngine {
       state.pendingDiceValue = undefined;
       state.pendingIsFirstRoll = undefined;
       state.turnPhase = 'WAITING_FOR_ROLL';
+      // Named before the hand-off: the line is about the seat that passed, and
+      // currentTurn is the seat taking over from here.
+      const skipper = state.currentTurn;
       advanceTurnInState(state);
+      const skippedLog = pushLog(state, { kind: 'bustSkipped', color: skipper });
       await this.store.saveGameState(gameId, state);
-      this.emit({ type: 'turn_skipped', gameId, currentTurn: state.currentTurn });
+      this.emit({
+        type: 'turn_skipped',
+        gameId,
+        currentTurn: state.currentTurn,
+        log: [skippedLog],
+      });
       // The pass cleared every seat's arm switch (advanceTurnInState), so a full-state frame
       // follows the turn_skipped: without it the passing seat's roster cell would keep
       // showing ARMED from the arm frame it sent before the pass.
@@ -484,7 +507,7 @@ export class LudoEngine {
     });
   }
 
-  // Barrier Buster arm switch: clash mode grants the chance to break a wall and this
+  // Wall Breaker arm switch: clash mode grants the chance to break a wall and this
   // is the seat's decision to take it. Refused with an empty hand or out of turn,
   // cleared when the turn moves on, and refused without clash mode.
   async setBarrierArmed(gameId: string, color: PlayerColor, armed: boolean): Promise<void> {

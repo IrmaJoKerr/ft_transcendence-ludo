@@ -17,11 +17,17 @@ export class EventPublisher {
           gameId,
           JSON.stringify({
             type: 'dice_rolled',
+            // The true roller: the turn may already have advanced (a no-move roll or
+            // the third-six forfeit), so the client cannot take it from currentTurn.
+            color: event.color,
             value: event.value,
             legalMoves: event.legalMoves,
             bonusRoll: event.bonusRoll,
             currentTurn: event.currentTurn,
             forfeited: event.forfeited,
+            // The lines this roll wrote to the log, so a live client renders the
+            // engine's own entry instead of re-deriving one.
+            log: event.log,
           }),
         );
         break;
@@ -32,11 +38,12 @@ export class EventPublisher {
           JSON.stringify({
             type: 'piece_moved',
             ...event.result,
+            log: event.log,
           }),
         );
         break;
 
-      // A held turn passed without a move: the Skip on an armed Barrier Buster exit.
+      // A held turn passed without a move: the Skip on an armed Wall Breaker exit.
       // Carries the seat that takes over, because the clients have no other way to
       // learn it; without this frame they keep rendering the skipped turn.
       case 'turn_skipped':
@@ -46,6 +53,7 @@ export class EventPublisher {
             type: 'turn_skipped',
             gameId,
             currentTurn: event.currentTurn,
+            log: event.log,
           }),
         );
         break;
@@ -245,6 +253,7 @@ export class EventPublisher {
             type: 'player_aborted',
             color: event.color,
             username: event.username,
+            log: event.log,
           }),
         );
         break;
@@ -259,15 +268,21 @@ export class EventPublisher {
         );
         break;
 
-      case 'state_update':
+      case 'state_update': {
+        // The log is stripped: it ships in game_joined (the snapshot a client joins
+        // ON) and rides each event frame's own `log`. Re-sending 30 entries on every
+        // full-state frame would be the one place the log costs bandwidth.
+        const state = { ...event.state };
+        delete state.log;
         void this.store.publish(
           gameId,
           JSON.stringify({
             type: 'state_update',
-            ...event.state,
+            ...state,
           }),
         );
         break;
+      }
 
       case 'player_reconnected':
         void this.store.publish(

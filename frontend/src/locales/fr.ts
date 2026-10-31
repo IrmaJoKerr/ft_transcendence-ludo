@@ -416,8 +416,13 @@ export const fr = {
     rolledValue: 'A obtenu un {{value}}',
     bonusSuffix: ' (bonus)',
     capturedPiece: 'A capturé une pièce {{color}} !',
+    // Clash perdu : l'attaquant rentre au camp. Le moteur nomme les deux sièges, donc la
+    // ligne ne peut pas accuser le défenseur comme le faisait l'ancien capturedPiece.
+    failcapturePiece: '{{attacker}} a attaqué {{victim}} : repoussé, renvoyé au camp',
+    // Clash perdu contre une case qui portait deux défenseurs ou plus (un mur).
+    wallAttackFailed: '{{attacker}} a attaqué le mur {{victim}} : repoussé',
     bonusRollAgain: 'Capture : relancez le dé',
-    wallBrokenBonusRoll: 'Le mur a été brisé. Lancer bonus accordé.',
+    wallBrokenBonusRoll: '{{attacker}} a brisé le mur {{victim}} : relance bonus',
     inviteBtn: 'Inviter',
     inviteSent: 'Invité',
     noFriendsToInvite: 'Pas d\'amis à inviter pour le moment.',
@@ -472,7 +477,7 @@ export const fr = {
     skipBustBtn: 'PASSER LE BRIS DE MUR',
     skipBustTitle: 'Passer le bris de mur : garder le jeton et passer le tour',
     skipBustDisabledTitle: "Rien à refuser : aucune attaque de mur ne retient le tour",
-    bustSkipped: '{{name}} passe : le Brise-Barrière reste en main',
+    bustSkipped: '{{name}} passe : le Brise-Mur est gardé pour plus tard',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
     // Règles de la salle : les trois options de l'hôte. `noSafeZones` est le
@@ -778,12 +783,12 @@ export const fr = {
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
     chainPricedBadgeTitle:
       'Mur de {{rounds}} : cette attaque le brise, coûte un jeton et dure {{rounds}} manches de clash',
-    // Infobulles du Brise-Barrière : les jetons restants du siège (les pastilles à
+    // Infobulles du Brise-Mur : les jetons restants du siège (les pastilles à
     // côté du label de la base) et l'étiquette 🔓 sur une pièce dont la seule
     // sortie légale est celle payée par un jeton.
     barrierTokensTitle:
-      'Brise-Barrière ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
-    armedBadgeTitle: 'Brise-Barrière : cette sortie coûte un jeton',
+      'Brise-Mur ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
+    armedBadgeTitle: 'Brise-Mur : cette sortie coûte un jeton',
   },
   gameExtra: {
     diceRollLabel: 'LANCER DE DÉ :',
@@ -869,7 +874,7 @@ export const fr = {
     rulesPage9Header: '// BRISE-BARRIÈRE',
     rulesPage9Title: '🔓 Un jeton, un mur',
     rulesPage9Body:
-      "Chaque pilote commence avec un jeton Brise-Barrière. Quand le lancer pose exactement une pièce sur un mur, cet atterrissage coûte un jeton. Armez l'interrupteur dans la colonne des jetons à côté de la liste des joueurs, puis touchez cette pièce. L'armement dure un tour : une pièce non armée est simplement bloquée par le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",
+      "Chaque pilote commence avec un jeton Brise-Mur. Quand le lancer pose exactement une pièce sur un mur, cet atterrissage coûte un jeton. Armez l'interrupteur dans la colonne des jetons à côté de la liste des joueurs, puis touchez cette pièce. L'armement dure un tour : une pièce non armée est simplement bloquée par le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",
     rulesPage9Body2:
       "Le jeton paie la tentative, pas la victoire : il est dépensé dès que le combat commence, et un clash perdu ne le rend pas. Un clash gagné contre exactement un défenseur rend un jeton, et trois est le maximum qu'un pilote peut détenir. Un mur posé sur une étoile protégée n'est jamais une cible. Passer n'est proposé que lorsque le lancer ne peut atteindre que des murs ; il passe le tour et garde le jeton.",
   },

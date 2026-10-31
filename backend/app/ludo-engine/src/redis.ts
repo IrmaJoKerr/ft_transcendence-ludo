@@ -1,6 +1,6 @@
 import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
-import type { GameState, PlayerColor, PieceId, Piece, PlayerMeta, ClashState } from './types';
+import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState } from './types';
 import { STARTING_BUSTER_TOKENS } from './types';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
@@ -37,7 +37,7 @@ return left
 // payload; a missed publish is repaired by its 30 s tick.
 const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
 
-// A live room survives a redeploy, so a state written before the Barrier Buster
+// A live room survives a redeploy, so a state written before the Wall Breaker
 // fields existed can load mid-game. Both fields feed arithmetic, where undefined
 // becomes NaN, so normalize them here, at the only read path. Zero means no token.
 // One legacy-state default: a game state written before the key-shift mutator
@@ -134,7 +134,7 @@ export class RedisGameStore {
       consecutiveSixes: 0,
       bonusRoll: false,
       isFinished: false,
-      // One Barrier Buster token is dealt at game start: it buys the prison exit's
+      // One Wall Breaker token is dealt at game start: it buys the prison exit's
       // landing on a barrier the roll reaches exactly. A clash won against a single
       // defender pays one back, up to BARRIER_BUSTER_TOKEN_CAP (clash-engine.ts).
       barrierTokens: STARTING_BUSTER_TOKENS,
@@ -181,25 +181,6 @@ export class RedisGameStore {
   async saveGameState(gameId: string, state: GameState): Promise<void> {
     await this.client.hset(this.gameKey(gameId), 'state', JSON.stringify(state));
     await this.client.expire(this.gameKey(gameId), 86400);
-  }
-
-  // Move history (separate, not part of main state)
-  async recordMove(
-    gameId: string,
-    move: {
-      ply: number;
-      color: PlayerColor;
-      diceValue: number;
-      pieceId: PieceId;
-      from: number;
-      to: number;
-      captured: boolean;
-      enteredHome: boolean;
-      timestamp: number;
-    },
-  ): Promise<void> {
-    await this.client.lpush(this.movesKey(gameId), JSON.stringify(move));
-    await this.client.ltrim(this.movesKey(gameId), 0, 199);
   }
 
   // Publish state change to all subscribers
@@ -275,15 +256,14 @@ export class RedisGameStore {
     return keys;
   }
 
-  // SCAN all game state hashes. The `:moves` lists share the `game:` prefix and
-  // are filtered out: they are lists, and HGET on a list is a type error.
+  // SCAN all game state hashes.
   async scanGameKeys(): Promise<string[]> {
     const keys: string[] = [];
     let cursor = '0';
     do {
       const [nextCursor, batch] = await this.client.scan(cursor, 'MATCH', 'game:*', 'COUNT', 100);
       cursor = nextCursor;
-      keys.push(...batch.filter((k) => !k.endsWith(':moves')));
+      keys.push(...batch);
     } while (cursor !== '0');
     return keys;
   }
@@ -367,9 +347,9 @@ export class RedisGameStore {
     await this.notifyRoomsChanged();
   }
 
-  // Delete the engine-side game state/moves for a match.
+  // Delete the engine-side game state for a match.
   async deleteGame(gameId: string): Promise<void> {
-    await this.client.del(this.gameKey(gameId), this.movesKey(gameId));
+    await this.client.del(this.gameKey(gameId));
   }
 
   // Resolve a guest handshake token. The backend's record is the authority for the
@@ -431,8 +411,5 @@ export class RedisGameStore {
   }
   private gameKey(gameId: string): string {
     return `game:${gameId}`;
-  }
-  private movesKey(gameId: string): string {
-    return `game:${gameId}:moves`;
   }
 }

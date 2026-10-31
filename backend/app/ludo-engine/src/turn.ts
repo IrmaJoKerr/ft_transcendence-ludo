@@ -1,6 +1,7 @@
-import type { GameState, MoveResult, PlayerColor, PlayerMeta } from './types';
+import type { GameState, LogEntry, MoveResult, PlayerColor, PlayerMeta } from './types';
 import { MoveValidator } from './move-validator';
 import { advanceTurnInState } from './player-handler';
+import { pushLog } from './game-log';
 
 // Keep a seat's display count and its per-game tally in step with the board, so
 // the end-game payload reports the pieces that are actually home.
@@ -10,15 +11,56 @@ function syncPiecesInGoal(state: GameState, player: PlayerMeta): void {
   player.stats.piecesInGoal = inGoal;
 }
 
+// The move's lines for the recon panel, written here because this is the one funnel a
+// plain move and a resolved clash both pass through, and it runs immediately before
+// the caller saves the state. The victim colour comes from the clash fields when the
+// engine stamped them: a repulse lists the ATTACKER's own id in capturedPieceIds, so
+// reading the victim off that id (as the client used to) names the wrong seat.
+function logMoveOutcome(state: GameState, result: MoveResult, attackerWon: boolean): LogEntry[] {
+  if (!result.captured) return [];
+  const ids = result.capturedPieceIds ?? [];
+  const victim = result.defenderColor ?? (ids[0]?.split('-')[0] as PlayerColor | undefined);
+  if (!victim || victim === result.color) return [];
+  const defenderCount = result.defenderCount ?? ids.length;
+  if (!attackerWon) {
+    // The attack lost: the mover went home, so this is a repulse, not a capture. The
+    // line names a wall when the square stood two or more defenders (nothing was broken
+    // — `wallBroken` is false on this branch by definition).
+    const wall = defenderCount >= 2;
+    return [
+      pushLog(state, {
+        kind: wall ? 'wallAttackFailed' : 'failcapturePiece',
+        color: result.color,
+        victim,
+      }),
+    ];
+  }
+  const wall = result.wallBroken ?? ids.length >= 2;
+  // A broken wall names the re-roll as the wall's reward, so it replaces the plain
+  // capture line; anything else that captures logs the capture and then the re-roll.
+  if (wall && result.bonusRoll) {
+    return [
+      pushLog(state, { kind: 'wallBrokenBonusRoll', color: result.color, victim }),
+    ];
+  }
+  const lines = [pushLog(state, { kind: 'capturedPiece', color: result.color, victim, wall })];
+  if (result.bonusRoll) {
+    lines.push(pushLog(state, { kind: 'bonusRollAgain', color: result.color }));
+  }
+  return lines;
+}
+
 // Apply a move's outcome: sync piece mirrors, bump the counter, run the win check,
 // update stats and advance the turn, or re-roll on a 6 or capture. `attackerWon` only
-// matters for a clash: a defender who won repulses the attacker, so no re-roll.
+// matters for a clash: a defender who won repulses the attacker, so no re-roll. Returns
+// the winner (null while the game runs) and the log lines the move wrote, so the frame
+// that announces the move can carry the very entries that were stored.
 export function applyMoveOutcome(
   state: GameState,
   result: MoveResult,
   diceValue: number,
   attackerWon: boolean,
-): PlayerColor | null {
+): { winner: PlayerColor | null; log: LogEntry[] } {
   // Sync the frontend-compatible piece mirrors. The authoritative field is
   // `step` (all rules read it); isInGoal/isInBase are read by the UI and must
   // stay in lockstep so the board renders correctly after every move.
@@ -42,6 +84,10 @@ export function applyMoveOutcome(
   // Increment the game-wide play counter: every move gets a unique number that
   // appears in the recorded move history and in the move result (`result.ply`).
   state.moveCounter++;
+
+  // The panel's lines for this move, written before the counter's side effects so a
+  // reader of the log never sees a line without the move it describes in the state.
+  const log = logMoveOutcome(state, result, attackerWon);
 
   // Win check : the first player with all 4 pieces at step 57 wins.
   const winner = MoveValidator.checkWinner(state);
@@ -93,5 +139,5 @@ export function applyMoveOutcome(
   state.pendingIsFirstRoll = undefined;
 
   // The caller emits game_ended when a winner is returned, otherwise piece_moved.
-  return winner;
+  return { winner, log };
 }

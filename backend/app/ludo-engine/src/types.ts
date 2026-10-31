@@ -23,6 +23,34 @@ export interface Piece {
   isInBase?: boolean; // frontend-compatible: true when step <= 0
 }
 
+// One line of the game's narrative, stored in the state so a rejoin rebuilds the
+// recon panel from the snapshot. Semantic, never rendered text: colours and values
+// only, so each client paints the line in whatever language it holds when it renders.
+export type LogKind =
+  | 'roll' // a seat rolled the die
+  | 'thirdSixForfeit' // the third 6 in a row forfeited the turn
+  | 'capturedPiece' // a landing sent one or more defenders home
+  | 'failcapturePiece' // a clash lost: the attacker went home instead
+  | 'wallBrokenBonusRoll' // the landing broke a wall and won the re-roll
+  | 'wallAttackFailed' // a clash lost against a wall
+  | 'bonusRollAgain' // a capture grants the same seat another roll
+  | 'bustSkipped' // the armed Wall Breaker exit was declined
+  | 'playerAborted'; // a seat aborted the game
+
+export interface LogEntry {
+  kind: LogKind;
+  at: number; // engine clock (ms), so lines that share a ply still order
+  color: PlayerColor; // the seat the line is about; the panel's dot colour
+  value?: number; // roll: the face
+  bonus?: boolean; // roll: the roll carried a bonus re-roll
+  victim?: PlayerColor; // capture/repulse: the defender's colour
+  wall?: boolean; // capture: the landing square stood two or more defenders
+}
+
+// The log is a panel, not an audit trail: it keeps the newest entries and drops the
+// rest, so a long game cannot grow the state snapshot without bound.
+export const LOG_CAP = 30;
+
 // Per-seat metadata for one player (human or bot) in a game.
 export interface PlayerMeta {
   color: PlayerColor; // seat color
@@ -43,6 +71,10 @@ export interface PlayerMeta {
   hasRolled: boolean; // rolled in the current turn phase
   consecutiveSixes: number; // 6-streak for the forfeit rule
   bonusRoll: boolean; // extra roll granted (6/capture)
+  // The face this seat's die last landed on, stamped by the true roller in rollDice.
+  // A rejoining client renders the seat's MiniDie from it instead of guessing the
+  // roller from currentTurn. Absent on a state written before the field existed.
+  lastRoll?: number | null;
   isFinished: boolean; // all four pieces home
   finishedAt?: string; // ISO time of finishing
   // Why this seat left, written by finalizeDeparture on the live-game paths. The
@@ -58,16 +90,16 @@ export interface PlayerMeta {
     // clash QTE tallies: drives the two clash achievements
     clashDefends: number;
     clashAttacksWon: number;
-    // Barrier Buster tallies: a clash won on a landing that stood a barrier
+    // Wall Breaker tallies: a clash won on a landing that stood a barrier
     // (drives achTearDownThisWall). Absent on a state written before the token
     // existed.
     barrierBreaks: number;
   };
-  // Barrier Buster arm switch, clash mode only. While on, this seat may attack a wall
+  // Wall Breaker arm switch, clash mode only. While on, this seat may attack a wall
   // and every such landing spends a token; while off the wall blocks. Never settable
   // with an empty hand, and cleared when the turn leaves. Absent reads as off.
   barrierArmed?: boolean;
-  // Barrier Buster tokens in hand: STARTING_BUSTER_TOKENS at game start, one spent
+  // Wall Breaker tokens in hand: STARTING_BUSTER_TOKENS at game start, one spent
   // per token-bought exit, one earned per clash won against exactly one defender
   // (see BARRIER_BUSTER_TOKEN_CAP). Absent reads as 0.
   barrierTokens?: number;
@@ -110,7 +142,7 @@ export interface ClashState {
   totalRounds?: number;
 }
 
-// The Barrier Buster hand starts here: every seat is dealt this many tokens. A token
+// The Wall Breaker hand starts here: every seat is dealt this many tokens. A token
 // buys one landing on a barrier the roll reaches exactly.
 export const STARTING_BUSTER_TOKENS = 1;
 
@@ -213,6 +245,11 @@ export interface GameState {
   clashKeyShift: 0 | 1 | 2;
   pendingCapture?: PendingCapture; // capture held until the clash resolves
   resultCardUntil?: number; // input freeze while the clash result card shows
+  // The narrative the recon panel renders: the newest LOG_CAP lines, written by the
+  // engine at the same sites that emit the frames, so a reload, a rejoin, a second tab
+  // or an engine restart rebuilds the panel from the snapshot. Absent on a state
+  // written before the log existed.
+  log?: LogEntry[];
 }
 
 // The outcome of one applied move, recorded in history and broadcast to clients.
@@ -230,6 +267,13 @@ export interface MoveResult {
   bonusRoll: boolean; // mover rolls again
   // Set only on a move that came out of a clash: who won the press race.
   clashOutcome?: 'attacker_won' | 'defender_won';
+  // Set on a move that came out of a clash: the loser's colour (the defender's, whatever
+  // the outcome) and how many defenders the landing stood. The repulse case needs both
+  // because capturedPieceIds then holds the ATTACKER's own id, so the victim colour
+  // cannot be read from it. `wallBroken` is true when the attack beat two or more.
+  defenderColor?: PlayerColor;
+  defenderCount?: number;
+  wallBroken?: boolean;
 }
 
 // A move the current player is allowed to make after a roll.
@@ -243,7 +287,7 @@ export interface LegalMove {
   // (2-4) for a breakable barrier, 0 when nothing is captured. It is also the clash
   // rounds the move costs. The bot ranks by it and the client labels "x N" from it.
   captureCount: number;
-  // True on the Barrier Buster variant of a prison exit: the move costs one token and
+  // True on the Wall Breaker variant of a prison exit: the move costs one token and
   // lands on the barrier the roll reaches exactly, never a crossing. A piece is offered
   // at most one exit per roll. The engine keys the debit off this flag.
   spendsBarrierToken?: boolean;
@@ -259,16 +303,22 @@ export type GameEvent =
   | {
       type: 'dice_rolled';
       gameId: string;
+      // The seat that rolled. The engine advances the turn before emitting on a
+      // no-move roll or the third-six forfeit, so a client cannot read it off
+      // currentTurn; this is the truth the seat's die face is written from.
+      color: PlayerColor;
       value: number;
       legalMoves: LegalMove[];
       bonusRoll: boolean;
       currentTurn: PlayerColor;
       forfeited?: boolean;
+      // The lines this roll added to the log, so a live client never re-derives them.
+      log?: LogEntry[];
     }
-  | { type: 'piece_moved'; gameId: string; result: MoveResult }
+  | { type: 'piece_moved'; gameId: string; result: MoveResult; log?: LogEntry[] }
   // A held turn passed without a move: the armed exit was declined (Skip), so no
   // token was spent and the turn moves on. Carries the seat that takes over.
-  | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor }
+  | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor; log?: LogEntry[] }
   // The result card's hold ended: every participating client reported it was done, so
   // the engine shortened `resultCardUntil`. Clients clear the live clash on this frame;
   // the card itself is their own presentation clock.
@@ -277,7 +327,7 @@ export type GameEvent =
   | { type: 'game_started'; gameId: string }
   | { type: 'game_expired'; gameId: string }
   | { type: 'player_exited'; gameId: string; color: PlayerColor }
-  | { type: 'player_aborted'; gameId: string; color: PlayerColor; username: string }
+  | { type: 'player_aborted'; gameId: string; color: PlayerColor; username: string; log?: LogEntry[] }
   | { type: 'player_disconnected'; gameId: string; color: PlayerColor }
   | { type: 'player_reconnected'; gameId: string; color: PlayerColor; displayName?: string }
   // Full-state frame: the engine changed something the event-specific payloads

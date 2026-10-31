@@ -188,7 +188,7 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     perGameTarget: 2,
     perGameSource: (part) => part.clashAttacksWon,
   },
-  // The Barrier Buster: two walls torn down in one game (achTearDownThisWall). A wall
+  // The Wall Breaker: two walls torn down in one game (achTearDownThisWall). A wall
   // stood 2 or more defenders, banked by an armed exit that crossed it and won, or a
   // later landing on a 2-stack that did. Two are reachable in one clash-mode game.
   {

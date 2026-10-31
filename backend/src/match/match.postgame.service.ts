@@ -19,7 +19,7 @@ export interface GameEndParticipant {
   piecesInGoal?: number;
   clashDefends?: number;
   clashAttacksWon?: number;
-  // Barrier Buster: token-priced prison exits that won their clash chain.
+  // Wall Breaker: token-priced prison exits that won their clash chain.
   barrierBreaks?: number;
 }
 export interface GameEndPayload {

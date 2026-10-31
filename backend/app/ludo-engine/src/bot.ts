@@ -37,7 +37,7 @@ export function isBotSeat(state: GameState | null | undefined, color: PlayerColo
 // worth CAPTURE_CREDIT times its clash odds. A 2+ defender wall falls below the
 // best positional move, so the bot declines it. The bot doc has the worked values.
 const CAPTURE_CREDIT = 7000;
-// Value of a Barrier Buster token kept in hand. A bust scores its capture credit
+// Value of a Wall Breaker token kept in hand. A bust scores its capture credit
 // minus this shadow, so the bot spends the token only when the attack still
 // clears that value.
 const BUST_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
@@ -87,7 +87,7 @@ export class LudoBot {
     // is worth 219, while plain progress alone pays up to 570).
     if (move.isCapture) {
       const credit = CAPTURE_CREDIT * this.captureOdds(state, move);
-      // A Barrier Buster bust is a capture that also spends a token, so it pays
+      // A Wall Breaker bust is a capture that also spends a token, so it pays
       // the token's shadow price: a bust whose odds do not cover it drops below
       // Skip (0) and the bot declines.
       return move.spendsBarrierToken ? credit - BUST_TOKEN_SHADOW : credit;
@@ -189,7 +189,7 @@ export class LudoBot {
       if (afterRoll?.currentTurn !== this.color) return false;
 
       // Select the best move by heuristic. Null means the bot declines an armed
-      // Barrier Buster bust whose odds miss the token's shadow price: it passes the
+      // Wall Breaker bust whose odds miss the token's shadow price: it passes the
       // turn instead of stalling, and the token stays in hand.
       const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue);
       if (!bestMove) {

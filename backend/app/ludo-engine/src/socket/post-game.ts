@@ -5,6 +5,7 @@ import type { EventPublisher } from './event-publisher';
 import type { GameSocket } from './auth';
 import type { RoomRegistry } from './room-context';
 import { finalizeDeparture, teardownRoom } from '../player-handler';
+import { pushLog } from '../game-log';
 
 // PostGameManager owns the end-of-game lifecycle: the post-game timeout that
 // expires a finished room, and the "End Game" button.
@@ -61,6 +62,13 @@ export class PostGameManager {
       'end_game',
       this.cleanup,
     );
-    this.publisher.publish({ type: 'player_aborted', gameId, color, username });
+    // The departure is game state too, so its line is written into the snapshot (a
+    // rejoining client rebuilds the panel from there) and carried by the frame for the
+    // clients already watching. A prune that dropped the room below quorum already
+    // deleted the state, so there is nothing left to write.
+    const after = await this.store.loadGameState(gameId);
+    const log = after ? [pushLog(after, { kind: 'playerAborted', color })] : undefined;
+    if (after) await this.store.saveGameState(gameId, after);
+    this.publisher.publish({ type: 'player_aborted', gameId, color, username, log });
   }
 }

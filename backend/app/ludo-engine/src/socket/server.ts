@@ -516,12 +516,12 @@ export class SocketServer {
         this.handlers.handleMovePiece(socket, pieceId);
       });
 
-      // The Skip button on a held turn: decline the armed Barrier Buster exit.
+      // The Skip button on a held turn: decline the armed Wall Breaker exit.
       socket.on('skip_bust', () => {
         this.handlers.handleSkipBust(socket);
       });
 
-      // The Barrier Buster arm switch, clash mode only: arm to be allowed to land
+      // The Wall Breaker arm switch, clash mode only: arm to be allowed to land
       // on (and break) a wall this turn, disarm to be blocked by one. The engine
       // owns the flag, so this is a request, not a local toggle.
       socket.on('arm_barrier', (armed?: boolean) => {

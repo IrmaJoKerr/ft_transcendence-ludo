@@ -413,8 +413,13 @@ export const ms = {
     rolledValue: 'Mendapat nilai {{value}}',
     bonusSuffix: ' (bonus)',
     capturedPiece: 'Menangkap buah {{color}}!',
+    // Clash kalah: penyerang dihantar pulang. Enjin menamakan kedua-dua kerusi, jadi baris
+    // ini tidak boleh menyalahkan pempertahan seperti capturedPiece yang lama.
+    failcapturePiece: '{{attacker}} menyerang {{victim}}: dipatahkan, dihantar pulang',
+    // Clash kalah terhadap petak yang menampung dua pempertahan atau lebih (tembok).
+    wallAttackFailed: '{{attacker}} menyerang tembok {{victim}}: dipatahkan',
     bonusRollAgain: 'Tangkap: guling lagi',
-    wallBrokenBonusRoll: 'Tembok telah dipecahkan. Guling bonus diberikan.',
+    wallBrokenBonusRoll: '{{attacker}} memecahkan tembok {{victim}}: gulingan bonus',
     inviteBtn: 'Jemput',
     inviteSent: 'Dijemput',
     noFriendsToInvite: 'Tiada kawan untuk dijemput lagi.',
@@ -468,7 +473,7 @@ export const ms = {
     skipBustBtn: 'LANGKAU PECAH TEMBOK',
     skipBustTitle: 'Langkau pemecahan tembok: simpan token dan langkau giliran',
     skipBustDisabledTitle: 'Tiada apa untuk dilangkau: tiada serangan tembok menahan giliran',
-    bustSkipped: '{{name}} melangkau: Pemecah Sekatan kekal di tangan',
+    bustSkipped: '{{name}} melangkau: Pemecah Tembok disimpan untuk kemudian',
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
     // Peraturan bilik: tiga suis hos. `noSafeZones` ialah bendera TERBALIK, dan
@@ -770,12 +775,12 @@ export const ms = {
     chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
     chainPricedBadgeTitle:
       'Tembok {{rounds}}: serangan ini memecahkannya, menelan satu token dan {{rounds}} pusingan clash',
-    // Tip alat Pemecah Sekatan: token yang masih dipegang kerusi ini (titik di
+    // Tip alat Pemecah Tembok: token yang masih dipegang kerusi ini (titik di
     // sebelah label pangkalan) dan tanda 🔓 pada buah yang satu-satunya langkah sah
     // ialah keluar berpembayaran token.
     barrierTokensTitle:
-      'Pemecah Sekatan ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
-    armedBadgeTitle: 'Pemecah Sekatan: keluar ini menelan satu token',
+      'Pemecah Tembok ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
+    armedBadgeTitle: 'Pemecah Tembok: keluar ini menelan satu token',
   },
   gameExtra: {
     diceRollLabel: 'GULING DADU:',
@@ -861,7 +866,7 @@ export const ms = {
     rulesPage9Header: '// PEMECAH SEKATAN',
     rulesPage9Title: '🔓 Satu token, satu tembok',
     rulesPage9Body:
-      'Setiap juruterbang diberi satu token Pemecah Sekatan pada awal permainan. Apabila gulingan anda mendaratkan buah tepat pada tembok, pendaratan itu menelan satu token. Armkan suis dalam lajur token di sisi senarai pemain, kemudian ketik buah itu. Arm bertahan satu giliran: buah yang tidak diarmkan hanya disekat oleh tembok. Gulingan itu masih perlu mencapai tembok dengan sendirinya, kerana token hanya membeli pendaratan: ia tidak sekali-kali membawa buah melepasi sesuatu petak.',
+      'Setiap juruterbang diberi satu token Pemecah Tembok pada awal permainan. Apabila gulingan anda mendaratkan buah tepat pada tembok, pendaratan itu menelan satu token. Armkan suis dalam lajur token di sisi senarai pemain, kemudian ketik buah itu. Arm bertahan satu giliran: buah yang tidak diarmkan hanya disekat oleh tembok. Gulingan itu masih perlu mencapai tembok dengan sendirinya, kerana token hanya membeli pendaratan: ia tidak sekali-kali membawa buah melepasi sesuatu petak.',
     rulesPage9Body2:
       'Token membayar percubaan, bukan kemenangan: ia dibelanjakan sebaik sahaja pertempuran bermula, dan clash yang kalah tidak memulangkannya. Clash yang dimenangi menentang tepat satu pertahanan memberi satu token semula, dan tiga ialah jumlah maksimum yang boleh dipegang. Tembok di atas bintang yang dilindungi tidak pernah menjadi sasaran. Langkau hanya ditawarkan apabila gulingan tidak dapat mencapai apa-apa selain tembok; ia melangkau giliran dan menyimpan token.',
   },

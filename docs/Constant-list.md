@@ -42,7 +42,7 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 
 1. **[Engine timing](#1-engine-timing)** — every delay the engine owns: clash windows, turn pacing, transport, lifecycle
 2. **[Clash rules](#2-clash-rules)** — target presses, key grids, tap weight, bot pacing profiles and draw odds
-3. **[Board rules](#3-board-rules)** — track and home-lane steps, safe squares, base exit, the three-six rule, Barrier Buster hand
+3. **[Board rules](#3-board-rules)** — track and home-lane steps, safe squares, base exit, the three-six rule, Wall Breaker hand
 4. **[Bot valuation](#4-bot-valuation)** — the one score scale the bot ranks moves on
 
 ### Backend
@@ -173,7 +173,7 @@ capped path they lose nothing.
 
 **Owners:** `backend/app/ludo-engine/src/board-mapper.ts` ⚙️ (safe squares, colour offsets),
 `move-validator.ts` ⚙️ (base exit, overshoot, blockades), `engine.ts` ⚙️ (six streak, goal, win) and
-`types.ts` ⚙️ (Barrier Buster hand). The client mirrors the track geometry in
+`types.ts` ⚙️ (Wall Breaker hand). The client mirrors the track geometry in
 `frontend/src/game/boardGeometry.ts` 🖥️ (§15).
 
 | Constant / rule | Value | What it decides |
@@ -188,10 +188,11 @@ capped path they lose nothing.
 | Six streak | 3 | a third consecutive 6 forfeits the turn (`consecutiveSixes >= 3`); every other 6 grants a bonus roll |
 | Blockade | 2+ same-colour pieces on one non-safe track square | opponents cannot cross or land on it; the owner is unaffected |
 | Win | 4 pieces at step 57 | `all(step === 57)` → `game_ended` with `resultDetail: 'four_pieces'` |
-| `STARTING_BUSTER_TOKENS` | 1 | Barrier Buster tokens every seat starts with 🔗 (client copy in §14) |
+| `STARTING_BUSTER_TOKENS` | 1 | Wall Breaker tokens every seat starts with 🔗 (client copy in §14) |
 | `BARRIER_BUSTER_TOKEN_CAP` | 3 | most tokens a seat can bank; a won clash against one defender pays one back, a won barrier never pays |
+| `LOG_CAP` | 30 | lines the engine keeps in `state.log` (and the client draws); the oldest are dropped on write |
 
-The Barrier Buster token buys one landing on a barrier the roll reaches **exactly** — never a
+The Wall Breaker token buys one landing on a barrier the roll reaches **exactly** — never a
 crossing — and a bust that is declined leaves the token in hand.
 
 
@@ -203,7 +204,7 @@ turn is comparable.
 | Constant | Value | What it decides |
 |---|---|---|
 | `CAPTURE_CREDIT` | 7000 | a capture scores this × its clash odds; no positional bonus is added on top |
-| `BUST_TOKEN_SHADOW` | 1400 (0.2 × `CAPTURE_CREDIT`) | the token a Barrier Buster bust spends; a bust below the shadow is declined |
+| `BUST_TOKEN_SHADOW` | 1400 (0.2 × `CAPTURE_CREDIT`) | the token a Wall Breaker bust spends; a bust below the shadow is declined |
 | `JAIL_EXIT_BONUS` | 1000 | extra on a 6 that leaves the base, so that exit outranks every positional move except a home entry |
 | Home entry (inline) | +1000 | landing in the home lane |
 | Safe-zone landing (inline) | +500 | only when entering a safe square from the track |
@@ -714,7 +715,7 @@ rather than settling on a face nobody sent. `piece_moved` then waits out what is
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `BUSTER_PANEL_W` / `BUSTER_PANEL_GAP` | 96 / 10 | the Barrier Buster token panel's width and the gap in front of it |
+| `BUSTER_PANEL_W` / `BUSTER_PANEL_GAP` | 96 / 10 | the Wall Breaker token panel's width and the gap in front of it |
 | `CARD_ROOM_OVERHANG` | 46 | extra room for display names in every room; the roster's overhang is 46, or 46 + 96 + 10 = 152 in clash mode, so the cards are equally wide either way |
 | `BUSTER_GLYPH` | `🧨` | the token's glyph |
 | Board size | `min(650px, 66vh)` | the desktop board's ceiling, and it also yields `rosterOverhang` |
@@ -819,6 +820,7 @@ that mirrors it. A change is not complete until the mirror is edited too.
 | Safe squares `1, 9, 14, 22, 27, 35, 40, 48` | ⚙️ `board-mapper.ts` | 🖥️ `Board.tsx` `SAFE_STAR_CELLS` | the eight stars |
 | Colour offsets 0 / 13 / 26 / 39 | ⚙️ `board-mapper.ts` | 🖥️ `boardGeometry.ts` `TRACK_OFFSET` | same modulo arithmetic |
 | `BARRIER_BUSTER_TOKEN_CAP` 3 | ⚙️ `types.ts` | 🖥️ `pages/Game.tsx` | the client draws exactly three glyph slots |
+| `LOG_CAP` 30 | ⚙️ `types.ts` | 🖥️ `game/types.ts` | the engine caps the stored log, the panel caps what it renders |
 | Password 12–72 + character classes | 🗄️ `dto/password.rules.ts` | 🖥️ `validatePassword.ts` | the server is authoritative |
 | Guest window 6 h + `guest:*` key shapes | 🗄️ `guest-limit.service.ts` | ⚙️ `redis.ts` (`GUEST_ABORT_WINDOW_S`, keys) | the engine writes counts, decides no limit |
 | `BOT_PREFIX` `bot-` | 🗄️ `common/botname-enforce.ts` | ⚙️ `socket/auth.ts` | `bot-<color>` is a seat identity |
