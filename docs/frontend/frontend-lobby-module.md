@@ -31,7 +31,7 @@ The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room scree
 **Room browser.** The "OPEN QUANTUM ROOMS" window is a six-column table: sector code, host
 callsign, capacity, stakes, modes, and action. `GET /api/games/rooms` also returns the room's three
 rule flags, so the MODES cell names the variant before a player takes a seat: `BASE GAME` when no
-mutator is on, otherwise only the active ones (`CLASH MODE`, `NO SAFE ZONES`, `FREE EXIT`), with the
+mutator is on, otherwise only the active ones (`CLASH MODE`, `FREE EXIT`, `NO SAFE ZONES`), with the
 same icons and accent colours as the create-screen toggles. The cell's `title` carries the full
 localized list, so a chip clipped by a narrow column still resolves without a hover-only "i" (which
 touch users could not reach). Header and rows live in one scroll box with a sticky header, and the
@@ -240,7 +240,7 @@ For hotseat and PvE, the created game is exactly the occupied seats (the host is
 
 ## Implementation Notes
 
-- **Rule toggles reuse the seat sounds** (`Lobby.tsx`). Switching a rule on plays the seat-added blip (520 Hz); switching one off plays the seat-removed blip (320 Hz). Both use the shared 0.05 s duration, so the rules panel sounds like the seat controls beside it.
+- **Rule toggles reuse the seat sounds** (`components/RoomRuleToggle.tsx`, shared by `Lobby.tsx` and `Game.tsx`). Switching a rule on plays the seat-added blip (520 Hz); switching one off plays the seat-removed blip (320 Hz). Both use the shared 0.05 s duration, so the rules panel sounds like the seat controls beside it.
 
 
 ---

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
 import { LandscapeNotice } from '../components/RetroAuthLayout';
+import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
 import { useApp, type PlayerCount } from '../store';
@@ -964,7 +965,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       </span>
                     </div>
 
-                    {/* Room rules: the three toggles this room is created with. They
+                    {/* Room rules: the four toggles this room is created with, in
+                        reading order — clash, the mid-clash key shift it owns, free
+                        exit, then no safe zones last because it is the hardest. They
                         travel in the create body, so the room is made with them in
                         one call, and the host can still flip them from the game's
                         room-rules panel once the room exists. */}
@@ -986,87 +989,20 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       >
                         {t('game.rulesControl')}
                       </span>
-                      {(
-                        [
-                          {
-                            key: 'clashMode' as const,
-                            icon: '⚔️',
-                            label: t('game.clashMode'),
-                            desc: t('game.clashModeDesc'),
-                            checked: clashEnabled,
-                            accent: 'var(--accent-pink)',
-                            toggle: setClashEnabled,
-                          },
-                          {
-                            key: 'noSafeZones' as const,
-                            icon: '💀',
-                            label: t('game.noSafeZones'),
-                            desc: t('game.noSafeZonesDesc'),
-                            checked: noSafeZones,
-                            accent: 'var(--accent-cyan)',
-                            toggle: setNoSafeZones,
-                          },
-                          {
-                            key: 'freeExit' as const,
-                            icon: '🚪',
-                            label: t('game.freeExit'),
-                            desc: t('game.freeExitDesc'),
-                            checked: freeExit,
-                            accent: 'var(--accent-yellow)',
-                            toggle: setFreeExit,
-                          },
-                        ] as const
-                      ).map((rule) => (
-                        <label
-                          key={rule.key}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 8,
-                            fontSize: '0.78rem',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--text-main)',
-                            cursor: 'pointer',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: 4,
-                            padding: '7px 10px',
-                            background: 'rgba(0, 0, 0, 0.4)',
-                          }}
-                        >
-                          <span
-                            style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}
-                          >
-                            <span>
-                              {rule.icon} {rule.label}
-                            </span>
-                            <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-                              {rule.desc}
-                            </span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={rule.checked}
-                            onChange={(e) => {
-                              // The rule toggles reuse the seat add/remove sounds: on reads as a
-                              // seat added (520 Hz), off as a seat removed (320 Hz), both at
-                              // the same 0.05 s blip.
-                              retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
-                              rule.toggle(e.target.checked);
-                            }}
-                            style={{
-                              accentColor: rule.accent,
-                              width: 15,
-                              height: 15,
-                              cursor: 'pointer',
-                            }}
-                          />
-                        </label>
-                      ))}
-                      {/* The key-shift mutator, one row under the clash toggle: a
-                          checkbox and its 1 / 2 count. Both are disabled unless clash
-                          mode is on, because the engine forces the count to 0 there.
-                          The count is kept apart so re-enabling restores it. */}
+                      <RoomRuleToggle
+                        icon="⚔️"
+                        label={t('game.clashMode')}
+                        desc={t('game.clashModeDesc')}
+                        checked={clashEnabled}
+                        accent="var(--accent-pink)"
+                        onToggle={setClashEnabled}
+                      />
+                      {/* The key-shift mutator sits directly under the clash toggle
+                          it depends on, so the panel reads clash → mid-clash key
+                          shift → free exit → no safe zones: a checkbox and its 1 / 2
+                          count. Both are disabled unless clash mode is on, because
+                          the engine forces the count to 0 there. The count is kept
+                          apart so re-enabling restores it. */}
                       <label
                         style={{
                           display: 'flex',
@@ -1134,6 +1070,22 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           />
                         </span>
                       </label>
+                      <RoomRuleToggle
+                        icon="🚪"
+                        label={t('game.freeExit')}
+                        desc={t('game.freeExitDesc')}
+                        checked={freeExit}
+                        accent="var(--accent-yellow)"
+                        onToggle={setFreeExit}
+                      />
+                      <RoomRuleToggle
+                        icon="💀"
+                        label={t('game.noSafeZones')}
+                        desc={t('game.noSafeZonesDesc')}
+                        checked={noSafeZones}
+                        accent="var(--accent-cyan)"
+                        onToggle={setNoSafeZones}
+                      />
                     </div>
 
                     {/* Status Info Box */}

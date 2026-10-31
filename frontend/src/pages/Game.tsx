@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Board } from '../components/Board';
 import { CaptureBurst } from '../components/CaptureBurst';
 import { Die } from '../components/Die';
+import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../game/types';
@@ -1088,15 +1089,22 @@ export function Game() {
     if (view.clashKeyShift === 1 || view.clashKeyShift === 2) setClashShiftCount(view.clashKeyShift);
   }, [view.clashKeyShift]);
 
-  // The key-shift row replaces the whole rule object like the toggles do, so the
-  // other three fields are echoed from the view rather than guessed.
-  const emitKeyShift = (next: 0 | 1 | 2) =>
+  // A rule toggle replaces the whole object, so the field it moved is the only one
+  // that changes and the rest are echoed from the view rather than guessed.
+  const emitRule = (patch: Partial<RoomRules>) =>
     updateModifiers({
       clashEnabled: view.clashMode,
       noSafeZones: view.noSafeZones,
       freeExit: view.freeExit,
-      clashKeyShift: next,
+      // The mutator's count rides every payload; the engine forces it to 0 while
+      // clash mode is off.
+      clashKeyShift: view.clashKeyShift,
+      ...patch,
     });
+
+  // The key-shift row goes through the same door, so every rule row sends one
+  // complete object.
+  const emitKeyShift = (next: 0 | 1 | 2) => emitRule({ clashKeyShift: next });
 
   const selectColor = (color: PlayerColor) => {
     if (activeMatch?.mode === 'pvp') return;
@@ -2439,103 +2447,22 @@ export function Game() {
                           {t('game.rulesControl')}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {(
-                            [
-                              {
-                                key: 'clashMode' as const,
-                                icon: '⚔️',
-                                label: t('game.clashMode'),
-                                desc: t('game.clashModeDesc'),
-                                checked: view.clashMode,
-                                accent: 'var(--accent-pink)',
-                              },
-                              {
-                                key: 'noSafeZones' as const,
-                                icon: '💀',
-                                label: t('game.noSafeZones'),
-                                desc: t('game.noSafeZonesDesc'),
-                                checked: view.noSafeZones,
-                                accent: 'var(--accent-cyan)',
-                              },
-                              {
-                                key: 'freeExit' as const,
-                                icon: '🚪',
-                                label: t('game.freeExit'),
-                                desc: t('game.freeExitDesc'),
-                                checked: view.freeExit,
-                                accent: 'var(--accent-yellow)',
-                              },
-                            ] as const
-                          ).map((rule) => (
-                            <label
-                              key={rule.key}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 8,
-                                fontSize: '0.78rem',
-                                fontFamily: 'var(--font-mono)',
-                                color: 'var(--text-main)',
-                                cursor: 'pointer',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 4,
-                                padding: '7px 10px',
-                                background: 'rgba(0, 0, 0, 0.4)',
-                              }}
-                            >
-                              <span
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  lineHeight: 1.3,
-                                }}
-                              >
-                                <span>
-                                  {rule.icon} {rule.label}
-                                </span>
-                                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-                                  {rule.desc}
-                                </span>
-                              </span>
-                              <input
-                                type="checkbox"
-                                checked={rule.checked}
-                                onChange={(e) => {
-                                  // Same pair as the local table's rule toggles: ON reads
-                                  // like a seat added, OFF like one removed.
-                                  retroAudio.playUiBeep(e.target.checked ? 520 : 320, 0.05);
-                                  // One object each way: the toggle that moved is the
-                                  // only field that changes, the other two are echoed.
-                                  updateModifiers({
-                                    clashEnabled:
-                                      rule.key === 'clashMode' ? e.target.checked : view.clashMode,
-                                    noSafeZones:
-                                      rule.key === 'noSafeZones'
-                                        ? e.target.checked
-                                        : view.noSafeZones,
-                                    freeExit:
-                                      rule.key === 'freeExit' ? e.target.checked : view.freeExit,
-                                    // The mutator's count rides every payload; the engine
-                                    // forces it to 0 while clash mode is off.
-                                    clashKeyShift: view.clashKeyShift,
-                                  });
-                                }}
-                                style={{
-                                  accentColor: rule.accent,
-                                  width: 15,
-                                  height: 15,
-                                  cursor: 'pointer',
-                                }}
-                              />
-                            </label>
-                          ))}
-                          {/* The key-shift mutator: one row under the clash toggle, a
-                              checkbox and its 1 / 2 count. Both are disabled unless clash
-                              mode is on, because the engine forces the count to 0 there.
-                              The count lives in local state so re-enabling restores it
-                              instead of resetting to 1. A native <select> is the first in
-                              the app, so it carries its own dark styling. */}
+                          <RoomRuleToggle
+                            icon="⚔️"
+                            label={t('game.clashMode')}
+                            desc={t('game.clashModeDesc')}
+                            checked={view.clashMode}
+                            accent="var(--accent-pink)"
+                            onToggle={(next) => emitRule({ clashEnabled: next })}
+                          />
+                          {/* The key-shift mutator sits directly under the clash
+                              toggle it depends on, so the panel reads clash → mid-clash
+                              key shift → free exit → no safe zones: a checkbox and its
+                              1 / 2 count. Both are disabled unless clash mode is on,
+                              because the engine forces the count to 0 there. The count
+                              lives in local state so re-enabling restores it instead of
+                              resetting to 1. A native <select> is the first in the app,
+                              so it carries its own dark styling. */}
                           <label
                             style={{
                               display: 'flex',
@@ -2604,6 +2531,22 @@ export function Game() {
                               />
                             </span>
                           </label>
+                          <RoomRuleToggle
+                            icon="🚪"
+                            label={t('game.freeExit')}
+                            desc={t('game.freeExitDesc')}
+                            checked={view.freeExit}
+                            accent="var(--accent-yellow)"
+                            onToggle={(next) => emitRule({ freeExit: next })}
+                          />
+                          <RoomRuleToggle
+                            icon="💀"
+                            label={t('game.noSafeZones')}
+                            desc={t('game.noSafeZonesDesc')}
+                            checked={view.noSafeZones}
+                            accent="var(--accent-cyan)"
+                            onToggle={(next) => emitRule({ noSafeZones: next })}
+                          />
                         </div>
                         <div
                           style={{
