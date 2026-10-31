@@ -309,6 +309,17 @@ friends, match (creator, player, query, postgame), notification, and the avatar
 metadata cache. The engine is a separate process, so its `RedisGameStore` and
 `RedisBroadcaster` read `process.env.REDIS_PASSWORD` directly instead.
 
+Durability: `redis-init.sh` writes `appendonly yes` with `appendfsync everysec`,
+an RDB preamble on rewrite and auto-rewrite at 100 % of 64 MB, into `dir /data`
+(the `redis_data` volume). The RDB `save` lines stay as the cold-restore path.
+Every family listed above therefore survives a container restart, the
+notification bell included; a `FLUSHALL` or an eviction still clears a key.
+The 256 MB `allkeys-lru` cap is deliberate: live usage is about 1.6 MB, so an
+eviction is reachable only through an unbounded key family, never through
+traffic. `volatile-lru` would protect nothing, because every family that matters
+already carries a TTL. If the cap ever bites, raise `maxmemory` first, then find
+the leaking key family.
+
 
 ---
 ---

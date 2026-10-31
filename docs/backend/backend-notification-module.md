@@ -97,10 +97,11 @@ stamped once, so the zset score and the payload agree. `getUnread` drops ids who
 hash field has gone, so the badge never counts a ghost. A read in one tab is
 visible to the others at their next connect, because the snapshot is the
 reconciliation point and there is no removal frame. There is no cleanup job:
-the TTL is the cleanup. A Redis restart without persistence empties every bell:
-enabling AOF (the Redis durability item in `todo.md`) is what makes the 14-day
-window real. A `FLUSHALL` or an eviction still costs the bell, and that is a
-deliberate scope call: "notifications are not long-term data".
+the TTL is the cleanup. A Redis restart replays every bell, because
+`redis-init.sh` writes `appendonly yes` with `appendfsync everysec`, so at most
+one second of writes is lost. A `FLUSHALL` or an eviction still costs the bell,
+and that is a deliberate scope call: "notifications are not long-term data".
+`docs/architecture.md` records the config and the reason the LRU cap stays.
 
 
 

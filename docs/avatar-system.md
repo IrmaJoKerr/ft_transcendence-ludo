@@ -444,7 +444,7 @@ Then in the browser, with DevTools open:
 
 ## Known limitations
 
-- **The Redis record can be evicted** (`allkeys-lru`, `appendonly no`). A miss shows the generated
+- **The Redis record can be evicted** (`allkeys-lru`, `appendonly yes`). A miss shows the generated
   avatar, never a 404, and is repaired from Postgres on the next `/me` or public-profile read. The
   record has no TTL, so repair is the only mechanism that corrects it.
 - **`PlayerMeta` stores the flag at join time.** A change made while players sit in the room arrives

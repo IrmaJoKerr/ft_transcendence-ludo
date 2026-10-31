@@ -18,11 +18,18 @@ save 60 10000
 rdbcompression yes
 dbfilename dump.rdb
 dir /data
+# Sessions, presence, match/game state and the notification bell must survive a
+# container restart, so the append-only file is on. RDB saves stay: cold restore.
+appendonly yes
+appendfsync everysec
+aof-use-rdb-preamble yes
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
 maxmemory 256mb
 maxmemory-policy allkeys-lru
 # Keyevent + expired notifications: MailService
 # (backend/src/auth/mail.service.ts) subscribes to __keyevent@0__:expired to
-# email the "your email change lapsed" notice. `Ex` is the minimum needed; 
+# email the "your email change lapsed" notice. 'Ex' is the minimum needed;
 # it keeps pub/sub overhead negligible (Redis reports the flags reordered, as "xE").
 notify-keyspace-events Ex
 EOF
