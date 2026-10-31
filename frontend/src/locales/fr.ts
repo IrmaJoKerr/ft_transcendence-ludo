@@ -162,6 +162,8 @@ export const fr = {
     transmissionLogTitle: 'JOURNAL DE TRANSMISSION // NOTIFICATIONS',
     ackAllBtn: '[TOUT ACCEPTER]',
     noTransmissions: '[AUCUNE TRANSMISSION DANS LE TAMPON]',
+    digestToast: '{{count}} nouvelles notifications',
+    unavailable: '[NOTIFICATIONS INDISPONIBLES // RECONNEXION]',
     friendRequestText: 'Le pilote @{{username}} a envoyé une demande d\'ami',
     friendAcceptedText: 'Le pilote @{{username}} est connecté à votre cyber réseau',
     matchChallengeText: 'Le pilote @{{username}} a lancé un défi de match',

@@ -14,6 +14,16 @@ export const WS_PING_TIMEOUT_MS = 20_000;
 // inbound event here is one boolean, so anything bigger is a bug or a flood.
 export const WS_MAX_EVENT_BYTES = 64 * 1024;
 
+// One notification frame (`{id,type,payload,read,createdAt}`), the same shape the
+// SSE stream used to carry. It goes to one account's `user:` room, or to every
+// socket for the global `notify:all` broadcast.
+export const EVENT_NOTIFICATION = 'notification';
+
+// The connect snapshot: the account's unread list, emitted on every (re)connect
+// so the bell paints and a frame missed while the socket was down is repaired.
+// It is the only read path: there is no REST list route (Phase 4).
+export const EVENT_NOTIFICATIONS_UNREAD = 'notifications:unread';
+
 // The room every socket of one account joins at connect. The revocation push
 // addresses it: `disconnectSockets()` with no room would cut every client.
 export const userRoom = (userId: string): string => `user:${userId}`;

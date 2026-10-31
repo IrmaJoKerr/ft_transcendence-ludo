@@ -15,7 +15,7 @@
 
 ## Overview
 
-The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **7 models** and **4 enums** covering users, achievements, OAuth accounts, games, friendships, and notifications. The Prisma client is generated into `backend/generated` (gitignored).
+The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **6 models** and **4 enums** covering users, achievements, OAuth accounts, games and friendships. Notifications are not a table: the bell lives in Redis (see [backend-notification-module.md](./backend-notification-module.md) and D12 in `todo.md`). The Prisma client is generated into `backend/generated` (gitignored).
 
 > **Notable shift:** The `Achievement` model now holds **only the achievement
 > flags**. All per-user stats (rating, wins, streaks), avatar data, and
@@ -139,7 +139,7 @@ data, and disconnect/reconnect counters.
 | `createdAt` | DateTime | Auto | Account creation timestamp |
 | `updatedAt` | DateTime | Auto | Last update timestamp |
 
-**Relations:** `accounts`, `notifications`, `achievement` (1:1), `gameParticipants`, `friendshipsAsUser1`, `friendshipsAsUser2`
+**Relations:** `accounts`, `achievement` (1:1), `gameParticipants`, `friendshipsAsUser1`, `friendshipsAsUser2`
 
 
 ---
@@ -294,33 +294,12 @@ never be silently rewritten from the other.
 ---
 
 
-### Notification
-
-Persisted notifications backing the SSE stream and the bell dropdown.
-
-| Field | Type | Attributes | Description |
-|-------|------|------------|-------------|
-| `id` | String | UUID, PK | Unique identifier |
-| `userId` | String | FK | Recipient |
-| `type` | String | | `friend_request` \| `friend_accepted` \| `friend_declined` \| `friend_removed` \| `game_invite` \| `achievement` \| `match_finished` \| `match_cancelled` \| `profile_updated` \| `display_name_changed` \| `friend_online` \| `friend_offline` \| `avatar_changed` |
-| `payload` | Json | | Flexible per-type data |
-| `read` | Boolean | Default: false | Read state |
-| `createdAt` | DateTime | Auto | When created |
-
-**Relations:** `user` (back-reference)
-
-
----
----
-
-
 ## Entity Relationships
 
 ```mermaid
 erDiagram
     User ||--|| Achievement : "1:1 (achievement flags)"
     User ||--o{ Account : "OAuth links"
-    User ||--o{ Notification : "receives"
     User ||--o{ GameParticipant : "plays"
     User ||--o{ Friendship : "user1 (user1Id)"
     User ||--o{ Friendship : "user2 (user2Id)"
@@ -410,14 +389,6 @@ erDiagram
         datetime createdAt "When the pair row was made"
         datetime updatedAt "Last change"
     }
-    Notification {
-        string id PK "Unique ID"
-        string userId FK "Who it is for"
-        string type "kind of notification"
-        Json payload "Extra details"
-        boolean read "Has it been read?"
-        datetime createdAt "When it was sent"
-    }
 ```
 
 
@@ -441,4 +412,3 @@ erDiagram
 | Friendship | `pairKey` | Unique | One row per unordered user pair |
 | Friendship | `(user1Id, user1Status)` | Index | Fast lookup of a user's user1-direction rows |
 | Friendship | `(user2Id, user2Status)` | Index | Fast lookup of a user's user2-direction rows |
-| Notification | `(userId, read)` | Index | Fast unread-lookup per user |

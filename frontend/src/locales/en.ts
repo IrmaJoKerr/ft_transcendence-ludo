@@ -159,6 +159,8 @@ export const en = {
     transmissionLogTitle: 'TRANSMISSION LOG // NOTIFICATIONS',
     ackAllBtn: '[ACK ALL]',
     noTransmissions: '[NO TRANSMISSIONS LOGGED IN BUFFER]',
+    digestToast: '{{count}} new notifications',
+    unavailable: '[NOTIFICATIONS UNAVAILABLE // RECONNECTING]',
     friendRequestText: 'Pilot @{{username}} sent a friend link request',
     friendAcceptedText: 'Pilot @{{username}} linked to your cyber network',
     matchChallengeText: 'Pilot @{{username}} issued a match challenge',

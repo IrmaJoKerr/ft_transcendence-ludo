@@ -523,7 +523,7 @@ for different audiences:
 | Domain | Publishing side | Subscribing side | Channel shape | What it forwards to |
 |---|---|---|---|---|
 | **Game events** | `EventPublisher` → `RedisGameStore.publish()` | `RedisBroadcaster` (pattern `game:*`) | `game:{gameId}` | Socket.IO room `{gameId}` |
-| **Notifications** | `NotificationService.notify()/broadcast()` (backend) | `NotificationService` subscriber | `notify:{userId}` and `notify:all` | Per-user SSE stream(s) |
+| **Notifications** | `NotificationService.notify()/broadcast()` (backend) | `NotificationService` subscriber | `notify:{userId}` and `notify:all` | The account's `user:` socket room |
 
 ### The game-event pub/sub flow
 
@@ -582,11 +582,11 @@ all stay in sync), with no change to the publishing logic.
 
 The `NotificationService` mirrors the same pattern. `notify()` publishes to
 `notify:{userId}` (per-recipient) and `broadcast()` to `notify:all` (global).
-A single subscriber handler receives the message and pushes it into every open
-SSE `Subject` for that user (or, for `notify:all`, every broadcast subject),
-which NestJS flushes to the browser as an SSE `data:` frame. Nothing is
-persisted on the pub/sub path by itself — the `notify()` variant also writes a
-Postgres `Notification` row first so the message shows up in the bell on the
-next page load even if the SSE stream was closed.
+A single pattern subscriber (`notify:*`) receives the message and hands it to the
+realtime gateway, which emits it to that account's `user:` room (or to every
+socket, for `notify:all`). Nothing is stored on the pub/sub path by itself: the
+`notify()` variant also writes the two `notif:` keys first (a Redis hash plus its
+unread zset, 14 day TTL), so the message is in the bell on the next connect even
+if no socket was open.
 
 For full detail see `backend-notification-module.md`.

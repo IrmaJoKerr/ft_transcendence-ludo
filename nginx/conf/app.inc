@@ -97,9 +97,9 @@ location /api/ {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
-    # /api/notifications/stream is a long-lived SSE connection that can sit idle
-    # for minutes. The 60 s default cut it mid-chunk, so match /socket.io/ and
-    # disable buffering so events flush immediately.
+    # These come from the SSE notification stream that used to live here (a
+    # 60 s default cut it mid-chunk). Nothing under /api/ streams any more, but
+    # a long request still must not be closed at 60 s, so they stay.
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     proxy_buffering off;

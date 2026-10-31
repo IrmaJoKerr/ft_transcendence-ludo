@@ -51,7 +51,6 @@ model User {
   language                 String    @default("en") // email language: en | fr | ms
 
   accounts      Account[]
-  notifications Notification[]
   achievement   Achievement?
 
   gameParticipants    GameParticipant[]
@@ -185,21 +184,4 @@ model Friendship {
 
   @@index([user1Id, user1Status])
   @@index([user2Id, user2Status])
-}
-
-// ─── Notification ────────────────────────────────────────────────────────────
-// Persisted so the bell icon shows missed notifications from offline time. The SSE
-// stream pushes new ones; this table is the source of truth for the unread list.
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  type      String // 'friend_request' | 'friend_accepted' | 'game_invite' | 'achievement'
-  payload   Json // flexible per-type data (e.g. { fromUsername, gameId, ... })
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, read])
 }

@@ -249,13 +249,13 @@ or a location.
 ### Connection cap (nginx `limit_conn`)
 
 A rate limit bounds how fast requests arrive, not how many are open at once. A client that reads
-slowly, or that holds the notification SSE stream and the game socket open, passes every rate limit
-while holding server resources. Each listener therefore caps requests in flight per address as well:
+slowly, or that holds the session socket and the game socket open, passes every rate limit while
+holding server resources. Each listener therefore caps requests in flight per address as well:
 
 | Listener | Cap | Keyed on | Why this value |
 |---|---|---|---|
 | `8443` direct | `limit_conn conn 100` | the bridge address every direct client shares | Docker's NAT collapses all direct clients onto one address, so this is a shared ceiling rather than a per-client one. Set high on purpose: it bounds a runaway client without policing normal use. |
-| `8444` tunnel | `limit_conn conn 30` | the real visitor, resolved from `X-Forwarded-For` | On this path the address is genuinely per visitor, so this is a real per-visitor cap. A page plus a game socket and a notification stream uses a handful. |
+| `8444` tunnel | `limit_conn conn 30` | the real visitor, resolved from `X-Forwarded-For` | On this path the address is genuinely per visitor, so this is a real per-visitor cap. A page plus a session socket and a game socket uses a handful. |
 
 `limit_conn_status 429` answers a capped request with the same status as a throttled one, so a client
 gets a consistent signal instead of nginx's default `503`.
@@ -308,15 +308,15 @@ in a single place; `app.module.ts` installs the guard.
 | Match creation (`create`, `pve`, `pvp/invite`) | 10 per minute |
 | Match actions (`join`, `invite`, `exit`, `abort`) | 20–30 per minute |
 | Match ready / rejoin | 60 per minute |
-| `GET /api/notifications/stream` | 60 connections per minute |
 | Notification reads (`markRead`) / `read-all` | 120 / 30 per minute |
 | Presence heartbeat / logout clear | 60 / 10 per minute |
 | Avatar upload / delete | 10 per hour each |
 | `POST /api/achievements/check` | 30 per hour |
 
-The notification SSE stream additionally caps **5 open streams per user** (F-11): the sixth answers
-`429 NOTIFICATION_STREAM_LIMIT` before it registers a Subject or a Redis subscription, so one account
-cannot grow the process's stream list without bound.
+Notifications are no longer a separate connection, so the old per-user stream cap (F-11) is gone:
+the frames ride the one session socket each tab already holds, and the bell is a 150 entry, 14 day
+Redis structure per account (D12), trimmed inside the write itself. One account cannot grow its
+store past that bound, and deletion (`read`) is what empties it.
 
 Per-account limits complement the per-address ones: at most 3 email-change links per hour per user (a
 Redis counter with a rolling window), at most 3 resends of a 2FA code per hour, and 5 wrong 2FA
@@ -324,7 +324,7 @@ codes invalidate the challenge outright.
 
 **Mitigates:** credential brute force, verification and reset mail spam (which also turns the app
 into a nuisance mail sender aimed at a victim's inbox), repeated 2FA code guessing, scripted
-hammering of the API and of the heavy mutating routes, and SSE-subscription exhaustion.
+hammering of the API and of the heavy mutating routes, and unbounded per-user stream lists.
 
 ### Per-account login lockout
 

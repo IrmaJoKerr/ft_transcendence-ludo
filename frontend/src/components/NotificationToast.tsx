@@ -619,3 +619,103 @@ export function NotificationToasts({
     </>
   );
 }
+
+// **Digest Toast**
+
+// A burst of stored notifications is announced once instead of one toast each
+// (Phase 4). Clicking it opens the bell panel, which holds the detail; transient
+// types (presence, display name, avatar) never enter this count.
+export function NotificationDigest({
+  count,
+  bottom,
+  onOpen,
+  onDismiss,
+}: {
+  count: number;
+  /** Clearance from the viewport bottom, so it stacks above any live toasts. */
+  bottom: number;
+  onOpen: () => void;
+  onDismiss: () => void;
+}) {
+  const { t } = useTranslation();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (count <= 0) {
+      setVisible(false);
+      return;
+    }
+    setVisible(true);
+    const timer = window.setTimeout(() => setVisible(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [count]);
+
+  if (count <= 0) return null;
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onOpen();
+      }}
+      style={{
+        position: 'fixed',
+        right: 28,
+        bottom,
+        zIndex: 99999,
+        width: 380,
+        background: 'rgba(10, 4, 24, 0.97)',
+        border: '2px solid var(--accent-cyan, #00f0ff)',
+        boxShadow: '0 0 24px rgba(0, 240, 255, 0.35), 0 20px 48px rgba(0, 0, 0, 0.95)',
+        borderRadius: 4,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '12px 14px',
+        cursor: 'pointer',
+        backdropFilter: 'blur(12px)',
+        transform: visible ? 'translateX(0)' : 'translateX(120%)',
+        opacity: visible ? 1 : 0,
+        transition: 'transform 0.35s cubic-bezier(.22,1,.36,1), opacity 0.35s ease',
+        pointerEvents: 'auto',
+      }}
+    >
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontFamily: 'var(--font-mono, monospace)',
+          fontSize: '0.78rem',
+          fontWeight: 'bold',
+          color: '#ffffff',
+          letterSpacing: 0.5,
+        }}
+      >
+        {t('notifications.digestToast', { count })}
+      </span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDismiss();
+        }}
+        aria-label={t('notifications.dismiss')}
+        style={{
+          background: 'transparent',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          color: 'var(--text-muted, #8a7a64)',
+          fontFamily: 'var(--font-mono, monospace)',
+          fontSize: '0.7rem',
+          lineHeight: 1,
+          padding: '3px 6px',
+          cursor: 'pointer',
+          borderRadius: 2,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+

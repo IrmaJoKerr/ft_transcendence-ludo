@@ -193,34 +193,30 @@ engine process.
 `/ws` on path `/ws-socket.io`, `backend/src/realtime/`), authenticated in the
 handshake by the same httpOnly `token` cookie the API uses and never by a token
 the page can read. nginx (and the Vite dev proxy) forward `/ws-socket.io/` to
-`backend:3000`, so it is same-origin like everything else. Phase 0 of the socket
-consolidation ([`todo.md`](../todo.md#socket-consolidation)) ships the transport
-only — the client does not connect yet; presence, rooms, friends and
-notifications move onto it in Phases 1-4, and session revocation already closes a
-revoked account's sockets.
+`backend:3000`, so it is same-origin like everything else. It carries every
+server push: presence (the connection itself), the lobby and rejoin banner
+(`rooms:list` / `rooms:mine`), the friend-list rows (`friendship:changed`) and
+notifications (`notification`, plus the unread snapshot on every connect). It is
+the only push transport, so session revocation closes a revoked account's sockets
+and there is no SSE stream and no polling left.
 
 
 ---
 ---
 
 
-## Connection liveness (the socket's own ping/pong, plus the SSE keep-alive)
+## Connection liveness (the socket's own ping/pong)
 
-Long-lived state is verified by the transport itself since the session socket shipped (socket
-consolidation, Phase 1). Two mechanisms remain, and they are deliberately named apart.
+Long-lived state is verified by the transport itself (socket consolidation, Phase 1). There is
+one mechanism left, and every screen now depends on it.
 
 | Direction | Constant | Where it is defined | Why it exists |
 | --- | --- | --- | --- |
 | **client → server** | `WS_PING_INTERVAL_MS` / `WS_PING_TIMEOUT_MS` (20 s / 20 s) | `backend/src/realtime/realtime.constants.ts` → the Socket.IO server options on the `/ws` namespace | Liveness of the **client**: a dead peer is detected at ~40 s, deliberately under the 45 s `PRESENCE_TTL_S`, so a closed tab closes its socket before its presence row lapses and every client-visible transition comes from a `disconnect`. The connection *is* the presence signal: `PresenceService` refreshes the row every 20 s while the socket lives, and the client sends no heartbeat message at all (`presence:playing` is the only client → server event, and it is state, not liveness). |
-| **server → client** | `SSE_HEARTBEAT_MS` | `backend/src/notification/notification.controller.ts` → a `ping` frame written into the `/api/notifications/stream` SSE response every 20 s | Liveness of the **SSE connection**: the response otherwise sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`). The periodic frame satisfies the tunnel's socket requirements, so the stream is never treated as dead. |
 
-**Why they are not the same thing**
-
-- The socket's ping/pong is a **transport** mechanism. The server learns nothing about the
-  application from it beyond "this peer is still there", which is exactly what presence needs.
-- The SSE keep-alive is **server-pushed** on a different connection. It keeps that response alive
-  (and, because SSE has no replay, keeps live events such as `avatar_changed` from being lost during
-  a drop) and says nothing about presence.
+The ping also keeps the tunnel open. ngrok closes a connection that carries no traffic, and the
+ping travels in both directions, so the socket stays alive across a quiet period with no
+application-level keep-alive and no second HTTP response held open.
 
 Because the presence row has a TTL and the connection refreshes it, a **backend restart cannot strand
 a user as online**: the refresh stops, the row lapses within 45 s, and the connection set
@@ -228,14 +224,13 @@ a user as online**: the refresh stops, the row lapses within 45 s, and the conne
 is per process, so a restart loses the push but not the state — the next `/api/friends` read sees the
 truth.
 
-**The SSE stream must not be re-created for unrelated state changes.** On the client,
-`useNotifications` opens the stream in a `useEffect` whose dependency array contains the
-**user id**, not the whole `user` object. After a successful avatar upload or reset,
-`Profile.tsx` calls `setUser({ ...user, hasAvatarPhoto })`, which creates a new `user`
-object. If the effect depended on that object, React would close the stream and open a new
-one. Any event published while the stream is closed (for example the
-`avatar_changed` state sync, which reaches only that user's own clients) is not delivered,
-so the new photo would appear only some
+**The notification listeners must not be re-created for unrelated state changes.** On the
+client, `useNotifications` subscribes to the shared socket in a `useEffect` whose dependency
+array contains the **user id**, not the whole `user` object. After a successful avatar upload or
+reset, `Profile.tsx` calls `setUser({ ...user, hasAvatarPhoto })`, which creates a new `user`
+object. If the effect depended on that object, React would tear the listeners down and build them
+again. Any event published in that window (for example the `avatar_changed` state sync, which
+reaches only that user's own clients) is not delivered, so the new photo would appear only some
 of the time. Depending on the user id avoids this, because the id does not change.
 
 ### Client polling cadence
@@ -299,8 +294,8 @@ Several distinct uses:
 
 - **Leaderboard cache** — `LeaderboardRedisService`, sorted sets keyed `leaderboard:{mode}`, backfilled from PostgreSQL when the set is empty (a Redis outage is surfaced as an error, not masked).
 - **Live game state** — `MatchService` (matchmaking and match lifecycle) and the engine's `RedisGameStore`, which holds the full `GameState` plus the match hash's durable `idleSince` stamp. It is the system of record the engine replays after a restart: see [Engine restart recovery](#engine-restart-recovery-ludo-engine).
-- **Presence** — `presence:<userId>` = `online` | `playing`, with a 45 s TTL refreshed by the account's live session socket (20 s server-side timer), plus `presence:conns:<userId>` (the set of that account's socket ids, same TTL) and the `presence:count` channel that carries the badge number (`PresenceService`). See [Connection liveness](#connection-liveness-the-sockets-own-pingpong-plus-the-sse-keep-alive).
-- **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge persisted notifications to the SSE stream (`NotificationService`).
+- **Presence** — `presence:<userId>` = `online` | `playing`, with a 45 s TTL refreshed by the account's live session socket (20 s server-side timer), plus `presence:conns:<userId>` (the set of that account's socket ids, same TTL) and the `presence:count` channel that carries the badge number (`PresenceService`). See [Connection liveness](#connection-liveness-the-sockets-own-pingpong).
+- **Notifications** — Redis Pub/Sub channels (`notify:<userId>`) bridge a stored notification to the session socket (`NotificationService` → the gateway's `user:` room). The bell itself is two keys: `notif:<userId>` (hash of id → frame JSON) and `notif:<userId>:unread` (zset of unread ids scored by `createdAt`), both expiring after 14 days, capped at 150 entries and deleted entry by entry as they are read.
 - **Avatar metadata cache** — `AvatarMetaService`, hash `avatar:<userId>` = `{ has, style, v }`. Written by the user/auth services only **after** the Postgres write succeeds, and read by the ludo-engine at seat join, since the engine has no database access of its own. The profile reads (`/me`, a profile page) repair it from Postgres — read first, write only when `has`/`style` diverge — so a missed write or an eviction converges on the next read without minting a new stamp per view. A missing entry means "no photo", so no client requests one. See [avatar-system.md](./avatar-system.md).
 - **Auth state** — `refresh:<tokenHash>` (refresh token → user, 7-day TTL) with the `sessions:<userId>` set that revoke-all walks, plus the single-use `verify:<tokenHash>`, `reset:<tokenHash>` and `2fa:<pendingTokenHash>` challenge keys, and the staged email-change pair `emailchange:<tokenHash>` / `emailchange:user:<userId>` (`SessionService`, `TwoFactorService`). The reverse pointer's TTL is the change deadline: its Redis key-expiry event is what `MailService` subscribes to in order to email the old address when a staged change lapses.
 - **Guest mode** — `guesttok:<sha256(token)>` = `{ gameId, color, mode, ip }` (1 h TTL) is how the engine resolves an anonymous seat, since a guest has no signed token. The budgets around it are the per-address counters `guest:mint:`, `guest:abort:` and `guest:live:` (all keyed by the hashed address) plus the global `guest:rooms:live`. The engine writes the abort count and frees the live slots; the backend decides every limit. See [guest-mode.md](./guest-mode.md).
@@ -373,7 +368,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `StatsModule` | `/api/stats` | Per-player aggregates |
 | `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle, and the public guest door (`POST /api/match/guest`) |
 | `PresenceModule` | none (socket only) | Online/offline/playing tracking on the session socket; no HTTP routes since D11 |
-| `NotificationModule` | `/api/notifications` | Persisted notifications + SSE stream (Redis pub/sub) |
+| `NotificationModule` | `/api/notifications` | The bell's two write routes; frames and the unread snapshot ride the session socket, storage is the `notif:` pair in Redis |
 
 ### Auth flow
 
@@ -594,14 +589,14 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   ├── presence.service.ts       # per-user presence keys with TTL, the count cache
 │   │   │   ├── presence.constants.ts     # TTL, refresh, the count channel
 │   │   │   └── presence.module.ts
-│   │   ├── notification/         # Notifications (SSE + Redis pub/sub)
-│   │   │   ├── notification.controller.ts  # SSE stream + list/read/read-all
-│   │   │   ├── notification.service.ts     # persist + publish notifications
+│   │   ├── notification/         # Notifications: Redis bell + socket frames
+│   │   │   ├── notification.controller.ts  # mark-read / read-all
+│   │   │   ├── notification.service.ts     # notif: keys, Lua write, publish
 │   │   │   └── notification.module.ts
-│   │   └── realtime/             # Session socket (todo.md P2, Phase 0 transport only)
-│   │       ├── realtime.gateway.ts             # cookie handshake gate + per-user room
+│   │   └── realtime/             # Session socket: presence, rooms, friends, notifications
+│   │       ├── realtime.gateway.ts             # cookie handshake gate, rooms, the notification sink
 │   │       ├── realtime-broadcaster.service.ts # Redis subscriber → socket frames
-│   │       ├── realtime.constants.ts           # namespace, path, ping cadence, room name
+│   │       ├── realtime.constants.ts           # namespace, path, ping cadence, room names, event names
 │   │       ├── session-auth.ts                 # cookie read + token verification
 │   │       └── realtime.module.ts
 │   │
@@ -721,7 +716,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
     │   ├── backend-achievements-module.md    # 16 achievement badges + evaluation
     │   ├── backend-player-stats-module.md    # Per-player lifetime statistics
     │   ├── backend-presence-module.md         # Online / in-game / offline tracking
-    │   ├── backend-notification-module.md    # Real-time notifications (SSE + Redis pub/sub)
+    │   ├── backend-notification-module.md    # Real-time notifications (session socket + Redis bell)
     │   ├── backend-database-schema-system.md # PostgreSQL schema — models, enums, indexes
     │   └── backend-seeding-system(Dev).md    # Development/test seed data
     ├── frontend/                 # Frontend deep-dives

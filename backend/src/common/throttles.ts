@@ -60,9 +60,9 @@ export const MATCH_THROTTLE = {
   abort: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;
 
-// notification.controller.ts : the SSE stream plus the bell's write routes.
+// notification.controller.ts : the bell's two write routes (the stream and the
+// unread read moved to the session socket in Phase 4).
 export const NOTIFICATION_THROTTLE = {
-  stream: { default: { limit: 60, ttl: MINUTE } },
   markRead: { default: { limit: 120, ttl: MINUTE } },
   markAllRead: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;

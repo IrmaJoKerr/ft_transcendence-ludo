@@ -27,9 +27,9 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    `/ws` on `/ws-socket.io`), plus a `/api/auth/refresh` call every 14 minutes, so the 15-minute access
    token never expires while a request is still waiting for a response. Presence rides on the socket —
    the connection itself is the liveness signal, so the store sends no periodic request at all;
-   `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect. Keeping the
-   notification SSE stream alive runs the other way and is handled server-side (`SSE_HEARTBEAT_MS`).
-   See [`../architecture.md`](../architecture.md) → Connection liveness.
+   `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect.
+   Notifications ride the same socket, so there is no second connection to keep alive: the socket's
+   ping/pong is the only keep-alive. See [`../architecture.md`](../architecture.md) → Connection liveness.
 
    The store owns the **connection**, not the rows that ride it: `counts:online` is stored here
    because a connection-scoped number must survive a navigation, while the friendship rows live in

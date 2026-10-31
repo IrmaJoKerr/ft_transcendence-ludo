@@ -123,7 +123,7 @@ resolve correctly on a hard refresh instead of 404ing.
 | `= /api/auth/login` | Rate-limited 5 req/min (burst 5) — brute-force defense in depth behind the backend's own throttler |
 | `= /api/auth/refresh` | Rate-limited 30 req/min (burst 15) — `apiFetch` fires this automatically on any 401, so several tabs can legitimately burst at once |
 | `/api/auth/` | Rate-limited 60 req/min (burst 20) — covers `/api/auth/me`, which the SPA calls on page load for non-public routes (the probe is skipped on `/`, `/login`, `/signup`), and `/api/auth/logout` |
-| `/api/` | Rate-limited 600 req/min (burst 100) — the loose ceiling over everything under `/api/` not matched above. Generic proxy to `backend:3000`; `proxy_read_timeout`/`proxy_send_timeout` are raised to 3600s and `proxy_buffering` is off — needed for `/api/notifications/stream`, a long-lived SSE response that can sit idle for minutes between notifications. nginx's 60s default was closing that stream mid-chunk (the client saw `ERR_INCOMPLETE_CHUNKED_ENCODING`), and buffering held back the events that did arrive |
+| `/api/` | Rate-limited 600 req/min (burst 100) — the loose ceiling over everything under `/api/` not matched above. Generic proxy to `backend:3000`. The 3600s read/send timeouts and `proxy_buffering off` date from the SSE notification stream, which no longer exists (`/api/` now carries only short requests). They are harmless and stay: a long request no longer has to be closed at 60s, and nothing under `/api/` streams |
 | `= /api/health` | Proxied to `backend:3000/health` (rewritten — NestJS mounts `/health` at its root, not under `/api`) |
 | `/socket.io/` | Proxied to `ludo-engine:3001`, with the `Upgrade`/`Connection` headers set from the `map $http_upgrade $connection_upgrade` block so WebSocket upgrades work. Also 3600s timeouts, for long game sessions. The browser therefore never opens a socket to `ludo-engine:3001` itself: a plain `ws://` call would be blocked as mixed content on an HTTPS page, and that port is not published for the host |
 | `~ /\.` | Denies any dotfile path (`.env`, `.git`, etc.) |
@@ -218,8 +218,9 @@ and no explicit cache policy**: `gzip` is not enabled, and there is no
 `expires`/`Cache-Control` override for `/assets/` or `/index.html`, so assets
 go out uncompressed and are revalidated through nginx's default
 `ETag`/`Last-Modified` handling. (Adding `gzip` and an `expires` policy later
-is an `app.inc`-only change.) `text/event-stream` is not compressed either, so
-`/api/notifications/stream` keeps flushing events live.
+is an `app.inc`-only change.) There is no streaming response left on
+`/api/`: the long-lived connection is the session socket at `/ws-socket.io/`, which nginx proxies
+with the same upgrade handling as the engine socket and does not buffer.
 
 ### `nginx/conf/app.inc` — the shared server body
 

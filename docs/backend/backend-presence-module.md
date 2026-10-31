@@ -50,9 +50,8 @@ The module provides:
 
 > **Which direction this is.** The **client → server** presence heartbeat is gone: liveness is now
 > the socket's own ping/pong (20 s / 20 s in `realtime.constants.ts`, deliberately under the 45 s
-> TTL, so a dead peer's socket closes before its row lapses). That is still a different thing from
-> the **server → client** SSE keep-alive (`SSE_HEARTBEAT_MS` in `notification.controller.ts`), which
-> exists so ngrok does not reset the idle notification stream. See
+> TTL, so a dead peer's socket closes before its row lapses). It is the only keep-alive left: the
+> notification stream that used to need a separate `ping` frame now rides this same socket. See
 > [`../architecture.md`](../architecture.md) → Connection liveness.
 
 

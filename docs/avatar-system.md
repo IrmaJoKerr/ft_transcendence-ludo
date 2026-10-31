@@ -30,7 +30,7 @@ photo exist, which DiceBear style); the browser fetches the bytes over a URL it 
 
 Three properties make that work:
 
-- **The immutable user id is the key everywhere**: the route, the Redis record, the SSE event, the
+- **The immutable user id is the key everywhere**: the route, the Redis record, the socket frame, the
   engine's seat metadata and the client store. A display-name rename therefore cannot break a photo.
 - **The flag is known before the request is made**: a user without a photo is rendered from DiceBear
   and never fetched at all.
@@ -60,7 +60,7 @@ validation and uploads.
 | `backend/src/user/user.controller.ts` | `POST /api/user/avatar`, `DELETE /api/user/avatar`, `GET /api/user/id/:userId/avatar`. Defines the cache headers and the upload validation. |
 | `backend/src/user/user.service.ts` | `uploadAvatar()` builds the thumbnail and writes the original and the derivative in one `UPDATE`; `getAvatarById()` serves the thumbnail and falls back to the original; `deleteAvatar()` clears both. Writes the Redis record **after** the Postgres commit in upload/delete; pushes `avatar_changed` to the owner's own clients (`notifyTransient()`, never `broadcast()`) and writes the owner's own persisted `profile_updated` confirmation; repairs the record on profile reads and echoes its stamp as `avatarV`. |
 | `backend/src/auth/auth.service.ts` | Seeds the record on register and on the OAuth creation path; repairs it on `/me`; removes it on account deletion. |
-| `backend/src/notification/notification.controller.ts` | Transport for the owner-only `avatar_changed` push: the SSE stream plus its `SSE_HEARTBEAT_MS` keep-alive. |
+| `backend/src/notification/notification.service.ts` | Transport for the owner-only `avatar_changed` push: `notifyTransient()` publishes it and the session socket delivers it to that account's room. |
 
 ### Ludo engine (reads the flag; has no database access)
 
@@ -78,7 +78,7 @@ validation and uploads.
 | `frontend/src/components/UserAvatar.tsx` | The render decision: photo vs generated avatar, the bot guard, the `?v=` stamp, the `onError` fallback, and the optional `onPhotoError` callback. |
 | `frontend/src/avatarCache.ts` | Client avatar state: live overrides (`{ has, style, v }`), a per-user attempt stamp, and the `broken` set. |
 | `frontend/src/hooks/useNotifications.tsx` | Applies the `avatar_changed` event to the store. |
-| `frontend/src/pages/Profile.tsx` | Sets the change locally on upload/delete, so the uploader's own view needs no SSE; shows upload/reset errors and the `photoLoadError` warning in a message area with a fixed height. |
+| `frontend/src/pages/Profile.tsx` | Sets the change locally on upload/delete, so the uploader's own view needs no socket frame; shows upload/reset errors and the `photoLoadError` warning in a message area with a fixed height. |
 | every `<UserAvatar>` call site | Passes `userId` (and `isBot` where the seat can be a bot). |
 
 
@@ -172,8 +172,9 @@ reuse". `no-store`, which the `404` for a user with no photo uses, means "do not
 5. **A change adds a new version marker to the URL.** React becoming aware of the change alone cannot stop the browser from serving the image from its in-memory image
    cache.
 6. **The flag must be known before the request.** A client that asks anyway logs a 404.
-7. **The SSE keep-alive must stay enabled.** SSE has no replay, so a stream that gets reset loses any
-   `avatar_changed` event published during the drop.
+7. **The push must survive a reconnect.** A socket that drops loses any `avatar_changed` frame published
+   while it was down, so the owner's other tabs catch up on their next profile or roster fetch. The
+   socket's own ping/pong is the keep-alive; there is no separate stream to keep open.
 8. **The original is never overwritten, and the flag never depends on the derivative.** `avatarThumb`
    is a copy written in the same `UPDATE` as `avatarPhoto`, and `hasAvatarPhoto` stays
    `avatarPhotoContentType !== null`. A decode failure therefore leaves `avatarThumb` null without
@@ -206,7 +207,7 @@ sequenceDiagram
     API->>R: HSET avatar cache for the user (has=1, style, v=now)
     API-->>SPA: 200 with the message and the content type
     SPA->>SPA: applyAvatarChange(userId, has=true, v) - local stamp
-    API-->>SPA: SSE avatar_changed (userId, has, style, v)
+    API-->>SPA: socket frame avatar_changed (userId, has, style, v)
     Note over API,SPA: pushed to the uploader's own clients (other tabs) - never to other accounts
     SPA->>SPA: override stored -> photo URL gains a v stamp
     SPA->>API: GET /api/user/id/.../avatar?v=stamp
@@ -216,7 +217,7 @@ sequenceDiagram
 
 Two clients are satisfied by two different paths, and that is deliberate: **the uploader's own view
 is updated locally** (`applyAvatarChange`, no network round trip for the decision), while **the
-uploader's other tabs learn from the SSE event** - pushed to that user's own clients with
+uploader's other tabs learn from the socket frame** - pushed to that user's own clients with
 `notifyTransient()`, never to other accounts. Neither path depends on the other, and because the
 roster and profile payloads carry `hasAvatarPhoto`/`avatarStyle` too, another user's already-open
 view is simply one fetch behind.
@@ -237,7 +238,7 @@ sequenceDiagram
     API->>R: HSET avatar cache for the user (has=0, style, v=now)
     API-->>SPA: 200 with the message
     SPA->>SPA: applyAvatarChange(userId, has=false)
-    API-->>SPA: SSE avatar_changed (userId, has, style, v)
+    API-->>SPA: socket frame avatar_changed (userId, has, style, v)
     SPA->>SPA: render the generated avatar
     Note over SPA: no request at all - the flag says there is no photo
 ```
@@ -353,8 +354,8 @@ So whenever a change is known, the URL gains `?v=<stamp>`:
 
 | Source of the stamp | When it applies |
 | --- | --- |
-| the SSE `avatar_changed` event's `v` | the uploader's other tabs (the event reaches that user's own clients only) |
-| `Date.now()` in `Profile.tsx` | the uploader's own client, immediately and without SSE |
+| the socket `avatar_changed` frame's `v` | the uploader's other tabs (the frame reaches that user's own clients only) |
+| `Date.now()` in `Profile.tsx` | the uploader's own client, immediately and without the socket frame |
 | `avatarV` in the `/api/user/:username` payload | the first paint of a profile (own or someone else's, degraded card included), applied through `applyAvatarChange` |
 
 On a **fresh page load** there is nothing cached for the bare URL, so the base URL is fetched and
@@ -370,7 +371,7 @@ revalidated normally: the stamp is only needed once a change happens inside a se
 | What fails | What the user sees | Why it is safe |
 | --- | --- | --- |
 | The Redis record is missing or evicted | the generated avatar | Consumers read a miss as `has: false`, so nothing is requested; the backend repairs the record the next time it loads that user. |
-| The SSE event is missed (stream reset) | the old image until the next mount or reload | The bare URL still revalidates on load, so the client self-corrects. Only the *instant* update is lost. |
+| The socket frame is missed (a dropped connection) | the old image until the next mount or reload | The bare URL still revalidates on load, so the client self-corrects. Only the *instant* update is lost. |
 | A stale `has: true` with no bytes behind it | one failed load, then the generated avatar | `onError` marks the id broken for the session, so it is not retried. |
 | A corrupt or mislabelled upload | `400 Bad Request` | Magic-byte validation runs before anything is written, so a file whose bytes do not match its declared type is never stored. A file with a valid signature that the browser cannot decode is stored, and the client falls back to the generated avatar. |
 | An image `sharp` cannot decode (valid signature, broken body) | the original, at full size | The upload is accepted, `avatarThumb` is stored as null, and the route serves `avatarPhoto`. The browser may still render what libvips refused. |
@@ -447,10 +448,10 @@ Then in the browser, with DevTools open:
   avatar, never a 404, and is repaired from Postgres on the next `/me` or public-profile read. The
   record has no TTL, so repair is the only mechanism that corrects it.
 - **`PlayerMeta` stores the flag at join time.** A change made while players sit in the room arrives
-  through the SSE event. A client that misses that event shows the old image until the next mount,
+  through the socket frame. A client that misses that event shows the old image until the next mount,
   when the plain URL is revalidated. Reading the records again in `emitLobbyUpdate` would reduce that
   window. The results invoice renders the same snapshot, so a change made after the game ended reaches
-  it through the SSE event as well.
+  it through the socket frame as well.
 - **Uploads are checked by MIME and magic bytes before anything is decoded.** The bytes are then
   decoded once to build the thumbnail, but a decode failure is not a rejection: the original is stored
   and served at full size. In the other direction, an image the server decodes can still fail in a

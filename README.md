@@ -178,16 +178,14 @@ board, so there is reduced chance of hacking or cheating.
 **Why Socket.IO over plain WebSockets.** It provides automatic reconnection, rooms, and
 broadcasting out of the box, which the live board, presence, and reconnect flows build on.
 
-**Why SSE and client-to-server heartbeats.** The notification system uses Server-Sent
-Events (SSE) instead of WebSockets. The reason is one behaviour of ngrok: it closes a
-tunnel that carries no traffic for a short time. A WebSocket that stays open for a long
-time would be closed with no error message, and the client would stop receiving
-notifications. An SSE connection is a normal HTTP response that stays open, and the
-client sends a small heartbeat request to the server at a fixed interval, so the tunnel
-always carries traffic. This keeps the connection open and still lets the server push
-messages to the client as they happen. The heartbeat also tells the server that the client
-is still there; if the heartbeat stops, the client reconnects before the user notices that
-notifications are missing.
+**Why one WebSocket and no heartbeats.** Every server push rides the session socket: presence,
+the lobby and rejoin banner, the friend lists and notifications. Socket.IO's own ping/pong keeps
+the connection alive in both directions, so no screen sends a heartbeat request and no HTTP
+response stays open. Notifications used to travel over Server-Sent Events with a 20 s `ping`
+frame, because ngrok closes a tunnel that carries no traffic. The socket answers the same problem
+with one mechanism instead of two, and it removed a second connection plus its reconnect logic:
+the socket reconnects itself and the unread list is re-sent on every connect. The bell itself is
+not a table: it is a 14 day, 150 entry Redis structure, read once and then deleted.
 
 **Why Passport + JWT in httpOnly cookies + bcrypt.** Passport handles OAuth 2.0 callbacks
 for Google, GitHub, and 42 — a well-known library, no custom flow. Sessions use a
@@ -301,7 +299,7 @@ All project documentation lives under `docs/`, grouped by category. Each file is
 | [docs/backend/backend-achievements-module.md](docs/backend/backend-achievements-module.md)       | 13 achievement badges and their evaluation                   |
 | [docs/backend/backend-player-stats-module.md](docs/backend/backend-player-stats-module.md)       | Per-player lifetime statistics                               |
 | [docs/backend/backend-presence-module.md](docs/backend/backend-presence-module.md)               | Online / in-game / offline presence tracking                 |
-| [docs/backend/backend-notification-module.md](docs/backend/backend-notification-module.md)       | Real-time notifications (SSE + Redis pub/sub)                |
+| [docs/backend/backend-notification-module.md](docs/backend/backend-notification-module.md)       | Real-time notifications (session socket + Redis pub/sub)     |
 | [docs/backend/backend-database-schema-system.md](docs/backend/backend-database-schema-system.md) | PostgreSQL schema — models, enums, relationships, indexes    |
 | [docs/backend/backend-seeding-system(Dev).md](<docs/backend/backend-seeding-system(Dev).md>)     | Development/test seed data                                   |
 

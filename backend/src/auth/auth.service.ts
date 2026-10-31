@@ -896,10 +896,14 @@ export class AuthService implements OnModuleDestroy {
     // 3. Revoke every refresh session : all devices are logged out.
     await this.session.revokeAll(userId);
 
-    // 4. DB: user.delete() cascades Account/Achievement/GameParticipant/Friendship/
-    //    Notification (all onDelete: Cascade in the schema). The user's Redis
-    //    leaderboard entry is already removed by clearUserRedisState above.
+    // 4. DB: user.delete() cascades Account/Achievement/GameParticipant/Friendship.
+    //    The user's Redis leaderboard entry is already removed by
+    //    clearUserRedisState above; the bell is two `notif:` keys (D12), so it is
+    //    deleted explicitly below.
     await this.prisma.db.user.delete({ where: { id: userId } });
+    // Best effort: a stale inbox for a gone account is unreachable and expires in
+    // 14 days, so this must not fail the deletion.
+    await this.notifications.clear(userId).catch(() => {});
 
     return { code: 'AUTH_ACCOUNT_DELETED' };
   }

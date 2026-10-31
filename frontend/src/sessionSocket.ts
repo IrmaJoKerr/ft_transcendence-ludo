@@ -60,6 +60,31 @@ export type FriendshipRecord = {
   friend: FriendshipFriend;
 };
 
+// One notification frame: the shape the socket carries and the bell stores. The
+// unread snapshot is an array of these, newest first.
+export type NotificationType =
+  | 'friend_request'
+  | 'friend_accepted'
+  | 'friend_removed'
+  | 'friend_declined'
+  | 'game_invite'
+  | 'achievement'
+  | 'match_finished'
+  | 'match_cancelled'
+  | 'profile_updated'
+  | 'display_name_changed'
+  | 'friend_online'
+  | 'friend_offline'
+  | 'avatar_changed';
+
+export type Notification = {
+  id: string;
+  type: NotificationType;
+  payload: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+};
+
 export type SessionServerEvents = {
   // Emitted once a socket is registered, which is when it counts as online.
   'presence:hello': () => void;
@@ -72,6 +97,12 @@ export type SessionServerEvents = {
   // One changed friendship row, viewer-relative. The socket joins its account's
   // `friends:of:` room at connect, so every tab receives it with no subscribe.
   'friendship:changed': (record: FriendshipRecord) => void;
+  // One notification frame, on the account's `user:` room (or every socket for a
+  // global broadcast). Replaces the SSE event of the same shape.
+  'notification': (event: Notification) => void;
+  // The connect snapshot: the account's unread list, re-sent on every (re)connect.
+  // It is the bell's only read path.
+  'notifications:unread': (list: Notification[]) => void;
 };
 
 export type SessionClientEvents = {

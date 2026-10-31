@@ -76,7 +76,6 @@ An error response has one of two shapes:
 |---|---|---|
 | `CSRF_TOKEN_INVALID` | 403 | Missing, mismatched or stale `X-CSRF-Token` (see the CSRF note above) |
 | `CSRF_ORIGIN_REJECTED` | 403 | `Origin`/`Referer` is not this host and not on the frontend allow-list |
-| `NOTIFICATION_STREAM_LIMIT` | 429 | More than 5 simultaneous notification SSE streams for one user |
 
 *Validation (400)*
 
@@ -237,11 +236,9 @@ An error response has one of two shapes:
 
 16. **[Presence](#16-presence)** — No REST routes (D11): presence rides the session socket
 
-17. **[Notifications](#17-notifications)** — Live stream + unread list + read state
-   - [`GET /api/notifications/stream`](#get-apinotificationsstream) — Open a live stream of new notifications (SSE)
-   - [`GET /api/notifications`](#get-apinotifications) — List your unread notifications (bell dropdown on load)
-   - [`PATCH /api/notifications/:id/read`](#patch-apinotificationsidread) — Mark a single notification as read
-   - [`POST /api/notifications/read-all`](#post-apinotificationsread-all) — Mark all notifications as read
+17. **[Notifications](#17-notifications)** — Socket frames + a Redis bell, two write routes
+   - [`PATCH /api/notifications/:id/read`](#patch-apinotificationsidread) — Read one notification (the entry is deleted)
+   - [`POST /api/notifications/read-all`](#post-apinotificationsread-all) — Read everything (both keys are deleted)
 
 18. **[Health](#18-health)** — Backend/database health check
    - [`GET /health`](#get-health) — Check the backend is up (verifies database connectivity)
@@ -1109,7 +1106,7 @@ Retrieve a user's custom avatar image, keyed by the **immutable user id** — a 
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:userId` = user id  
-**Response:** Binary image data with `Content-Type` set to the stored MIME type, served with `Cache-Control: public, no-cache, no-transform` plus an `ETag`. The base URL is stable, so an unchanged photo is answered `304` on revalidation. When a change is announced to that user's own clients (the SSE `avatar_changed` event, pushed with `notifyTransient()` to the owner alone, or the uploader's own client) the client appends `?v=<stamp>`, which forces a real fetch — a byte-identical URL can otherwise be served from the browser's in-memory image cache without any request, so `no-cache` alone would never revalidate.
+**Response:** Binary image data with `Content-Type` set to the stored MIME type, served with `Cache-Control: public, no-cache, no-transform` plus an `ETag`. The base URL is stable, so an unchanged photo is answered `304` on revalidation. When a change is announced to that user's own clients (the socket `avatar_changed` frame, pushed with `notifyTransient()` to the owner alone, or the uploader's own client) the client appends `?v=<stamp>`, which forces a real fetch — a byte-identical URL can otherwise be served from the browser's in-memory image cache without any request, so `no-cache` alone would never revalidate.
 
 **Errors:** 401 (no session); `404` when no custom avatar is set, sent with `Cache-Control: no-store` so a "no photo" answer is never cached and replayed.
 
@@ -2271,45 +2268,29 @@ side, and none of them carries the row.
 ---
 
 
-#### `GET /api/notifications/stream`
+#### Notifications on the session socket (no HTTP read)
 
-**Source:** `backend/src/notification/notification.controller.ts` — NotificationModule
+**Source:** `backend/src/realtime/realtime.gateway.ts` — RealtimeModule
 
-SSE stream — pushes new notifications to the browser in real time.
+There is no HTTP route for reading notifications. The session socket (`/ws`, cookie
+handshake) carries both halves:
 
-**Headers:** 🔒 (requires `token` cookie)  
-**Response:** Server-Sent Events (`text/event-stream`); each event is a `NotificationPayload`:
-
-```json
-{
-  "id": "notif-id",
-  "type": "friend_request",
-  "payload": { "fromUsername": "Alice" },
-  "read": false,
-  "createdAt": "2026-08-01T00:00:00.000Z"
-}
-
-```
+| Event | Direction | Payload |
+|---|---|---|
+| `notifications:unread` | server → client | Array of `NotificationPayload`, unread only, newest first. Emitted on every (re)connect. |
+| `notification` | server → client | One `NotificationPayload`: a stored entry, or a transient frame (`friend_online`, `friend_offline`, `display_name_changed`, `avatar_changed`). Stored frames go to that account's room; a global `notify:all` would reach every socket. |
 
 Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_declined` | `game_invite` | `achievement` | `match_finished` | `match_cancelled` | `profile_updated` | `display_name_changed` | `friend_online` | `friend_offline` | `avatar_changed`
 
-**Keep-alive (server → client):** the server writes a `ping` frame into the stream every 20 s (`SSE_HEARTBEAT_MS`). Between notifications this response sends no bytes for minutes, and ngrok's HTTP/2 edge resets an idle stream (`net::ERR_HTTP2_PROTOCOL_ERROR`), so the frame exists to satisfy the tunnel's socket requirements and stop the stream being treated as dead. It is unrelated to presence, which rides the session socket (the connection is the liveness signal and there is no heartbeat request). See [architecture.md](architecture.md) → Connection liveness.
+**Storage:** the bell is two Redis keys per account (D12): `notif:<userId>` (hash of
+id to frame JSON) and `notif:<userId>:unread` (zset of unread ids scored by
+`createdAt`), both with a 14 day TTL and a 150 entry cap. Reading an entry deletes
+it, so `read` is always `false` on the wire.
 
-**Limits:** at most **5 simultaneous streams per user**; the sixth connection answers `429 NOTIFICATION_STREAM_LIMIT` and is not registered (`NotificationService.subscribe`). The route is also throttled to 60 connections/minute per address.
-
-
----
----
-
-
-#### `GET /api/notifications`
-
-**Source:** `backend/src/notification/notification.controller.ts` — NotificationModule
-
-List unread notifications (populates the bell dropdown on page load).
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Response:** Array of `NotificationPayload` (unread only, newest first, max 50).
+**Reasoning:** a client that cannot open the socket cannot receive a notification
+either, so a REST snapshot would only ever be a list that never updates. The two
+write routes stay on HTTP, where the JWT refresh, the throttle and the error
+surface already are.
 
 
 ---
@@ -2320,7 +2301,8 @@ List unread notifications (populates the bell dropdown on page load).
 
 **Source:** `backend/src/notification/notification.controller.ts` — NotificationModule
 
-Mark a single notification as read.
+Read a single notification. The server deletes the entry (delete-on-read, D12); an
+unknown id, or one belonging to another account, is a no-op.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:id` = notification ID  
@@ -2336,7 +2318,7 @@ Mark a single notification as read.
 
 **Source:** `backend/src/notification/notification.controller.ts` — NotificationModule
 
-Mark all notifications as read.
+Read everything: both `notif:` keys are deleted, so the bell and its badge start empty.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Body:** None  

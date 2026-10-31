@@ -173,7 +173,7 @@ enum FriendshipStatus {
 | `GET` | `/api/friends/invites/pending` | JWT | Get my pending game invite |
 | `POST` | `/api/friends/invites/dismiss` | JWT | Dismiss a pending game invite |
 
-> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + SSE), and friend lists show live presence status via `PresenceService.getStatuses()`. Game invites create a room and send a `game_invite` notification.
+> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + `notification` frame), and friend lists show live presence status via `PresenceService.getStatuses()`. Game invites create a room and send a `game_invite` notification.
 
 
 ### Timeouts

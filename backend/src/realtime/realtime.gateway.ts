@@ -14,9 +14,13 @@ import type { Namespace, Socket } from 'socket.io';
 import { ACCESS_COOKIE } from '../auth/auth.constants';
 import { originAllowed, publishedOrigins } from '../common/origin';
 import { PresenceService } from '../presence/presence.service';
+import { NotificationService } from '../notification/notification.service';
+import type { NotificationPayload } from '../notification/notification.service';
 import {
   EVENT_COUNTS_ONLINE,
   EVENT_FRIENDSHIP_CHANGED,
+  EVENT_NOTIFICATIONS_UNREAD,
+  EVENT_NOTIFICATION,
   EVENT_PRESENCE_HELLO,
   EVENT_PRESENCE_PLAYING,
   WS_MAX_EVENT_BYTES,
@@ -78,6 +82,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   constructor(
     private readonly auth: SessionAuthService,
     private readonly presence: PresenceService,
+    private readonly notifications: NotificationService,
   ) {}
 
 
@@ -86,6 +91,12 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   afterInit(server: Namespace): void {
     server.use((socket, next) => {
       void this.authenticate(socket, next);
+    });
+    // The notification sink (Phase 4): the hub owns storage and the Redis
+    // pub/sub, this gateway owns delivery. `all` is the one global channel; a
+    // user id is a room, so every tab of that account receives the frame.
+    this.notifications.setDeliverer((target, event) => {
+      this.emitNotification(server, target, event);
     });
   }
 
@@ -118,6 +129,30 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     // started a push of its own.
     const count = this.presence.currentCount();
     if (count !== null) socket.emit(EVENT_COUNTS_ONLINE, { count });
+
+    // The bell's first paint and its repair after a reconnect (Phase 4). It is
+    // the only read path; the client merges it by id, so a frame that arrives
+    // while this read is in flight is not lost and not duplicated.
+    try {
+      socket.emit(EVENT_NOTIFICATIONS_UNREAD, await this.notifications.getUnread(data.userId));
+    } catch (error) {
+      // A Redis hiccup must not refuse the socket: the next connect retries.
+      console.error('[realtime] unread snapshot failed:', error);
+    }
+  }
+
+  // One notification frame, to one account's room or to every socket. The
+  // deliverer hands it here, so the routing rule lives with the rooms.
+  private emitNotification(
+    server: Namespace,
+    target: string | 'all',
+    event: NotificationPayload,
+  ): void {
+    if (target === 'all') {
+      server.emit(EVENT_NOTIFICATION, event);
+      return;
+    }
+    server.in(userRoom(target)).emit(EVENT_NOTIFICATION, event);
   }
 
   // One viewer-relative record, to every tab that account has open (D2). The

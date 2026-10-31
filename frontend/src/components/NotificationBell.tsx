@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '../hooks/useNotifications';
+import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { useApp } from '../store';
 import type { PlayerColor } from '../game/types';
@@ -224,7 +225,11 @@ export function NotificationBell({
   buttonStyle?: CSSProperties;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  // The panel's open state lives in the notification context: the digest toast at
+  // the app root has to be able to open it (Phase 4).
+  const { bellOpen, setBellOpen, unavailable } = useNotifications();
+  const open = bellOpen;
+  const setOpen = setBellOpen;
   const ref = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { setActiveMatch } = useApp();
@@ -244,7 +249,7 @@ export function NotificationBell({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, setOpen]);
 
   // Portalled to <body> so no ancestor stacking context can trap it; position
   // comes from the trigger's bounding box (see component docs, Implementation
@@ -584,7 +589,9 @@ export function NotificationBell({
                   letterSpacing: 0.5,
                 }}
               >
-                {t('notifications.noTransmissions')}
+                {unavailable
+                  ? t('notifications.unavailable')
+                  : t('notifications.noTransmissions')}
               </div>
             ) : (
               list.slice(0, 30).map((n) => {

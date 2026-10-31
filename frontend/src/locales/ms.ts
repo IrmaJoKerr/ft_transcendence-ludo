@@ -159,6 +159,8 @@ export const ms = {
     transmissionLogTitle: 'LOG PENGHANTARAN // PEMBERITAHUAN',
     ackAllBtn: '[AKUI SEMUA]',
     noTransmissions: '[TIADA PENGHANTARAN DIREKODKAN DALAM PENIMBAL]',
+    digestToast: '{{count}} pemberitahuan baharu',
+    unavailable: '[PEMBERITAHUAN TIDAK TERSEDIA // MENYAMBUNG SEMULA]',
     friendRequestText: 'Pilot @{{username}} menghantar permintaan pautan kawan',
     friendAcceptedText: 'Pilot @{{username}} telah dipautkan ke rangkaian siber anda',
     matchChallengeText: 'Pilot @{{username}} mengeluarkan cabaran perlawanan',

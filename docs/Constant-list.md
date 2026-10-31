@@ -439,9 +439,8 @@ counter below zero.
 | `PRESENCE_TTL_S` | 45 | how long `presence:<userId>` and `presence:conns:<userId>` live without a refresh; the session socket refreshes both every 20 s, and the socket's own ping/pong (20 s + 20 s) detects a dead peer first |
 | `PRESENCE_REFRESH_MS` | 20000 | the server-side refresh of one live connection's row and set membership |
 | `PRESENCE_COUNT_COALESCE_MS` | 5000 | `presence:count` publishes at most once per window (the count is a SCAN) |
-| `SSE_HEARTBEAT_MS` | 20000 | keep-alive comment cadence on the notification stream |
-| `MAX_SSE_STREAMS_PER_USER` | 5 | simultaneous notification streams per user; the sixth is a localized 429 |
-| Notification page | `take: 50` | newest notifications read for the bell |
+| `UNREAD_CAP` | 150 | unread entries per account; the write trims the oldest past it, in the same Lua script |
+| `NOTIFICATION_TTL_S` | 1209600 (14 days) | TTL on `notif:<userId>` and `notif:<userId>:unread`, refreshed on every write |
 | Avatar upload | 2 MiB (`2 * 1024 * 1024`) | largest accepted avatar; nginx allows 3 MiB so the API, not the proxy, answers |
 | Avatar signatures | PNG, JPEG, GIF, WebP | the magic bytes checked at offset 0 (and 8 for WebP) before a byte is stored |
 | Leaderboard page | default 20, cap 100 | `limit` is clamped to `min(limit, 100)` |
@@ -664,7 +663,7 @@ rather than settling on a face nobody sent. `piece_moved` then waits out what is
 | `PROBE_ATTEMPTS` | 3 | `/me` probes after a lost refresh race before treating the session as ended |
 | `PROBE_GAP_MS` | 250 | gap between those probes |
 | `CHANNEL_NAME` | `lr.authRefresh` | the BroadcastChannel name the tabs share |
-| Notification stream | `/api/notifications/stream` | one `EventSource` for the session; the browser reconnects on its own |
+| `DIGEST_WINDOW_MS` | 2000 | live stored arrivals buffered into one digest toast; shown once per tab (`sessionStorage`) |
 | `ACTIVE_MATCH_KEY` / `SEATS_KEY` | `lr.activeMatch`, `lr.seats` | §17 |
 
 
