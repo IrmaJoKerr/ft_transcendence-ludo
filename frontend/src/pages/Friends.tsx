@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchWithCsrf, postApi, translateErrorCode } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
-import { RetroNavbar } from '../components/RetroNavbar';
+import { NavDock } from '../components/NavDock';
 import type { PlayerColor } from '../game/types';
 import { navigate } from '../router';
 import { useApp } from '../store';
@@ -37,21 +37,8 @@ export function Friends() {
   const { setActiveMatch } = useApp();
 
   // **CRT CONTROLS**
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
+  // Read once at mount: the CRT look is a page-level choice, not a dock control.
+  const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
   // **STATE MANAGEMENT**
   // One initial read, then `friendship:changed` drives all three lists (socket D2).
@@ -227,12 +214,7 @@ export function Friends() {
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
-          <aside
-            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
-            style={{ margin: 0, padding: 0 }}
-          >
-            <RetroNavbar activeRoute="/friends" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
-          </aside>
+          <NavDock activeRoute="/friends" />
 
           {/* Main Content Flow */}
           <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>

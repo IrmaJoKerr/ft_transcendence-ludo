@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GRID_BACKGROUND } from '../styles/tw';
 
-/** Unconditional pre-game notice, mounted by the auth shell and the lobby. */
+/** Unconditional pre-game notice. Mounted by the auth shell only: the table
+ *  screen and the PvP waiting room carry no strip, so the warning appears once,
+ *  before sign-in. */
 export function LandscapeNotice() {
   const { t } = useTranslation();
   return (

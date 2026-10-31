@@ -202,8 +202,6 @@ type AppState = {
   setTheme: (t: ThemeType) => void;
   lang: Lang;
   setLang: (l: Lang) => void;
-  twoFactor: boolean;
-  toggleTwoFactor: (currentPassword?: string) => Promise<string | null>;
   setPlaying: (playing: boolean) => void;
   /** The session socket, or null while signed out (a guest never opens one).
    * Presence rides on it; screens subscribe to its pushes. */
@@ -446,7 +444,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await fetchWithCsrf('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setUser(null);
-    setTwoFactor(false);
   }, []);
 
   // The session socket: one connection per signed-in tab, authenticated by the
@@ -547,7 +544,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [turn, setTurn] = useState(0);
   const [settings, setSettings] = useState<Record<string, boolean>>({});
   const [lang, setLangState] = useState<Lang>(storedLang);
-  const [twoFactor, setTwoFactor] = useState(false);
   const rollingRef = useRef(false);
 
   // Persist the language locally, and (when signed in) on the account so
@@ -567,50 +563,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     },
     [user],
-  );
-
-  // Load the account's real 2FA preference once signed in: GET /api/auth/2fa.
-  useEffect(() => {
-    if (!user) return;
-    apiFetch('/api/auth/2fa')
-      .then(async (res) => {
-        if (!res.ok) return;
-        const data = await res.json();
-        setTwoFactor(!!data.twoFactorEnabled);
-      })
-      .catch(() => undefined);
-  }, [user]);
-
-  // Persist the toggle. Turning 2FA on or off is sensitive, so a password account
-  // confirms its password; `undefined` is correct for an OAuth-only account. Resolves
-  // null on success or a localized error message.
-  const toggleTwoFactor = useCallback(
-    async (currentPassword?: string): Promise<string | null> => {
-      const next = !twoFactor;
-      try {
-        const res = await apiFetch('/api/auth/2fa', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: next, currentPassword }),
-        });
-        const data = (await res.json().catch(() => null)) as {
-          code?: string;
-          message?: string;
-          twoFactorEnabled?: boolean;
-        } | null;
-        if (!res.ok) {
-          if (data?.message) console.error('[2fa]', data.message);
-          return (
-            translateErrorCode(data?.code) ?? i18n.t('common.requestFailed', { status: res.status })
-          );
-        }
-        setTwoFactor(!!data?.twoFactorEnabled);
-        return null;
-      } catch {
-        return i18n.t('common.couldNotReachServer');
-      }
-    },
-    [twoFactor],
   );
 
   useEffect(() => {
@@ -765,8 +717,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleSetting,
       lang,
       setLang,
-      twoFactor,
-      toggleTwoFactor,
       setPlaying,
       sessionSocket,
       onlineCount,
@@ -811,8 +761,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleSetting,
       lang,
       setLang,
-      twoFactor,
-      toggleTwoFactor,
       setPlaying,
       sessionSocket,
       onlineCount,

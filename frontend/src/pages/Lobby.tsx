@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
-import { LandscapeNotice } from '../components/RetroAuthLayout';
 import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
@@ -243,9 +242,6 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
             boxSizing: 'border-box',
           }}
         >
-          {/* Pre-game notice: keyboard or touch, landscape only. */}
-          <LandscapeNotice />
-
           {/* Hero Header - Identical 1-to-1 design & dimensions as Game.tsx */}
           <header className={HERO_SECTION} style={{ padding: '16px 0 14px', textAlign: 'center' }}>
             <div
@@ -900,22 +896,29 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       </span>
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '0.9rem',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-muted)' }}>{t('lobby.botUnitsLabel')}</span>
-                      <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
-                        {t('lobby.unitsCount', {
-                          count: botCount,
-                          plural: botCount === 1 ? '' : 'S',
-                        })}
-                      </span>
-                    </div>
+                    {/* Only where a bot can actually be seated: hotseat (`bots=0`)
+                        fills its seats with local pilots, so a bot tally there
+                        would read a permanent `0 UNITS`. */}
+                    {allowAddPlayers && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.9rem',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {t('lobby.botUnitsLabel')}
+                        </span>
+                        <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
+                          {t('lobby.unitsCount', {
+                            count: botCount,
+                            plural: botCount === 1 ? '' : 'S',
+                          })}
+                        </span>
+                      </div>
+                    )}
 
                     <div
                       style={{

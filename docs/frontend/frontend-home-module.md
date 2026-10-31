@@ -24,7 +24,7 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 4. **Notifications** — bell icon and toasts from `useNotifications()`, which listens on the session socket (`notification` frames, plus the `notifications:unread` snapshot on connect).
 5. **Footer** — the copyright line and the Privacy Policy and Terms of Service modals.
 
-> The Home page reads all of its data from the API; there is no mock data. It uses the retro/cyber styling (`RetroNavbar`, `retrowave.css`).
+> The Home page reads all of its data from the API; there is no mock data. It uses the retro/cyber styling (`NavDock`, `retrowave.css`).
 
 
 ---
@@ -38,7 +38,7 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 | `src/pages/Home.tsx` | Home page — hero header, arcade panel, friends list, footer |
 | `src/hooks/useNotifications.tsx` | Notification bell + toasts (session socket, Redis bell) |
 | `src/components/UserAvatar.tsx` | Avatar rendering |
-| `src/components/RetroNavbar.tsx` | Top navigation bar |
+| `src/components/NavDock.tsx` | The seated navigation dock (bar + chat slot) |
 | `src/components/NotificationToast.tsx` | Toast notifications |
 
 

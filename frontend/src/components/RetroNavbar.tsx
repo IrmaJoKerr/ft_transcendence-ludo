@@ -8,6 +8,7 @@ import { retroAudio } from '../utils/audio';
 import { UserAvatar } from './UserAvatar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationBell } from './NotificationBell';
+import { LobbyChat } from './LobbyChat';
 import { useNotifications, type Notification } from '../hooks/useNotifications';
 import { getApi, postApi } from '../api';
 import type { ActiveMatch } from '../store';
@@ -34,10 +35,16 @@ const NAV_LABEL_LS_PX = 1; // letter-spacing applied to the labels
 const NAV_PROBE_PX = 100; // off-screen probe font-size (width scales linearly)
 const NAV_LABEL_SAFETY_PX = 2; // kept free so rounding can't trigger ellipsis
 
+// The bar itself. Its geometry (width, compact threshold, whether the chat slot
+// is drawn at all) is owned by `NavDock`, which is the only caller: the dock's
+// mount rule is documented there.
 interface RetroNavbarProps {
   activeRoute?: string;
-  crtEnabled?: boolean;
-  toggleCrt?: () => void;
+  /** Under `WIDE_MIN_PX`: icon rail, no labels, no chat slot. */
+  isCompact: boolean;
+  /** The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`. */
+  chatOn: boolean;
+  onToggleChat: () => void;
   notifications?: Notification[];
   unreadCount?: number;
   onMarkRead?: (id: string) => void;
@@ -47,6 +54,9 @@ interface RetroNavbarProps {
 
 export function RetroNavbar({
   activeRoute,
+  isCompact,
+  chatOn,
+  onToggleChat,
   notifications,
   unreadCount,
   onMarkRead,
@@ -55,23 +65,12 @@ export function RetroNavbar({
 }: RetroNavbarProps) {
   const { t } = useTranslation();
   const route = useRoute();
-  const { user, logout, lang, setLang, twoFactor, toggleTwoFactor, setActiveMatch, sessionSocket } =
-    useApp();
+  const { user, logout, lang, setLang, setActiveMatch, sessionSocket } = useApp();
   const currentPath = activeRoute ?? route.path;
 
-  // Below `xl` (1280px) the sidebar collapses to an icon rail; labels are
-  // JS-toggled because parts of the bar use inline styles. Pages mirror the
-  // threshold with `w-[88px] xl:w-[270px]`.
-  const [isCompact, setIsCompact] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth < 1280,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 1279px)');
-    const handler = () => setIsCompact(mq.matches);
-    handler();
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+  // Below `xl` (1280px) the sidebar collapses to an icon rail; the threshold and
+  // the width both come from `useDockPrefs` through `NavDock`, so the spacer and
+  // this bar cannot drift apart.
   const [activeGame, setActiveGame] = useState<{
     id: string;
     roomCode: string | null;
@@ -158,12 +157,6 @@ export function RetroNavbar({
 
   const [isAccountPopoverOpen, setIsAccountPopoverOpen] = useState(false);
   const [soundMuted, setSoundMuted] = useState(retroAudio.muted);
-  // 2FA is a sensitive change: password accounts confirm it inline before the
-  // PATCH is sent (the backend rejects an unconfirmed toggle).
-  const [twoFactorPrompt, setTwoFactorPrompt] = useState(false);
-  const [twoFactorPassword, setTwoFactorPassword] = useState('');
-  const [twoFactorBusy, setTwoFactorBusy] = useState(false);
-  const [twoFactorError, setTwoFactorError] = useState('');
   const accountPopoverRef = useRef<HTMLDivElement>(null);
   const accountPopoverContentRef = useRef<HTMLDivElement>(null);
   const [accountPopoverPos, setAccountPopoverPos] = useState({ top: 0, left: 0 });
@@ -175,23 +168,6 @@ export function RetroNavbar({
     if (!retroAudio.muted) {
       retroAudio.playUiBeep(520, 0.06);
     }
-  };
-  // Confirm the 2FA toggle with the account password (an OAuth-only account has
-  // none: the backend trusts its active session and ignores the field).
-  const submitTwoFactor = async () => {
-    setTwoFactorBusy(true);
-    setTwoFactorError('');
-    const failure = await toggleTwoFactor(
-      user?.hasPassword === false ? undefined : twoFactorPassword,
-    );
-    setTwoFactorBusy(false);
-    if (failure) {
-      setTwoFactorError(failure);
-      return;
-    }
-    retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
-    setTwoFactorPrompt(false);
-    setTwoFactorPassword('');
   };
 
   const fetchActiveGame = useCallback(() => {
@@ -303,9 +279,8 @@ export function RetroNavbar({
       className={RETRO_FLOATING_DOCK}
       id="mainNav"
       style={{
-        width: isCompact ? 88 : 270,
-        minWidth: isCompact ? 88 : 270,
-        maxWidth: isCompact ? 88 : 270,
+        // The spacer owns the width (see NavDock); the bar fills it.
+        width: '100%',
         height: 'calc(100vh - 64px)',
         maxHeight: 'calc(100vh - 64px)',
         margin: 0,
@@ -313,10 +288,10 @@ export function RetroNavbar({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        // Top-down: the slack belongs to the chat slot, not to the nav track.
+        justifyContent: 'flex-start',
         gap: 14,
         padding: isCompact ? '22px 10px 18px' : '22px 16px 18px',
-        transition: 'width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease',
         background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.86), rgba(10, 2, 28, 0.94))',
         backdropFilter: 'blur(32px) saturate(220%)',
         WebkitBackdropFilter: 'blur(32px) saturate(220%)',
@@ -487,142 +462,7 @@ export function RetroNavbar({
                   <LanguageSwitcher variant="tabs" value={lang} onChange={setLang} />
                 </div>
 
-                {/* 2. 2FA Security Toggle Option */}
-                <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 12px',
-                      borderRadius: 8,
-                      background: twoFactor
-                        ? 'rgba(0, 255, 136, 0.12)'
-                        : 'rgba(255, 255, 255, 0.04)',
-                      border: twoFactor
-                        ? '1px solid #00ff88'
-                        : '1px solid rgba(255, 255, 255, 0.1)',
-                      boxShadow: twoFactor ? '0 0 10px rgba(0, 255, 136, 0.2)' : 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.18s ease',
-                    }}
-                    onClick={() => {
-                      // OAuth-only accounts have no password to confirm; the server
-                      // trusts their active session.
-                      if (user?.hasPassword === false) {
-                        void toggleTwoFactor();
-                        retroAudio.playUiBeep(twoFactor ? 440 : 880, 0.06);
-                        return;
-                      }
-                      setTwoFactorPrompt((open) => !open);
-                      setTwoFactorPassword('');
-                      setTwoFactorError('');
-                    }}
-                    title={t('navbar.toggle2fa')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: '1rem' }}>🛡️</span>
-                      <span
-                        style={{
-                          fontFamily: 'var(--font-display)',
-                          fontSize: '0.84rem',
-                          fontWeight: 900,
-                          color: '#ffffff',
-                        }}
-                      >
-                        {t('navbar.twoFactorLabel')}
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '0.68rem',
-                        fontFamily: 'var(--font-mono)',
-                        fontWeight: 900,
-                        padding: '3px 8px',
-                        borderRadius: 4,
-                        background: twoFactor ? '#00ff88' : 'rgba(255, 255, 255, 0.12)',
-                        color: twoFactor ? '#0b021a' : 'var(--text-muted)',
-                        border: twoFactor
-                          ? '1px solid #00ff88'
-                          : '1px solid rgba(255, 255, 255, 0.18)',
-                      }}
-                    >
-                      {twoFactor ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}
-                    </span>
-                  </div>
-                  {twoFactorPrompt && (
-                    <div style={{ padding: '8px 12px 2px' }}>
-                      <div
-                        style={{
-                          fontSize: '0.6rem',
-                          color: 'var(--text-muted)',
-                          marginBottom: 6,
-                          fontFamily: 'var(--font-mono)',
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {t('navbar.twoFactorPasswordPrompt')}
-                      </div>
-                      <input
-                        type="password"
-                        value={twoFactorPassword}
-                        onChange={(e) => setTwoFactorPassword(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void submitTwoFactor();
-                        }}
-                        autoComplete="current-password"
-                        autoFocus
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          padding: '6px 8px',
-                          borderRadius: 4,
-                          background: 'rgba(0,0,0,0.4)',
-                          color: 'var(--text-main)',
-                          border: '1px solid var(--border-color)',
-                          outline: 'none',
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.72rem',
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                        <button
-                          className={RETRO_BTN}
-                          type="button"
-                          disabled={twoFactorBusy}
-                          onClick={() => void submitTwoFactor()}
-                          style={{
-                            flex: 1,
-                            padding: '3px 8px',
-                            fontSize: '0.62rem',
-                            color: 'var(--accent-cyan)',
-                          }}
-                        >
-                          {t('navbar.confirm')}
-                        </button>
-                        <button
-                          className={RETRO_BTN}
-                          type="button"
-                          disabled={twoFactorBusy}
-                          onClick={() => {
-                            setTwoFactorPrompt(false);
-                            setTwoFactorError('');
-                          }}
-                          style={{ padding: '3px 8px', fontSize: '0.62rem' }}
-                        >
-                          {t('navbar.cancel')}
-                        </button>
-                      </div>
-                      {twoFactorError && (
-                        <div style={{ fontSize: '0.62rem', color: '#ff0055', marginTop: 6 }}>
-                          {twoFactorError}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),
+                {/* 2. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),
                 same retroAudio.muted flag as the in-game audio toggle. */}
                 <div
                   style={{
@@ -675,7 +515,7 @@ export function RetroNavbar({
                   </span>
                 </div>
 
-                {/* 4. Logout / Disconnect Button */}
+                {/* 3. Logout / Disconnect Button */}
                 <button
                   className={RETRO_BTN}
                   onClick={() => {
@@ -811,7 +651,10 @@ export function RetroNavbar({
         </div>
       )}
 
-      {/* Navigation Slider Window (Middle of Y-Axis) */}
+      {/* Navigation Slider Window: sized by its content, so the slack below it
+          belongs to the chat slot. It keeps `overflow-y: auto` and a zero
+          minimum, so a short viewport scrolls the track before anything
+          overflows the dock. */}
       <div
         className="nav-slider-viewport"
         style={{
@@ -820,13 +663,17 @@ export function RetroNavbar({
           width: `calc(100% + ${isCompact ? 20 : 32}px)`,
           marginLeft: isCompact ? -10 : -16,
           marginRight: isCompact ? -10 : -16,
-          flex: 1,
+          flex: '0 1 auto',
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           overflowY: 'auto',
+          // A thin cyan scrollbar when a very short window does force one: the
+          // default light bar is the one bright thing on a dark dock.
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(0, 240, 255, 0.35) transparent',
           padding: isCompact ? '8px 10px' : '8px 16px',
         }}
       >
@@ -921,6 +768,10 @@ export function RetroNavbar({
           })}
         </div>
       </div>
+
+      {/* Chat Slot: the dock's share of the slack. Only the wide dock has room
+          for a panel, so the 88 px rail draws none of it. */}
+      {!isCompact && <LobbyChat open={chatOn} onToggle={onToggleChat} />}
 
       {/* Bottom Controls: Notifications */}
       <div

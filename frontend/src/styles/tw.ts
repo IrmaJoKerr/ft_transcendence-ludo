@@ -95,19 +95,26 @@ export const WINDOW_BODY = 'p-5 grow';
 
 export const WINDOW_CONTROLS = 'flex gap-1.5';
 
+// Decorative traffic-light squares in a window header: pure chrome, so they take
+// no pointer events and never show a hand. Nothing here is clickable.
 export const WINDOW_BTN_MIN =
-  'w-3.5 h-3.5 rounded-xs border border-black/40 cursor-pointer bg-[#ffbd2e]';
+  'w-3.5 h-3.5 rounded-xs border border-black/40 bg-[#ffbd2e] pointer-events-none';
 
 export const WINDOW_BTN_MAX =
-  'w-3.5 h-3.5 rounded-xs border border-black/40 cursor-pointer bg-[#27c93f]';
+  'w-3.5 h-3.5 rounded-xs border border-black/40 bg-[#27c93f] pointer-events-none';
 
 export const APEX_CHAMPION_CARD =
   'scale-[1.02] shadow-[0_0_28px_rgba(255,23,68,.55),0_0_45px_rgba(255,215,0,.25),inset_0_0_16px_rgba(255,215,0,.15)] animate-none';
 
-export const DASHBOARD_GRID = 'grid grid-cols-12 gap-[25px] mb-[30px]';
+// One real 12-column grid for the page bodies. The gutters are 25 px from
+// 1250 px up and clamp below that, so eleven of them can never exceed a narrow
+// content box; the 360 px dock is paid for by the viewport, not by the gutter.
+export const DASHBOARD_GRID = 'grid grid-cols-12 gap-x-[clamp(8px,2vw,25px)] gap-y-[25px] mb-[30px]';
 
+// A pass is one of the lobby's three entry tickets: host a new arena, hotseat,
+// bots. 124 px is its design height, set by the tallest content it carries.
 export const RETRO_TICKET_PASS =
-  'relative flex items-center justify-between rounded-xl py-[26px] px-8 min-h-[108px] gap-6 flex-wrap box-border cursor-pointer select-none [transition:box-shadow_0.22s_cubic-bezier(.16,1,.3,1),border-color_0.22s_ease,background_0.22s_ease]';
+  'relative flex items-center justify-between rounded-xl py-[26px] px-8 min-h-[124px] gap-6 flex-wrap box-border cursor-pointer select-none [transition:box-shadow_0.22s_cubic-bezier(.16,1,.3,1),border-color_0.22s_ease,background_0.22s_ease]';
 
 export const TICKET_PINK =
   'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';
@@ -118,13 +125,12 @@ export const TICKET_YELLOW =
 export const TICKET_GREEN =
   'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
-// LudoLobby room-code ticket only. Deliberately no hover styles: the strip
-// keeps its resting look while the mouse is over it.
-export const TICKET_CYAN =
-  'bg-[linear-gradient(90deg,rgba(0,240,255,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-(--accent-cyan) shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(0,240,255,.22)]';
-
+// The right-hand action pill inside a pass. The 1.5 px transparent border is not
+// decoration: all three pills share one width (the widest label, see
+// `PassActionPill`), and a pill without a border would be 3 px narrower than the
+// two with one. Pills that want a coloured edge override only the colour.
 export const TICKET_ACTION_PILL =
-  'inline-flex items-center justify-center py-3 px-6 rounded-md [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
+  'inline-flex items-center justify-center py-3 px-6 rounded-md border-[1.5px] border-solid border-transparent [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
 
 // Home.tsx arcade cabinet + grid columns + footer.
 export const ARCADE_CONTAINER = 'flex flex-col items-center gap-[15px]';
@@ -141,6 +147,14 @@ export const ARCADE_START_TITLE =
 export const ARCADE_START_SUB =
   '[font-family:var(--font-mono)] text-[0.82rem] text-(--accent-cyan) tracking-[0.5px]';
 
+// Column spans inside `DASHBOARD_GRID`.
+//
+// A divided dashboard collapses at 992 px, 288 px below where the dock changes
+// shape (1280). A docked page that divides therefore has to pick its own
+// breakpoint at 1280: below it the dock is a rail and the content jumps 181 px
+// wider, so a span that only collapses at 992 would hold a divided layout in
+// that range. LudoLobby does not divide — it is one stack (passes, then the rooms
+// window) — so it lays out as a flex column instead of a row of spans.
 export const COL_4 = 'col-span-4 max-[992px]:col-span-12';
 
 export const COL_8 = 'col-span-8 max-[992px]:col-span-12';

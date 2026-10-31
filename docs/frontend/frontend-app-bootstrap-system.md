@@ -103,9 +103,6 @@ type AppState = {
   resetPassword: (token: string, password: string) => Promise<string | null>  // Sets a new password
   resendVerification: (email: string) => Promise<string | null>  // Resends a signup verification link
   logout: () => Promise<void>  // Logs the user out
-  // 2FA preference
-  twoFactor: boolean  // Whether 2FA is on
-  toggleTwoFactor: () => void  // Turns 2FA on/off
   // Game setup state
   playerCount: 2 | 3 | 4  // How many players
   seats: Seat[]          // { you | bot | player | empty }

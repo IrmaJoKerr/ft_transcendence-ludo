@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserAvatar } from '../components/UserAvatar';
-import { RetroNavbar } from '../components/RetroNavbar';
+import { NavDock } from '../components/NavDock';
 import { LegalModal, type LegalDocType } from '../components/LegalModal';
 import { useFriendships } from '../hooks/useFriendships';
 import { useNotifications } from '../hooks/useNotifications';
@@ -63,21 +63,8 @@ export function Home() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
   // **2. THEME & CRT CONTROLS**
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
+  // Read once at mount: the CRT look is a page-level choice, not a dock control.
+  const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
   // **4. CYBER COMM // FRIEND LIST & AUDIO**
   // One initial read for first paint; from then on `friendship:changed` drives the
@@ -321,20 +308,13 @@ export function Home() {
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
-          <aside
-            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
-            style={{ margin: 0, padding: 0 }}
-          >
-            <RetroNavbar
-              activeRoute="/home"
-              crtEnabled={crtEnabled}
-              toggleCrt={toggleCrt}
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onMarkRead={markRead}
-              onMarkAllRead={markAllRead}
-            />
-          </aside>
+          <NavDock
+            activeRoute="/home"
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onMarkRead={markRead}
+            onMarkAllRead={markAllRead}
+          />
 
           {/* Main Content Flow - Full Size Fit To Page */}
           <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>

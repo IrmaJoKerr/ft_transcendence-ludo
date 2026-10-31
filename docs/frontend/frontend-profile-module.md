@@ -15,9 +15,9 @@
 
 ## Overview
 
-The Profile page (`/profile`) shows a user's profile with statistics, recent match history and a friends panel. It is a full-screen route (rendered directly by the router); the page renders its own `RetroNavbar`. The route is signed-in only.
+The Profile page (`/profile`) shows a user's profile with statistics, recent match history and a friends panel. It is a full-screen route (rendered directly by the router); the page mounts its own `NavDock`. The route is signed-in only.
 
-1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created.
+1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created. The window title bar (`// PILOT PROFILE • NAME ( USERNAME: handle )`) ends with a click-to-copy button that puts the handle on the clipboard (`profile.usernameCopy` → `profile.usernameCopiedOk` for 1.5 s, `profile.copyUsernameTooltip` on hover, UI beep) — closing the line the way `// ROOM: {{code}} [COPY]` closes the PvP badge, because the handle is the immutable identifier while the display name can be renamed.
 2. **Stats grid** — wins, losses, win rate, best streak.
 3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you.
 4. **Friends panel** — friends with their online status and their rating; shown only on your own profile.
@@ -28,7 +28,7 @@ When the page loads it reads the profile first, then the game history, achieveme
 
 ### Blocked profile
 
-`GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 FRIEND_BLOCKED`). `BlockedProfileCard` in the same file then renders the avatar, the name and `@username`, a `CONTACT UNAVAILABLE` notice, and:
+`GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 FRIEND_BLOCKED`). `BlockedProfileCard` in the same file then renders the avatar, the name and the same click-to-copy `@username` chip (`UsernameCopyChip`; a block hides the relationship, not the identifier), a `CONTACT UNAVAILABLE` notice, and:
 
 | `visibility` | Copy | Action |
 |---|---|---|
@@ -47,7 +47,7 @@ A mutual block reports `blocked-by-you` (the viewer's own block is the one they 
 | File | Role |
 |------|------|
 | `src/pages/Profile.tsx` | Profile page component |
-| `src/components/RetroNavbar.tsx` | Top navigation bar (profile page is full-screen) |
+| `src/components/NavDock.tsx` | The seated navigation dock (profile page is full-screen) |
 | `src/store.tsx` | `useApp` for authentication state, presence and API (Application Programming Interface) calls |
 | `src/theme.ts` | `STATUS_STYLE` (and the `PresenceStatus` type) for the status indicator |
 

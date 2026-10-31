@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
-import { RetroNavbar } from '../components/RetroNavbar';
+import { NavDock } from '../components/NavDock';
 import type { PlayerColor } from '../game/types';
 import { useFitTextSize } from '../hooks/useFitTextSize';
 import { navigate } from '../router';
@@ -19,7 +19,6 @@ import {
   HERO_SUBTITLE,
   BADGE_BAR,
   RETRO_BADGE,
-  DASHBOARD_GRID,
   RETRO_WINDOW,
   WINDOW_HEADER,
   WINDOW_BODY,
@@ -28,7 +27,6 @@ import {
   TICKET_PINK,
   TICKET_YELLOW,
   TICKET_GREEN,
-  TICKET_CYAN,
   TICKET_ACTION_PILL,
 } from '../styles/tw';
 
@@ -130,27 +128,54 @@ function RoomModes({ room }: { room: Room }) {
     </div>
   );
 }
+// The three passes end in the same control in three colours, so the three pills
+// share one width: the widest of the labels the active language can produce.
+// Each pill stacks all of those labels in one grid cell, hidden, so the cell —
+// and with it the pill — is as wide as the longest one. Nothing is measured and
+// no number is stored, so a new translation or a longer label needs no code.
+interface PassActionPillProps {
+  label: string;
+  /** Every label the three pills can show, in the active language. */
+  probes: string[];
+  style?: CSSProperties;
+}
+
+function PassActionPill({ label, probes, style }: PassActionPillProps) {
+  return (
+    <div
+      className={TICKET_ACTION_PILL}
+      style={{ display: 'inline-grid', placeItems: 'center', ...style }}
+    >
+      <span style={{ gridArea: '1 / 1' }}>{label}</span>
+      {probes.map((probe) => (
+        <span key={probe} aria-hidden="true" style={{ gridArea: '1 / 1', visibility: 'hidden' }}>
+          {probe}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+
 
 export function LudoLobby() {
   const { t } = useTranslation();
   const { user, setActiveMatch, sessionSocket } = useApp();
 
+  // Every string a pass pill can display, so the three pills can share the widest
+  // one's width. `creating` is in the list because the host pill swaps to it while
+  // the room is being made, and the pill must not resize under the pointer.
+  const passActionProbes = Array.from(
+    new Set(
+      ['hostNewTable', 'creating', 'launchHotseat', 'playVsBots'].map(
+        (key) => `▶ ${t(`ludoLobbyPasses.${key}`)}`,
+      ),
+    ),
+  );
+
   // **CRT CONTROLS**
-  const [crtEnabled, setCrtEnabled] = useState(true);
-
-  useEffect(() => {
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
-  }, []);
-
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
+  // Read once at mount: the CRT look is a page-level choice, not a dock control.
+  const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
@@ -168,12 +193,12 @@ export function LudoLobby() {
   const lockedByActiveGame = hasActiveGame;
   const hostLocked = hostBusy || lockedByActiveGame;
 
-  // PASS #04 room-code field is a fixed-width box, so scale its text down to fit:
-  // the Malay placeholder ("MASUKKAN KOD") is longer than the EN/FR ones and was
-  // overflowing the input.
+  // The room-code field is a fixed-width box in the rooms window header, so scale
+  // its text down to fit: the Malay placeholder ("MASUKKAN KOD") is longer than
+  // the EN/FR ones and was overflowing the input.
   const { ref: roomCodeInputRef, fontSize: roomCodeFontSize } = useFitTextSize(
     [t('ludoLobbyPasses.enterCodePlaceholder'), roomCodeInput],
-    { maxFontSize: 16, reserve: 4 },
+    { maxFontSize: 13, reserve: 4 },
   );
 
   const fetchRooms = () => {
@@ -347,15 +372,13 @@ export function LudoLobby() {
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
-          <aside
-            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
-            style={{ margin: 0, padding: 0 }}
-          >
-            <RetroNavbar activeRoute="/gamelobby" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
-          </aside>
+          <NavDock activeRoute="/gamelobby" />
 
           {/* Main Content Flow */}
-          <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
+          <div
+            className="sticky top-8 flex w-full min-w-0 flex-1 flex-col"
+            style={{ margin: 0, padding: 0, minHeight: 'calc(100vh - 64px)' }}
+          >
             {/* Hero Telemetry Banner */}
             <header className={HERO_SECTION} style={{ marginTop: 0, padding: '16px 0 14px' }}>
               <h1 className={HERO_TITLE} style={{ fontSize: '1.45rem', marginBottom: 4 }}>
@@ -409,25 +432,19 @@ export function LudoLobby() {
               </div>
             </header>
 
-            {/* Main Tactical Single-Column / Stacked Layout */}
-            <main
-              className={DASHBOARD_GRID}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 20,
-                width: '100%',
-                margin: '0 auto',
-              }}
-            >
-              {/* TACTICAL COMBAT PASSES CONTAINER (BORDERLESS TICKET PASSES) */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 20,
-                }}
-              >
+            {/* The tactical stack: the three passes, then the rooms window, 3 px
+                apart — the same air the passes keep between themselves. A single
+                column, so it is a flex column rather than a 12-column grid, and it
+                is as tall as the dock (`100vh - 64`): the passes keep their size and
+                the window takes whatever is left, so its lower edge lands on the
+                dock's and its top sits 3 px under Level 03. The error channel is not
+                in this column at all — it rides in the rooms window's header (see
+                `roomsWindow`) — so no failure can move the passes or resize the
+                window. */}
+            <main className="flex flex-col gap-[3px]" style={{ flex: '1 1 auto', minHeight: 0 }}>
+              {/* TACTICAL COMBAT PASSES CONTAINER: three tickets, 3 px apart, so
+                  they read as one stack rather than three separate cards. */}
+              <div className="flex flex-col gap-[3px]">
                 {/* **LEVEL 1: HOST NEW TABLE TICKET** */}
                 <div
                   className={`${RETRO_TICKET_PASS} ${TICKET_PINK} ${hostLocked ? 'disabled' : ''}`}
@@ -507,19 +524,20 @@ export function LudoLobby() {
                     </div>
                   </div>
 
-                  <div
-                    className={TICKET_ACTION_PILL}
+                  <PassActionPill
+                    label={
+                      hostBusy
+                        ? `▶ ${t('ludoLobbyPasses.creating')}`
+                        : `▶ ${t('ludoLobbyPasses.hostNewTable')}`
+                    }
+                    probes={passActionProbes}
                     style={{
                       background: 'var(--accent-pink)',
                       color: '#ffffff',
                       boxShadow: '0 0 18px rgba(255, 0, 127, 0.5)',
                       opacity: hostLocked ? 0.6 : 1,
                     }}
-                  >
-                    {hostBusy
-                      ? `▶ ${t('ludoLobbyPasses.creating')}`
-                      : `▶ ${t('ludoLobbyPasses.hostNewTable')}`}
-                  </div>
+                  />
                 </div>
 
                 {/* **LEVEL 2: HOTSEAT MODE TICKET** */}
@@ -598,17 +616,16 @@ export function LudoLobby() {
                     </div>
                   </div>
 
-                  <div
-                    className={TICKET_ACTION_PILL}
+                  <PassActionPill
+                    label={`▶ ${t('ludoLobbyPasses.launchHotseat')}`}
+                    probes={passActionProbes}
                     style={{
                       background: 'rgba(255, 230, 0, 0.22)',
                       border: '1.5px solid #ffe600',
                       color: '#ffe600',
                       boxShadow: '0 0 16px rgba(255, 230, 0, 0.4)',
                     }}
-                  >
-                    ▶ {t('ludoLobbyPasses.launchHotseat')}
-                  </div>
+                  />
                 </div>
 
                 {/* **LEVEL 3: BOT MODE TICKET** */}
@@ -687,105 +704,134 @@ export function LudoLobby() {
                     </div>
                   </div>
 
-                  <div
-                    className={TICKET_ACTION_PILL}
+                  <PassActionPill
+                    label={`▶ ${t('ludoLobbyPasses.playVsBots')}`}
+                    probes={passActionProbes}
                     style={{
                       background: 'rgba(0, 255, 136, 0.22)',
                       border: '1.5px solid #00ff88',
                       color: '#00ff88',
                       boxShadow: '0 0 16px rgba(0, 255, 136, 0.4)',
                     }}
-                  >
-                    ▶ {t('ludoLobbyPasses.playVsBots')}
-                  </div>
+                  />
                 </div>
+              </div>
 
-                {/* **LEVEL 4 (LAST): ACCESS VIA ROOM CODE TICKET** */}
+              {/* **BELOW THEM: OPEN QUANTUM ROOMS** */}
+              {/* The window takes the height the passes leave behind, so its lower
+                  edge sits on the dock's. The `0` basis matters: with an `auto`
+                  basis the window's own content would size the whole column, and
+                  the column would grow past the viewport instead of the list
+                  scrolling inside the window. The floor is one row plus the
+                  window's chrome; below that the page scrolls. */}
+              <section
+                className={RETRO_WINDOW}
+                id="roomsWindow"
+                style={{ flex: '1 1 0', minHeight: 180 }}
+              >
+                {/* The room-code field is the header's right-hand control. The
+                    header wraps, and the title keeps `minWidth: 0`, so the input
+                    can never squeeze it.
+
+                    The page's error line shares this row, between the title and the
+                    field: the header is the only strip in the lobby with slack to
+                    spare, so a failure is read where the action that caused it
+                    lives, and the list stops paying rent for a reserved band. It is
+                    centred in that slack — `justifyContent: 'center'` on the span —
+                    so every string the three locales can produce sits equidistant
+                    from the counter and the field instead of hugging the counter.
+                    The status span is `width: 0` with `flex: 1 1 0` and
+                    `minWidth: 0`: the definite zero width is what keeps the message
+                    out of the line-breaking maths (a zero basis alone still counts
+                    the text towards the group's max-content size — measured, the
+                    header grew 57 → 87 px), and `grow` hands it the row's slack, so
+                    a long message cannot widen the title group, push the field onto
+                    a second row or change the header's height. It shrinks first,
+                    ellipsising to fit (`maxWidth: 100%` on the message); an empty
+                    one leaves the row exactly as it was, and its 4 px of margin —
+                    on top of the group's 8 px gap, against the header's 12 px gap
+                    on the other side — is what keeps the air symmetric when a
+                    message fills the slack. One line, with the whole
+                    sentence in `title`. `role="status"` is on the always mounted
+                    span, so the line is announced when it arrives. */}
                 <div
-                  className={`${RETRO_TICKET_PASS} ${TICKET_CYAN}`}
-                  onClick={() => {
-                    if (roomCodeInput.trim().length > 0 && !joiningByCode) {
-                      void joinByCode(roomCodeInput);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && roomCodeInput.trim().length > 0 && !joiningByCode) {
-                      e.preventDefault();
-                      void joinByCode(roomCodeInput);
-                    }
+                  className={WINDOW_HEADER}
+                  style={{
+                    background: '#190a38',
+                    borderBottom: '1px solid rgba(0, 240, 255, 0.3)',
+                    padding: '12px 14px',
+                    gap: 12,
+                    flexWrap: 'wrap',
                   }}
                 >
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 24,
-                      flex: 1,
-                      minWidth: 280,
+                      gap: 8,
+                      minWidth: 0,
+                      flex: '1 1 auto',
                     }}
                   >
-                    <div
+                    <span
                       style={{
-                        padding: '12px 20px',
-                        background: 'rgba(0, 240, 255, 0.24)',
-                        border: '1.5px solid var(--accent-cyan)',
-                        borderRadius: 8,
-                        fontFamily: 'var(--font-mono)',
-                        fontWeight: 900,
-                        fontSize: '0.98rem',
-                        color: 'var(--accent-cyan)',
                         whiteSpace: 'nowrap',
-                        letterSpacing: '1.2px',
-                        boxShadow: '0 0 12px rgba(0, 240, 255, 0.3)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flexShrink: 0,
                       }}
                     >
-                      {t('ludoLobbyPasses.level4')}
-                    </div>
-                    <div
+                      {t('ludoLobbyPasses.openQuantumRooms')} ({filteredRooms.length})
+                    </span>
+                    <span
+                      role="status"
                       style={{
-                        width: 1,
-                        height: 56,
-                        borderRight: '2px dashed rgba(0, 240, 255, 0.45)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        // Centred in the row's slack: whatever string is in it —
+                        // any of the three locales, any length — sits equidistant
+                        // from the counter and the code field rather than hugging
+                        // the counter. A message too long for the slack fills it
+                        // (`maxWidth: 100%` on the child) and ellipsises.
+                        justifyContent: 'center',
+                        // A definite zero width is what keeps the message out of the
+                        // header's line-breaking maths (a `0` basis alone does not:
+                        // the text still counts towards the group's max-content
+                        // size). `grow` then hands it every pixel the row has left.
+                        width: 0,
+                        flex: '1 1 0',
+                        minWidth: 0,
+                        // 4 + the group's 8 px gap = the header's own 12 px gap on
+                        // the other side of this span, so a message that fills the
+                        // slack gets the same air on both sides.
+                        marginLeft: error ? 4 : 0,
                       }}
-                    />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontFamily: 'var(--font-heading)',
-                          fontSize: '1.22rem',
-                          fontWeight: 900,
-                          color: '#ffffff',
-                          letterSpacing: '1.8px',
-                          marginBottom: 6,
-                        }}
-                      >
-                        {t('ludoLobbyPasses.accessViaCode')}
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: 'calc(0.86rem + 1pt)',
-                          color: 'var(--text-soft)',
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        {t('ludoLobbyPasses.accessViaCodeDesc')}
-                      </div>
-                    </div>
+                    >
+                      {error && (
+                        <span
+                          title={t('ludoLobbyExtra.errorPrefix', { message: error })}
+                          style={{
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.4px',
+                            color: '#ffffff',
+                            textShadow: '0 0 10px rgba(255, 0, 85, 0.65)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {t('ludoLobbyExtra.errorPrefix', { message: error })}
+                        </span>
+                      )}
+                    </span>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 14,
-                      flexShrink: 0,
-                      flexWrap: 'wrap',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  {/* Warp by code: the header's right-hand control. */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     <input
                       ref={roomCodeInputRef}
                       value={roomCodeInput}
@@ -801,42 +847,41 @@ export function LudoLobby() {
                       }}
                       placeholder={t('ludoLobbyPasses.enterCodePlaceholder')}
                       maxLength={8}
+                      aria-label={t('ludoLobbyPasses.accessViaCode')}
+                      title={t('ludoLobbyPasses.accessViaCodeDesc')}
                       style={{
-                        width: 150,
-                        height: 50,
+                        width: 132,
+                        height: 32,
+                        boxSizing: 'border-box',
                         background: 'rgba(5, 2, 18, 0.92)',
                         border: '1.5px solid var(--accent-cyan)',
                         borderRadius: 6,
                         color: '#ffe600',
-                        padding: '0 14px',
+                        padding: '0 10px',
                         fontSize: roomCodeFontSize,
                         fontWeight: 'bold',
                         fontFamily: 'var(--font-mono)',
-                        letterSpacing: '2px',
+                        letterSpacing: '1.5px',
                         textAlign: 'center',
                         outline: 'none',
                         boxShadow: 'inset 0 0 10px rgba(0, 240, 255, 0.25)',
-                        boxSizing: 'border-box',
                       }}
                     />
                     <button
+                      type="button"
                       className={RETRO_BTN}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void joinByCode(roomCodeInput);
-                      }}
+                      onClick={() => void joinByCode(roomCodeInput)}
                       disabled={!roomCodeInput.trim() || joiningByCode || lockedByActiveGame}
                       title={
                         lockedByActiveGame ? t('lobbyBrowser.activeGameLockTooltip') : undefined
                       }
                       style={{
-                        minWidth: 170,
-                        height: 50,
-                        padding: '0 20px',
+                        height: 32,
+                        padding: '0 14px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '0.86rem',
+                        fontSize: '0.72rem',
                         background: 'rgba(0, 240, 255, 0.22)',
                         borderColor: 'var(--accent-cyan)',
                         color: 'var(--accent-cyan)',
@@ -848,6 +893,7 @@ export function LudoLobby() {
                             : 'pointer',
                         boxShadow: '0 0 16px rgba(0, 240, 255, 0.4)',
                         flexShrink: 0,
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {joiningByCode
@@ -856,58 +902,34 @@ export function LudoLobby() {
                     </button>
                   </div>
                 </div>
-              </div>
-
-              {/* Error Alert Box */}
-              {error && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 4,
-                    background: 'rgba(255, 0, 85, 0.15)',
-                    border: '1px solid #ff0055',
-                    color: '#ff0055',
-                    fontSize: '0.75rem',
-                    textAlign: 'center',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  {t('ludoLobbyExtra.errorPrefix', { message: error })}
-                </div>
-              )}
-
-              {/* **BELOW THEM: OPEN QUANTUM ROOMS** */}
-              <section className={RETRO_WINDOW} id="roomsWindow">
-                <div
-                  className={WINDOW_HEADER}
-                  style={{
-                    background: '#190a38',
-                    borderBottom: '1px solid rgba(0, 240, 255, 0.3)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>
-                      {t('ludoLobbyPasses.openQuantumRooms')} ({filteredRooms.length})
-                    </span>
-                  </div>
-                </div>
 
                 <div
                   className={WINDOW_BODY}
-                  style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}
+                  style={{
+                    padding: 14,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    minHeight: 0,
+                  }}
                 >
-                  {/* Room Table */}
+                  {/* Room Table: it fills the body, so the list is the box that
+                      grows with the window and scrolls on its own. */}
                   <div
                     style={{
                       border: '1px solid rgba(0, 240, 255, 0.25)',
                       borderRadius: 6,
                       background: 'rgba(5, 2, 18, 0.8)',
                       overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flex: '1 1 auto',
+                      minHeight: 0,
                     }}
                   >
                     {/* Header and rows share one scroll box, so the scrollbar takes
                         the same width from both and the tracks stay aligned. */}
-                    <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+                    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
                       {/* Header Row */}
                       <div
                         style={{

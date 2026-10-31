@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RetroNavbar } from '../components/RetroNavbar';
+import { NavDock } from '../components/NavDock';
 import { UserAvatar } from '../components/UserAvatar';
 import { applyAvatarChange } from '../avatarCache';
 import { fetchWithCsrf, translateErrorCode } from '../api';
@@ -178,6 +178,76 @@ const ACHIEVEMENTS_DEF = [
   },
 ];
 
+/** Copy-to-clipboard state for a handle: the same affordance the PvP waiting
+ *  room gives its room code (`[COPY]` → `[COPIED OK]` for 1.5 s, tooltip, UI
+ *  beep, see `copyRoomCode` in `Game.tsx`). Shared by the two places the page
+ *  shows a handle — the window header line and the blocked card — because the
+ *  username is the immutable identifier (display names get renamed) and it is
+ *  what the friends page adds people by. */
+function useUsernameCopy(username: string) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  const copyUsername = () => {
+    retroAudio.playUiBeep(720, 0.06);
+    navigator.clipboard
+      .writeText(username)
+      .then(() => {
+        setCopied(true);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => setCopied(false), 1500);
+      })
+      .catch((err) => {
+        console.error('Failed to copy username:', err);
+      });
+  };
+
+  return { copied, copyUsername };
+}
+
+/** The handle as a chip: `@username [COPY]`. Used where the handle is not
+ *  already printed in surrounding copy (the blocked card). */
+function UsernameCopyChip({ username }: { username: string }) {
+  const { t } = useTranslation();
+  const { copied, copyUsername } = useUsernameCopy(username);
+
+  return (
+    <button
+      type="button"
+      onClick={copyUsername}
+      title={t('profile.copyUsernameTooltip')}
+      style={{
+        background: 'rgba(0, 0, 0, 0.45)',
+        border: '1px solid rgba(0, 240, 255, 0.45)',
+        borderRadius: 4,
+        padding: '2px 7px',
+        margin: 0,
+        cursor: 'pointer',
+        color: 'var(--text-muted)',
+        fontSize: '0.68rem',
+        fontFamily: 'var(--font-display)',
+        letterSpacing: '0.04em',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        lineHeight: 1.2,
+      }}
+    >
+      @{username}
+      <span style={{ color: copied ? '#00ff88' : 'var(--accent-cyan)', fontWeight: 900 }}>
+        [{copied ? t('profile.usernameCopiedOk') : t('profile.usernameCopy')}]
+      </span>
+    </button>
+  );
+}
+
 /** The degraded profile a block leaves behind: identity, avatar and the notice.
  *  The page still renders (the gate answers 200, not 403) because a block hides
  *  the relationship, not the person — the identity and avatar are already public
@@ -185,13 +255,11 @@ const ACHIEVEMENTS_DEF = [
 function BlockedProfileCard({
   profile,
   crtEnabled,
-  toggleCrt,
   unblocking,
   onUnblock,
 }: {
   profile: UserProfile;
   crtEnabled: boolean;
-  toggleCrt: () => void;
   unblocking: boolean;
   onUnblock: () => void;
 }) {
@@ -203,12 +271,7 @@ function BlockedProfileCard({
 
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
-          <aside
-            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
-            style={{ margin: 0, padding: 0 }}
-          >
-            <RetroNavbar activeRoute="/profile" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
-          </aside>
+          <NavDock activeRoute="/profile" />
 
           <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
             <header
@@ -272,15 +335,10 @@ function BlockedProfileCard({
                   >
                     {profile.displayName ?? profile.username}
                   </div>
-                  <div
-                    style={{
-                      color: 'var(--text-muted)',
-                      fontSize: '0.72rem',
-                      fontFamily: 'var(--font-display)',
-                      marginTop: 6,
-                    }}
-                  >
-                    @{profile.username}
+                  {/* The handle is click-to-copy here too: a block hides the
+                      relationship, not the identifier. */}
+                  <div style={{ marginTop: 6 }}>
+                    <UsernameCopyChip username={profile.username} />
                   </div>
                 </div>
               </div>
@@ -375,27 +433,21 @@ export function Profile() {
   const isOwnProfile = user?.username === username;
 
   // **CRT CONTROLS**
-  const [crtEnabled, setCrtEnabled] = useState(true);
+  // Read once at mount: the CRT look is a page-level choice, not a dock control.
+  const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('retro_theme') ?? 'synthwave';
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.body.setAttribute('data-theme', savedTheme);
-
-    const savedCrt = localStorage.getItem('retro_crt');
-    if (savedCrt === 'false') {
-      setCrtEnabled(false);
-    }
   }, []);
 
-  const toggleCrt = () => {
-    const next = !crtEnabled;
-    setCrtEnabled(next);
-    localStorage.setItem('retro_crt', next ? 'true' : 'false');
-    retroAudio.playUiBeep(440, 0.05);
-  };
-
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // The window header line is the handle's copy target (`… [COPY]`), the same
+  // shape the PvP waiting room gives its room code.
+  const { copied: usernameCopied, copyUsername: copyUsernameToClipboard } = useUsernameCopy(
+    profile?.username ?? '',
+  );
   const [gamesData, setGamesData] = useState<MatchHistory | null>(null);
   const [friendsData, setFriendsData] = useState<Friend[] | null>(null);
   type AchievementReport = { unlocked: boolean; progress: number; target: number };
@@ -611,7 +663,6 @@ export function Profile() {
       <BlockedProfileCard
         profile={profile}
         crtEnabled={crtEnabled}
-        toggleCrt={toggleCrt}
         unblocking={unblocking}
         onUnblock={() => void handleUnblock()}
       />
@@ -628,12 +679,7 @@ export function Profile() {
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
-          <aside
-            className="sticky top-8 w-[88px] shrink-0 xl:w-[270px]"
-            style={{ margin: 0, padding: 0 }}
-          >
-            <RetroNavbar activeRoute="/profile" crtEnabled={crtEnabled} toggleCrt={toggleCrt} />
-          </aside>
+          <NavDock activeRoute="/profile" />
 
           {/* Main Content Flow */}
           <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
@@ -741,21 +787,52 @@ export function Profile() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
+                      minWidth: 0,
                       fontWeight: 'bold',
                       fontFamily: 'var(--font-display)',
                       letterSpacing: '0.04em',
                     }}
                   >
-                    <span>
+                    <span
+                      style={{
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {t('profile.windowHeader', {
                         name: (profile.displayName ?? profile.username).toUpperCase(),
                         username: profile.username,
                       })}
                     </span>
+                    {/* The handle ends the header line as a `[COPY]` badge — the
+                        shape the PvP badge gives `// ROOM: {{code}} [COPY]`.
+                        Worth a control of its own because the handle is the
+                        immutable identifier while the display name is not. */}
+                    <button
+                      type="button"
+                      onClick={copyUsernameToClipboard}
+                      title={t('profile.copyUsernameTooltip')}
+                      style={{
+                        flexShrink: 0,
+                        margin: 0,
+                        padding: '1px 6px',
+                        background: 'rgba(0, 0, 0, 0.45)',
+                        border: '1px solid rgba(0, 240, 255, 0.45)',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        color: usernameCopied ? '#00ff88' : 'var(--accent-cyan)',
+                        font: 'inherit',
+                        letterSpacing: 'inherit',
+                      }}
+                    >
+                      [{usernameCopied ? t('profile.usernameCopiedOk') : t('profile.usernameCopy')}]
+                    </button>
                   </div>
                   <div
                     className={WINDOW_CONTROLS}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
                   >
                     <span className={WINDOW_BTN_MIN} />
                     <span className={WINDOW_BTN_MAX} />

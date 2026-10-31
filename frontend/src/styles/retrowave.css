@@ -116,6 +116,153 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   HYPERSPACE COMMS SCREEN (components/LobbyChat.tsx)
+   -------------------------------------------------------------------------- */
+
+/* The dock's chat screen is one plate in both states: black glass with a hairline
+   edge. Throwing the switch does not resize it — a dock that reflows when a
+   decoration toggles drags the page sideways and re-wraps every column under the
+   reader — so the plate stays where it is and the picture lights up inside it,
+   the way a CRT raster opens from a line to a frame. */
+.chat-screen {
+  position: relative;
+  background: #000000;
+  border: 1px solid rgba(0, 240, 255, 0.18);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.chat-screen--on {
+  box-shadow: inset 0 0 24px rgba(0, 240, 255, 0.1);
+}
+
+/* The raster: a white sheet that starts as a line across the middle of the plate,
+   opens to the whole frame and burns off. It sits above the picture, so the
+   picture is revealed as it fades rather than fading in beside it. */
+.chat-raster {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  background: #eaffff;
+  box-shadow: 0 0 28px 8px rgba(0, 240, 255, 0.55);
+}
+
+/* The picture: the transcript's slot, a placeholder plate today. */
+.chat-picture {
+  position: relative;
+  z-index: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Turn-on and turn-off are decoration: with reduced motion the plate simply
+   appears and disappears, at the same size, in place. */
+@media (prefers-reduced-motion: no-preference) {
+  .chat-screen--on .chat-raster {
+    animation: chatRasterOn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .chat-screen--on .chat-picture {
+    animation: chatPictureIn 420ms ease-out both;
+  }
+
+  .chat-screen--off .chat-raster {
+    animation: chatRasterOff 260ms cubic-bezier(0.42, 0, 1, 1) both;
+  }
+
+  /* The expanded card rises out of the plate: 10 px of travel and a hair of
+     scale, short enough to read as the same act as the power-on rather than a
+     second one. It is position-fixed, so the transform moves nothing else. */
+  .chat-card {
+    animation: chatCardIn 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes chatCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chatRasterOn {
+  0% {
+    transform: scale(0, 0.01);
+    opacity: 1;
+  }
+  /* The line: full width, one or two pixels tall. */
+  14% {
+    transform: scale(1, 0.01);
+    opacity: 1;
+  }
+  /* Held for ~60 ms so the eye reads a line, not a flicker. */
+  30% {
+    transform: scale(1, 0.01);
+    opacity: 1;
+  }
+  /* The raster opens, and the bloom burns off quickly: the picture comes up
+     through a glow rather than under a grey lid. */
+  50% {
+    transform: scale(1, 1);
+    opacity: 0.32;
+  }
+  75% {
+    transform: scale(1, 1);
+    opacity: 0.08;
+  }
+  100% {
+    transform: scale(1, 1);
+    opacity: 0;
+  }
+}
+
+/* Shorter than the turn-on: a tube discharges faster than it warms up. */
+@keyframes chatRasterOff {
+  0% {
+    transform: scale(1, 1);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1, 0.01);
+    opacity: 0.85;
+  }
+  60% {
+    transform: scale(0.35, 0.01);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0, 0.01);
+    opacity: 0;
+  }
+}
+
+/* Under the raster: bright at the moment the frame opens, settled by the end. */
+@keyframes chatPictureIn {
+  0%,
+  45% {
+    opacity: 0;
+    filter: brightness(2.2);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* --------------------------------------------------------------------------
    LAYOUT CONTAINER & NAVIGATION
    -------------------------------------------------------------------------- */
 
