@@ -7,6 +7,7 @@ import { NotificationService } from '../notification/notification.service';
 import { isBotUserId } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { ratingDeltaFor } from '../common/scoring';
+import { FriendshipEventsService } from '../friends/friendship-events.service';
 
 // Engine → backend payload for POST /api/game/end. Colors arrive uppercase
 // (matching the PlayerColor enum, e.g. 'RED').
@@ -41,6 +42,7 @@ export class MatchPostgameService {
     private readonly prisma: PrismaService,
     private readonly achievements: AchievementsService,
     private readonly notifications: NotificationService,
+    private readonly friendshipEvents: FriendshipEventsService,
   ) {
     const host = process.env.REDIS_HOST ?? 'redis';
     const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
@@ -180,6 +182,12 @@ export class MatchPostgameService {
     await this.notifyMatchFinished(gameId, gameType, participants).catch((err) => {
       console.warn(`Match-finished notifications failed for game ${gameId}:`, err);
     });
+
+    // The content half of every accepted friend's row (D2): a postgame rating moved,
+    // and the friends' lists carry it. After the transaction, one publish per human.
+    for (const p of participants) {
+      if (!isBotUserId(p.userId)) void this.friendshipEvents.publishSubject(p.userId);
+    }
 
     await this.redis.del(`match:${gameId}`);
     // The room is gone from both lists.

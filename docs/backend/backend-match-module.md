@@ -487,6 +487,31 @@ paint (plus one per reconnect, since the push carries only a diff). Neither scre
 ---
 
 
+## Rating changes reach friends (`friendship:changed`)
+
+`processGameEnd` moves every human participant's rating inside one transaction. A friend's list shows
+that rating, and before Phase 3 the 12 s / 15 s pollers were what kept it honest. Now, after the
+transaction commits and the postgame notifications are sent, the service calls
+`FriendshipEventsService.publishSubject(userId)` once per human participant (bots are skipped): the
+publisher reads the subject's fresh row and pushes an `accepted` record with the new `rating` to every
+accepted friend who has a socket open.
+
+Two properties are deliberate:
+
+- **After the commit, fire-and-forget.** A live-update failure is logged, never raised into
+  `POST /api/game/end`, and nothing is published for a rating that could still roll back.
+- **One publish per participant, no coalescing.** The four participants of a 4-player game are four
+  different subjects with four different audiences, so a per-`(recipient, subject)` coalescer would
+  merge nothing; a single game-end request publishes at most one record per (friend, participant)
+  pair.
+
+See [backend-friends-module.md](backend-friends-module.md) → *Live records on the session socket* for
+the record's shape and the watcher short-circuit.
+
+
+---
+
+
 ## Implementation Notes
 
 - **Room rules are normalized once, at the service boundary** (`match.creator.service.ts`). `normalizeRoomRules` applies the defaults and the coercion for every caller, and `roomRuleHashFields` writes the result in the same `HSET` as the seats, so a room never exists without its rules. Keys and defaults live in `room-rules.ts`; the engine freezes them at join, and the lobby may change them only while the room is WAITING.

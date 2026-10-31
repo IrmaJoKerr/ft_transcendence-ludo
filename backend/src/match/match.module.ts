@@ -11,9 +11,16 @@ import { AuthModule } from '../auth/auth.module';
 import { AchievementsModule } from '../achievements/achievements.module';
 import { LeaderboardModule } from '../leaderboard/leaderboard.module';
 import { NotificationModule } from '../notification/notification.module';
+import { FriendshipEventsModule } from '../friends/friendship-events.module';
 
 @Module({
-  imports: [AuthModule, AchievementsModule, LeaderboardModule, NotificationModule],
+  imports: [
+    AuthModule,
+    AchievementsModule,
+    LeaderboardModule,
+    NotificationModule,
+    FriendshipEventsModule,
+  ],
   controllers: [MatchController],
   providers: [
     MatchService,

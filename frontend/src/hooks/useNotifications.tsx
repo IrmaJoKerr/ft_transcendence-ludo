@@ -45,6 +45,9 @@ interface NotificationsContextValue {
   markRead: (id: string) => void;
   markAllRead: () => void;
   dismissToast: (id: string) => void;
+  /** The last presence edge each friend's account announced on this connection.
+   * The friends lists read it for their dots now that they are not polled. */
+  friendPresence: Record<string, 'online' | 'offline'>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
@@ -55,6 +58,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useApp();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [toasts, setToasts] = useState<Notification[]>([]);
+  // userId -> the last presence edge seen on this stream. A transient toast is
+  // dismissed; this map is not: it is what keeps a friend's dot honest between
+  // the list's first paint and the next repair fetch.
+  const [friendPresence, setFriendPresence] = useState<Record<string, 'online' | 'offline'>>({});
   const esRef = useRef<EventSource | null>(null);
 
   // **Unread count (derived)**
@@ -65,6 +72,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setNotifications([]);
       setToasts([]);
+      setFriendPresence({});
       return;
     }
 
@@ -116,6 +124,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             if (notification.type === 'friend_online' || notification.type === 'friend_offline') {
               const p = notification.payload;
               if (p.userId === userId) return;
+              // The dot's only live source (D2): the record itself says nothing
+              // about presence, and the list is no longer polled.
+              const friendId = typeof p.userId === 'string' ? p.userId : null;
+              if (friendId) {
+                const presence = notification.type === 'friend_online' ? 'online' : 'offline';
+                setFriendPresence((prev) => ({ ...prev, [friendId]: presence }));
+              }
               setToasts((prev) => [notification, ...prev]);
               return;
             }
@@ -187,8 +202,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       markRead,
       markAllRead,
       dismissToast,
+      friendPresence,
     }),
-    [notifications, toasts, unreadCount, markRead, markAllRead, dismissToast],
+    [notifications, toasts, unreadCount, markRead, markAllRead, dismissToast, friendPresence],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
@@ -206,7 +222,17 @@ export function useNotifications(): NotificationsContextValue {
       markRead: () => {},
       markAllRead: () => {},
       dismissToast: () => {},
+      friendPresence: {},
     };
   }
   return ctx;
+}
+
+// The presence map alone, for the friends lists: they need the dots without the
+// bell, and this keeps the fallback (no provider) a stable empty object.
+const NO_PRESENCE: Record<string, 'online' | 'offline'> = {};
+
+export function useFriendPresence(): Record<string, 'online' | 'offline'> {
+  const ctx = useContext(NotificationsContext);
+  return ctx?.friendPresence ?? NO_PRESENCE;
 }

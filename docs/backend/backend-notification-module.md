@@ -26,6 +26,15 @@ The Notification module delivers real-time, persisted notifications to users. It
 
 Notification types: `friend_request`, `friend_accepted`, `friend_removed`, `friend_declined`, `game_invite`, `achievement`, `match_finished`, `match_cancelled`, `profile_updated`, `display_name_changed`, `friend_online`, `friend_offline`, `avatar_changed`.
 
+> **The `friend_*` types are not the friendship feed.** Each one is addressed to a single side of a
+> pair (`friend_request` → the target, `friend_accepted` → the requester, `friend_removed` → the
+> removed friend) and carries only a display name; none of them says which list a row belongs to or
+> what the viewer-relative state is. The live lists ride `friendship:changed` on the session socket
+> instead (see [backend-friends-module.md](backend-friends-module.md) → *Live records on the session
+> socket*): one record per changed pair, both sides, with the whole row. `friend_online` /
+> `friend_offline` keep their job — they are the only live source for the friends list's presence
+> dots, which the client reads out of the notification stream.
+
 > `avatar_changed` is a SHORT-LIVED/TRANSIENT state update rather than a notification: its payload is `{ userId, username, has, style, v, updatedAt }`. It is delivered with `notifyTransient()` to **the owner alone** (never `broadcast()`), so no other account is ever told that this user changed their photo. Clients flip that user's avatar immediately — to the photo on upload (`has: true`) or back to the generated avatar on delete (`has: false`) — and put `v` in the photo URL so the browser is forced to fetch the new bytes. One event, one audience: the owner's other tabs stay in step while the tab that uploaded already applied the change locally. The `avatar_changed` event itself never reaches the bell: the change is confirmed to that same single audience by a persisted `profile_updated` row (`items: ['avatar']`, written by the same upload/delete call in `UserService`), so it lands in the owner's own bell dropdown and toast and in nobody else's.
 >
 > `display_name_changed` is owner-only for the same reason: `AuthService.updateProfile` pushes it with `notifyTransient(userId, …)`, so the actor gets a single confirmation toast ("You have changed your Displayname to …") and no other user is told. Its payload is `{ fromUserId, fromUsername, oldDisplayName, displayName }`. It never reaches the bell either.

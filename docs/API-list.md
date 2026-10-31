@@ -1953,7 +1953,9 @@ Get pending friend requests (both sent and received).
       "id": "request-uuid",
       "userId": "friend-user-id",
       "username": "string",
+      "displayName": "string",
       "avatarStyle": "bottts",
+      "avatarV": 1793404582884,
       "createdAt": "ISO-date-string"
     }
   ],
@@ -1962,13 +1964,18 @@ Get pending friend requests (both sent and received).
       "id": "request-uuid",
       "userId": "sender-user-id",
       "username": "string",
+      "displayName": "string",
       "avatarStyle": "bottts",
+      "avatarV": 1793404582884,
       "createdAt": "ISO-date-string"
     }
   ]
 }
 
 ```
+
+`id` is the pair row id, which is what `accept`/`decline` take. First-paint read only: a new or
+withdrawn request arrives as `friendship:changed` (see [`GET /api/friends`](#get-apifriends)).
 
 
 ---
@@ -2013,13 +2020,27 @@ Get the current user's friends list (or, with `?username=`, another user's list)
   {
     "id": "user-id",
     "username": "string",
+    "displayName": "string",
     "avatarStyle": "bottts",
+    "avatarV": 1793404582884,
+    "hasAvatarPhoto": false,
     "rating": 1200,
-    "friendsSince": "ISO-date-string"
+    "friendsSince": "ISO-date-string",
+    "status": "online"
   }
 ]
 
 ```
+
+`avatarV` is the avatar-meta change stamp, read for the whole list through one pipelined Redis
+request; the client turns it into the photo URL's `?v=` (see
+[avatar-system.md](avatar-system.md)). `status` is the listed account's presence
+(`online` / `playing` / `offline`).
+
+**Live updates:** this is a **first-paint read**, not a poll. Every later change arrives as the
+`friendship:changed` socket event (one record per changed pair, viewer-relative), and the screen
+re-reads this route only on mount, on socket reconnect and on window focus. The same is true of
+`GET /api/friends/requests` and `GET /api/friends/blocked`.
 
 **Errors:** 401 (no session); **403 `FRIEND_BLOCKED`** when a block exists between the caller and `?username=`'s user (the profile page skips the read when `visibility !== 'full'`).
 
@@ -2062,12 +2083,17 @@ List users the current user has blocked.
     "username": "blocked-user",
     "displayName": "Blocked User",
     "avatarStyle": "bottts",
+    "avatarV": 1793404582884,
+    "hasAvatarPhoto": false,
     "rating": 1200,
     "blockedSince": "2026-08-01T00:00:00.000Z"
   }
 ]
 
 ```
+
+First-paint read only: a block, a lifted block, or a row that a block removed elsewhere arrives as
+`friendship:changed` (see [`GET /api/friends`](#get-apifriends)).
 
 
 ---
@@ -2175,7 +2201,7 @@ connection keeps the row alive, and the badge's number arrives on that connectio
 ---
 
 
-#### Socket events for presence (`/ws`, path `/ws-socket.io`)
+#### Socket events (`/ws`, path `/ws-socket.io`)
 
 **Source:** `backend/src/realtime/realtime.gateway.ts` + `backend/src/presence/presence.service.ts`
 
@@ -2184,14 +2210,54 @@ session socket is a cookie-authenticated connection at the page's own origin.
 
 | Direction | Event | Payload | Meaning |
 |-----------|-------|---------|---------|
-| server → client | `presence:hello` | none | the socket is registered: authenticated, in `user:<id>`, presence connection counted |
+| server → client | `presence:hello` | none | the socket is registered: authenticated, in `user:<id>` and `friends:of:<id>`, presence connection counted |
 | client → server | `presence:playing` | `{ playing: boolean }` | sent on game enter/leave and re-asserted on every `connect`; per connection |
 | server → client | `counts:online` | `{ count: number }` | the site-wide online badge, coalesced to at most one push per 5 s, and emitted to a freshly connected socket right after `presence:hello` (the badge's first paint, D11) |
 | server → client | `rooms:list` | `LobbyRoom[]` | the open lobby, filtered for this viewer (`mySeat` is per account); pushed after a `rooms:changed` burst, debounced 500 ms and diffed |
 | server → client | `rooms:mine` | `MyRoom[]` | this account's own seats (rejoin banner, "has an active game") |
+| server → client | `friendship:changed` | `{ state, friend }` | one changed friendship row, **viewer-relative**: the same record drives the friends, requests and blocked lists (see below) |
 
 There is no client heartbeat event: the socket's own ping/pong (20 s / 20 s) is the liveness signal.
 A malformed `presence:playing` payload is refused by the DTO and dropped without an ack.
+
+**`friendship:changed`** is published by `FriendshipEventsService` after every write that changes a
+friendship row — the six membership mutations (request, accept, decline, remove, block, unblock) and
+the three content triggers (display-name change, avatar upload/delete, postgame rating) — and routed
+by the broadcaster from the `friendship:<recipientId>` Redis channel.
+
+```json
+{
+  "state": "pending-in",
+  "friend": {
+    "id": "sender-user-id",
+    "username": "string",
+    "displayName": "string",
+    "avatarStyle": "bottts",
+    "avatarV": 1793404582884,
+    "hasAvatarPhoto": false,
+    "rating": 1200,
+    "friendsSince": "ISO-date-string",
+    "requestId": "pair-row-id"
+  }
+}
+
+```
+
+| `state` | Meaning for the recipient | List it lands in |
+|---|---|---|
+| `accepted` | both directions consented | friends |
+| `pending-in` | the other account asked **you** (`requestId` is what accept/decline take) | requests · received |
+| `pending-out` | **you** asked the other account | requests · sent |
+| `blocked` | **you** blocked this account (liftable with unblock) | blocked |
+| `none` | no row: removed, declined, cancelled — or blocked *by* the other side, which is not announced | removed from all three |
+
+`friendsSince` is when the current state began — friends since / blocked since / requested at — so a
+record fully replaces a snapshot row, and the newest record for an account is the whole truth. The
+event is a **subscription, not a graph fan-out**: every socket joins `friends:of:<ownUserId>` at
+connect (the id comes from the handshake, never from a client payload), and the publisher builds a
+record only when at least one recipient side has a live presence row. The `friend_request`,
+`friend_accepted` and `friend_removed` notifications cannot substitute: each one reaches a single
+side, and none of them carries the row.
 
 
 ---

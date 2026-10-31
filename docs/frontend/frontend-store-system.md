@@ -31,6 +31,12 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    notification SSE stream alive runs the other way and is handled server-side (`SSE_HEARTBEAT_MS`).
    See [`../architecture.md`](../architecture.md) → Connection liveness.
 
+   The store owns the **connection**, not the rows that ride it: `counts:online` is stored here
+   because a connection-scoped number must survive a navigation, while the friendship rows live in
+   `hooks/useFriendships.ts` (one mount = one snapshot read + a `friendship:changed` listener) and the
+   presence edges in `NotificationsProvider.friendPresence`. Keeping the per-screen state out of the
+   store is what lets a screen unmount without tearing the socket down.
+
 
 ---
 ---

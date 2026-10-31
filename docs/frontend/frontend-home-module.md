@@ -53,11 +53,12 @@ type Friend = {
   id: string  // Unique ID
   username: string  // Player's username
   displayName?: string  // Name shown in the game
-  avatarStyle?: any  // Avatar style name
+  avatarStyle: string | null  // Avatar style name
+  avatarV?: number  // Avatar change stamp → the photo URL's `?v=`
   hasAvatarPhoto?: boolean  // Whether a custom photo is uploaded
-  rating?: number  // Player's rating (score)
-  friendsSince?: string  // When the friendship started
-  status?: 'online' | 'playing' | 'offline'  // Online status
+  rating: number  // Player's rating (score)
+  friendsSince: string | null  // When the current state began
+  status: 'online' | 'playing' | 'offline'  // Online status
 }
 
 type PlayerStats = {
@@ -86,21 +87,20 @@ Sequence of steps when the home page loads.
 sequenceDiagram
     participant App as App.tsx
     participant Home as Home.tsx
+    participant Hook as useFriendships()
     participant API as Backend
     participant Store as store.tsx
     participant Notif as useNotifications()
 
     App->>Home: <Home /> (full-screen route)
     Home->>Notif: useNotifications() → bell + toasts
-    Home->>API: getApi('/api/friends') + '/api/friends/requests'
+    Home->>Hook: mount
+    Hook->>API: GET /api/friends + /api/friends/requests + /api/friends/blocked
     Home->>Store: onlineCount (pushed as counts:online)
-    alt data loaded
-        API-->>Home: friends
-        Home->>Home: Render the arcade panel and the friends list
-    else error
-        Home->>Home: Render empty/loading states
-    end
-    Note over Home: The friends list refreshes every 12 seconds; the online count is pushed, never fetched
+    API-->>Hook: snapshot
+    Hook-->>Home: friends (sorted by rating) + received requests
+    Home->>Home: Render the arcade panel and the friends list
+    Note over Home: No interval: friendship:changed updates the column and the<br/>request badge; counts:online updates the online badge
 ```
 
 ### Arcade attract-mode canvas

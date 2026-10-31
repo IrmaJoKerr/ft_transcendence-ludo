@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getApi } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
 import { RetroNavbar } from '../components/RetroNavbar';
 import { LegalModal, type LegalDocType } from '../components/LegalModal';
+import { useFriendships } from '../hooks/useFriendships';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { useApp } from '../store';
@@ -34,17 +34,6 @@ import {
   COL_8,
   RETRO_FOOTER,
 } from '../styles/tw';
-
-type Friend = {
-  id: string;
-  username: string;
-  displayName?: string;
-  avatarStyle?: string | null;
-  hasAvatarPhoto?: boolean;
-  rating?: number;
-  friendsSince?: string;
-  status?: 'online' | 'playing' | 'offline';
-};
 
 const STATUS_STYLE: Record<string, { label: string; color: string; border: string; bg: string }> = {
   online: {
@@ -91,35 +80,15 @@ export function Home() {
   };
 
   // **4. CYBER COMM // FRIEND LIST & AUDIO**
-  const [friends, setFriends] = useState<Friend[] | null>(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [isFriendsLoading, setIsFriendsLoading] = useState(false);
-
-  const fetchFriendsData = () => {
-    Promise.all([
-      getApi<Friend[]>('/api/friends'),
-      getApi<{ received: Array<{ id: string }> }>('/api/friends/requests'),
-    ])
-      .then(([friendsData, reqData]) => {
-        const list = Array.isArray(friendsData) ? friendsData : [];
-        list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-        setFriends(list);
-        setPendingRequestsCount(Array.isArray(reqData.received) ? reqData.received.length : 0);
-      })
-      .catch((e) => {
-        console.error(e);
-      });
-  };
-
-  useEffect(() => {
-    setIsFriendsLoading(true);
-    fetchFriendsData();
-    setIsFriendsLoading(false);
-    const iv = setInterval(fetchFriendsData, 12000);
-    return () => {
-      clearInterval(iv);
-    };
-  }, []);
+  // One initial read for first paint; from then on `friendship:changed` drives the
+  // column and the request badge (socket D2). The 12 s poll, and the separate
+  // request fetch it repeated, are gone.
+  const { friends: friendRows, requests, loading: friendsLoading } = useFriendships();
+  const friends = useMemo(
+    () => (friendsLoading ? null : [...friendRows].sort((a, b) => b.rating - a.rating)),
+    [friendRows, friendsLoading],
+  );
+  const pendingRequestsCount = requests.received.length;
 
   // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the
   // session socket. D11 removed the first-paint REST read: the gateway hands a
@@ -531,7 +500,7 @@ export function Home() {
                     maxHeight: 390,
                   }}
                 >
-                  {isFriendsLoading && friends === null ? (
+                  {friends === null ? (
                     <div
                       style={{
                         padding: 28,
@@ -543,7 +512,7 @@ export function Home() {
                     >
                       {t('homeExtended.scanningComms')}
                     </div>
-                  ) : !friends || friends.length === 0 ? (
+                  ) : friends.length === 0 ? (
                     <div
                       style={{
                         padding: 28,
@@ -557,7 +526,7 @@ export function Home() {
                     </div>
                   ) : (
                     friends.map((f) => {
-                      const fStatus = STATUS_STYLE[f.status ?? 'offline'];
+                      const fStatus = STATUS_STYLE[f.status];
 
                       return (
                         <div
@@ -697,7 +666,7 @@ export function Home() {
                                 lineHeight: 1,
                               }}
                             >
-                              {f.rating ?? 1200}
+                              {f.rating}
                             </span>
                             <span
                               style={{

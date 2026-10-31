@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchWithCsrf, postApi, translateErrorCode } from '../api';
 import { UserAvatar } from '../components/UserAvatar';
@@ -6,6 +6,7 @@ import { RetroNavbar } from '../components/RetroNavbar';
 import type { PlayerColor } from '../game/types';
 import { navigate } from '../router';
 import { useApp } from '../store';
+import { useFriendships } from '../hooks/useFriendships';
 import { STATUS_STYLE, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
@@ -24,37 +25,6 @@ import {
   WINDOW_BODY,
   RETRO_BTN,
 } from '../styles/tw';
-
-type Friend = {
-  id: string;
-  username: string;
-  displayName?: string;
-  avatarStyle: string | null;
-  hasAvatarPhoto?: boolean;
-  rating: number;
-  friendsSince: string;
-  status: PresenceStatus;
-};
-
-type FriendRequest = {
-  id: string;
-  userId: string;
-  username: string;
-  displayName?: string;
-  avatarStyle: string | null;
-  hasAvatarPhoto?: boolean;
-  createdAt: string;
-};
-
-type BlockedUser = {
-  id: string;
-  username: string;
-  displayName?: string;
-  avatarStyle: string | null;
-  hasAvatarPhoto?: boolean;
-  rating: number;
-  blockedSince: string;
-};
 
 const STATUS_KEYS: Record<PresenceStatus, string> = {
   online: 'friends.online',
@@ -84,54 +54,38 @@ export function Friends() {
   };
 
   // **STATE MANAGEMENT**
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [blocked, setBlocked] = useState<BlockedUser[]>([]);
+  // One initial read, then `friendship:changed` drives all three lists (socket D2).
+  // There is no interval any more: a mutation refreshes the snapshot (though its
+  // own socket record usually lands first), and a reconnect or window focus is the
+  // repair path for anything a frame missed.
+  const {
+    friends: friendRows,
+    requests: requestRows,
+    blocked,
+    loading,
+    refresh,
+  } = useFriendships();
+  const requests = requestRows.received;
+  const friends = useMemo(
+    () =>
+      [...friendRows].sort((a, b) => {
+        // Sort online/in-game first, then by rating descending
+        const isOnlineA = a.status === 'online' || a.status === 'playing' ? 1 : 0;
+        const isOnlineB = b.status === 'online' || b.status === 'playing' ? 1 : 0;
+        if (isOnlineA !== isOnlineB) return isOnlineB - isOnlineA;
+        return (b.rating || 0) - (a.rating || 0);
+      }),
+    [friendRows],
+  );
   const [activeTab, setActiveTab] = useState<'friends' | 'blocked'>('friends');
   const [filterQuery, setFilterQuery] = useState('');
   const [searchUsername, setSearchUsername] = useState('');
-  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
-  const fetchData = async () => {
-    try {
-      const [fRes, rRes, bRes] = await Promise.all([
-        fetch('/api/friends', { credentials: 'include' }),
-        fetch('/api/friends/requests', { credentials: 'include' }),
-        fetch('/api/friends/blocked', { credentials: 'include' }),
-      ]);
-      if (fRes.ok && rRes.ok) {
-        const friendsData = await fRes.json();
-        const requestsData = await rRes.json();
-        const sorted = (Array.isArray(friendsData) ? friendsData : []).sort(
-          (a: Friend, b: Friend) => {
-            // Sort online/in-game first, then by rating descending
-            const isOnlineA = a.status === 'online' || a.status === 'playing' ? 1 : 0;
-            const isOnlineB = b.status === 'online' || b.status === 'playing' ? 1 : 0;
-            if (isOnlineA !== isOnlineB) return isOnlineB - isOnlineA;
-            return (b.rating || 0) - (a.rating || 0);
-          },
-        );
-        setFriends(sorted);
-        setRequests(requestsData.received ?? []);
-      }
-      if (bRes.ok) {
-        const blockedData = await bRes.json();
-        setBlocked(blockedData ?? []);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = () => {
+    refresh();
   };
-
-  useEffect(() => {
-    void fetchData();
-    const id = setInterval(fetchData, 15_000);
-    return () => clearInterval(id);
-  }, []);
 
   const handleAddFriend = async () => {
     setMsg(null);
@@ -168,7 +122,7 @@ export function Friends() {
       retroAudio.playUiBeep(880, 0.06);
       setMsg({ text: t('friends.requestSent'), type: 'success' });
       setSearchUsername('');
-      await fetchData();
+      fetchData();
     } catch {
       retroAudio.playUiBeep(320, 0.08);
       setMsg({ text: t('friends.genericError'), type: 'error' });
@@ -183,7 +137,7 @@ export function Friends() {
       body: JSON.stringify({}),
       credentials: 'include',
     });
-    await fetchData();
+    fetchData();
   };
 
   const handleDecline = async (requestId: string) => {
@@ -194,7 +148,7 @@ export function Friends() {
       body: JSON.stringify({}),
       credentials: 'include',
     });
-    await fetchData();
+    fetchData();
   };
 
   const handleInvite = async (friendId: string) => {
@@ -227,7 +181,7 @@ export function Friends() {
       body: JSON.stringify({}),
       credentials: 'include',
     });
-    await fetchData();
+    fetchData();
   };
 
   const handleBlock = async (friendId: string) => {
@@ -238,7 +192,7 @@ export function Friends() {
       body: JSON.stringify({}),
       credentials: 'include',
     });
-    await fetchData();
+    fetchData();
   };
 
   const handleUnblock = async (targetUserId: string) => {
@@ -249,7 +203,7 @@ export function Friends() {
       body: JSON.stringify({}),
       credentials: 'include',
     });
-    await fetchData();
+    fetchData();
   };
 
   const onlineFriendsCount = friends.filter(

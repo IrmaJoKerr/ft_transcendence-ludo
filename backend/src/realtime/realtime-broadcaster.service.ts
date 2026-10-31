@@ -1,7 +1,8 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AUTH_REVOKED_PREFIX } from '../auth/auth.constants';
-import { ROOMS_CHANGED_CHANNEL } from '../common/channels';
+import { FRIENDSHIP_CHANNEL_PREFIX, ROOMS_CHANGED_CHANNEL } from '../common/channels';
+import { parseFriendshipRecord } from '../friends/friendship-record';
 import { MatchQueryService, lobbyRoomsFor, myRoomsFor } from '../match/match.query.service';
 import { PRESENCE_COUNT_CHANNEL } from '../presence/presence.constants';
 import { secret } from '../secrets';
@@ -14,10 +15,10 @@ import { RealtimeGateway } from './realtime.gateway';
 const ROOMS_DEBOUNCE_MS = 500;
 const ROOMS_REPAIR_TICK_MS = 30_000;
 
-// The realtime module's own Redis subscriber. It carries three families: session
-// revocation (D4), the site-wide online count (Phase 1) and rooms changes
-// (Phase 2). Friendship and notifications join it in Phases 3-4, which is why it
-// is a service of its own rather than a method on the gateway.
+// The realtime module's own Redis subscriber. It carries four families: session
+// revocation (D4), the site-wide online count (Phase 1), rooms changes (Phase 2)
+// and friendship records (Phase 3). Notifications join it in Phase 4, which is
+// why it is a service of its own rather than a method on the gateway.
 @Injectable()
 export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
   // A subscribed ioredis connection cannot run ordinary commands, so it is never
@@ -45,14 +46,26 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
     this.redis.on('error', (error) => {
       console.error('Redis error:', error.message);
     });
-    // Pattern subscription: the publisher names the account, not which sockets
-    // exist, so a user with no socket costs nothing and needs no unsubscribe.
-    this.redis.on('pmessage', (_pattern, channel) => {
+    // Pattern subscriptions: the revocation publisher names the account, not which
+    // sockets exist, and a friendship record names its one recipient, so a user
+    // with no socket costs nothing and needs no unsubscribe.
+    this.redis.on('pmessage', (_pattern, channel, message) => {
+      if (channel.startsWith(FRIENDSHIP_CHANNEL_PREFIX)) {
+        // Already viewer-relative (the publisher resolved the audience), so this
+        // side routes it: room in, frames out. A malformed record is dropped here
+        // rather than reaching a client as a shape the reducer cannot read.
+        const record = parseFriendshipRecord(message);
+        if (!record) return;
+        this.gateway.emitToFriends(channel.slice(FRIENDSHIP_CHANNEL_PREFIX.length), record);
+        return;
+      }
       this.gateway.disconnectUser(channel.slice(AUTH_REVOKED_PREFIX.length));
     });
-    this.redis.psubscribe(`${AUTH_REVOKED_PREFIX}*`).catch((error) => {
-      console.error('Failed to subscribe to session revocations:', error);
-    });
+    this.redis
+      .psubscribe(`${AUTH_REVOKED_PREFIX}*`, `${FRIENDSHIP_CHANNEL_PREFIX}*`)
+      .catch((error) => {
+        console.error('Failed to subscribe to session revocations/friendship records:', error);
+      });
 
     // The online count is one number for the whole site, so it is a plain
     // channel rather than a per-user one; a non-numeric payload is refused here

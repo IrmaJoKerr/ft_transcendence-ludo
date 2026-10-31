@@ -36,3 +36,14 @@ export const EVENT_COUNTS_ONLINE = 'counts:online';
 export const EVENT_ROOMS_LIST = 'rooms:list';
 export const EVENT_ROOMS_MINE = 'rooms:mine';
 
+// One row of the friendship graph, already viewer-relative (D2): `{ state, friend }`
+// with `state` relative to the recipient. It arrives on the broadcaster's
+// `friendship:<recipientId>` channel.
+export const EVENT_FRIENDSHIP_CHANGED = 'friendship:changed';
+
+// The friendship audience is a room, not a graph fan-out: every socket joins its
+// *own* account's room in `handleConnection`, so the id comes from the handshake
+// and a crafted join cannot read another user's rows. Joining at connect (rather
+// than on a client event) also removes the subscribe-before-first-paint race: the
+// listener exists for the whole life of the connection.
+export const friendsRoom = (userId: string): string => `friends:of:${userId}`;

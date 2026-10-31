@@ -602,6 +602,25 @@ sequenceDiagram
 ---
 
 
+## Profile edits reach friends' lists (`friendship:changed`)
+
+`updateProfile` is also a friendship trigger. A display-name change is the *content* half of a row:
+every accepted friend's list carries the name, and the 12 s / 15 s pollers used to be the only thing
+that picked it up. After the update commits — alongside the transient `display_name_changed` toast for
+the actor — the service calls `FriendshipEventsService.publishSubject(userId)`, which pushes an
+`accepted` record with the new name to every accepted friend who has a socket open. Like every
+friendship publish it is best effort: a failure is logged and never fails `PATCH /api/auth/profile`.
+
+The avatar upload/delete routes in [backend-user-module.md](backend-user-module.md) call the same
+method, and the postgame rating write in [backend-match-module.md](backend-match-module.md) closes the
+third content trigger. See [backend-friends-module.md](backend-friends-module.md) → *Live records on
+the session socket*.
+
+
+
+---
+
+
 ## Logic Paths Summary
 
 Concise decision trees showing every code path through each auth operation, including error branches.

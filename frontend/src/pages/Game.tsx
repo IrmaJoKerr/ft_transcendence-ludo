@@ -26,6 +26,9 @@ import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
 import { useApp, type ResultPlayer } from '../store';
+import { useFriendshipRecords } from '../hooks/useFriendships';
+import { useNotifications } from '../hooks/useNotifications';
+import { mergeFriends, type FriendRow } from '../friendshipFeed';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
 import { CyberButton, CyberModal } from '../components/CyberModal';
@@ -416,9 +419,9 @@ export function Game() {
   const pendingCardBurstRef = useRef<{ color: string; to: number } | null>(null);
   // Friend-invite picker (waiting room, PvP only): lets the host invite an
   // online accepted friend into THIS room (POST /api/game/:id/invite).
-  const [friends, setFriends] = useState<
-    Array<{ id: string; username: string; displayName?: string; status?: string }>
-  >([]);
+  const [friends, setFriends] = useState<FriendRow[]>([]);
+  const friendshipRecords = useFriendshipRecords();
+  const { friendPresence } = useNotifications();
   const [inviteStates, setInviteStates] = useState<Record<string, 'idle' | 'busy' | 'sent'>>({});
 
   const copyRoomCode = () => {
@@ -442,25 +445,31 @@ export function Game() {
   }, [setPlaying]);
 
   // Load online accepted friends when waiting in a PvP room so the host can invite.
+  // One load at game entry, then `friendship:changed` upserts into the row map and
+  // the presence edges move the dots (socket D2): the 5 s poll is gone.
   useEffect(() => {
     if (view.status !== 'waiting' || activeMatch?.mode !== 'pvp') return;
 
-    const loadFriends = () => {
-      getApi<Array<{ id: string; username: string; displayName?: string; status?: string }>>(
-        '/api/friends',
-      )
-        .then((data) => {
-          const list = Array.isArray(data) ? data : [];
-          const onlineOnly = list.filter((f) => f.status === 'online');
-          setFriends(onlineOnly);
-        })
-        .catch(() => setFriends([]));
+    let cancelled = false;
+    getApi<FriendRow[]>('/api/friends')
+      .then((data) => {
+        if (!cancelled) setFriends(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFriends([]);
+      });
+    return () => {
+      cancelled = true;
     };
-
-    loadFriends();
-    const interval = setInterval(loadFriends, 5000);
-    return () => clearInterval(interval);
   }, [view.status, activeMatch?.mode, activeMatch?.gameId]);
+
+  // Only a friend with no live match can be seated: `online` and not `playing`,
+  // which is exactly what the picker offered before (the GET's own status).
+  const onlineFriends = useMemo(
+    () =>
+      mergeFriends(friends, friendshipRecords, friendPresence).filter((f) => f.status === 'online'),
+    [friends, friendshipRecords, friendPresence],
+  );
 
   // Connect to engine via Socket.IO
   useEffect(() => {
@@ -2642,7 +2651,7 @@ export function Game() {
                         >
                           {t('game.inviteComms')}
                         </div>
-                        {friends.length === 0 ? (
+                        {onlineFriends.length === 0 ? (
                           <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                             {t('game.noFriendsToInvite')}
                           </div>
@@ -2656,7 +2665,7 @@ export function Game() {
                               overflowY: 'auto',
                             }}
                           >
-                            {friends.map((f) => {
+                            {onlineFriends.map((f) => {
                               const st = inviteStates[f.id] ?? 'idle';
                               return (
                                 <div

@@ -4,7 +4,9 @@ import { PresenceService } from '../presence/presence.service';
 import { ratingDeltaFor } from '../common/scoring';
 import { NotificationService } from '../notification/notification.service';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
+import { AvatarThumbnailService } from '../avatar/avatar-thumbnail.service';
 import { BlockStateService, visibilityFor } from '../friends/block-state.service';
+import { FriendshipEventsService } from '../friends/friendship-events.service';
 
 @Injectable()
 // User profile and avatar logic: pair-gated profiles, avatar upload/delete/get,
@@ -15,7 +17,9 @@ export class UserService {
     private readonly presence: PresenceService,
     private readonly notifications: NotificationService,
     private readonly avatarMeta: AvatarMetaService,
+    private readonly avatarThumbnail: AvatarThumbnailService,
     private readonly blockState: BlockStateService,
+    private readonly friendshipEvents: FriendshipEventsService,
   ) {}
 
   // Profile of a user (stats, rating, avatar info, online status) as the caller
@@ -85,12 +89,24 @@ export class UserService {
     const user = await this.prisma.db.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
 
+    // Build the derivative BEFORE the row write, so the single update carries
+    // both columns: a reader never sees the new photo next to the previous
+    // photo's thumbnail, and `avatarPhotoContentType` keeps meaning exactly
+    // "has a photo". A null result (undecodable image) is written as null, which
+    // also clears a previous thumbnail, and the route falls back to the original.
+    const thumb = await this.avatarThumbnail.build(data);
+
     // Prisma 7 uses Bytes type for avatarPhoto
     await this.prisma.db.user.update({
       where: { id: userId },
       // Prisma 7 types Bytes as Uint8Array<ArrayBuffer>; Buffer is
       // Uint8Array<ArrayBufferLike>, so copy into a fresh Uint8Array.
-      data: { avatarPhoto: Uint8Array.from(data), avatarPhotoContentType: contentType },
+      data: {
+        avatarPhoto: Uint8Array.from(data),
+        avatarPhotoContentType: contentType,
+        avatarThumb: thumb ? thumb.data : null,
+        avatarThumbContentType: thumb ? thumb.contentType : null,
+      },
     });
 
     // Self-confirmation: "You have updated your profile: Avatar". `notify()` writes a
@@ -118,17 +134,35 @@ export class UserService {
       })
       .catch(() => {});
 
+    // The content half of every accepted friend's row (D2): their list carries
+    // this account's avatar, so it gets the new style/flags and the stamp.
+    void this.friendshipEvents.publishSubject(userId);
+
     return { contentType };
   }
 
   // The stored photo by immutable id; null when there is none, and the caller
   // falls back to the generated avatar. Used by GET /api/user/id/:userId/avatar.
+  //
+  // Serves the 256 px thumbnail when there is one and the original otherwise (a
+  // row from before thumbnails existed, or an upload sharp could not decode), so
+  // the route's contract — stable URL, ETag over the bytes — is unchanged.
   async getAvatarById(userId: string): Promise<{ data: Buffer; contentType: string } | null> {
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
-      select: { avatarPhoto: true, avatarPhotoContentType: true },
+      select: {
+        avatarPhoto: true,
+        avatarPhotoContentType: true,
+        avatarThumb: true,
+        avatarThumbContentType: true,
+      },
     });
+    // The original stays the "has a photo" signal even when the thumbnail is
+    // what gets sent: a missing original means no photo at all.
     if (!user?.avatarPhoto || !user.avatarPhotoContentType) return null;
+    if (user.avatarThumb && user.avatarThumbContentType) {
+      return { data: Buffer.from(user.avatarThumb), contentType: user.avatarThumbContentType };
+    }
     return { data: Buffer.from(user.avatarPhoto), contentType: user.avatarPhotoContentType };
   }
 
@@ -141,7 +175,14 @@ export class UserService {
 
     await this.prisma.db.user.update({
       where: { id: userId },
-      data: { avatarPhoto: null, avatarPhotoContentType: null },
+      data: {
+        avatarPhoto: null,
+        avatarPhotoContentType: null,
+        // The derivative goes with the original, or a deleted avatar would keep
+        // returning the last picture.
+        avatarThumb: null,
+        avatarThumbContentType: null,
+      },
     });
 
     // Same ordering rule as uploadAvatar : commit to Postgres first, then cache.
@@ -166,6 +207,9 @@ export class UserService {
         updatedAt: new Date().toISOString(),
       })
       .catch(() => {});
+
+    // Same content push as the upload: friends fall back to the generated avatar.
+    void this.friendshipEvents.publishSubject(userId);
 
     return { ok: true };
   }

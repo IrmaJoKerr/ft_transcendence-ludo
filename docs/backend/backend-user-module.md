@@ -174,6 +174,8 @@ sequenceDiagram
     Site->>Server: POST /api/user/avatar (upload the image)
     Server->>Server: Check the size, the declared type and the actual image bytes
     Server->>Server: Save the picture on the profile, then update the shared avatar record
+    Server->>Server: Push avatar_changed to this account's tabs, then friendship:changed
+                    (accepted record) to every accepted friend with a socket open
     Server-->>Site: 200 { contentType }
     Site-->>User: Show the new avatar
 ```
@@ -207,6 +209,7 @@ sequenceDiagram
     User->>Site: Click "Remove my avatar"
     Site->>Server: DELETE /api/user/avatar
     Server->>Server: Delete the saved picture, then set has: false in the shared record
+    Server->>Server: friendship:changed to every accepted friend (avatar back to generated)
     Server-->>Site: 200 { ok: true }
     Site->>Site: Set hasAvatarPhoto = false
     Site-->>User: Show the default avatar again (no photo request)

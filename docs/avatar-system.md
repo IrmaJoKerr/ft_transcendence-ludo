@@ -54,9 +54,11 @@ validation and uploads.
 | --- | --- |
 | `backend/src/avatar/avatar-meta.service.ts` | The Redis record `avatar:<userId>` → `{ has, style, v }`. `set()` writes it and returns the change stamp; `get()` reads it; `syncFromUser()` repairs it from a row the caller already loaded — read first, write only when `has`/`style` diverge — and returns the record's stamp; `remove()` cleans up. |
 | `backend/src/avatar/avatar-meta.module.ts` | Provides/exports `AvatarMetaService` (the same pattern as `NotificationService`). |
+| `backend/src/avatar/avatar-thumbnail.service.ts` | Builds the stored derivative at upload: 256 px WebP via `sharp`, animation preserved (each frame's delay kept, loop forever). Bounded by a 25 MP-per-frame input limit, a 120-frame cap, a 400 KB budget and a 5 s timeout; returns `null` when the image cannot be decoded. |
+| `backend/src/avatar/avatar-thumbnail.module.ts` | Provides/exports `AvatarThumbnailService` for `UserModule`. |
 | `backend/src/avatar/image-signature.util.ts` | Magic-byte check so the declared MIME type must match the file's leading bytes. |
 | `backend/src/user/user.controller.ts` | `POST /api/user/avatar`, `DELETE /api/user/avatar`, `GET /api/user/id/:userId/avatar`. Defines the cache headers and the upload validation. |
-| `backend/src/user/user.service.ts` | `getAvatarById()`; writes the Redis record **after** the Postgres commit in upload/delete; pushes `avatar_changed` to the owner's own clients (`notifyTransient()`, never `broadcast()`) and writes the owner's own persisted `profile_updated` confirmation; repairs the record on profile reads and echoes its stamp as `avatarV`. |
+| `backend/src/user/user.service.ts` | `uploadAvatar()` builds the thumbnail and writes the original and the derivative in one `UPDATE`; `getAvatarById()` serves the thumbnail and falls back to the original; `deleteAvatar()` clears both. Writes the Redis record **after** the Postgres commit in upload/delete; pushes `avatar_changed` to the owner's own clients (`notifyTransient()`, never `broadcast()`) and writes the owner's own persisted `profile_updated` confirmation; repairs the record on profile reads and echoes its stamp as `avatarV`. |
 | `backend/src/auth/auth.service.ts` | Seeds the record on register and on the OAuth creation path; repairs it on `/me`; removes it on account deletion. |
 | `backend/src/notification/notification.controller.ts` | Transport for the owner-only `avatar_changed` push: the SSE stream plus its `SSE_HEARTBEAT_MS` keep-alive. |
 
@@ -90,10 +92,39 @@ The same avatar is represented in four places. Only the first is authoritative.
 
 | # | Layer | Holds | Authoritative? | Lifetime |
 | --- | --- | --- | --- | --- |
-| 1 | **Postgres**: `User.avatarPhoto` (bytes) + `avatarPhotoContentType` | the image itself | **Yes** | durable |
+| 1 | **Postgres**: `User.avatarPhoto` (bytes) + `avatarPhotoContentType`, plus the derivative `avatarThumb` (bytes) + `avatarThumbContentType` | the upload exactly as sent, and a 256 px WebP copy of it | **Yes** | durable |
 | 2 | **Redis**: `avatar:<userId>` → `{ has, style, v }` | whether a photo exists, its DiceBear style, and a change stamp | No: a cache of Postgres | evictable (`allkeys-lru`, no AOF) |
-| 3 | **HTTP**: `GET /api/user/id/:userId/avatar` | the image response body, plus `Cache-Control: public, no-cache, no-transform` and an `ETag` | No | browser cache, **revalidated on every use** |
+| 3 | **HTTP**: `GET /api/user/id/:userId/avatar` | the thumbnail bytes (or the original when there is no thumbnail), plus `Cache-Control: public, no-cache, no-transform` and an `ETag` | No | browser cache, **revalidated on every use** |
 | 4 | **Client memory**: `frontend/src/avatarCache.ts` | the last state the server announced per user, and which ids failed to load | No | this page session only |
+
+### The served copy is a derivative
+
+`avatarPhoto` keeps the upload byte for byte. What `GET /api/user/id/:userId/avatar` returns is
+`avatarThumb` whenever it exists: a 256 px WebP built once, at upload, by `sharp`.
+
+| | `avatarPhoto` | `avatarThumb` |
+| --- | --- | --- |
+| What | the file as uploaded | 256×256 WebP, centre crop, no upscaling, quality 80 |
+| Written by | every upload | the **same** `UPDATE` as the upload |
+| Served by the avatar route | only when there is no thumbnail | whenever present |
+| Null means | no photo at all | no derivative: serve the original |
+
+The largest avatar on screen is 95 px (`Profile.tsx`) and a roster tile is 30–42 px, so sending the
+original meant a 2 MB upload drawn into a 95 px circle. Measured on a 1.77 MB 1800×1800 JPEG:
+**2,804 bytes** served instead of 1,773,012 — and every upload gets WebP, including a PNG or GIF
+source.
+
+Why at upload and not on `GET`: decoding per request puts libvips' work on the same libuv threadpool
+the database driver and bcrypt use, turns every revalidation into CPU work, and makes the cost of a
+response depend on the stored file instead of on a fixed artifact. The `GET` stays a byte copy, so it
+is still cacheable and still cheap under load — which is also why the route simply serves whichever
+bytes the row holds rather than re-encoding anything.
+
+Bounds, because the input is user-supplied: a 25 MP **per-frame** input limit (libvips counts each
+frame separately, so an animation passes it once per frame), a 120-frame cap, a 400 KB output budget
+(an animation that still overshoots falls back to one still frame), a 5 s timeout, and a decode
+failure that stores the original with **no** thumbnail instead of rejecting the upload. An animated
+GIF stays animated: the derivative keeps every frame's delay and loops forever.
 
 Plus the **DiceBear fallback**, generated client-side from `username` + `avatarStyle`: it never
 touches the network.
@@ -143,6 +174,10 @@ reuse". `no-store`, which the `404` for a user with no photo uses, means "do not
 6. **The flag must be known before the request.** A client that asks anyway logs a 404.
 7. **The SSE keep-alive must stay enabled.** SSE has no replay, so a stream that gets reset loses any
    `avatar_changed` event published during the drop.
+8. **The original is never overwritten, and the flag never depends on the derivative.** `avatarThumb`
+   is a copy written in the same `UPDATE` as `avatarPhoto`, and `hasAvatarPhoto` stays
+   `avatarPhotoContentType !== null`. A decode failure therefore leaves `avatarThumb` null without
+   ever making a real photo look absent, and a failed thumbnail never fails an upload.
 
 
 ---
@@ -164,7 +199,9 @@ sequenceDiagram
     U->>SPA: Pick an image on the profile page
     SPA->>API: POST /api/user/avatar (multipart)
     API->>API: MIME allowlist + magic-byte signature check
-    API->>DB: UPDATE User (avatarPhoto, avatarPhotoContentType)
+    API->>API: Build the 256 px WebP thumbnail (bounded decode)
+    API->>DB: UPDATE User (avatarPhoto, avatarPhotoContentType, avatarThumb, avatarThumbContentType)
+    Note over API,DB: one write: the photo and its thumbnail never disagree
     Note over API,DB: Postgres first - it is the source of truth
     API->>R: HSET avatar cache for the user (has=1, style, v=now)
     API-->>SPA: 200 with the message and the content type
@@ -173,8 +210,8 @@ sequenceDiagram
     Note over API,SPA: pushed to the uploader's own clients (other tabs) - never to other accounts
     SPA->>SPA: override stored -> photo URL gains a v stamp
     SPA->>API: GET /api/user/id/.../avatar?v=stamp
-    API->>DB: SELECT avatarPhoto
-    API-->>SPA: 200 image bytes + ETag
+    API->>DB: SELECT avatarThumb (the original only if there is no thumbnail)
+    API-->>SPA: 200 thumbnail bytes + ETag
 ```
 
 Two clients are satisfied by two different paths, and that is deliberate: **the uploader's own view
@@ -196,7 +233,7 @@ sequenceDiagram
 
     U->>SPA: Remove the avatar
     SPA->>API: DELETE /api/user/avatar
-    API->>DB: UPDATE User SET avatarPhoto = NULL
+    API->>DB: UPDATE User SET avatarPhoto = NULL, avatarThumb = NULL
     API->>R: HSET avatar cache for the user (has=0, style, v=now)
     API-->>SPA: 200 with the message
     SPA->>SPA: applyAvatarChange(userId, has=false)
@@ -336,6 +373,8 @@ revalidated normally: the stamp is only needed once a change happens inside a se
 | The SSE event is missed (stream reset) | the old image until the next mount or reload | The bare URL still revalidates on load, so the client self-corrects. Only the *instant* update is lost. |
 | A stale `has: true` with no bytes behind it | one failed load, then the generated avatar | `onError` marks the id broken for the session, so it is not retried. |
 | A corrupt or mislabelled upload | `400 Bad Request` | Magic-byte validation runs before anything is written, so a file whose bytes do not match its declared type is never stored. A file with a valid signature that the browser cannot decode is stored, and the client falls back to the generated avatar. |
+| An image `sharp` cannot decode (valid signature, broken body) | the original, at full size | The upload is accepted, `avatarThumb` is stored as null, and the route serves `avatarPhoto`. The browser may still render what libvips refused. |
+| A row stored before thumbnails existed | the original, at full size | `avatarThumb` is null, which the route reads as "no derivative"; the next upload stores one. |
 | An image the browser cannot decode | the generated avatar | Same `onError` path as a 404: the marker covers both. |
 | Postgres is unavailable | the upload/delete fails with an error | Redis is only written after the Postgres write succeeds, so a `has: true` record with no stored photo cannot be created. |
 
@@ -362,6 +401,17 @@ curl -skI https://localhost:8443/api/user/id/<userId-without-photo>/avatar
 docker exec redis sh -c 'redis-cli -p 6479 -a "$REDIS_PASSWORD" --no-auth-warning \
   hgetall avatar:<userId>'
 #    expect has / style / v, and v changing on each upload or delete
+
+# 5. The response is the derivative, not the upload
+curl -sk -b cookies.txt -o /tmp/avatar.bin https://localhost:8443/api/user/id/<userId>/avatar
+file /tmp/avatar.bin      # expect "RIFF (little-endian) data ... Web/P image", 256x256
+wc -c < /tmp/avatar.bin   # expect a few KB, not the multi-megabyte original
+
+# 6. The row holds both copies
+docker exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+  "select octet_length(\"avatarPhoto\"), octet_length(\"avatarThumb\"), \"avatarThumbContentType\" \
+   from \"User\" where username = '\''<username>'\''"'
+#    expect: the original's size, a much smaller thumbnail, image/webp
 ```
 
 Then in the browser, with DevTools open:
@@ -383,6 +433,8 @@ Then in the browser, with DevTools open:
    username, like the navbar's own avatar.
 7. Start a PvE match from the table screen: every bot seat shows a generated avatar in the lobby roster
    and in the arena's pilot cards, and **Network** shows no avatar request for them.
+8. Upload an animated GIF: it still animates, and **Network** shows one `image/webp` response of a few
+   KB rather than the GIF itself.
 
 
 ---
@@ -399,9 +451,18 @@ Then in the browser, with DevTools open:
   when the plain URL is revalidated. Reading the records again in `emitLobbyUpdate` would reduce that
   window. The results invoice renders the same snapshot, so a change made after the game ended reaches
   it through the SSE event as well.
-- **Uploads are checked by MIME and magic bytes, not decoded.** An unusual image with a valid
-  signature can still fail to decode in the browser; the `broken` marker handles that case instead of
-  retrying it.
+- **Uploads are checked by MIME and magic bytes before anything is decoded.** The bytes are then
+  decoded once to build the thumbnail, but a decode failure is not a rejection: the original is stored
+  and served at full size. In the other direction, an image the server decodes can still fail in a
+  particular browser; the `broken` marker handles that case instead of retrying it.
+- **The thumbnail is built while the upload request waits.** Measured: ~30 ms for a still photo and
+  ~0.4 s for a 120-frame animation, on the same libuv threadpool the rest of the backend uses.
+  Downscaling in the browser before the upload would cut both the transfer and that latency, but the
+  server would still have to decode the bytes it stores, because a client's claim about its own file
+  is not evidence. Left out for now: it is an upload-latency optimisation, not a correctness one.
+- **The crop is a plain centre crop.** A subject off to one side can be cropped out of the square.
+  Saliency-based cropping (`sharp`'s `attention`) was left out on purpose: on an animation it can pick
+  a different region per frame and make the thumbnail jitter.
 - **`PlayerMeta.username` lags a rename.** Avatars use `userId` and do not depend on it, but other
   checks that compare `playerMeta.username` with `user?.username` break after a rename. `displayName`
   is the name the UI shows: the client prefers it over `username`, and a bot seat takes it from the

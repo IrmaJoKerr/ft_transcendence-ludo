@@ -34,6 +34,32 @@ export type MyRoom = {
   maxSeats: number;
 };
 
+// The five viewer-relative states of one friendship row (socket D2): the same
+// record drives the friends, requests and blocked lists, and `none` deletes the
+// row from all three.
+export type FriendshipViewState = 'accepted' | 'pending-in' | 'pending-out' | 'blocked' | 'none';
+
+// One row of `friendship:changed`, already in the recipient's own terms:
+// `friendsSince` is when the current state began (friends since / blocked since /
+// requested at) and `requestId` is set while a request is pending, because that is
+// the id accept/decline take.
+export type FriendshipFriend = {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarStyle: string;
+  avatarV?: number;
+  hasAvatarPhoto: boolean;
+  rating: number;
+  friendsSince: string | null;
+  requestId?: string;
+};
+
+export type FriendshipRecord = {
+  state: FriendshipViewState;
+  friend: FriendshipFriend;
+};
+
 export type SessionServerEvents = {
   // Emitted once a socket is registered, which is when it counts as online.
   'presence:hello': () => void;
@@ -43,6 +69,9 @@ export type SessionServerEvents = {
   'rooms:list': (rooms: LobbyRoom[]) => void;
   // This account's own seats.
   'rooms:mine': (rooms: MyRoom[]) => void;
+  // One changed friendship row, viewer-relative. The socket joins its account's
+  // `friends:of:` room at connect, so every tab receives it with no subscribe.
+  'friendship:changed': (record: FriendshipRecord) => void;
 };
 
 export type SessionClientEvents = {

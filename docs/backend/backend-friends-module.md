@@ -6,7 +6,7 @@
 - [Files](#files) — Every source file in the module and its role
 - [Key Types / Interfaces](#key-types--interfaces) — Friendship status enum and response shapes
 - [API Endpoints](#api-endpoints) — All 12 routes with method, path, auth, and description
-- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, the read-path block gate, plus the full pair state machine
+- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, the read-path block gate, the full pair state machine, and the live `friendship:changed` publisher
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Dependencies](#dependencies) — Internal services this module relies on
 
@@ -51,9 +51,12 @@ helpers in `friendship-pair.ts`.
 | `friends.controller.ts` | HTTP routes: send, accept, decline, remove, list, requests, block/unblock, blocked list, and game invites (invite, pending, dismiss) |
 | `friends.service.ts` | Business logic: directional pair transitions, requests, blocking, invites |
 | `friendship-pair.ts` | Pure helpers (`pairKey`, `effectiveStatus`, `isFriendPair`, `isBlockedPair`) shared with match + presence — no NestJS/Prisma imports, so no circular DI |
+| `friendship-record.ts` | Pure helpers for the live record: `viewerState` (the five viewer-relative states), `stateSince`, and the broadcaster's payload guard. No NestJS/Prisma imports |
+| `friendship-events.service.ts` | The `friendship:changed` publisher: `publishPair` (both directions of a changed row) and `publishSubject` (a changed display name / avatar / rating to every accepted friend) |
+| `friendship-events.module.ts` | Leaf module exporting the publisher — user, auth and match inject it without a cycle |
 | `block-state.service.ts` | The read-path gate: one unordered-pair lookup (`between`) returning `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus `assertUnblocked` (403 `FRIEND_BLOCKED`). Prisma-only, injected by User, Achievements and Friends |
 | `block-state.module.ts` | The leaf module that exports `BlockStateService` (no service imports, so no cycle) |
-| `friends.module.ts` | NestJS module — registers controller, service, and PrismaService; imports `BlockStateModule` |
+| `friends.module.ts` | NestJS module — registers controller, service, and PrismaService; imports `BlockStateModule`, `AvatarMetaModule` and `FriendshipEventsModule` |
 
 
 
@@ -104,11 +107,19 @@ enum FriendshipStatus {
 {
   id: string;  // Unique ID
   username: string;  // Player's username
+  displayName: string;
   avatarStyle: string | null;  // Avatar style name
+  avatarV?: number;  // Avatar-meta change stamp → the photo URL's `?v=`
+  hasAvatarPhoto: boolean;
   rating: number;  // Player's rating (score)
   friendsSince: Date;  // When the friendship started
+  status: 'online' | 'playing' | 'offline';  // Live presence, overlaid from Redis
 }
 ```
+
+> `avatarV` is read for the whole list through **one pipelined** `hgetall` per id
+> (`AvatarMetaService.getMany`), not one round trip per row, and it is the same stamp a live
+> `friendship:changed` record carries — so first paint and a push describe a row identically.
 
 ### Friend Requests Response Shape
 
@@ -120,6 +131,7 @@ enum FriendshipStatus {
     username: string;
     displayName: string;
     avatarStyle: string | null;
+    avatarV?: number;
     createdAt: Date;
   }>;
   received: Array<{  // Requests sent to me (the other direction is 'pending')
@@ -128,6 +140,7 @@ enum FriendshipStatus {
     username: string;
     displayName: string;
     avatarStyle: string | null;
+    avatarV?: number;
     createdAt: Date;
   }>;
 }
@@ -441,6 +454,81 @@ stateDiagram-v2
 ---
 
 
+### 9. Live records on the session socket (`friendship:changed`)
+
+The screens used to poll for this: `Home.tsx` every 12 s, `Friends.tsx` every 15 s and the in-game
+friend list every 5 s. Since Phase 3 a write publishes **one record per recipient** instead, and the
+client merges it over its first-paint snapshot.
+
+```
+friends.service.ts (mutation)     FriendshipEventsService.publishPair(a, b)
+        │                                   │
+        │  1. publishPair(user, target)     ├─ Prisma: the pair row + both profiles (1 query)
+        ├──────────────────────────────────▶├─ presence.getStatuses([a, b])  ← 0 watchers → stop
+        │                                   ├─ avatars.getMany([a, b])       ← 1 pipelined read
+        │                                   └─ publish friendship:<a> and friendship:<b>
+        │                                              │ each: { state, friend }, viewer-relative
+        │                                              ▼
+        │                                    RealtimeBroadcaster (Redis subscriber)
+        │                                              │ parseFriendshipRecord() guards the shape
+        │                                              ▼
+        │                                    gateway.emitToFriends(recipient, record)
+        │                                              │ server.in('friends:of:<id>').emit(...)
+        ▼                                              ▼
+   HTTP response                             every tab of that account
+```
+
+**Audience is a subscription, not a graph.** Every session socket joins `friends:of:<ownUserId>` in
+`handleConnection`, next to `user:<id>`; the id comes from the handshake, never from a client payload,
+so a crafted join cannot read another account's rows. Joining at connect (rather than on a
+client-sent `friends:watch`) also removes the subscribe-before-first-paint race: the listener exists
+for the whole life of the connection, and there is no second client → server event.
+
+**The zero-watcher short-circuit uses the presence row, not an in-memory counter.** A record is built
+only if at least one recipient is not `offline` in Redis. That is the same signal an in-memory counter
+would carry (a row exists while a socket is open), it needs no new state, and it is correct across
+instances — the only cost of its 45 s TTL is a rare wasted read. The common case (the other account
+has no tab open) costs one `mget` and no Prisma read.
+
+**Nine trigger sites**, all fire-and-forget after the write commits (a live-update failure must never
+fail the mutation):
+
+| Trigger | File | Publication |
+|---|---|---|
+| request (first contact, resend, mutual auto-accept) | `friends.service.ts` | `publishPair(caller, target)` |
+| accept | `friends.service.ts` | `publishPair(pair.user1Id, pair.user2Id)` |
+| decline | `friends.service.ts` | `publishPair(...)` → both sides read `none` |
+| remove | `friends.service.ts` | `publishPair(...)` |
+| block | `friends.service.ts` | `publishPair(...)` → blocker `blocked`, other side `none` |
+| unblock | `friends.service.ts` | `publishPair(...)` → back to `none` (or `blocked` if the other side still holds one) |
+| display-name change | `auth.service.ts` (`updateProfile`) | `publishSubject(userId)` → an `accepted` record to every accepted friend |
+| avatar upload / delete | `user.service.ts` | `publishSubject(userId)` |
+| postgame rating | `match.postgame.service.ts` | `publishSubject(userId)` per human participant, after the transaction |
+
+The last three are the **content** half of a row (display name, avatar, rating): they had no trigger
+before, and they are exactly what the 12 s / 15 s pollers were quietly keeping honest.
+
+**Viewer-relative state.** `viewerState` maps the stored pair to one of `accepted`, `pending-in`,
+`pending-out`, `blocked`, `none`. Order matters: the viewer's own block reads `blocked` (it is theirs
+to lift), a block held by the other side reads `none` (the row disappears rather than announcing
+itself), and a `declined` direction inside its cooldown reads `none`. `requestId` is set only while a
+request is pending, because that is the id accept/decline take, and `friendsSince` is the timestamp of
+the **current** state (friends since / blocked since / requested at).
+
+**Repair paths, not a patch log.** A record is the whole row, so a lost frame is repaired by the next
+read: the screens re-fetch on mount, on socket reconnect and on window focus. That is why no `seq` or
+version field exists — a WebSocket is ordered per connection, and a new connection resyncs. Known
+bounded staleness: a pending request that hits its 24 h TTL (`effectiveStatus`) while the screen is
+open does not re-push, so it lingers until the next focus/refocus.
+
+**Third-party lists are never pushed.** `GET /api/friends?username=X` stays fetch-on-navigate: its
+payload would have to be filtered per viewer, which is exactly the viewer-dependence the room model
+avoids. Only the owner's own list is live.
+
+
+---
+
+
 ## Logic Paths Summary
 
 ### Send Friend Request Path
@@ -479,12 +567,13 @@ POST /api/friends/decline/{requestId} (JWT required)
 
 ### List Friends Path
 ```
-GET /api/friends (JWT required)
+GET /api/friends (JWT required)   ← first paint / reconnect / window focus only
   ├── With ?username=<other>: blockState.assertUnblocked → any block → 403 FRIEND_BLOCKED
   ├── Find pairs where caller is user1/user2 AND both directions 'accepted'
-  ├── Map to { id, username, avatarStyle, rating, friendsSince }
+  ├── Map to { id, username, displayName, avatarStyle, hasAvatarPhoto, rating, friendsSince }
+  ├── One pipelined avatar-meta read → avatarV per row
   ├── Overlay live presence via PresenceService.getStatuses()
-  └── 200 [{ id, username, avatarStyle, rating, friendsSince, status }]
+  └── 200 [{ …, status }]; every later change arrives as friendship:changed
 ```
 
 ### Remove Friend Path
@@ -529,6 +618,8 @@ POST /api/friends/unblock/{userId} (JWT required)
 | `MatchService` | Create/join rooms for game invites |
 | `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` notifications |
 | `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `FRIEND_BLOCKED`); reads never trust the client router |
+| `AvatarMetaService` | `avatarV` for the friends / requests / blocked lists (one pipelined read per list) |
+| `FriendshipEventsService` | The `friendship:changed` publisher called after every membership mutation |
 
 | `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence |
 | `Redis` (ioredis) | Pending game-invite records (`invite:<userId>`) |

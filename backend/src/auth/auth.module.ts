@@ -19,6 +19,7 @@ import { requireSecret } from '../secrets';
 import { sessionJwtOptions } from './session-jwt';
 import { NotificationModule } from '../notification/notification.module';
 import { AvatarMetaModule } from '../avatar/avatar-meta.module';
+import { FriendshipEventsModule } from '../friends/friendship-events.module';
 
 // Both the localhost and ngrok OAuth apps are registered at once under
 // distinct passport strategy names. oauth.guards.ts picks per request via
@@ -30,6 +31,7 @@ import { AvatarMetaModule } from '../avatar/avatar-meta.module';
     JwtModule.register(sessionJwtOptions(requireSecret('JWT_SECRET'))),
     NotificationModule,
     AvatarMetaModule,
+    FriendshipEventsModule,
   ],
   controllers: [AuthController],
   providers: [

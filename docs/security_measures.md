@@ -42,10 +42,10 @@ section itself lists them in full.
   - ↳ threats: a verification or reset token being recorded in plaintext by the reverse proxy, where a reader of the logs could redeem another user's link
 - [Game engine boundary](#game-engine-boundary): how a socket proves it may join a game, and what the engine refuses
   - ↳ threats: forging a game credential from another token or key, claiming a seat the caller does not own, and one socket tying the engine up with oversized or rapid events
-- [Input validation and uploads](#input-validation-and-uploads): body validation, avatar signature checks, parameterized queries
-  - ↳ threats: mass assignment through extra JSON properties, a script disguised as an image behind a benign declared type, and SQL injection through user input
-- [Data stores, secrets and configuration](#data-stores-secrets-and-configuration): where secrets live, what Redis holds, no browser credential
-  - ↳ threats: recovering a token or a password from a cache dump, and a service starting with an empty secret, which would make signatures forgeable
+- [Input validation and uploads](#input-validation-and-uploads): body validation, avatar signature checks, bounded image decoding, parameterized queries
+  - ↳ threats: mass assignment through extra JSON properties, a script disguised as an image behind a benign declared type, a decompression bomb in the image decoder, and SQL injection through user input
+- [Data stores, secrets and configuration](#data-stores-secrets-and-configuration): where secrets live, what Redis holds, no browser credential, unprivileged containers
+  - ↳ threats: recovering a token or a password from a cache dump, a service starting with an empty secret, which would make signatures forgeable, and an escalation out of a compromised API process
 - [References](#references): the companion docs, and where each detail is documented in full
 
 
@@ -564,16 +564,25 @@ events.
   JPEG, GIF or WebP, and the server compares the leading bytes of the file against the signature of
   the declared type (`89 50 4E 47 0D 0A 1A 0A` for PNG, `FF D8 FF` for JPEG, `47 49 46 38` for GIF,
   `52 49 46 46` plus `57 45 42 50` for WebP), because the declared MIME type is only what the client
-  claims. A mismatch is refused before a single byte is written. The check reads the signature only
-  and does not decode the image, so a file truncated after its signature is stored, and the client
-  falls back to the generated avatar when the browser cannot render it.
-- Accepted bytes are stored in Postgres in a `Bytes` column through Prisma and sent back with the
-  stored `Content-Type`. The database never executes or opens the file.
+  claims. A mismatch is refused before a single byte is written. The check reads the signature only,
+  so a file truncated after its signature is stored, and the client falls back to the generated
+  avatar when the browser cannot render it.
+- **The one decode of user-supplied image data is bounded on every axis.** After validation, `sharp`
+  builds a 256 px WebP thumbnail with input pixels capped at 25 MP *per frame* (libvips counts each
+  frame separately, so the frame count is capped at 120 on top of it), a 400 KB output budget, and a
+  5 s timeout; `failOn: 'error'` refuses a half-decoded frame. SVG is not in the allowlist, and sharp
+  loads no delegate that could shell out, so the decoder is only ever asked to parse a raster image.
+  A decode failure is logged and skipped: the original is still stored, so a malformed image cannot
+  be used to fail another user's upload — and cannot turn into a 500 either.
+- Accepted bytes are stored in Postgres in a `Bytes` column through Prisma, and the thumbnail beside
+  them in two more columns; the response is sent with the stored `Content-Type` of whichever copy is
+  served. The database never executes or opens the file.
 - Database access goes through Prisma's parameterized query builder. The one raw statement in the
   backend is the `SELECT 1` health probe.
 
 **Mitigates:** malformed or oversized payloads, mass assignment through extra JSON properties, a
-script disguised as an image behind a benign declared type, and SQL injection through user input.
+script disguised as an image behind a benign declared type, a decode bomb that would exhaust the API's
+memory, and SQL injection through user input.
 
 
 ---
@@ -603,6 +612,12 @@ script disguised as an image behind a benign declared type, and SQL injection th
   with `ENGINE_JWT_SECRET` (not the session secret), carries `aud: "ludo-engine"`, is bound to one
   game/seat, lives 24 h, and is rejected by the backend API, so it cannot be replayed as a session.
   CSP `script-src 'self'` (set by nginx) is the standing XSS defence for that stored value.
+- **The application containers run unprivileged.** The backend image ends in `USER node`, and compose
+  gives that service no Linux capability (`cap_drop: [ALL]`), sets `no-new-privileges:true` (so a
+  setuid binary inside the image cannot grant one) and caps its memory at 768 MB. A remote code
+  execution in the API — or in the image decoder that now parses uploads — therefore starts as an
+  unprivileged user with no capabilities and no way to gain any, and a decode bomb that slips past the
+  decoder's own pixel limit ends as an OOM-kill of one container instead of a starved host.
 - **CORS is not enabled on the backend.** Every call the SPA makes is same-origin through nginx, so
   the backend emits no cross-origin permission at all: there is no allow-list to get wrong and no
   `Access-Control-Allow-Origin` for another site's page to make use of. The engine, which browsers
@@ -611,8 +626,9 @@ script disguised as an image behind a benign declared type, and SQL injection th
   [Game engine boundary](#game-engine-boundary).
 
 **Mitigates:** recovering a token or a password from a cache dump, starting a service with an empty
-secret (which would make signatures forgeable), a session being readable by an injected script, and a
-cross-origin page calling the API with the user's cookies.
+secret (which would make signatures forgeable), a session being readable by an injected script, a
+cross-origin page calling the API with the user's cookies, and an escalation out of a compromised API
+process into the host.
 
 
 ---

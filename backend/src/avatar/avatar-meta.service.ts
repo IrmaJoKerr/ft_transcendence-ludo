@@ -92,6 +92,38 @@ export class AvatarMetaService implements OnModuleDestroy {
     }
   }
 
+  // A whole list's records in one round trip: one pipelined `hgetall` per id, so a
+  // friends list costs one Redis request instead of N. A missing hash is `null`
+  // (the entry is still present, so a caller can tell "no record" from "not asked").
+  async getMany(userIds: string[]): Promise<Record<string, AvatarMeta | null>> {
+    const ids = [...new Set(userIds)];
+    const result: Record<string, AvatarMeta | null> = {};
+    if (ids.length === 0) return result;
+
+    try {
+      const pipeline = this.redis.pipeline();
+      for (const id of ids) pipeline.hgetall(this.key(id));
+      const replies = await pipeline.exec();
+      ids.forEach((id, index) => {
+        const reply = replies?.[index];
+        const data = (reply?.[1] ?? {}) as Record<string, string | undefined>;
+        result[id] =
+          data.has === undefined
+            ? null
+            : {
+                has: data.has === '1',
+                style: data.style,
+                v: data.v ? parseInt(data.v, 10) : undefined,
+              };
+      });
+    } catch {
+      // A failed read is not a failed list: the caller falls back to the row's own
+      // `hasAvatarPhoto`/`avatarStyle`, which Postgres owns anyway.
+      for (const id of ids) if (!(id in result)) result[id] = null;
+    }
+    return result;
+  }
+
   // Account deletion: drop the record for the deleted user id.
   async remove(userId: string): Promise<void> {
     try {

@@ -16,6 +16,7 @@ import { originAllowed, publishedOrigins } from '../common/origin';
 import { PresenceService } from '../presence/presence.service';
 import {
   EVENT_COUNTS_ONLINE,
+  EVENT_FRIENDSHIP_CHANGED,
   EVENT_PRESENCE_HELLO,
   EVENT_PRESENCE_PLAYING,
   WS_MAX_EVENT_BYTES,
@@ -23,6 +24,7 @@ import {
   WS_PATH,
   WS_PING_INTERVAL_MS,
   WS_PING_TIMEOUT_MS,
+  friendsRoom,
   userRoom,
 } from './realtime.constants';
 import { PresencePlayingDto } from './dto/presence-playing.dto';
@@ -98,7 +100,11 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       socket.disconnect(true);
       return;
     }
-    socket.join(userRoom(data.userId));
+    void socket.join(userRoom(data.userId));
+    // The friendship audience (D2): the same connection, a second room. Every tab
+    // of this account receives every record published to it; a socket that never
+    // opens a friends screen simply drops the frames.
+    void socket.join(friendsRoom(data.userId));
     const sockets = this.connected.get(data.userId) ?? new Set<string>();
     sockets.add(socket.id);
     this.connected.set(data.userId, sockets);
@@ -112,6 +118,13 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     // started a push of its own.
     const count = this.presence.currentCount();
     if (count !== null) socket.emit(EVENT_COUNTS_ONLINE, { count });
+  }
+
+  // One viewer-relative record, to every tab that account has open (D2). The
+  // payload was built by the publisher, so this is a route, not a query.
+  emitToFriends(userId: string, record: unknown): void {
+    if (!this.server) return;
+    this.server.in(friendsRoom(userId)).emit(EVENT_FRIENDSHIP_CHANGED, record);
   }
 
   // Only this socket's member leaves the account's connection set. The presence

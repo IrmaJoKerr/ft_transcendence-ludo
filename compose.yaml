@@ -77,6 +77,18 @@ services:
         condition: service_healthy
     networks:
       - transcendence_network
+    # Least privilege, as defence in depth: the image already runs as the
+    # unprivileged `node` user (backend/Dockerfile), and here the process gets no
+    # Linux capability at all and no way to gain one, so a compromise of the app
+    # or of an image decoder cannot escalate. The memory cap bounds a
+    # decompression bomb that slips past the decoder's own pixel limit: Node's
+    # heap is sized from this limit, so the container is OOM-killed (and
+    # restarted) rather than taking the host down with it.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
     # `make dev` runs `compose watch`: no bind mount here, so on a source
     # change compose rebuilds the image and recreates the container instead
     # of syncing files into a running one.

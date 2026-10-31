@@ -26,6 +26,7 @@ import { LoginLockoutService } from './login-lockout.service';
 import { requireSecret, secret } from '../secrets';
 import { NotificationService } from '../notification/notification.service';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
+import { FriendshipEventsService } from '../friends/friendship-events.service';
 import { isReservedBotName } from '../common/botname-enforce';
 import { publishMatchAbandon } from '../common/channels';
 import { findLiveMatch, matchSeatIds } from '../match/active-game';
@@ -128,6 +129,7 @@ export class AuthService implements OnModuleDestroy {
     private readonly loginLockout: LoginLockoutService,
     private readonly notifications: NotificationService,
     private readonly avatarMeta: AvatarMetaService,
+    private readonly friendshipEvents: FriendshipEventsService,
   ) {
     // Small Redis client for account-deletion cleanup (same idiom as
     // FriendsService / MatchPlayerService).
@@ -802,6 +804,9 @@ export class AuthService implements OnModuleDestroy {
           displayName: dto.displayName,
         })
         .catch(() => {});
+      // The content half of every accepted friend's row (D2): a rename is a row
+      // update for them, exactly like the avatar and the postgame rating.
+      void this.friendshipEvents.publishSubject(userId);
     }
 
     // Same canonical user shape as every other auth response (email stays the

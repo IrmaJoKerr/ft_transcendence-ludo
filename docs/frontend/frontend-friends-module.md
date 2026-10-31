@@ -35,6 +35,8 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 | File | Role |
 |------|------|
 | `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, invite, actions |
+| `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
+| `src/friendshipFeed.ts` | Pure merge functions (friends / requests / blocked) — the record always wins over the snapshot |
 | `src/components/UserAvatar.tsx` | Player avatars |
 
 
@@ -51,18 +53,20 @@ type Friend = {
   username: string  // Player's username
   displayName?: string  // Name shown in the game
   avatarStyle: string | null  // Avatar style name
+  avatarV?: number  // Avatar change stamp → the photo URL's `?v=`
   hasAvatarPhoto?: boolean  // Whether a custom photo is uploaded
   rating: number  // Player's rating (score)
-  friendsSince: string  // When the friendship started
+  friendsSince: string | null  // When the current state began (friends since / blocked since / requested at)
   status: 'online' | 'playing' | 'offline'  // Online status
 }
 
 type FriendRequest = {
-  id: string  // Unique ID
-  userId: string  // ID of the user this belongs to
+  id: string  // Pair row id — what accept/decline take
+  userId: string  // ID of the other user
   username: string  // Player's username
   displayName?: string  // Name shown in the game
   avatarStyle: string | null  // Avatar style name
+  avatarV?: number
   hasAvatarPhoto?: boolean  // Whether a custom photo is uploaded
   createdAt: string  // When the record was created
 }
@@ -72,11 +76,15 @@ type BlockedUser = {
   username: string  // Player's username
   displayName?: string  // Name shown in the game
   avatarStyle: string | null  // Avatar style name
+  avatarV?: number
   hasAvatarPhoto?: boolean  // Whether a custom photo is uploaded
   rating: number  // Player's rating (score)
   blockedSince: string  // When the user was blocked
 }
 ```
+
+> These three are the row shapes of `friendshipFeed.ts`. A `friendship:changed` record and a snapshot
+> row produce the same object, so a row that arrived live needs no second fetch to render.
 
 
 ---
@@ -87,17 +95,42 @@ type BlockedUser = {
 
 ### Friends Page Load
 
+The three lists are derived, not fetched on a timer. `useFriendships()` reads each list once for first
+paint and keeps the socket's records as the newer truth:
+
 ```mermaid
 sequenceDiagram
     participant Page as Friends.tsx
+    participant Hook as useFriendships()
     participant API as Backend
+    participant Sock as session socket
 
-    Page->>API: GET /api/friends
-    Page->>API: GET /api/friends/requests
-    Page->>API: GET /api/friends/blocked
-    API-->>Page: lists
+    Page->>Hook: mount
+    Hook->>Sock: on('friendship:changed')   (listener first)
+    Hook->>API: GET /api/friends + /requests + /blocked
+    API-->>Hook: snapshot
+    Hook-->>Page: friends / requests / blocked (merged)
     Page->>Page: Render active tab (Friends / Blocked)
+    Sock-->>Hook: friendship:changed { state, friend }
+    Hook->>Hook: upsert by friend.id, apply avatarV, re-merge
+    Hook-->>Page: one list changed; the other two unchanged
+    Note over Hook: reconnect or window focus → one more snapshot read
 ```
+
+**One record, three lists.** `state` is viewer-relative, so the same record decides where a row goes:
+`accepted` → friends, `pending-in` / `pending-out` → requests received / sent, `blocked` → blocked,
+`none` → removed from all three. `mergeFriends`, `mergeRequests` and `mergeBlocked` in
+`friendshipFeed.ts` are pure, and the record always wins over a snapshot row for the same account, so a
+late fetch cannot resurrect a row the socket already deleted.
+
+**Presence dots** come from `useNotifications().friendPresence`: the provider keeps the last
+`friend_online` / `friend_offline` edge per account (a toast is dismissible, that map is not), and the
+merge overlays it on the snapshot's `status`. The record itself says nothing about presence, which is
+why presence churn costs no record.
+
+**Mutations stay REST.** `handleAddFriend`, accept, decline, remove, block and unblock post to the API
+and then call `refresh()` — belt and braces, since the server has already published the record that
+the acting tab receives over the socket.
 
 
 ---

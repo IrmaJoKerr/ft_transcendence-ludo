@@ -240,11 +240,11 @@ of the time. Depending on the user id avoids this, because the id does not chang
 
 ### Client polling cadence
 
-The client's periodic requests use named constants, so an interval can be tuned in one place. **The
-lobby and the rejoin banner are no longer in this table**: since Phase 2 they are pushed over the
-session socket (`rooms:list` / `rooms:mine`), with one REST read for first paint and one per
-reconnect. Presence left it in Phase 1 (the connection is the liveness signal). What remains is one
-auth timer and the screens Phases 3-4 have not converted yet.
+The client's periodic requests use named constants, so an interval can be tuned in one place. **No
+screen polls any more.** The lobby and the rejoin banner are pushed over the session socket
+(`rooms:list` / `rooms:mine`) since Phase 2, the friend lists are pushed as `friendship:changed` since
+Phase 3, and presence left the table in Phase 1 (the connection is the liveness signal). What remains
+is one auth timer (`ACCESS_TOKEN_REFRESH_MS`, the proactive refresh), which is auth, not state.
 
 Presence has no cadence at all: the session socket's own ping/pong (20 s / 20 s,
 `realtime.constants.ts`) is the liveness signal, the backend refreshes the presence row every 20 s
@@ -255,6 +255,13 @@ Rooms work the same way. The backend's broadcaster reads **one snapshot** per `r
 payloads that changed; a 30 s repair tick recomputes and counts any diff it had to emit. The Redis
 `SCAN` therefore runs once per human action instead of twice per user per 5 s, and a client that is
 idle sends nothing.
+
+Friendships skip the diff entirely: the publisher already knows which pair changed, so it builds one
+record per recipient (`{ state, friend }`, viewer-relative) and publishes it to
+`friendship:<recipientId>`. The broadcaster routes it to that account's `friends:of:` room with no
+query of its own, and the publisher builds nothing at all when neither recipient has a live presence
+row. The client re-reads `GET /api/friends*` only on mount, on socket reconnect and on window focus —
+the three repair triggers — so an idle session sends no request and receives no frame.
 
 
 

@@ -69,6 +69,13 @@ model User {
   avatarStyle            String     @default("bottts")
   avatarPhoto            Bytes?
   avatarPhotoContentType String?
+  // Derivative of avatarPhoto, built on upload (256 px WebP): what the avatar
+  // route prefers to serve. Null means "no derivative" (a row stored before
+  // thumbnails existed, or an upload sharp could not decode) and the route falls
+  // back to avatarPhoto. Never the signal for "has a photo": that stays
+  // avatarPhotoContentType, and both is written by the same update.
+  avatarThumb            Bytes?
+  avatarThumbContentType String?
   disconnectCount        Int        @default(0)
   reconnectCount         Int        @default(0)
   pveGameStreak          Int        @default(0)

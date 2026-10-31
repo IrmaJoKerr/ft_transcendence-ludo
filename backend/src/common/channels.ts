@@ -21,6 +21,18 @@ export async function publishRoomsChanged(redis: {
   }
 }
 
+// `friendship:<recipientId>` carries one `friendship:changed` record: `{ state,
+// friend }`, with `state` relative to the recipient (socket D2). Per-user, not a
+// broadcast: the publisher resolves the audience (both sides of the pair, or every
+// accepted friend of a changed profile) and the broadcaster emits it to that
+// account's `friends:of:` room. Best effort like `rooms:changed`: the screens'
+// repair fetch (mount, reconnect, window focus) is what bounds a lost message.
+export const FRIENDSHIP_CHANNEL_PREFIX = 'friendship:';
+
+export function friendshipChannel(userId: string): string {
+  return `${FRIENDSHIP_CHANNEL_PREFIX}${userId}`;
+}
+
 // `match:abandon` carries { gameId, userId }: the engine resolves the seat colour
 // from the match hash and finalizes the departure itself, under the same game lock
 // its grace replay takes, because the backend cannot write the engine state. Best

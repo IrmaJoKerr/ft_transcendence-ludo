@@ -5,12 +5,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import Redis from 'ioredis';
+import { AvatarMetaService } from '../avatar/avatar-meta.service';
 import { PrismaService } from '../prisma.service';
 import { PresenceService } from '../presence/presence.service';
 import { MatchService } from '../match/match.service';
 import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
 import { BlockStateService } from './block-state.service';
+import { FriendshipEventsService } from './friendship-events.service';
 import {
   pairKey,
   isFriendPair,
@@ -28,6 +30,7 @@ type FriendRequestView = {
   username: string;
   displayName: string;
   avatarStyle: string;
+  avatarV?: number;
   createdAt: Date;
 };
 
@@ -44,6 +47,8 @@ export class FriendsService {
     private readonly matchService: MatchService,
     private readonly notificationService: NotificationService,
     private readonly blockState: BlockStateService,
+    private readonly avatars: AvatarMetaService,
+    private readonly events: FriendshipEventsService,
   ) {
     const host = process.env.REDIS_HOST ?? 'redis';
     const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
@@ -154,6 +159,9 @@ export class FriendsService {
         },
       });
       await this.notifyFriendRequest(targetUserId, userId, created.id);
+      // Both sides: the target gets `pending-in`, the sender's other tabs get
+      // `pending-out` (D2 — the actor is a recipient too, with no special case).
+      void this.events.publishPair(userId, targetUserId);
       return created;
     }
 
@@ -205,6 +213,7 @@ export class FriendsService {
         },
       });
       await this.notifyFriendAccepted(targetUserId, userId);
+      void this.events.publishPair(userId, targetUserId);
       return updated;
     }
 
@@ -233,6 +242,7 @@ export class FriendsService {
       },
     });
     await this.notifyFriendRequest(targetUserId, userId, updated.id);
+    void this.events.publishPair(userId, targetUserId);
     return updated;
   }
 
@@ -280,6 +290,7 @@ export class FriendsService {
 
     // Notify the original sender that their request was accepted.
     await this.notifyFriendAccepted(isUser1 ? pair.user2Id : pair.user1Id, userId);
+    void this.events.publishPair(pair.user1Id, pair.user2Id);
 
     return updated;
   }
@@ -329,6 +340,9 @@ export class FriendsService {
 
     // Notify the original sender that their request was declined.
     await this.notifyFriendDeclined(isUser1 ? pair.user2Id : pair.user1Id, userId);
+    // Both sides drop the row: the sender's pending-out becomes `none`, the
+    // decliner's pending-in does too (a decline is not a list entry).
+    void this.events.publishPair(pair.user1Id, pair.user2Id);
 
     return { ok: true };
   }
@@ -361,6 +375,8 @@ export class FriendsService {
       fromUserId: userId,
       fromUsername: remover?.username ?? 'A pilot',
     });
+    // The row leaves both lists live, not on the next poll.
+    void this.events.publishPair(userId, friendId);
 
     return { ok: true };
   }
@@ -430,8 +446,15 @@ export class FriendsService {
       };
     });
 
+    // First paint carries the same `?v=` the live record does (D2), through one
+    // pipelined read for the whole list instead of a request per avatar.
+    const avatars = await this.avatars.getMany(friends.map((f) => f.id));
     const statuses = await this.presence.getStatuses(friends.map((f) => f.id));
-    return friends.map((f) => ({ ...f, status: statuses[f.id] }));
+    return friends.map((f) => ({
+      ...f,
+      avatarV: avatars[f.id]?.v,
+      status: statuses[f.id],
+    }));
   }
 
   // Pending friend requests sent and received by the user. Used by
@@ -482,7 +505,12 @@ export class FriendsService {
       }
     }
 
-    return { sent, received };
+    // The request cards paint the same row the live record does: same stamp.
+    const avatars = await this.avatars.getMany([...sent, ...received].map((r) => r.userId));
+    return {
+      sent: sent.map((r) => ({ ...r, avatarV: avatars[r.userId]?.v })),
+      received: received.map((r) => ({ ...r, avatarV: avatars[r.userId]?.v })),
+    };
   }
 
   // Block a user: set only the caller's own direction to 'blocked' (never
@@ -511,6 +539,9 @@ export class FriendsService {
           user2Status: 'none',
         },
       });
+      // A block created out of nothing still hides whatever the other side had
+      // (a pending request, or nothing at all) — both lists update live.
+      void this.events.publishPair(userId, targetUserId);
       return { id: created.id };
     }
 
@@ -537,6 +568,9 @@ export class FriendsService {
             ...(otherBlocked ? {} : { user1Status: 'none' as const, user1StatusAt: null }),
           },
     });
+    // The blocker sees `blocked` (their own list), the other side gets `none`:
+    // a block placed against you removes the row rather than announcing it.
+    void this.events.publishPair(userId, targetUserId);
 
     return { ok: true };
   }
@@ -571,6 +605,9 @@ export class FriendsService {
             ...(otherBlocked ? {} : { user1Status: 'none' as const, user1StatusAt: null }),
           },
     });
+    // Liftable state again: the row comes back as `none` (or `blocked` when the
+    // other side still holds its own block), and the profile un-gates with it.
+    void this.events.publishPair(userId, targetUserId);
 
     return { ok: true };
   }
@@ -608,7 +645,7 @@ export class FriendsService {
       },
     });
 
-    return rows.map((row) => {
+    const blocked = rows.map((row) => {
       const isUser1 = row.user1Id === userId;
       const other = isUser1 ? row.user2 : row.user1;
       return {
@@ -621,6 +658,9 @@ export class FriendsService {
         blockedSince: (isUser1 ? row.user1StatusAt : row.user2StatusAt) ?? row.createdAt,
       };
     });
+
+    const avatars = await this.avatars.getMany(blocked.map((b) => b.id));
+    return blocked.map((b) => ({ ...b, avatarV: avatars[b.id]?.v }));
   }
 
   // Load the single unordered pair row shared by two users, if any.

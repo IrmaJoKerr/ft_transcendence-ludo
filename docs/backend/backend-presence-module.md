@@ -176,7 +176,21 @@ the edge instead of producing a false `friend_offline`. When it fires with no co
 the row's remaining TTL: still present → re-arm (a reconnect inside the TTL); gone → publish
 `friend_offline` to every accepted friend and request a badge refresh.
 
-### 3. The online count
+### 3. Presence is the zero-watcher check for friendship records
+
+The presence row doubles as the answer to "does anybody have a tab open for this account?", which is
+what `FriendshipEventsService` asks before building a `friendship:changed` record: `getStatuses([a, b])`
+is one `mget`, and if both sides read `offline` the publisher stops — no profile read, no publish.
+The plan called for an in-memory watcher counter; the presence row carries the same meaning (a row
+exists exactly while a socket is open), needs no extra state, and unlike an in-memory map it is
+correct across instances. The only cost is its 45 s TTL: a socket that closed a moment ago still reads
+`online`, which wastes a read and never loses a record.
+
+The same connection is the friendship subscription: `handleConnection` joins `friends:of:<ownUserId>`
+next to `user:<id>`. See [backend-friends-module.md](backend-friends-module.md) → *Live records on the
+session socket*.
+
+### 4. The online count
 
 `openConnection` / the offline edge call `requestCountPush`, which publishes `presence:count` at most
 once per 5 s (leading edge, trailing fold). `RealtimeBroadcaster` subscribes to that channel, converts
@@ -195,7 +209,7 @@ is a `SCAN presence:*` with the `presence:conns:` keys filtered out, and the pus
 ### Connection Path
 ```
 RealtimeGateway.handleConnection (handshake already authenticated)
-  ├── socket.join(user:<id>)
+  ├── socket.join(user:<id>) and socket.join(friends:of:<id>)
   ├── PresenceService.openConnection(userId, socket.id)
   │   ├── SADD presence:conns:<userId> <socket.id> + EXPIRE 45
   │   ├── EXISTS presence:<userId> → friend_online only when it was absent
