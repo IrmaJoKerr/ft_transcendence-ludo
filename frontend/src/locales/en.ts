@@ -454,8 +454,8 @@ export const en = {
     rollDiceBtn: 'ROLL DICE',
     // Wall Breaker control: arm it, then tap the prison exit. The armed state is
     // a second label, so the commitment is readable before the tap spends a token.
-    barrierBusterBtn: 'BARRIER BUSTER',
-    barrierBusterArmedBtn: 'BARRIER BUSTER: ARMED',
+    barrierBusterBtn: 'WALL BREAKER',
+    barrierBusterArmedBtn: 'WALL BREAKER: ARMED',
     // The wall break tokens column beside the pilot roster (clash mode only): the
     // header names it and each pilot's cell below shows that seat's tokens as
     // glyphs, tappable to arm the seat that holds the turn.
@@ -846,7 +846,7 @@ export const en = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. FREE EXIT',
-    rulesTab9: '10. BUSTER',
+    rulesTab9: '10. BREAKER',
     rulesPage6Header: '// CLASH MODE',
     rulesPage6Title: '⚔️ Defend by mashing',
     rulesPage6Body:
@@ -885,7 +885,7 @@ export const en = {
     // token's job, so the copy splits the two.
     rulesPage8Body2:
       'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece LANDS on the step it rolled, and it fights only that square. A wall before the landing square blocks the exit outright, and clash mode does not help there; a wall exactly ON the landing square is the one clash mode lets the piece fight, one clash per defender. A wall parked on a protected star is simply passed.',
-    rulesPage9Header: '// BARRIER BUSTER',
+    rulesPage9Header: '// WALL BREAKER',
     rulesPage9Title: '🔓 One token, one wall',
     rulesPage9Body:
       'Every pilot is dealt one Wall Breaker token at the start of the game. When your roll lands a piece exactly on a wall, that landing costs one token. Arm the toggle in the token column beside the roster, then tap that piece. The arm lasts one turn: an unarmed piece is simply blocked by the wall. The roll must still reach the wall by itself, because the token buys the landing and nothing else: it never carries a piece past a square.',

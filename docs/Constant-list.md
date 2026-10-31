@@ -507,7 +507,7 @@ list; the client dashboard mirrors the same keys and thresholds in `pages/Profil
 | `achUnstoppable` | per-game | 3 | pieces captured |
 | `achSteadyDefender` | per-game | 2 | clashes defended and won |
 | `achMercilessAttacker` | per-game | 2 | clashes attacked and won |
-| `achTearDownThisWall` | per-game | 2 | barrier breaks (walls of 2+ torn down) |
+| `achTearDownThisWall` | per-game | 2 | Wall Breaker breaks (walls of 2+ torn down) |
 
 
 ### **11. Friends**

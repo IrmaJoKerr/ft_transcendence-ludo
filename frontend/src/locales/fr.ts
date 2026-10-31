@@ -454,12 +454,12 @@ export const fr = {
     statusSelectPiece: '// CHOISISSEZ UNE PIÈCE À DÉPLACER',
     statusRivalTurn: '// TOUR DE {{name}}...',
     rollDiceBtn: 'LANCER LE DÉ',
-    barrierBusterBtn: 'BRISE-BARRIÈRE',
-    barrierBusterArmedBtn: 'BRISE-BARRIÈRE : ARMÉ',
+    barrierBusterBtn: 'BRISE-MUR',
+    barrierBusterArmedBtn: 'BRISE-MUR : ARMÉ',
     // La colonne des jetons de brise-mur à côté de la liste des pilotes (mode clash
     // uniquement) : l'en-tête la nomme et la case de chaque pilote montre ses jetons
     // en glyphes, touchables pour armer le siège au trait.
-    barrierColumnHeader: 'JETONS BRISE-BARRIÈRE',
+    barrierColumnHeader: 'JETONS BRISE-MUR',
     barrierToggleHint: 'Toucher pour utiliser',
     barrierColumnTitle:
       "Le mode clash permet de briser un mur (2 pièces ou plus d'une même couleur adverse). Basculez ici pour l'autoriser ce tour : chaque mur sur lequel vous atterrissez coûte un jeton.",
@@ -871,7 +871,7 @@ export const fr = {
       "Une pièce en prison a normalement besoin d'un 6 pour sortir. Avec la sortie libre, tout lancer ouvre la porte et la sortie fait partie du déplacement : la pièce sort et s'arrête sur le pas obtenu — un 5 la pose sur son pas 5, un 6 sur son pas 6.",
     rulesPage8Body2:
       "Un 6 conserve son lancer bonus. La sortie est un déplacement ordinaire depuis la prison : la pièce ATTERRIT sur le pas obtenu et ne combat que cette case. Un mur avant la case d'arrivée bloque la sortie, et le mode Clash n'y change rien ; un mur exactement SUR la case d'arrivée est celui que le mode Clash permet d'attaquer, un Clash par défenseur. Un mur posé sur une étoile protégée est simplement traversé.",
-    rulesPage9Header: '// BRISE-BARRIÈRE',
+    rulesPage9Header: '// BRISE-MUR',
     rulesPage9Title: '🔓 Un jeton, un mur',
     rulesPage9Body:
       "Chaque pilote commence avec un jeton Brise-Mur. Quand le lancer pose exactement une pièce sur un mur, cet atterrissage coûte un jeton. Armez l'interrupteur dans la colonne des jetons à côté de la liste des joueurs, puis touchez cette pièce. L'armement dure un tour : une pièce non armée est simplement bloquée par le mur. Le lancer doit toujours atteindre le mur par lui-même, car le jeton n'achète que l'atterrissage : il ne fait jamais franchir une case.",

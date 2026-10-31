@@ -582,7 +582,7 @@ export function Board({
           {p.chain >= 2 && (
             // ×R on the attacker: R defenders means R QTE rounds (captureCount).
             // Pointer-events off so the piece underneath stays the click target. A
-            // priced wall landing carries the Buster glyph on the piece itself.
+            // priced wall landing carries the Wall Breaker glyph on the piece itself.
             <span
               title={
                 p.priced

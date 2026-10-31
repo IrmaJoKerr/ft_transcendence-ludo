@@ -2041,7 +2041,7 @@ export function Game() {
                       })}
                     </div>
 
-                    {/* Barrier breaker column: clash mode is the OPPORTUNITY to break
+                    {/* Wall Breaker column: clash mode is the OPPORTUNITY to break
                         a wall, and this column is where the player takes it. One
                         numbered button per pilot (the token count), aligned to that
                         pilot's card; only the seat this device owns and only while it
@@ -2064,7 +2064,7 @@ export function Game() {
                         }}
                       >
                         {/* The column's description sits above both sub-columns (see
-                            the barrier breaker hint), so the buttons start level with
+                            the Wall Breaker hint), so the buttons start level with
                             the cards. */}
                         {SEAT_COLORS.map((ck) => {
                           const seat = view.players.find((p) => p.color === ck);

@@ -451,8 +451,8 @@ export const ms = {
     statusSelectPiece: '// PILIH BUAH UNTUK DIGERAKKAN',
     statusRivalTurn: '// GILIRAN {{name}}...',
     rollDiceBtn: 'GULING DADU',
-    barrierBusterBtn: 'PEMECAH SEKATAN',
-    barrierBusterArmedBtn: 'PEMECAH SEKATAN: DIARMKAN',
+    barrierBusterBtn: 'PEMECAH TEMBOK',
+    barrierBusterArmedBtn: 'PEMECAH TEMBOK: DIARMKAN',
     // Lajur token pemecah tembok di sebelah senarai juruterbang (mod clash sahaja):
     // pengepala menamakannya dan sel setiap juruterbang memaparkan token kerusinya
     // sebagai glif, boleh diketuk untuk mengarmkan kerusi yang bergerak.
@@ -863,7 +863,7 @@ export const ms = {
       'Buah dalam penjara biasanya perlukan 6 untuk keluar. Dengan keluar bebas, sebarang gulingan membuka pintu dan keluar itu sebahagian daripada pergerakan itu sendiri: buah keluar dan berhenti pada langkah yang digulingkan — gulingan 5 meletakkannya pada langkah 5, gulingan 6 pada langkah 6.',
     rulesPage8Body2:
       'Gulingan 6 masih memberi gulingan bonus. Keluar penjara ialah pergerakan biasa: buah MENDARAT pada langkah yang digulingkan dan hanya bertempur di petak itu. Tembok sebelum petak pendaratan menyekat keluarnya, dan mod Clash tidak membantu di situ; tembok tepat PADA petak pendaratan itulah yang boleh ditentang dalam mod Clash, satu Clash bagi setiap pertahanan. Tembok di atas bintang yang dilindungi hanya dilalui.',
-    rulesPage9Header: '// PEMECAH SEKATAN',
+    rulesPage9Header: '// PEMECAH TEMBOK',
     rulesPage9Title: '🔓 Satu token, satu tembok',
     rulesPage9Body:
       'Setiap juruterbang diberi satu token Pemecah Tembok pada awal permainan. Apabila gulingan anda mendaratkan buah tepat pada tembok, pendaratan itu menelan satu token. Armkan suis dalam lajur token di sisi senarai pemain, kemudian ketik buah itu. Arm bertahan satu giliran: buah yang tidak diarmkan hanya disekat oleh tembok. Gulingan itu masih perlu mencapai tembok dengan sendirinya, kerana token hanya membeli pendaratan: ia tidak sekali-kali membawa buah melepasi sesuatu petak.',

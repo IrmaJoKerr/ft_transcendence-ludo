@@ -328,10 +328,10 @@ export class LudoEngine {
         // move list carries every priced landing whatever the switch says, so an
         // unarmed attempt is refused instead of spending a token.
         if (mover?.barrierArmed !== true) {
-          throw new Error('Barrier breaker is not armed');
+          throw new Error('Wall Breaker is not armed');
         }
         if (!mover || (mover.barrierTokens ?? 0) <= 0) {
-          throw new Error('No barrier token available');
+          throw new Error('No Wall Breaker token in hand');
         }
         mover.barrierTokens = Math.max(0, (mover.barrierTokens ?? 0) - 1);
         // An empty hand cannot be armed (setBarrierArmed refuses it), so the switch does not
@@ -517,7 +517,7 @@ export class LudoEngine {
         throw new Error('Game not active');
       }
       if (state.clashMode !== true) {
-        throw new Error('No barrier breaker mode in this room');
+        throw new Error('No Wall Breaker mode in this room');
       }
       if (state.currentTurn !== color) {
         throw new Error('Not your turn');
@@ -527,7 +527,7 @@ export class LudoEngine {
         throw new Error('No such seat');
       }
       if (armed && (meta.barrierTokens ?? 0) <= 0) {
-        throw new Error('No barrier token to arm');
+        throw new Error('No Wall Breaker token to arm');
       }
       if (armed) meta.barrierArmed = true;
       else delete meta.barrierArmed;
