@@ -348,13 +348,17 @@ export function Game() {
     retroAudio.playUiBeep(bustArmed ? 420 : 880, 0.06, 'square');
     socketRef.current?.emit('arm_barrier', !bustArmed);
   };
+  // The Wall Breaker column is an in-game control, so it starts with the opening roll:
+  // in the waiting room there is no turn to take, the engine refuses an arm ("Game not
+  // active"), and every hand still holds only the dealt starting token. Gating it here
+  // also keeps the lobby identical whether the room has clash mode on or not.
+  const showBusterColumn = view.clashMode === true && view.status !== 'waiting';
   // How far the roster box reaches past its grid track (and the controls box under it
   // follows the same width): the panel's span in clash mode, plus the same extra room
   // for the display names in every room, so the cards are equally wide either way.
-  const rosterOverhang =
-    view.clashMode === true
-      ? CARD_ROOM_OVERHANG + BUSTER_PANEL_W + BUSTER_PANEL_GAP
-      : CARD_ROOM_OVERHANG;
+  const rosterOverhang = showBusterColumn
+    ? CARD_ROOM_OVERHANG + BUSTER_PANEL_W + BUSTER_PANEL_GAP
+    : CARD_ROOM_OVERHANG;
   // Only the three-column desktop layout (the `lg` grid) has a panel overhanging its column,
   // so the board placement below is biased at that breakpoint and keeps the previously
   // centred behaviour at the stacked tablet/mobile one, where the panels sit above and below.
@@ -1579,7 +1583,7 @@ export function Game() {
                       display: 'flex',
                       gap: 10,
                       alignItems: 'stretch',
-                      ...(view.clashMode === true
+                      ...(showBusterColumn
                         ? {
                             borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
                             paddingBottom: 6,
@@ -1615,7 +1619,7 @@ export function Game() {
                         {t('game.lastRolled').toUpperCase()}
                       </span>
                     </div>
-                    {view.clashMode === true && (
+                    {showBusterColumn && (
                       <div
                         title={t('game.barrierColumnTitle')}
                         style={{
@@ -2053,8 +2057,10 @@ export function Game() {
                         a wall, and this column is where the player takes it. One
                         numbered button per pilot (the token count), aligned to that
                         pilot's card; only the seat this device owns and only while it
-                        holds the turn can be armed, and the engine owns the flag. */}
-                    {view.clashMode === true && (
+                        holds the turn can be armed, and the engine owns the flag. The
+                        waiting room has no turn to arm on, so the column starts with
+                        the match (showBusterColumn). */}
+                    {showBusterColumn && (
                       <div
                         style={{
                           width: BUSTER_PANEL_W,
@@ -2845,84 +2851,89 @@ export function Game() {
                 </section>
               )}
 
-              {/* MISSION TELEMETRY LOG WINDOW */}
-              <section
-                className={RETRO_WINDOW}
-                id="moveLogWindow"
-                style={{
-                  height: 180,
-                  maxHeight: 180,
-                  flex: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}
-                  style={{ flex: 'none' }}
-                >
-                  <span>{t('game.reconLogsTitle')}</span>
-                </div>
-
-                <div
-                  ref={moveLogContainerRef}
-                  className={WINDOW_BODY}
+              {/* MISSION TELEMETRY LOG WINDOW: a live match only. The engine writes its
+                  first line on the opening roll, so in the waiting room this box could
+                  only ever read NO TELEMETRY LOGGED while taking 180px from a column
+                  whose whole content there is the room's own window. */}
+              {view.status !== 'waiting' && (
+                <section
+                  className={RETRO_WINDOW}
+                  id="moveLogWindow"
                   style={{
-                    flex: 1,
-                    height: '100%',
-                    maxHeight: '100%',
-                    overflowY: 'auto',
+                    height: 180,
+                    maxHeight: 180,
+                    flex: 'none',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 6,
-                    padding: '10px 12px',
-                    background: 'rgba(5, 2, 15, 0.75)',
-                    boxSizing: 'border-box',
+                    overflow: 'hidden',
                   }}
                 >
-                  {moveLogs.length === 0 ? (
-                    <div
-                      style={{
-                        fontSize: '0.72rem',
-                        color: 'var(--text-muted)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {t('game.noReconLogged')}
-                    </div>
-                  ) : (
-                    moveLogs.map((ml, i) => {
-                      const dotColor =
-                        ml.color === 'red'
-                          ? '#ff007f'
-                          : ml.color === 'green'
-                            ? '#00ff88'
-                            : ml.color === 'yellow'
-                              ? '#ffe600'
-                              : '#00f0ff';
-                      return (
-                        <div
-                          // Entries carry no id: the newest line is always at index 0, so
-                          // the pair (engine stamp, index) is stable enough to key on.
-                          key={`${ml.at}-${i}`}
-                          style={{
-                            display: 'flex',
-                            gap: 8,
-                            fontSize: '0.72rem',
-                            color: '#ffffff',
-                            fontFamily: 'var(--font-mono)',
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          <span style={{ color: dotColor, fontWeight: 'bold' }}>●</span>
-                          <span>{renderLog(ml)}</span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </section>
+                  <div
+                    className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}
+                    style={{ flex: 'none' }}
+                  >
+                    <span>{t('game.reconLogsTitle')}</span>
+                  </div>
+
+                  <div
+                    ref={moveLogContainerRef}
+                    className={WINDOW_BODY}
+                    style={{
+                      flex: 1,
+                      height: '100%',
+                      maxHeight: '100%',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      padding: '10px 12px',
+                      background: 'rgba(5, 2, 15, 0.75)',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {moveLogs.length === 0 ? (
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--text-muted)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {t('game.noReconLogged')}
+                      </div>
+                    ) : (
+                      moveLogs.map((ml, i) => {
+                        const dotColor =
+                          ml.color === 'red'
+                            ? '#ff007f'
+                            : ml.color === 'green'
+                              ? '#00ff88'
+                              : ml.color === 'yellow'
+                                ? '#ffe600'
+                                : '#00f0ff';
+                        return (
+                          <div
+                            // Entries carry no id: the newest line is always at index 0, so
+                            // the pair (engine stamp, index) is stable enough to key on.
+                            key={`${ml.at}-${i}`}
+                            style={{
+                              display: 'flex',
+                              gap: 8,
+                              fontSize: '0.72rem',
+                              color: '#ffffff',
+                              fontFamily: 'var(--font-mono)',
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            <span style={{ color: dotColor, fontWeight: 'bold' }}>●</span>
+                            <span>{renderLog(ml)}</span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </section>
+              )}
 
               {/* RETURN TO LOBBY BUTTON (Shown whenever game has ended across all modes, or in online PvP) */}
               {(isGameEnded || (activeMatch.mode !== 'pve' && activeMatch.mode !== 'hotseat')) && (
@@ -2985,10 +2996,12 @@ export function Game() {
 
               {/* Skip: the deliberate way out of a turn a wall attack is holding (it keeps
                   the token and passes). It sits under the abort control and is always on
-                  screen in a clash room, greyed out while nothing is holding the turn, so
-                  the control is discoverable before it is needed. The wrapper carries the
-                  tooltip because a disabled button fires no pointer events of its own. */}
-              {view.clashMode === true && !isGameEnded && (
+                  screen once a clash room is live, greyed out while nothing is holding
+                  the turn, so the control is discoverable before it is needed. The
+                  waiting room is excluded: there is no turn there to skip, and the
+                  control would only ever be greyed. The wrapper carries the tooltip
+                  because a disabled button fires no pointer events of its own. */}
+              {view.clashMode === true && !isGameEnded && view.status !== 'waiting' && (
                 <span
                   style={{ display: 'block', width: '100%' }}
                   title={canSkipBust ? t('game.skipBustTitle') : t('game.skipBustDisabledTitle')}
