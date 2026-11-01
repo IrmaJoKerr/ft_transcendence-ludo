@@ -168,6 +168,16 @@ export class AuthService implements OnModuleDestroy {
   // the password, create the User + Achievement rows, and email a signup
   // verification link. Called by auth.controller.ts POST /register.
   async register(dto: RegisterDto, baseUrl: string = BASE_URL) {
+    // No account may wear a bot's name. Bots are seats, not accounts, and they own
+    // the `bot-` stem: the DTO already forbids `-` and spaces, so this closes the
+    // `bot_` / `BOT_` spellings before the name is minted.
+    if (isReservedBotName(dto.username)) {
+      throw new BadRequestException({
+        code: 'AUTH_USERNAME_RESERVED',
+        message: 'Username cannot start with "bot-"',
+      });
+    }
+
     const email = dto.email ? normalizeEmail(dto.email) : dto.email;
     if (email) {
       const emailTaken = await this.prisma.db.user.findUnique({ where: { email } });
@@ -1132,7 +1142,11 @@ export class AuthService implements OnModuleDestroy {
 
   // Turning usernames into unique seeds
   private async generateUniqueUsername(seed: string) {
-    const base = seed.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 16) || 'user';
+    const clean = seed.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 16) || 'user';
+    // A provider's seed may read as a bot's name (`bot_green`); swap the stem so
+    // the minted account never wears one. `bot-` and `bot ` are already gone with
+    // the non-alphanumerics.
+    const base = isReservedBotName(clean) ? clean.replace(/^bot/i, 'user') : clean;
     let candidate = `${base}${this.randomSuffix()}`;
     while (await this.prisma.db.user.findUnique({ where: { username: candidate } })) {
       candidate = `${base}${this.randomSuffix()}`;

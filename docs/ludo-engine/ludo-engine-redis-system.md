@@ -254,21 +254,28 @@ A bot is not an account: its user id is the literal string `bot-<color>`
 hash and in the engine's game state. A bot seat gets no token of its own: the
 engine auto-fills it from the hash when a human joins, so `bot-<color>` is never
 a credential.
+The hash also says what each seat *is*: the backend writes `player{n}_isBot`
+(`'true'` on a bot seat, absent on a human one) beside `player{n}_id`, and the
+engine's join path (`isBotMatchSeat`, `socket/join-manager.ts`) reads that field.
+That flag is the only answer: the `bot-` prefix is the id namespace and nothing
+more, so a seat whose flag is absent is a human seat however its id is spelled.
 The same hash also carries the shown name, `player{n}_displayName`: for a bot seat
 the backend writes `bot-<color> (<assistant>)` from the lobby's `botNames`, so the
 label travels with the match and each client translates only the colour word.
-Each process has one helper that answers "is this a bot?" by checking the `bot-`
-prefix: `isBotUserId()` in `socket/auth.ts` inside the engine, and
-`isBotUserId()` in `common/botname-enforce.ts` inside the backend. The backend's
-copy is used by the match postgame scorer and the achievements service, so those
-two always agree; the engine's copy keeps the engine free of backend imports.
+The `bot-` prefix names a user id, and the two processes that build such an id
+each keep a `BOT_PREFIX`: `socket/auth.ts` in the engine, which mints
+`bot-<color>` for a seat's id, and `common/botname-enforce.ts` in the backend,
+which does the same and whose `isReservedBotName()` keeps a human account out of
+the namespace. Neither process reads the prefix to learn what a seat is: the
+hash's `player<N>_isBot` is the answer — the same field the backend's abort
+fan-out and `match.postgame` read — and a result reaches the database only for a
+seat whose `User` row exists.
 
 A **seat** is a different question from a user id, and the engine answers it from
 the persisted state: `isBotSeat(state, color)` (`bot.ts`) reads the seat's
-`isBot` flag, falling back to a `bot-` username for states written before the
-flag existed. This is the helper the bot scheduler, the rejoin path and the
-startup wake pass use, because the in-memory seat map is empty after a restart
-and answering the question from it is what froze bot games.
+`isBot` flag — and only that flag. This is the helper the bot scheduler, the
+rejoin path and the startup wake pass use, because the in-memory seat map is
+empty after a restart and answering the question from it is what froze bot games.
 
 
 ---

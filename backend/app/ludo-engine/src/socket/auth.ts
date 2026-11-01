@@ -4,10 +4,6 @@ import type { PlayerColor } from '../types';
 
 export const BOT_PREFIX = 'bot-';
 
-export function isBotUserId(userId: string | undefined): boolean {
-  return !!userId && userId.startsWith(BOT_PREFIX);
-}
-
 // Guest tokens are opaque, looked up in Redis, and in their own namespace: a forged
 // one is "not found" rather than a bad signature in the player branch. The backend
 // mints them; getGuestSession hashes the presented token for the lookup.

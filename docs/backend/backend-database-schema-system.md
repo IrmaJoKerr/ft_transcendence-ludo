@@ -230,16 +230,27 @@ One row per player per game.
 Bots are not stored: a bot's id is the literal string `bot-<color>`
 (`bot-red`, `bot-green`, `bot-yellow`, `bot-blue`), built per seat from
 `BOT_PREFIX + color`. That id lives in the `match:*` hashes and in the engine's
-game state, and it never reaches Postgres. A bot seat gets no token of its own:
+game state, and it never reaches Postgres. The seat's kind is its own field: the
+backend writes `player<N>_isBot = 'true'` beside `player<N>_id`, and that flag is
+the only answer — the engine never tests the id's shape, so a room without the
+flag seats no bot. A bot seat gets no token of its own:
 the backend writes its slot into the match hash and the engine auto-fills it. The
-engine reports only the human seats that finished, and `match.postgame` skips a
-bot id before it writes anything.
+engine reports only the human seats that finished, and `match.postgame` decides
+the same question for itself: it drops every reported seat whose colour the hash
+flags as a bot, and it writes a row and a rating only after the seat's `User` row
+is found (so an unknown id can never reach the foreign key, with or without a
+`bot-` prefix).
 
-`backend/src/common/botname-enforce.ts` defines `BOT_PREFIX`, `isBotUserId()` and
-`isReservedBotName()` (which stops a human display name from masquerading as a
-bot). The engine process keeps its own copy of the bot prefix/check in
-`backend/app/ludo-engine/src/socket/auth.ts`, so bot identity must be changed in
-both places at once.
+`backend/src/common/botname-enforce.ts` defines `BOT_PREFIX` and
+`isReservedBotName()`. `BOT_PREFIX` names the id a bot seat is minted with;
+`isReservedBotName()` keeps a human **username**, **display name** or OAuth seed
+out of that namespace (`AUTH_USERNAME_RESERVED`, `AUTH_DISPLAY_NAME_RESERVED`).
+No backend reader classifies an id by its shape: what a seat *is* comes from the
+hash's `player<N>_isBot` (the abort fan-out and `match.postgame` both read it),
+and which account holds a result comes from the `User` row itself. The engine
+keeps its own copy of `BOT_PREFIX` in
+`backend/app/ludo-engine/src/socket/auth.ts`, used only to mint a bot seat's id,
+so bot identity must be changed in both places at once.
 
 The name a bot seat shows is not its id. The creator sends the lobby's own names
 as `botNames`, index-aligned with `botColors`, and writes each one to
@@ -251,9 +262,7 @@ Modules that must tell humans from bots:
 
 | Module | What it does with bots |
 |--------|------------------------|
-| Match (`match.creator`, `match.player`, `match.postgame`) | Builds bot seats as `BOT_PREFIX + color` and stores the lobby's `botNames` label as `player{n}_displayName`; excludes bots from seat and invite lists; skips them for rating, scoring, winner selection and persisted results, so a bot never gets an Elo change, a win/loss tally, a game row or a leaderboard entry |
-| Achievements (`achievements.service`) | Skips a bot `user_id`, so a bot never collects achievements (games against bots still count toward the human's own bot-win achievements) |
-| Leaderboard (`leaderboard.service`) | Excludes bots when it rebuilds from Postgres, using `startsWith BOT_PREFIX` in the query plus `!isBotUserId()` in memory |
+| Match (`match.creator`, `match.player`, `match.postgame`) | Builds a bot seat as `BOT_PREFIX + color` and writes `player{n}_isBot = 'true'` beside it, so the room hash says what the seat is; stores the lobby's `botNames` label as `player{n}_displayName`; excludes bots from seat and invite lists and from the abort fan-out (which reads the same flag); `match.postgame` drops every seat the hash flags before the transaction, and writes a row and a rating only for a seat whose `User` row exists, so a bot never gets an Elo change, a win/loss tally, a game row, a bell entry or a leaderboard entry |
 
 
 ---

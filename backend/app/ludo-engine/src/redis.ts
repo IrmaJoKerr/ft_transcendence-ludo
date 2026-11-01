@@ -320,6 +320,9 @@ export class RedisGameStore {
       `player${slotIndex + 1}_id`,
       `player${slotIndex + 1}_color`,
       `player${slotIndex + 1}_left`,
+      // The seat's kind goes with its identity: a slot that is reused must not
+      // inherit "this is a bot" from the occupant it had before.
+      `player${slotIndex + 1}_isBot`,
       this.seatUserField(color),
     );
     await this.notifyRoomsChanged();

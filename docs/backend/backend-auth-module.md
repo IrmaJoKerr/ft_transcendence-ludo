@@ -187,11 +187,24 @@ and `POST /api/auth/reset-password` takes the token with the new password. There
 no `GET` variant: links minted before this change 404 by design (see
 `security-review.md` F-04 and F-21).
 
+**Bot-name reservation.** A human may not wear a bot's name, at creation or later:
+bots own the `bot` stem, the engine mints their seats from it, and no `User` row
+may start with it. `isReservedBotName()` in `common/botname-enforce.ts` matches
+`^bot[-\s_]`, case-insensitive, and gates three paths:
+
+- `POST /api/auth/register` rejects a reserved `username` with
+  `400 AUTH_USERNAME_RESERVED` (the DTO already forbids `-` and spaces, so this
+  closes the `bot_` / `BOT_` spellings);
+- `PATCH /api/auth/profile` rejects a reserved `displayName` with
+  `400 AUTH_DISPLAY_NAME_RESERVED`;
+- the OAuth first-login path swaps the reserved stem in the provider's seed
+  (`bot_green` → `user_green`) inside `generateUniqueUsername()`, so a provider
+  display name can never mint a human into the bot namespace.
+
 **Display-name rules** (`PATCH /api/auth/profile`): the name must satisfy
-`VALIDATION_DISPLAY_NAME_LENGTH` / `VALIDATION_DISPLAY_NAME_CHARS`, be unique
-(`409 AUTH_DISPLAY_NAME_TAKEN`), and may not impersonate a bot — a name starting with
-`bot-`, `bot ` or `bot_` is rejected with `400 AUTH_DISPLAY_NAME_RESERVED`
-(`isReservedBotName()` in `common/botname-enforce.ts`).
+`VALIDATION_DISPLAY_NAME_LENGTH` / `VALIDATION_DISPLAY_NAME_CHARS` and be unique
+(`409 AUTH_DISPLAY_NAME_TAKEN`); the reservation above adds
+`400 AUTH_DISPLAY_NAME_RESERVED`.
 
 ### Rate limits
 

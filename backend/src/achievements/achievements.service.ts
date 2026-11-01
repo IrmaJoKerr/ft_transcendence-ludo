@@ -11,7 +11,6 @@ import {
   GameParticipantLike,
   GameLike,
 } from './achievements.registry';
-import { isBotUserId } from '../common/botname-enforce';
 import type { GameType } from '../../generated/prisma/client';
 
 // Game types that count toward lifetime achievement counters.
@@ -54,10 +53,10 @@ export class AchievementsService {
       });
       if (!game) return;
 
+      // Every participant row points at a real account: `user_id` is a foreign
+      // key onto `User` (random UUIDs), and postgame writes no row for a seat it
+      // could not load an account for. There is no bot row to skip.
       for (const p of game.participants) {
-        // Bots are not real players: skipping them keeps bot rows from
-        // accumulating wins or sending notifications for achievements.
-        if (isBotUserId(p.user_id)) continue;
         await this.evaluateForUser(p.user_id, game, true);
       }
     } catch (err) {

@@ -308,8 +308,8 @@ typo early, the server is authoritative.
 | `MUTATING` | `POST PUT PATCH DELETE` | methods that must present the token |
 | `ENGINE_CALLBACKS` | `/api/game/end`, `/api/game/:id/started` | the two key-authenticated callbacks CSRF exempts |
 | CSRF nonce | 18 random bytes | `nonce.signature`, HMAC-SHA256 base64url, key derived from `JWT_SECRET` |
-| `BOT_PREFIX` | `bot-` | a bot seat's user id; `bot-<color>` is the identity 🔗 (engine copy in `socket/auth.ts`) |
-| Reserved bot name | `^bot[-\s_]` | a human display name may not start with `bot`, `bot-`, `bot ` or `bot_` |
+| `BOT_PREFIX` | `bot-` | a bot seat's user id; `bot-<color>` is the identity, and the seat's kind is its `player<N>_isBot` flag, never the prefix 🔗 (engine copy in `socket/auth.ts`, minting only) |
+| Reserved bot name | `^bot[-\s_]` | a human username or display name may not start with `bot`, `bot-`, `bot ` or `bot_` |
 | `GUEST_TOKEN_PREFIX` | `g_` | guest socket tokens live in their own namespace 🔗 (engine copy in `socket/auth.ts`) |
 | `GUEST_TOKEN_TTL_S` | 3600 (1 h) | lifetime of one guest token record (Redis `guesttok:<hash>`) |
 | `ENGINE_TOKEN_AUDIENCE` | `ludo-engine` | audience of every engine match token 🔗 (engine `socket/auth.ts`) |
@@ -822,7 +822,7 @@ that mirrors it. A change is not complete until the mirror is edited too.
 | `LOG_CAP` 30 | ⚙️ `types.ts` | 🖥️ `game/types.ts` | the engine caps the stored log, the panel caps what it renders |
 | Password 12–72 + character classes | 🗄️ `dto/password.rules.ts` | 🖥️ `validatePassword.ts` | the server is authoritative |
 | Guest window 6 h + `guest:*` key shapes | 🗄️ `guest-limit.service.ts` | ⚙️ `redis.ts` (`GUEST_ABORT_WINDOW_S`, keys) | the engine writes counts, decides no limit |
-| `BOT_PREFIX` `bot-` | 🗄️ `common/botname-enforce.ts` | ⚙️ `socket/auth.ts` | `bot-<color>` is a seat identity |
+| `BOT_PREFIX` `bot-` | 🗄️ `common/botname-enforce.ts` | ⚙️ `socket/auth.ts` | `bot-<color>` is a seat identity; the hash's `player<N>_isBot` is the only answer, the prefix is never a test |
 | `GUEST_TOKEN_PREFIX` `g_` | 🗄️ `match/guest-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatched prefix fails closed ("not found") |
 | `ENGINE_TOKEN_AUDIENCE` `ludo-engine` | 🗄️ `match/engine-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatch rejects every engine token |
 | Seat order blue → red → green → yellow | ⚙️ `SLOT_COLORS` (join/lobby/match services) | 🖥️ `theme.ts` `SEAT_COLORS` | seat index 0 is always the local player |

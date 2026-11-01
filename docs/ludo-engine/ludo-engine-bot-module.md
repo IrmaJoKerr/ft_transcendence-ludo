@@ -94,25 +94,33 @@ capture in a room without clash mode, since the odds are then 1.
 
 A bot is not an account: its user id is the literal string `bot-<color>`
 (`bot-red`, `bot-green`, `bot-yellow`, `bot-blue`), created by the backend when
-it fills a seat. That id is identity only. The name the UI shows is the seat's
-`displayName`, which the backend writes as `bot-<color> (<assistant>)` from the
-name the lobby assigned, so the assistant name is never translated and each
-client translates only the colour word. See
-[`ludo-engine-socket-system.md`](ludo-engine-socket-system.md) → `PlayerMeta`.
+it fills a seat. That id is identity and namespace, not a question: whether a
+seat is a bot is its own field, `player<N>_isBot` in the match hash, written
+beside the id, and that flag is the only answer. No path in the engine infers the
+kind from a `bot-` string, so a seat without the flag is a human seat whatever
+its id looks like. The name the UI shows is the seat's `displayName`, which the
+backend writes as `bot-<color> (<assistant>)` from the name the lobby assigned,
+so the assistant name is never translated and each client translates only the
+colour word. See [`ludo-engine-socket-system.md`](ludo-engine-socket-system.md) →
+`PlayerMeta`.
 
 | Where | Helper | Rule |
 |-------|--------|------|
-| Engine | `isBotUserId()` in `socket/auth.ts` | `userId.startsWith('bot-')` |
-| Engine | `isBotSeat(state, color)` in `bot.ts` | the persisted seat's `isBot` flag, falling back to a `bot-` username |
-| Backend | `BOT_PREFIX` / `isBotUserId()` in `backend/src/common/botname-enforce.ts` | same prefix, separate copy |
+| Engine | `isBotSeat(state, color)` in `bot.ts` | the persisted seat's `isBot` flag |
+| Engine | `isBotMatchSeat(matchData, color)` in `socket/join-manager.ts` | the hash's `player<N>_isBot` |
+| Engine | `BOT_PREFIX` in `socket/auth.ts` | `bot-`, the namespace a bot seat's id is minted in — never a test |
+| Backend | `botSeatColors(matchData)` in `backend/src/match/match.postgame.service.ts` | the hash's `player<N>_isBot`, mapped through `player<N>_color`: the seats a finished game may not write a row, a rating or a leaderboard entry for |
+| Backend | `BOT_PREFIX` in `backend/src/common/botname-enforce.ts` | `bot-`, the namespace a bot seat's id is minted in — never a test; `isReservedBotName()` keeps a human account out of it |
+| Backend | `notifyMatchAbort` in `backend/src/match/match.player.service.ts` | the hash's `player<N>_isBot`, read straight off the `hgetall` it already has: the seats it does *not* push `match_cancelled` to |
 
 A seat is identified as a bot **from the persisted state**, never from the
 in-memory seat map: that map is empty after a restart, and reading it is what
 froze every bot game. `isBotSeat` is what the bot scheduler, the rejoin path and
 the startup wake pass all use.
 
-The backend writes the id and the engine reads it, so the two copies must be
-changed together. The backend keeps the list of modules that filter bots — see
+The backend writes the id and the flag into the hash and the engine reads them,
+so the two writers must be changed together. The backend keeps the list of
+modules that filter bots — see
 [`../backend/backend-database-schema-system.md`](../backend/backend-database-schema-system.md) → Bots.
 
 
@@ -243,4 +251,4 @@ takeTurn()
 | `RedisGameStore` | Loads/saves game state |
 | `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the defender's colour |
 | `clash.ts` | `CLASH_BOT_FAST_VS_HUMAN` / `CLASH_BOT_FAST_VS_BOT`: the odds the clash draws the FAST pace profile (38 presses vs 33, `clash-pace.ts`), which is what a passive defender turns into a win |
-| `socket/auth.ts` | `isBotUserId()` for bot detection |
+| `socket/auth.ts` | `BOT_PREFIX`: the namespace a bot seat's id is minted in; a seat's kind is never read from it |

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { LeaderboardRedisService } from './leaderboard-redis.service';
-import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
 
 export interface LeaderboardEntry {
   rank: number; // 1-based position on this page
@@ -55,14 +54,11 @@ export class LeaderboardService {
       let redisEntries = await this.redisService.getLeaderboardFromRedis(mode, page, limit);
       let total = await this.redisService.getLeaderboardCount(mode);
 
-      // If Redis has no entries or is missing users, auto-populate from PostgreSQL
+      // If Redis has no entries or is missing users, auto-populate from PostgreSQL.
+      // Reading `User` is itself the bot filter: a bot is a seat, not an account,
+      // so it owns no row that could be rebuilt into the board.
       if (redisEntries.length === 0 || total < 5) {
-        // No bot is ever a User row: a bot's id is `bot-<color>`, postgame skips it
-        // before any write, and no seed inserts one, so this filter can match
-        // nothing. Kept only as a guard against a hand-inserted row; the schema
-        // revamp deletes it with the leaderboard rebuild.
         const allDbUsers = await this.prisma.db.user.findMany({
-          where: { NOT: { id: { startsWith: BOT_PREFIX } } },
           select: { id: true, rating: true },
         });
         if (allDbUsers.length > 0) {
@@ -94,7 +90,9 @@ export class LeaderboardService {
         const entries: LeaderboardEntry[] = [];
         for (const entry of redisEntries) {
           const user = userMap.get(entry.userId);
-          if (!user || isBotUserId(entry.userId)) continue;
+          // No account, no row: a member left behind by a deleted account (or by
+          // a hand-written `bot-` id) stops here.
+          if (!user) continue;
 
           const gamesPlayed = user.wins + user.losses;
           const wins = user.wins;

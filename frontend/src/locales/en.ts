@@ -36,6 +36,7 @@ export const en = {
     NOTIFICATION_STREAM_LIMIT: 'Too many open notification streams',
     AUTH_DISPLAY_NAME_TAKEN: 'Display name is already taken',
     AUTH_DISPLAY_NAME_RESERVED: 'Display name cannot start with "bot-"',
+    AUTH_USERNAME_RESERVED: 'Username cannot start with "bot-"',
     AUTH_CURRENT_PASSWORD_INCORRECT: 'Current password is incorrect',
     AUTH_EMAIL_CHANGE_SET_PASSWORD: 'Set a password before changing your email',
     AUTH_EMAIL_CHANGE_RATE_LIMITED: 'Too many email change requests: try again later',

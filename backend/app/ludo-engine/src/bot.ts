@@ -3,7 +3,6 @@ import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
 import { MoveValidator } from './move-validator';
 import { CLASH_BOT_FAST_VS_BOT, CLASH_BOT_FAST_VS_HUMAN } from './clash';
-import { BOT_PREFIX } from './socket/auth';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
 const botMap = new Map<string, Map<PlayerColor, LudoBot>>();
@@ -25,12 +24,13 @@ export function getOrCreateBot(
 }
 
 // Bot seat check. Read `isBot` from the persisted state, not the in-memory seat
-// map: the map is empty after a restart. The `bot-<color>` name keeps older
-// states readable. See docs/ludo-engine/ludo-engine-bot-module.md.
+// map: the map is empty after a restart. That flag is the only answer: a seat
+// whose id or name starts with `bot-` is still a human seat if it is not
+// flagged, so nothing infers the kind from a string.
+// See docs/ludo-engine/ludo-engine-bot-module.md.
 export function isBotSeat(state: GameState | null | undefined, color: PlayerColor): boolean {
   const player = state?.players.find((p) => p.color === color);
-  if (!player) return false;
-  return player.isBot === true || player.username?.startsWith(BOT_PREFIX) === true;
+  return player?.isBot === true;
 }
 
 // Move-selection scale: no positional move scores above 1560 and a capture is

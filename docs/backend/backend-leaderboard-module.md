@@ -57,7 +57,7 @@ leaderboards for exactly this reason.
 
 | Redis command | What it does | Where it is used |
 |---------------|--------------|------------------|
-| `ZADD leaderboard:global <rating> <userId>` | Add a player, or **update** their score (inserts or repositions) | seed, game end, fill-on-demand |
+| `ZADD leaderboard:global <rating> <userId>` | Add a player, or **update** their score (inserts or repositions) | seed, game end (one member per scored human participant), fill-on-demand |
 | `ZREVRANGE key start stop WITHSCORES` | Read one page, **highest rating first** | `getLeaderboardFromRedis` |
 | `ZREVRANK key userId` | A player's position (starts at 0, so add 1) | `getUserRank` (the `myRank` highlight) |
 | `ZCARD key` | How many players are in the set | `getLeaderboardCount` |
@@ -374,8 +374,7 @@ GET /api/leaderboard?mode=global&page=1&limit=20
   │   ├── ZREVRANGE leaderboard:{mode} page → entries
   │   ├── ZCARD leaderboard:{mode} → total
   │   ├── If entries empty OR total < 5:
-  │   │   └── Fill on demand: read all users (id + User.rating) from PostgreSQL,
-  │   │       excluding bot accounts (id starts with `bot-`)
+  │   │   └── Fill on demand: read all users (id + User.rating) from PostgreSQL
   │   │       └── ZADD each into leaderboard:{mode}, then read again
   │   ├── If Redis still has no entries: return an empty board
   │   ├── Fetch user details from PostgreSQL, work out gamesPlayed/winRate/ranks

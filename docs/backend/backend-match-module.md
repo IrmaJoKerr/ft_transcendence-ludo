@@ -11,6 +11,7 @@
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for match flows
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Lobby invalidation](#lobby-invalidation-roomschanged--roomslist--roomsmine) — `rooms:changed`, the one snapshot and the per-viewer diff that replaced the polls
+- [Which seats a result may write](#which-seats-a-result-may-write-post-apigameend) — the bot flag, the account check, and who earns a rating
 - [Dependencies](#dependencies) — Internal services this module relies on
 - [Configuration / Environment](#configuration--environment) — Redis and engine configuration
 
@@ -75,7 +76,7 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
 }
 ```
 
-`botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity. An empty or missing entry leaves the seat showing its plain id.
+`botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity, and the hash's `player{n}_isBot = 'true'` is what marks it as a bot. An empty or missing entry leaves the seat showing its plain id.
 
 ### InviteFriendDto
 
@@ -398,7 +399,10 @@ POST /api/game/:id/exit
   └── Acknowledge post-game exit → return { message, gameId }
 
 POST /api/game/:id/abort
-  └── Cancel WAITING game, notify engine → return { message, gameId }
+  ├── Verify the caller holds a seat → else 403 MATCH_NOT_PLAYER
+  ├── Mark the room ABORTED, then publish the room change
+  └── `match_cancelled` to every other seat the hash does *not* flag
+      `player<N>_isBot` (a bot seat has no bell to ring) → return { gameId }
 
 POST /api/game/:id/invite
   └── Seat the invited friend through joinMatch, so the strict state lock
@@ -487,14 +491,45 @@ paint (plus one per reconnect, since the push carries only a diff). Neither scre
 ---
 
 
-## Rating changes reach friends (`friendship:changed`)
+## Which seats a result may write (`POST /api/game/end`)
+
+A finished game becomes rows, ratings and a leaderboard entry in one transaction, and only
+human seats are allowed in. The engine already reports human seats only
+(`result-submitter.ts` drops a seat whose state says `isBot`), but the backend answers that
+question itself instead of trusting the payload:
+
+- **The room hash's flag is the answer.** `botSeatColors(matchData)` reads
+  `match:<gameId>`'s `player<N>_isBot = 'true'`, taking each slot's colour from
+  `player<N>_color` (a hotseat room may skip a colour). Every reported participant whose colour
+  is in that set is dropped before anything is written; nothing looks at the shape of an id.
+- **The flag-filtered list is the one everything downstream uses.** It is what the PvP minimum
+  counts (`MATCH_END_PVP_MIN_PLAYERS`), what the transaction inserts and rates, what goes into
+  `leaderboard:global`, and what receives the `match_finished` bell entry and the friends'
+  `publishSubject` refresh.
+- **A seat with no `User` row writes nothing.** The row and the rating are written only after
+  `tx.user.findUnique()` returns a user: `game_participant.user_id` is a foreign key, so an
+  unknown id would roll back the whole transaction (every other participant's rating included).
+  This is also what keeps a `bot-<color>` id out of the record when the room hash is gone (a
+  Redis restart mid-game leaves nothing flagged) — the account check, not an id prefix.
+- **The winner's colour still comes from the report.** A bot may win a PvE game; the client
+  should render "red won" with a placeholder name. `notifyMatchFinished` therefore takes both
+  lists: `participants` for the rank-1 colour, and the scored list for the username lookup and
+  for who gets a bell.
+
+`Test-harnesses/bot-seats/postgame-seat-probe.ts` is the live proof: six rooms POSTed to this
+route with the engine key, including a PvP room whose only second seat is a bot (refused) and a
+seat flagged `isBot` that carries a real account's id (that account stays untouched).
+
+
+
 
 `processGameEnd` moves every human participant's rating inside one transaction. A friend's list shows
 that rating, and before Phase 3 the 12 s / 15 s pollers were what kept it honest. Now, after the
 transaction commits and the postgame notifications are sent, the service calls
-`FriendshipEventsService.publishSubject(userId)` once per human participant (bots are skipped): the
-publisher reads the subject's fresh row and pushes an `accepted` record with the new `rating` to every
-accepted friend who has a socket open.
+`FriendshipEventsService.publishSubject(userId)` once per participant that got a row — the seats the
+room flags as bots were dropped before the transaction, and a seat with no `User` row got no row to
+publish: the publisher reads the subject's fresh row and pushes an `accepted` record with the new
+`rating` to every accepted friend who has a socket open.
 
 Two properties are deliberate:
 

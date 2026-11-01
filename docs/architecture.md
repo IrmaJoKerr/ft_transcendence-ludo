@@ -516,7 +516,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │
 │   │   ├── common/               # Shared backend helpers (no Nest module)
 │   │   │   ├── scoring.ts         # ratingDeltaFor() — piece-based rating change
-│   │   │   └── botname-enforce.ts # isBotUserId() / BOT_PREFIX / isReservedBotName()
+│   │   │   └── botname-enforce.ts # BOT_PREFIX / isReservedBotName()
 │   │   │
 │   │   ├── i18n/                 # Backend email localization (consumed by auth/mail.service.ts)
 │   │   │   └── email-messages.ts  # EmailLang/EmailStrings, en/fr/ms sets, emailStrings() + fill()

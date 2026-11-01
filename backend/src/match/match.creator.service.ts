@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { requireSecret, secret } from '../secrets';
 import Redis from 'ioredis';
-import { BOT_PREFIX, isBotUserId } from '../common/botname-enforce';
+import { BOT_PREFIX } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
@@ -278,6 +278,12 @@ export class MatchCreatorService {
         }
         updates[`player${slot}_id`] = BOT_PREFIX + color;
         updates[`player${slot}_color`] = color;
+        // The seat says what it is. The `bot-` id stays the seat's identity (a bot
+        // has no User row, so nothing reads it back through the database), but
+        // every reader of a *seat* answers from this flag: the engine's join path,
+        // the bot scheduler, the rejoin path and the post-game report. Nothing
+        // tests the id's shape, so a room without the flag seats no bot.
+        updates[`player${slot}_isBot`] = 'true';
         // Display label only: the bot's identity stays `bot-<color>`. `botNames`
         // is index-aligned with `botColors`, so it carries the name the lobby
         // assigned each seat. A blank or missing name leaves the key out.
@@ -524,8 +530,10 @@ export class MatchCreatorService {
     });
   }
 
+  // The caller's account name for an engine token. A lookup, not a bot test: these
+  // run for the authenticated seat owner (or a friend joining by id), never for a
+  // seat read back out of the hash, so a bot id cannot arrive here.
   private async resolveUsername(userId: string): Promise<string | null> {
-    if (isBotUserId(userId)) return null;
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { username: true },
@@ -534,7 +542,6 @@ export class MatchCreatorService {
   }
 
   private async resolveDisplayName(userId: string): Promise<string | undefined> {
-    if (isBotUserId(userId)) return undefined;
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { displayName: true },

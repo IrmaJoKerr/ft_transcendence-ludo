@@ -36,6 +36,7 @@ export const ms = {
     NOTIFICATION_STREAM_LIMIT: 'Terlalu banyak strim notifikasi terbuka',
     AUTH_DISPLAY_NAME_TAKEN: 'Nama paparan sudah digunakan',
     AUTH_DISPLAY_NAME_RESERVED: 'Nama paparan tidak boleh bermula dengan "bot-"',
+    AUTH_USERNAME_RESERVED: 'Nama pengguna tidak boleh bermula dengan "bot-"',
     AUTH_CURRENT_PASSWORD_INCORRECT: 'Kata laluan semasa tidak betul',
     AUTH_EMAIL_CHANGE_SET_PASSWORD: 'Tetapkan kata laluan sebelum menukar e-mel anda',
     AUTH_EMAIL_CHANGE_RATE_LIMITED: 'Terlalu banyak permintaan tukar e-mel: cuba lagi kemudian',

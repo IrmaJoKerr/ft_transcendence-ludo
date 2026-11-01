@@ -40,12 +40,14 @@ colors, mark ready, and trigger the start.
 ### Lobby data
 
 The **match metadata hash** (`match:{gameId}`) tracks seats: `player1_id`,
-`player1_color`, `player{n}_displayName`, `status`, `gameType`, etc.
-`player{n}_displayName` is the shown name, and for a bot seat the backend writes
-it as `bot-<color> (<assistant>)` from the lobby's `botNames`, while the seat
-keeps its `bot-<color>` id. Readiness is NOT stored there: the roster and ready
-flags live in the engine GameState (`state.players` + `state.readyPlayers`),
-which `emitLobbyUpdate` broadcasts to clients.
+`player1_color`, `player{n}_displayName`, `player{n}_isBot`, `status`, `gameType`,
+etc. `player{n}_displayName` is the shown name, and for a bot seat the backend
+writes it as `bot-<color> (<assistant>)` from the lobby's `botNames`, while the
+seat keeps its `bot-<color>` id. `player{n}_isBot` is `'true'` on a bot seat and
+absent on a human one, so the seat says what it is and no reader tests the id's
+shape: the engine's join path reads that field and nothing else. Readiness is NOT
+stored there: the roster and ready flags live in the engine GameState
+(`state.players` + `state.readyPlayers`), which `emitLobbyUpdate` broadcasts to clients.
 
 Beside the per-slot fields the hash holds one account record per seat,
 `seatUser_<color>`. It is written when the seat is taken, kept in step when a
@@ -96,7 +98,7 @@ left.
 | Event | Redis `match:{gameId}` | Engine GameState | Client roster |
 |-------|------------------------|------------------|---------------|
 | Player leaves a waiting room | `reserveMatchSeat()` sets `player<N>_left`; the id and colour stay | seat parked as `inactive` | seat hidden |
-| Player leaves a live game via End Game | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_left` and `seatUser_<color>` | seat parked as `exited` | seat shows as gone |
+| Player leaves a live game via End Game | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_left`, `player<N>_isBot` and `seatUser_<color>` | seat parked as `exited` | seat shows as gone |
 | Player drops a live game (page closed, or "RETURN TO LOBBY") | the seat row is left untouched, so the id and colour stay reserved | `disconnected` for the 45 s grace window, then `exited` with every piece parked at `step = -1` | seat greyed out, then gone |
 | Backend abort (`POST /api/game/:id/abort`) | the match is marked `ABORTED`; individual seats are not cleared | — | room drops out of the listings |
 | Player rejoins | the backend's `joinMatch` userId lookup finds the reserved slot and returns the same colour | seat back to `active` | seat returns |

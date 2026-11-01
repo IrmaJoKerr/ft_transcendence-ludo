@@ -4,7 +4,6 @@ import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
-import { isBotUserId } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
@@ -382,15 +381,25 @@ export class MatchPlayerService {
     return { gameId };
   }
 
-  // Notify the other human players when a match is aborted. The payload keeps
-  // the `reason` field ('cancel') for wire stability with older clients.
+  // Notify the other players when a match is aborted. The payload keeps the
+  // `reason` field ('cancel') for wire stability with older clients.
   private async notifyMatchAbort(gameId: string, data: Record<string, string>, actorId: string) {
     const actor = await this.prisma.db.user.findUnique({
       where: { id: actorId },
       select: { username: true },
     });
+    // A bot seat has nobody to tell. `player<N>_isBot` is what says so: the
+    // creator writes it beside the seat, and the engine and the post-game report
+    // read the same flag. So this is a test of the seat, not of the shape of its
+    // id: a seat without the flag is an account (a human, or a guest mint).
+    const botSeats = new Set(
+      [1, 2, 3, 4]
+        .filter((slot) => data[`player${slot}_isBot`] === 'true')
+        .map((slot) => data[`player${slot}_id`])
+        .filter((id): id is string => !!id),
+    );
     const targets = [data.player1_id, data.player2_id, data.player3_id, data.player4_id].filter(
-      (id): id is string => !!id && id !== actorId && !isBotUserId(id),
+      (id): id is string => !!id && id !== actorId && !botSeats.has(id),
     );
 
     for (const targetId of targets) {
@@ -420,8 +429,10 @@ export class MatchPlayerService {
     return { message: 'Game marked active', gameId };
   }
 
+  // The caller's account name for an engine token. A lookup, not a bot test: the
+  // only ids that reach these two methods are accounts (the JWT's own `uid`, or a
+  // friend's id from a `Friendship` row), so an unknown one just resolves to null.
   private async resolveUsername(userId: string): Promise<string | null> {
-    if (isBotUserId(userId)) return null;
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { username: true },
@@ -430,7 +441,6 @@ export class MatchPlayerService {
   }
 
   private async resolveDisplayName(userId: string): Promise<string | undefined> {
-    if (isBotUserId(userId)) return undefined;
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { displayName: true },

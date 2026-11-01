@@ -677,7 +677,7 @@ Module-level constants in the socket layer — edit the value at the top of the 
 | (removed) lobby and grace sweeps | `socket/server.ts` | — | The two 60 s `setInterval` sweeps were deleted with the restart-recovery work. See *Wake pass* above: deadlines are armed per room and replayed after a restart |
 | `DICE_ROLL_ANIM_MS` | `timing.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
 | `SLOT_COLORS` | `socket/join-manager.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |
-| `BOT_PREFIX` | `socket/auth.ts` | `bot-` | Prefix that marks a user id as a bot |
+| `BOT_PREFIX` | `socket/auth.ts` | `bot-` | Prefix that names a bot's user id; a seat's kind is the hash's `player<N>_isBot` (and the state's `players[].isBot`), never this prefix |
 | `BACKEND_URL` | `socket/auth.ts` | `http://backend:3000` | Base URL the engine POSTs results to (env `BACKEND_URL`) |
 | `MAX_EVENT_BYTES` | `socket/server.ts` | 64 KB | Largest inbound event socket.io buffers and parses (`maxHttpBufferSize`), the OWASP figure |
 | `MAX_SOCKETS_PER_USER` | `socket/server.ts` | 4 | Concurrent sockets one account may hold; `ConnectionCounter` refuses the next handshake |

@@ -58,6 +58,7 @@ An error response has one of two shapes:
 | `AUTH_SESSION_REUSED` | 401 | A refresh token that was already rotated came back outside the race window: every session was revoked |
 | `AUTH_DISPLAY_NAME_TAKEN` | 409 | Display name already taken |
 | `AUTH_DISPLAY_NAME_RESERVED` | 400 | Display name cannot start with `bot-` (reserved for bots) |
+| `AUTH_USERNAME_RESERVED` | 400 | Username cannot start with `bot-` (reserved for bots) |
 | `AUTH_CURRENT_PASSWORD_INCORRECT` | 401 | Current password wrong |
 | `AUTH_EMAIL_CHANGE_SET_PASSWORD` | 400 | Set a password before changing email (OAuth-only account) |
 | `AUTH_EMAIL_CHANGE_RATE_LIMITED` | 429 | Too many email-change requests (max 3/hour per user) |
@@ -329,7 +330,7 @@ Create a new user account and send a verification email. This call sets no sessi
 
 ```
 
-**Errors:** 409 `AUTH_USERNAME_TAKEN` / `AUTH_EMAIL_TAKEN` if the username or email exists; 400 with a `VALIDATION_*` code if the body fails validation. See [Error responses](#error-responses).
+**Errors:** 400 `AUTH_USERNAME_RESERVED` if the username starts with `bot-`/`bot_` (the namespace bots own); 409 `AUTH_EMAIL_TAKEN` if the email exists; 400 with a `VALIDATION_*` code if the body fails validation. See [Error responses](#error-responses).
 
 
 ---
@@ -1629,14 +1630,14 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
 
 ```
 
-**Errors:** 400 if `gameId` is missing, `participants` is missing or empty, or a PvP result carries fewer than 2 entries. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points).
+**Errors:** 400 if `gameId` is missing, `participants` is missing or empty, a PvP result carries fewer than 2 human entries, or no entry holds an account. The backend applies the same bot rule as the engine: a seat the room hash flags `player<N>_isBot` is dropped before anything is written, and the PvP minimum counts what is left, so a bot never stands in for the second player (`MATCH_END_PVP_MIN_PLAYERS`). A participant whose id has no `User` row is skipped too (`user_id` is a foreign key), and when that leaves nobody the request answers `MATCH_END_PLAYERS_REQUIRED` before the transaction, so no bare `Game` row is left behind. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points).
 
 **Side effects:**
-- Writes the `Game` row and one `GameParticipant` row per participant (humans only)
-- Updates each participant's `User` row: `rating` (clamped at 0), `highestRating`, `wins`, `losses`, `humanWins`, `botWins`, `winStreak`, `bestWinStreak`, `pveGameStreak` (scoring via `ratingDeltaFor()`)
+- Writes the `Game` row and one `GameParticipant` row per participant that survives the bot flag and holds an account
+- Updates each of those participants' `User` row: `rating` (clamped at 0), `highestRating`, `wins`, `losses`, `humanWins`, `botWins`, `winStreak`, `bestWinStreak`, `pveGameStreak` (scoring via `ratingDeltaFor()`)
 - Evaluates achievements for all participants (fires unlock notifications)
-- Sends a `match_finished` notification to every human participant
-- Updates the Redis `leaderboard:global` sorted set
+- Sends a `match_finished` notification to every scored participant
+- Updates the Redis `leaderboard:global` sorted set, one member per scored participant
 - Deletes `match:{gameId}` from Redis
 
 

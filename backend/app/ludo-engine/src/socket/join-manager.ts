@@ -5,13 +5,22 @@ import type { LudoBot } from '../bot';
 import { isBotSeat } from '../bot';
 import { firstActiveColor } from '../player-handler';
 import type { GameSocket } from './auth';
-import { isBotUserId, BOT_PREFIX } from './auth';
+import { BOT_PREFIX } from './auth';
 import type { RoomRegistry } from './room-context';
 import type { PlayerColor } from '../types';
 
 // Shared seat order : used by the join flow to map slots to colors and to
 // auto-fill bot seats (the seat order must match the original match).
 export const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// Whether a seat in the match hash is a bot. The hash says what the seat is
+// (`player<N>_isBot`, written by the backend beside the seat id), and that field
+// is the only answer: no reader infers the kind from the id's shape, so a seat
+// without the flag is a human seat even if its id looks like a bot.
+function isBotMatchSeat(matchData: Record<string, string>, color: PlayerColor): boolean {
+  const slot = SLOT_COLORS.indexOf(color) + 1;
+  return matchData[`player${slot}_isBot`] === 'true';
+}
 
 // JoinManager owns the join_game flow: serializes each game's join critical
 // section against Redis, resolves seats, creates missing games, handles
@@ -186,7 +195,7 @@ export class JoinManager {
               effectiveColor.charAt(0).toUpperCase() + effectiveColor.slice(1);
             meta.username = resolvedUsername;
             meta.displayName = displayName || socket.data.displayName || resolvedUsername;
-            meta.isBot = isBotUserId(effectiveUserId);
+            meta.isBot = isBotMatchSeat(matchData, effectiveColor);
             meta.isConnected = true;
             meta.status = 'active';
 
@@ -210,7 +219,7 @@ export class JoinManager {
             await this.engine.emitLobbyUpdate(effectiveGameId);
           }
         }
-        if (isBotUserId(effectiveUserId)) {
+        if (isBotMatchSeat(matchData, effectiveColor)) {
           this.getOrCreateBot(effectiveGameId, effectiveColor, this.engine, this.store);
         }
 
@@ -279,9 +288,9 @@ export class JoinManager {
     if (matchData.gameType === 'PVE') {
       for (let i = 2; i <= 4; i++) {
         const slotUserId = matchData[`player${i}_id`];
-        if (!slotUserId || !isBotUserId(slotUserId)) continue;
-
         const slotColor = SLOT_COLORS[i - 1];
+        if (!slotUserId || !isBotMatchSeat(matchData, slotColor)) continue;
+
         const botUserId = `${BOT_PREFIX}${slotColor}`;
 
         // Mark bot player as active and populate frontend-compatible metadata
@@ -291,9 +300,9 @@ export class JoinManager {
           player.username = botUserId;
           player.isBot = true;
           player.isConnected = true;
-          // `username` stays the immutable `bot-<color>` identity; isBotUserId and
-          // the persisted `isBot` flag key on it. `displayName` holds the lobby's label
-          // and falls back to the id when absent.
+          // `username` stays the immutable `bot-<color>` identity; the seat is a bot
+          // because its row in the match hash says so. `displayName` holds the
+          // lobby's label and falls back to the id when absent.
           player.displayName = matchData[`player${i}_displayName`] || botUserId;
           // A bot has no photo; hasAvatarPhoto stays false so the client renders
           // the generated avatar instead of requesting one.

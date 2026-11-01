@@ -19,10 +19,10 @@
 
 The Achievements module tracks 16 achievement badges earned from match performance. Achievements are stored as true/false columns on the 1:1 `Achievement` model (see `backend-database-schema-system.md`). They are evaluated in two ways:
 
-1. **Automatically after a game** — `evaluateAfterGame(gameId)` runs after every PvP/PvE game ends, checks each real (non-bot) player, and sends a notification when an achievement unlocks.
+1. **Automatically after a game** — `evaluateAfterGame(gameId)` runs after every PvP/PvE game ends, checks every stored participant, and sends a notification when an achievement unlocks.
 2. **On demand** — `POST /api/achievements/check` re-evaluates the current user silently (no notifications), which is useful after a rule change.
 
-Hotseat games never reach the backend, so they are not counted. Bots (`user_id` starting `bot-`) are never evaluated.
+Hotseat games never reach the backend, so they are not counted. A participant row only exists for an account (bots own no row), so every row is evaluated.
 
 
 ---
