@@ -349,7 +349,7 @@ toggleSetting(key)
 - It adds the `ngrok-skip-browser-warning` header so the ngrok interstitial page never intercepts an API (Application Programming Interface) call (other hosts ignore the header), and it builds headers with the `Headers` constructor, so headers passed by the caller are merged instead of overwritten.
 - **Errors are translated using their code.** When a response fails, `request()` reads the `code` field from the body and translates it with `translateErrorCode()` (`errors.<CODE>`). If the body has no `code`, or the code has no translation, it logs the English `message` to the console and uses a localized generic message; the server text is never rendered. The auth store's `apiError()` works the same way. See [API-list.md](../API-list.md) → Error responses.
 
-`store.tsx` also refreshes **early**, every 14 minutes: access tokens expire after 15 minutes (`JwtModule` `expiresIn: '15m'`), so refreshing one minute ahead keeps the presence heartbeat (and any other call) from arriving with an expired token. The 401 retry path above would still recover, but the browser logs the 401 first.
+`store.tsx` also refreshes **early**, every 14 minutes: access tokens expire after 15 minutes (`JwtModule` `expiresIn: '15m'`), so refreshing one minute ahead keeps the next call from arriving with an expired token. The 401 retry path above would still recover, but the browser logs the 401 first.
 
 
 ---

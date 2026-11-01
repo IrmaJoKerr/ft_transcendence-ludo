@@ -51,7 +51,7 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 6. **[CSRF, bot and token shapes](#6-csrf-bot-and-token-shapes)** — cookie/header names, prefixes, audiences
 7. **[Route rate limits](#7-route-rate-limits)** — per-route `@Throttle` table and the global backstop
 8. **[Guest budgets](#8-guest-budgets)** — per-address mints, live rooms, abort weight, token lifetime
-9. **[Transport, presence and storage](#9-transport-presence-and-storage)** — socket caps, heartbeat, Redis TTLs, read caps
+9. **[Transport, presence and storage](#9-transport-presence-and-storage)** — socket caps, presence refresh, Redis TTLs, read caps
 10. **[Scoring and achievements](#10-scoring-and-achievements)** — rating deltas and all 16 achievement thresholds
 11. **[Friends](#11-friends)** — pending-request expiry and decline cooldown
 
@@ -59,7 +59,7 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 
 12. **[Theme and palette](#12-theme-and-palette)** — seat colours, presence colours, CSS design tokens
 13. **[Client timing](#13-client-timing)** — every presentation delay: clash cards, dice brake, path, capture burst, guards
-14. **[Client cadences](#14-client-cadences)** — heartbeats, polls, token refresh, cross-tab locks, toasts
+14. **[Client cadences](#14-client-cadences)** — token refresh, room-push debounce and repair, cross-tab locks, toasts
 15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, touch pad, nav fit, toast stack
 16. **[Audio](#16-audio)** — master volume and the blip defaults
 17. **[Browser storage](#17-browser-storage)** — localStorage keys and settings defaults
@@ -645,18 +645,17 @@ rather than settling on a face nobody sent. `piece_moved` then waits out what is
 ### **14. Client cadences**
 
 **Owners:** `frontend/src/store.tsx` 🖥️, `frontend/src/api.ts` 🖥️, `frontend/src/authRefreshLock.ts` 🖥️,
-`frontend/src/components/RetroNavbar.tsx` 🖥️, `components/NotificationToast.tsx` 🖥️,
-`hooks/useNotifications.tsx` 🖥️, `pages/Home.tsx` 🖥️, `pages/LudoLobby.tsx` 🖥️, `pages/Game.tsx` 🖥️.
+`components/NotificationToast.tsx` 🖥️, `hooks/useNotifications.tsx` 🖥️, `pages/Game.tsx` 🖥️,
+`pages/Profile.tsx` 🖥️, and `backend/src/realtime/realtime-broadcaster.service.ts` 🗄️ for the two
+`ROOMS_*` values. No screen polls: the lobby, the friend lists, presence and the bell are pushed over
+the session socket, so the only client timers left are the client rows below.
 
 | Constant / literal | Value | What it paces |
 |---|---|---|
 | `ACCESS_TOKEN_REFRESH_MS` | 840000 (14 min) | proactive refresh, one minute before the 15-minute access token expires |
 | `ROOMS_DEBOUNCE_MS` | 500 (backend) | how long a burst of `rooms:changed` publishes is folded into one snapshot read before the diff is emitted |
 | `ROOMS_REPAIR_TICK_MS` | 30000 (backend) | recompute-and-emit-on-change, and count the diffs it emits (a steady non-zero count is a missed publish) |
-| Home friends poll (inline) | 12000 | the home page's friend list |
-| Home badge poll (inline) | 15000 | unread-notification and invite counts |
-| In-game friends poll (inline) | 5000 | the game page's friends panel |
-| Room-code "copied" (inline) | 1500 | the copy confirmation |
+| Room code and `[COPY]` badge (inline) | 1500 | how long the confirmation holds: `[COPIED OK]` beside a copied room code (`Game.tsx`) and beside the copied handle in the profile header (`Profile.tsx`) |
 | Notification toast | 9000 visible, 350 exit, 30 entrance | how long a toast stays, then its slide-out and the one-frame delay before sliding in |
 | `LOCK_TTL_MS` | 10000 | the cross-tab refresh lock in `lr.authRefreshLock`; a dead holder cannot wedge the other tabs |
 | `RESULT_WAIT_MS` | 3000 | how long a losing tab waits for the winning tab's refresh result over the `BroadcastChannel` |

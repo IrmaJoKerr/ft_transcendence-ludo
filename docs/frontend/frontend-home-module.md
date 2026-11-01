@@ -20,7 +20,7 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 
 1. **Hero header** — the localized brand title, a greeting with the player's display name, and a live online-player count pushed over the session socket (`counts:online` from the store, no request).
 2. **Arcade panel** — a window titled with the localized arena title, holding a 720×400 canvas that draws the sun, the star field, the horizon grid, four army nodes and the localized marquee, with a "press start" overlay. Clicking it, or pressing Space or Enter, opens `/gamelobby`.
-3. **Friends widget** — read from `GET /api/friends` + `GET /api/friends/requests`, refreshed every 12 seconds; shows live presence status.
+3. **Friends widget** — read from `GET /api/friends` + `GET /api/friends/requests` once, then kept current by `friendship:changed` records on the session socket; shows live presence status.
 4. **Notifications** — bell icon and toasts from `useNotifications()`, which listens on the session socket (`notification` frames, plus the `notifications:unread` snapshot on connect).
 5. **Footer** — the copyright line and the Privacy Policy and Terms of Service modals.
 

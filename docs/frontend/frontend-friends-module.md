@@ -23,7 +23,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 3. **Blocked list** — users you have blocked, each with an unblock action. The two lists are separate tabs: Friends and Blocked.
 4. **Game invite** — invite a friend to a PvP (player versus player) game with `POST /api/friends/:friendId/invite`, which returns the match credentials. The invite creates the room *and* seats the friend, so it is refused with `403 MATCH_ACTIVE_GAME` while the caller or the friend already holds a seat in a live game (see [backend-match-module.md](../backend/backend-match-module.md) → Strict State Lock (`active-game.ts`)).
 
-> **Note:** The Friends page reads all of its data from the backend API (Application Programming Interface). It calls the endpoints below and refreshes the lists every 15 seconds.
+> **Note:** The Friends page reads its data from the backend API (Application Programming Interface) once, for first paint. Every later change arrives as a `friendship:changed` record on the session socket, so no list is polled.
 
 
 ---

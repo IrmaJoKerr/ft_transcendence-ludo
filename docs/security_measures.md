@@ -306,10 +306,10 @@ in a single place; `app.module.ts` installs the guard.
 | Friends writes (`request`, `block`, `unblock`, invite) | 20 per minute |
 | Friends writes (`accept`, `decline`, `remove`, `dismiss`) | 30–60 per minute |
 | Match creation (`create`, `pve`, `pvp/invite`) | 10 per minute |
+| Guest mint (`POST /api/match/guest`) | 20 per minute |
 | Match actions (`join`, `invite`, `exit`, `abort`) | 20–30 per minute |
 | Match ready / rejoin | 60 per minute |
-| Notification reads (`markRead`) / `read-all` | 120 / 30 per minute |
-| Presence heartbeat / logout clear | 60 / 10 per minute |
+| Notification writes (`markRead`) / `read-all` | 120 / 30 per minute |
 | Avatar upload / delete | 10 per hour each |
 | `POST /api/achievements/check` | 30 per hour |
 
