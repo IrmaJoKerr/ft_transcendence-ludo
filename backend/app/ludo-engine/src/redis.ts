@@ -38,15 +38,29 @@ return left
 const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
 
 // A live room survives a redeploy, so a state written before the Wall Breaker
-// fields existed can load mid-game. Both fields feed arithmetic, where undefined
-// becomes NaN, so normalize them here, at the only read path. Zero means no token.
+// fields existed can load mid-game. Every one of them feeds arithmetic, where
+// undefined becomes NaN, so normalize them here, at the only read path. Zero means
+// no token / no tally.
 // One legacy-state default: a game state written before the key-shift mutator
 // existed has no count at all, and the engine must read it as the standard room
 // rather than an undefined that silently compares unequal to every schedule.
 function withBarrierDefaults(state: GameState): GameState {
   for (const player of state.players) {
     if (player.barrierTokens === undefined) player.barrierTokens = 0;
-    if (player.stats.barrierBreaks === undefined) player.stats.barrierBreaks = 0;
+    // The Wall Breaker tally was renamed (barrierBreaks → clashWallBattlesWon): a
+    // state written under the old name keeps the count it earned instead of
+    // restarting a live game's tally at zero.
+    const stats = player.stats as PlayerMeta['stats'] & { barrierBreaks?: number };
+    if (stats.clashWallBattlesWon === undefined) {
+      stats.clashWallBattlesWon = stats.barrierBreaks ?? 0;
+      delete stats.barrierBreaks;
+    }
+    // Counters that arrived with the match-history row.
+    if (stats.diceRolls === undefined) stats.diceRolls = 0;
+    if (stats.sixes === undefined) stats.sixes = 0;
+    if (stats.piecesLost === undefined) stats.piecesLost = 0;
+    if (stats.clashWallsAttacked === undefined) stats.clashWallsAttacked = 0;
+    if (stats.clashWallsDefended === undefined) stats.clashWallsDefended = 0;
   }
   if (state.clashKeyShift !== 1 && state.clashKeyShift !== 2) state.clashKeyShift = 0;
   return state;
@@ -144,7 +158,12 @@ export class RedisGameStore {
         piecesInGoal: 0,
         clashDefends: 0,
         clashAttacksWon: 0,
-        barrierBreaks: 0,
+        clashWallBattlesWon: 0,
+        diceRolls: 0,
+        sixes: 0,
+        piecesLost: 0,
+        clashWallsAttacked: 0,
+        clashWallsDefended: 0,
       },
     }));
 

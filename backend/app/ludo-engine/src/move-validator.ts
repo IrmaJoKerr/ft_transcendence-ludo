@@ -337,6 +337,11 @@ export class MoveValidator {
       for (const id of capturedPieceIds) {
         const captured = state.pieces.find((p) => p.id === id);
         captured.step = 0;
+        // The piece's owner is the one who lost a piece, whatever colour took it:
+        // the row's `piecesLost` is per seat, and this is one of the four places a
+        // piece goes home (the clash engine holds the other three).
+        const owner = state.players.find((p) => p.color === captured.color);
+        if (owner) owner.stats.piecesLost = (owner.stats.piecesLost ?? 0) + 1;
       }
       if (capturedPieceIds.length > 0) {
         const capturer = state.players.find((p) => p.color === capturerColor);

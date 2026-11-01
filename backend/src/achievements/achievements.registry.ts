@@ -20,29 +20,27 @@ export type AchKey =
   | 'achMercilessAttacker'
   | 'achTearDownThisWall';
 
-// Minimal structural shape of a GameParticipant row (fields we read).
-export interface GameParticipantLike {
+// Minimal structural shape of a MatchHistory row (the fields the rules read). One
+// row already belongs to one seat, so a per-game rule never has to find "my
+// participation" in a list: the row is it.
+export interface MatchRowLike {
   rank: number;
-  piecesCaptured: number;
+  totalCaptures: number;
   piecesInGoal: number;
   clashDefends: number;
   clashAttacksWon: number;
-  barrierBreaks: number;
-}
-
-// Minimal structural shape of a Game row (fields we read).
-export interface GameLike {
-  startedAt: Date | string | null;
-  endedAt: Date | string | null;
+  clashWallBattlesWon: number;
+  gameType: 'PVP' | 'PVE';
+  durationMs: number;
 }
 
 export interface LifecycleCounts {
   wins: number; // rank-1 in PVP + PVE
   botWins: number; // rank-1 in PVE
   humanWins: number; // rank-1 in PVP
-  totalGames: number; // participations in PVP + PVE
-  winStreak: number; // User.winStreak
-  pveGameStreak: number; // User.pveGameStreak (consecutive PvE games, any outcome)
+  totalGames: number; // games played, PVP + PVE
+  winStreak: number; // PlayerStats.winStreak
+  pveGameStreak: number; // PlayerStats.pveGameStreak (consecutive PvE games, any outcome)
 }
 
 export interface AchievementRule {
@@ -51,7 +49,7 @@ export interface AchievementRule {
   type: 'lifetime' | 'per-game';
   target?: number; // lifetime threshold (per-game uses perGameTarget)
   source?: (ctx: LifecycleCounts) => number; // lifetime: count
-  perGameSource?: (part: GameParticipantLike, game: GameLike) => number; // per-game: value
+  perGameSource?: (row: MatchRowLike) => number; // per-game: value
   perGameTarget?: number;
 }
 
@@ -157,12 +155,11 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     nameKey: 'dashboard.achSpeedDemon',
     type: 'per-game',
     perGameTarget: 1,
-    perGameSource: (part, game) => {
-      // Win in < 30 min. Duration unknown (no startedAt) ⇒ no unlock.
-      if (part.rank !== 1) return 0;
-      if (!game.startedAt || !game.endedAt) return 0;
-      const durationMs = new Date(game.endedAt).getTime() - new Date(game.startedAt).getTime();
-      return durationMs < 30 * 60 * 1000 ? 1 : 0;
+    perGameSource: (row) => {
+      // Win in < 30 min. The row stores the duration it took, so the answer never
+      // changes: a row with no duration (0) has no unlock to give.
+      if (row.rank !== 1 || row.durationMs <= 0) return 0;
+      return row.durationMs < 30 * 60 * 1000 ? 1 : 0;
     },
   },
   {
@@ -170,7 +167,7 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     nameKey: 'dashboard.achUnstoppable',
     type: 'per-game',
     perGameTarget: 3,
-    perGameSource: (part) => part.piecesCaptured,
+    perGameSource: (row) => row.totalCaptures,
   },
   // The two clash achievements match the source's numbers: two rounds won on
   // either side of one clash-mode game.
@@ -179,23 +176,24 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     nameKey: 'dashboard.achSteadyDefender',
     type: 'per-game',
     perGameTarget: 2,
-    perGameSource: (part) => part.clashDefends,
+    perGameSource: (row) => row.clashDefends,
   },
   {
     key: 'achMercilessAttacker',
     nameKey: 'dashboard.achMercilessAttacker',
     type: 'per-game',
     perGameTarget: 2,
-    perGameSource: (part) => part.clashAttacksWon,
+    perGameSource: (row) => row.clashAttacksWon,
   },
-  // The Wall Breaker: two walls torn down in one game (achTearDownThisWall). A wall
-  // stood 2 or more defenders, banked by an armed exit that crossed it and won, or a
-  // later landing on a 2-stack that did. Two are reachable in one clash-mode game.
+  // The Wall Breaker: two clash chains won on a wall in one game
+  // (achTearDownThisWall). A wall stood 2 or more defenders, banked by an armed exit
+  // that crossed it and won, or a later landing on a 2-stack that did. Two are
+  // reachable in one clash-mode game.
   {
     key: 'achTearDownThisWall',
     nameKey: 'dashboard.achTearDownThisWall',
     type: 'per-game',
     perGameTarget: 2,
-    perGameSource: (part) => part.barrierBreaks,
+    perGameSource: (row) => row.clashWallBattlesWon,
   },
 ];

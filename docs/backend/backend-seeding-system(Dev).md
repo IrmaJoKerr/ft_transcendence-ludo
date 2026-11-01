@@ -147,7 +147,7 @@ game.deleteMany({ where: { participants: { none: {} } } })
 friendship.deleteMany({})
 ```
 
-Cascading deletes (User → Account / GameParticipant / Friendship / Notification) keep re-runs clean, so `npx prisma db seed` multiple times produces the same state without duplicate-key errors. Redis sorted sets are reset (`DEL leaderboard:global|ranked|casual`) before re-adding.
+Cascading deletes (User → Account / PlayerStats / MatchHistory / Achievement / Friendship) keep re-runs clean, so `npx prisma db seed` multiple times produces the same state without duplicate-key errors. Redis sorted sets are reset (`DEL leaderboard:global|ranked|casual`) before re-adding.
 
 
 ---

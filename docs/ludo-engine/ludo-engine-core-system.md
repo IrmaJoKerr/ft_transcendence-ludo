@@ -98,7 +98,12 @@ export interface PlayerMeta {
     piecesInGoal: number;      // Mirrors the seat's pieces at step 57
     clashDefends: number;      // Clash rounds fought as defender (achSteadyDefender)
     clashAttacksWon: number;   // Clash rounds won as attacker (achMercilessAttacker)
-    barrierBreaks: number;     // Barriers torn down: token-priced exits that won their chain (achTearDownThisWall)
+    clashWallBattlesWon: number;   // Wall Breaker chains won on a landing that stood a barrier (achTearDownThisWall)
+    diceRolls: number;         // Faces this seat drew, forfeits included
+    sixes: number;             // Of those, the 6s
+    piecesLost: number;        // Pieces of THIS seat sent home, by any cause
+    clashWallsAttacked: number;    // Landings that stood 2+ defenders
+    clashWallsDefended: number;    // Wall landings where the wall held
   };
   barrierTokens?: number;      // Wall Breaker tokens in hand (absent on a state written before the token = 0)
   barrierArmed?: boolean;      // Wall Breaker arm switch for THIS turn (absent = disarmed, which is the safe default)
@@ -108,7 +113,7 @@ export interface PlayerMeta {
 
 The Wall Breaker fields are safe-by-default on purpose. A live room survives a redeploy
 in Redis, so a `GameState` written before the token existed can still be loaded mid-game; the two
-NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `barrierBreaks += n`) where `undefined - 1` is
+NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `clashWallBattlesWon += n`) where `undefined - 1` is
 `NaN`, and a `NaN` seat would stay broken for the rest of the match (the boolean `barrierArmed` has
 no arithmetic and is read as `=== true`, so absent is simply off). `RedisGameStore` normalizes
 them once at the only door the state comes back through (`withBarrierDefaults`, in
@@ -444,12 +449,13 @@ it), and the socket layer drops a refusal silently.
 inside the game lock and against the state it has just re-read, before the clash gate, so a replayed
 emit finds the move snapshot cleared and cannot spend a second, while a chain that repulses the
 attacker keeps the token spent. The income comes from the same clash branch that credits
-`barrierBreaks`: a chain won against EXACTLY ONE defender pays one token back, clamped to the cap. A
+`clashWallBattlesWon`: a chain won against EXACTLY ONE defender pays one token back, clamped to the cap. A
 won barrier pays nothing, so a wall never feeds the thing that breaks walls.
 
-**Crediting `barrierBreaks`.** Each move is stamped with `pendingMove.barrierBattles` = 1 when its
-landing square stood 2 or more defenders, else 0, and the clash engine adds that to the attacker's
-`stats.barrierBreaks` only when the whole chain is won. So the tally counts BARRIERS, not rounds: a
+**Crediting `clashWallBattlesWon`** (renamed from `barrierBreaks`, which named the wrong noun: the
+tally counts battles won on a wall, not walls destroyed). Each move is stamped with
+`pendingMove.barrierBattles` = 1 when its landing square stood 2 or more defenders, else 0, and the
+clash engine adds that to the attacker's `stats.clashWallBattlesWon` only when the whole chain is won. So the tally counts BARRIERS, not rounds: a
 landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a lone defender is 0,
 and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
 keeps a state written before the field existed reading as 0.

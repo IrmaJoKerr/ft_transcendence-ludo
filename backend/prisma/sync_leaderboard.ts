@@ -10,16 +10,19 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' 
 const prisma = new PrismaClient({ adapter });
 
 // One-off maintenance script: rebuilds the Redis leaderboard sorted sets
-// (global/ranked/casual) from the ratings of every user in Postgres.
+// (global/ranked/casual) from the career ratings in PlayerStats.
 // Run manually with ts-node after a Redis wipe or fresh deploy.
 async function main() {
   console.log('🔄 Synchronizing database users to Redis leaderboards...');
 
-  const users = await prisma.user.findMany({
+  // The rating lives on the career row, so the board is rebuilt from PlayerStats
+  // joined to the account it belongs to. A bot has no row, which is the filter.
+  const pilots = await prisma.playerStats.findMany({
+    select: { user_id: true, rating: true },
     orderBy: { rating: 'desc' },
   });
 
-  console.log(`Found ${users.length} total users in PostgreSQL database.`);
+  console.log(`Found ${pilots.length} total rated players in PostgreSQL database.`);
 
   // Connect to Redis
   const redisHost = process.env.REDIS_HOST || 'localhost';
@@ -36,10 +39,10 @@ async function main() {
   await redis.del('leaderboard:global', 'leaderboard:ranked', 'leaderboard:casual');
 
   // Populate Redis sorted sets
-  for (const u of users) {
-    await redis.zadd('leaderboard:global', u.rating, u.id);
-    await redis.zadd('leaderboard:ranked', u.rating, u.id);
-    await redis.zadd('leaderboard:casual', u.rating, u.id);
+  for (const p of pilots) {
+    await redis.zadd('leaderboard:global', p.rating, p.user_id);
+    await redis.zadd('leaderboard:ranked', p.rating, p.user_id);
+    await redis.zadd('leaderboard:casual', p.rating, p.user_id);
   }
 
   const count = await redis.zcard('leaderboard:global');

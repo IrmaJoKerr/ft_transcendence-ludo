@@ -6,6 +6,7 @@ import Redis from 'ioredis';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { pairKey } from '../src/friends/friendship-pair';
+import { ratingDeltaFor } from '../src/common/scoring';
 
 loadEnv({ path: join(__dirname, '..', '..', '.env') });
 
@@ -60,8 +61,8 @@ const HOUR = 3600_000;
 const MINUTE = 60_000;
 const now = Date.now();
 
-// Database seed script: wipes and repopulates Users, Achievements,
-// Friendships, a sample Game, and Redis leaderboard entries with 28 demo
+// Database seed script: wipes and repopulates Users (each with its PlayerStats
+// and Achievement row), Friendships and Redis leaderboard entries with 28 demo
 // players across rating tiers. Run via `prisma db seed`.
 async function main() {
   console.log('🌱 Seeding Ludo database with expanded 28-player Cyber Roster...');
@@ -69,13 +70,14 @@ async function main() {
   const seedUsernames = SEED_PLAYERS.map((p) => p.username);
 
   // Reset previous seed data
+  // One delete: PlayerStats, MatchHistory and Achievement rows cascade with their
+  // account, so a reseeded player starts with a blank career and no history.
   await prisma.user.deleteMany({ where: { username: { in: seedUsernames } } });
-  await prisma.game.deleteMany({ where: { participants: { none: {} } } });
 
   const pwd = await hashPassword();
 
   // Create All Seed Players
-  type SeedUser = { id: string; username: string };
+  type SeedUser = { id: string; username: string; displayName: string; avatarStyle: string };
   const createdUsers: SeedUser[] = [];
   const requireUser = (username: string): SeedUser => {
     const found = createdUsers.find((u) => u.username === username);
@@ -93,17 +95,24 @@ async function main() {
         emailVerified: new Date(now - (50 - i) * 24 * HOUR),
         password_hash: pwd,
         twoFactorEnabled: false,
-        rating: p.rating,
-        highestRating: p.rating + Math.floor(Math.random() * 40),
-        wins: p.wins,
-        losses: p.losses,
-        humanWins: Math.max(0, p.wins - 2),
-        botWins: Math.min(2, p.wins),
-        winStreak: Math.max(0, Math.floor(p.wins / 4)),
-        bestWinStreak: Math.max(1, Math.floor(p.wins / 2)),
         avatarStyle: p.avatar,
-        // pveGameStreak: top players have the 3-PvE-streak
-        pveGameStreak: Math.min(3, Math.max(0, Math.floor(p.wins / 5))),
+        // The career is its own row: the rating, the win/loss record and the streaks
+        // are seeded there, and the account keeps only the identity.
+        stats: {
+          create: {
+            rating: p.rating,
+            highestRating: p.rating + Math.floor(Math.random() * 40),
+            gamesPlayed: p.wins + p.losses,
+            wins: p.wins,
+            losses: p.losses,
+            humanWins: Math.max(0, p.wins - 2),
+            botWins: Math.min(2, p.wins),
+            winStreak: Math.max(0, Math.floor(p.wins / 4)),
+            bestWinStreak: Math.max(1, Math.floor(p.wins / 2)),
+            // pveGameStreak: top players have the 3-PvE-streak
+            pveGameStreak: Math.min(3, Math.max(0, Math.floor(p.wins / 5))),
+          },
+        },
         achievement: {
           create: {
             id: randomUUID(),
@@ -168,12 +177,17 @@ async function main() {
       password_hash: pwd,
       twoFactorEnabled: false,
       achievement: { create: { id: randomUUID() } },
+      // A blank account still owns a career row, so its first match has somewhere to land.
+      stats: { create: {} },
     },
   });
   console.log('  ✅ Created blank test account: bossku (password: password)');
 
   // Sync All Pilots directly to Redis Leaderboard
-  const allPilots = await prisma.user.findMany({
+  // The rating lives on the career row, so the board is rebuilt from PlayerStats
+  // (a bot has no row, which is the whole filter).
+  const allPilots = await prisma.playerStats.findMany({
+    select: { user_id: true, rating: true },
     orderBy: { rating: 'desc' },
   });
 
@@ -187,10 +201,9 @@ async function main() {
     await redis.del('leaderboard:global', 'leaderboard:ranked', 'leaderboard:casual');
 
     for (const u of allPilots) {
-      const rating = u.rating;
-      await redis.zadd('leaderboard:global', rating, u.id);
-      await redis.zadd('leaderboard:ranked', rating, u.id);
-      await redis.zadd('leaderboard:casual', rating, u.id);
+      await redis.zadd('leaderboard:global', u.rating, u.user_id);
+      await redis.zadd('leaderboard:ranked', u.rating, u.user_id);
+      await redis.zadd('leaderboard:casual', u.rating, u.user_id);
     }
     await redis.quit();
     console.log(`  ✅ Successfully synchronized ${allPilots.length} pilots to Redis sorted sets!`);
@@ -296,53 +309,56 @@ async function main() {
 
   console.log(`  ✅ Seeded incoming friend requests, active friendships, and restricted lists!`);
 
-  // Sample Matches
+  // One sample match, written the way postgame writes it: a MatchHistory row per
+  // seat, with the delta the formula applies and the room's company line. The id is
+  // fixed because the roster above is deleted (and its rows cascade) on every reseed.
   if (createdUsers.length >= 4) {
-    await prisma.game.create({
-      data: {
-        id: randomUUID(),
-        startedAt: new Date(now - 2 * HOUR),
-        endedAt: new Date(now - 90 * MINUTE),
-        status: 'COMPLETED',
-        gameType: 'PVP',
-        participants: {
-          create: [
-            {
-              id: randomUUID(),
-              user_id: createdUsers[0].id,
-              color: 'RED',
-              rank: 1,
-              piecesCaptured: 6,
-              piecesInGoal: 4,
-            },
-            {
-              id: randomUUID(),
-              user_id: createdUsers[1].id,
-              color: 'GREEN',
-              rank: 2,
-              piecesCaptured: 3,
-              piecesInGoal: 3,
-            },
-            {
-              id: randomUUID(),
-              user_id: createdUsers[2].id,
-              color: 'YELLOW',
-              rank: 3,
-              piecesCaptured: 2,
-              piecesInGoal: 2,
-            },
-            {
-              id: randomUUID(),
-              user_id: createdUsers[3].id,
-              color: 'BLUE',
-              rank: 4,
-              piecesCaptured: 1,
-              piecesInGoal: 1,
-            },
-          ],
+    const seats = [
+      { seat: createdUsers[0], color: 'RED' as const, rank: 1, captures: 6, goal: 4 },
+      { seat: createdUsers[1], color: 'GREEN' as const, rank: 2, captures: 3, goal: 3 },
+      { seat: createdUsers[2], color: 'YELLOW' as const, rank: 3, captures: 2, goal: 2 },
+      { seat: createdUsers[3], color: 'BLUE' as const, rank: 4, captures: 1, goal: 1 },
+    ];
+    const gameId = 'seed-sample-1';
+    const playedAt = new Date(now - 2 * HOUR);
+    const participants = seats.map((s2) => ({
+      username: s2.seat.username,
+      displayName: s2.seat.displayName,
+      avatarStyle: s2.seat.avatarStyle,
+      hasAvatarPhoto: false,
+      color: s2.color,
+      rank: s2.rank,
+      isBot: false,
+    }));
+
+    for (const s2 of seats) {
+      await prisma.matchHistory.create({
+        data: {
+          user_id: s2.seat.id,
+          game_id: gameId,
+          playedAt,
+          durationMs: 30 * MINUTE,
+          gameType: 'PVP',
+          gameModes: {
+            clashEnabled: false,
+            noSafeZones: false,
+            freeExit: false,
+            clashKeyShift: 0,
+            playerCount: seats.length,
+          },
+          color: s2.color,
+          rank: s2.rank,
+          ratingDelta: ratingDeltaFor({
+            piecesInGoal: s2.goal,
+            rank: s2.rank,
+            gameType: 'PVP',
+          }),
+          totalCaptures: s2.captures,
+          piecesInGoal: s2.goal,
+          participants,
         },
-      },
-    });
+      });
+    }
   }
 
   console.log('✅ Seeding complete with full active roster across all Snack Rank Tiers!');

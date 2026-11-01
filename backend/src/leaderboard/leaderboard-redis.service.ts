@@ -30,7 +30,7 @@ export class LeaderboardRedisService implements OnModuleDestroy {
   async updateLeaderboardEntry(
     userId: string,
     rating: number,
-    mode: 'global' | 'ranked' | 'casual' | 'bot',
+    mode: 'global' | 'ranked' | 'casual',
   ): Promise<void> {
     const key = `leaderboard:${mode}`;
     await this.redis.zadd(key, rating, userId);

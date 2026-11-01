@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { PresenceService } from '../presence/presence.service';
-import { ratingDeltaFor } from '../common/scoring';
 import { NotificationService } from '../notification/notification.service';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
 import { AvatarThumbnailService } from '../avatar/avatar-thumbnail.service';
@@ -40,14 +39,23 @@ export class UserService {
         createdAt: true,
         avatarStyle: true,
         avatarPhotoContentType: true,
-        rating: true,
-        highestRating: true,
-        wins: true,
-        losses: true,
-        winStreak: true,
-        bestWinStreak: true,
-        botWins: true,
-        humanWins: true,
+        // The career is one row (PlayerStats), so the card reads it in the same
+        // query instead of loading career columns off the account. Explicit fields:
+        // the row's own id/user_id/timestamps are nobody's business here.
+        stats: {
+          select: {
+            rating: true,
+            highestRating: true,
+            gamesPlayed: true,
+            wins: true,
+            losses: true,
+            winStreak: true,
+            bestWinStreak: true,
+            botWins: true,
+            humanWins: true,
+            lastRatingDelta: true,
+          },
+        },
       },
     });
 
@@ -214,8 +222,8 @@ export class UserService {
     return { ok: true };
   }
 
-  // One page of a user's finished games with per-game participants and
-  // rating deltas. Used by GET /api/user/:username/games.
+  // One page of a user's finished matches, each row carrying its own counters and
+  // the room it was played in. Used by GET /api/user/:username/games.
   async getUserGames(username: string, viewerId: string, page: number = 1, limit: number = 20) {
     const user = await this.prisma.db.user.findUnique({ where: { username } });
     if (!user) throw new NotFoundException(`User "${username}" not found`);
@@ -226,59 +234,40 @@ export class UserService {
 
     const skip = (page - 1) * limit;
 
-    const [participations, total] = await Promise.all([
-      this.prisma.db.gameParticipant.findMany({
+    // One indexed read over (user_id, playedAt) and a count: the row carries its
+    // participants, so a page needs no join at all.
+    const [rows, total] = await Promise.all([
+      this.prisma.db.matchHistory.findMany({
         where: { user_id: user.id },
-        orderBy: { game: { endedAt: 'desc' } },
+        orderBy: { playedAt: 'desc' },
         skip,
         take: limit,
-        include: {
-          game: {
-            include: {
-              participants: {
-                include: {
-                  user: {
-                    select: {
-                      username: true,
-                      displayName: true,
-                      avatarStyle: true,
-                      avatarPhotoContentType: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
       }),
-      this.prisma.db.gameParticipant.count({ where: { user_id: user.id } }),
+      this.prisma.db.matchHistory.count({ where: { user_id: user.id } }),
     ]);
 
     return {
-      games: participations.map((p) => ({
-        gameId: p.game_id,
-        status: p.game.status,
-        gameType: p.game.gameType,
-        color: p.color,
-        rank: p.rank,
-        piecesCaptured: p.piecesCaptured,
-        piecesInGoal: p.piecesInGoal,
-        ratingDelta: ratingDeltaFor({
-          piecesInGoal: p.piecesInGoal,
-          rank: p.rank,
-          gameType: p.game.gameType,
-        }),
-        startedAt: p.game.startedAt,
-        endedAt: p.game.endedAt,
-        participants: p.game.participants.map((gp) => ({
-          username: gp.user.username,
-          displayName: gp.user.displayName,
-          avatarStyle: gp.user.avatarStyle,
-          hasAvatarPhoto: gp.user.avatarPhotoContentType !== null,
-          color: gp.color,
-          rank: gp.rank,
-          piecesInGoal: gp.piecesInGoal,
-        })),
+      games: rows.map((row) => ({
+        gameId: row.game_id,
+        playedAt: row.playedAt,
+        durationMs: row.durationMs,
+        gameType: row.gameType,
+        gameModes: row.gameModes,
+        color: row.color,
+        rank: row.rank,
+        ratingDelta: row.ratingDelta,
+        totalTurns: row.totalTurns,
+        totalCaptures: row.totalCaptures,
+        piecesInGoal: row.piecesInGoal,
+        piecesLost: row.piecesLost,
+        diceRolls: row.diceRolls,
+        sixes: row.sixes,
+        clashDefends: row.clashDefends,
+        clashAttacksWon: row.clashAttacksWon,
+        clashWallBattlesWon: row.clashWallBattlesWon,
+        clashWallsAttacked: row.clashWallsAttacked,
+        clashWallsDefended: row.clashWallsDefended,
+        participants: row.participants,
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };

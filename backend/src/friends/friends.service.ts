@@ -417,7 +417,8 @@ export class FriendsService {
             displayName: true,
             avatarStyle: true,
             avatarPhotoContentType: true,
-            rating: true,
+            // The rating is the career row's, not the account's: one include, no join.
+            stats: { select: { rating: true } },
           },
         },
         user2: {
@@ -427,7 +428,8 @@ export class FriendsService {
             displayName: true,
             avatarStyle: true,
             avatarPhotoContentType: true,
-            rating: true,
+            // The rating is the career row's, not the account's: one include, no join.
+            stats: { select: { rating: true } },
           },
         },
       },
@@ -441,7 +443,7 @@ export class FriendsService {
         displayName: friend.displayName,
         avatarStyle: friend.avatarStyle,
         hasAvatarPhoto: friend.avatarPhotoContentType !== null,
-        rating: friend.rating,
+        rating: friend.stats?.rating ?? 0,
         friendsSince: f.createdAt,
       };
     });
@@ -629,7 +631,8 @@ export class FriendsService {
             displayName: true,
             avatarStyle: true,
             avatarPhotoContentType: true,
-            rating: true,
+            // The rating is the career row's, not the account's: one include, no join.
+            stats: { select: { rating: true } },
           },
         },
         user2: {
@@ -639,7 +642,8 @@ export class FriendsService {
             displayName: true,
             avatarStyle: true,
             avatarPhotoContentType: true,
-            rating: true,
+            // The rating is the career row's, not the account's: one include, no join.
+            stats: { select: { rating: true } },
           },
         },
       },
@@ -654,7 +658,7 @@ export class FriendsService {
         displayName: other.displayName,
         avatarStyle: other.avatarStyle,
         hasAvatarPhoto: other.avatarPhotoContentType !== null,
-        rating: other.rating,
+        rating: other.stats?.rating ?? 0,
         blockedSince: (isUser1 ? row.user1StatusAt : row.user2StatusAt) ?? row.createdAt,
       };
     });

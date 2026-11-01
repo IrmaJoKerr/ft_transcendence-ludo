@@ -69,48 +69,73 @@ A mutual block reports `blocked-by-you` (the viewer's own block is the one they 
   avatarV?: number;  // Avatar record stamp, applied as the photo URL's `?v=`
   visibility?: 'full' | 'blocked-by-you' | 'blocked-by-them';  // Defaults to full
   hasAvatarPhoto: boolean;  // Whether a custom photo is uploaded
-  rating: number;  // Player's rating (score)
-  highestRating: number;  // Best rating ever reached
-  wins: number;  // Games won
-  losses: number;  // Games lost
-  winStreak: number;  // Wins in a row right now
-  bestWinStreak: number;  // Longest winning streak ever
+  stats?: {  // The career row (PlayerStats); every stat below reads it
+    rating: number;  // Player's rating (score)
+    highestRating: number;  // Best rating ever reached
+    gamesPlayed: number;  // Finished games
+    wins: number;  // Games won
+    losses: number;  // Games lost
+    winStreak: number;  // Wins in a row right now
+    bestWinStreak: number;  // Longest winning streak ever
+    botWins: number;  // Rank-1 finishes in PvE
+    humanWins: number;  // Rank-1 finishes in PvP
+    lastRatingDelta: number;  // The swing the last match applied
+  } | null;  // null on a blocked payload
   createdAt: string;  // When the record was created
   status: 'online' | 'playing' | 'offline';  // Current status
 }
 ```
 
 A blocked payload carries only `id`, `username`, `displayName`, `avatarStyle`, `hasAvatarPhoto`,
-`avatarV` and `visibility`: the stats and `status` are **absent**, not zeroed, which is why the page
-branches on `visibility` before reading any of them.
+`avatarV` and `visibility`: the `stats` row and `status` are **absent**, not zeroed, which is why the
+page branches on `visibility` before reading any of them.
 
 ### MatchHistory
 
 ```typescript
 {
-  games: Array<{  // List of games played
-    gameId: string;  // ID of the game
-    status: string;  // Current status
+  games: Array<{  // One row per finished match, newest first
+    gameId: string;  // The engine's match id
+    playedAt: string;  // When the match started (the printed date)
+    durationMs: number;  // How long it took
     gameType: 'PVP' | 'PVE';  // Match type
+    gameModes: {  // The room as played: `{}` is a standard room
+      clashEnabled?: boolean;
+      noSafeZones?: boolean;
+      freeExit?: boolean;
+      clashKeyShift?: number;
+      playerCount?: number;
+    } | null;
     color: string;  // Seat color
     rank: number | null;  // Position in the ranking
-    piecesCaptured: number;  // Pieces knocked off
+    ratingDelta: number;  // The clamped delta that was applied (never recomputed)
+    totalTurns: number;  // Turns this seat took
+    totalCaptures: number;  // Pieces knocked off
     piecesInGoal: number;  // Pieces finished (0-4)
-    ratingDelta: number;  // Rating change from this game
-    startedAt: string;  // When the game started
-    endedAt: string | null;  // When the game ended
-    participants: Array<{  // Every human who played; a game against bots lists only you
-      username: string;  // Player's username
+    piecesLost: number;  // Pieces this seat lost
+    diceRolls: number;  // Rolls this seat took
+    sixes: number;  // Of those, the 6s
+    clashDefends: number;  // Repulses
+    clashAttacksWon: number;  // Clash rounds won attacking
+    clashWallBattlesWon: number;  // Wall Breaker chains won
+    clashWallsAttacked: number;  // Landings on a wall
+    clashWallsDefended: number;  // Walls that held
+    participants: Array<{  // Snapshot of every seat, bots included
+      username: string;  // Player's username (a bot's id: bot-<color>)
+      displayName: string;  // Player's display name
       avatarStyle: string | null;  // Avatar style name
-      hasAvatarPhoto?: boolean;  // Whether a custom photo is uploaded
+      hasAvatarPhoto: boolean;  // Whether a custom photo is uploaded
       color: string;  // Seat color
       rank: number | null;  // Position in the ranking
-      piecesInGoal: number;  // Pieces finished (0-4)
+      isBot: boolean;  // true for a bot seat
     }>;
   }>;
-  total: number;  // Total number of items
-  page: number;  // Page number
-  limit: number;  // Items per page
+  pagination: {  // The page fields are nested, which is what the API returns
+    page: number;  // Page number
+    limit: number;  // Items per page
+    total: number;  // Rows kept for this player (at most 50)
+    totalPages: number;  // 3 at the retention cap
+  };
 }
 ```
 
@@ -172,7 +197,7 @@ sequenceDiagram
     Note over Profile,API: the edit modal closes or Unblock bumps profileRefresh
     Profile->>API: GET /api/user/:username
     alt visibility = 'full'
-        Profile->>API: GET /api/user/:username/games?limit=30
+        Profile->>API: GET /api/user/:username/games?page=1&limit=20
         Profile->>API: GET /api/achievements?username=
         Profile->>API: GET /api/friends?username=
         API-->>Profile: profile, games, achievements, friends
@@ -194,7 +219,7 @@ Your own profile renders the 16 achievements defined by `ACHIEVEMENTS_DEF` in `P
 | Key | Requirement |
 |-----|-------------|
 | `achFirstBlood` | 1 win (PvP or PvE) |
-| `achOnFire` | `User.winStreak` >= 2 |
+| `achOnFire` | `PlayerStats.winStreak` >= 2 |
 | `achDiceMaster` | 3 wins |
 | `achBabySteps` | 1 bot win |
 | `achTheDiceLoveMe` | 3 bot wins |
@@ -204,7 +229,7 @@ Your own profile renders the 16 achievements defined by `ACHIEVEMENTS_DEF` in `P
 | `achWorldChampion` | 15 wins |
 | `achft_Transcendence` | 10 PvP wins (PvE never counts) |
 | `achLoveTheMachine` | 3 consecutive PvE games, any outcome (a PvP game resets it) |
-| `achSpeedDemon` | win in under 30 minutes (unknown duration means no unlock) |
+| `achSpeedDemon` | win in under 30 minutes (`MatchHistory.durationMs`) |
 | `achUnstoppable` | 3 captures in a single game |
 | `achSteadyDefender` | 2 clash rounds won as defender in one clash-mode game |
 | `achMercilessAttacker` | 2 clash rounds won as attacker in one clash-mode game |

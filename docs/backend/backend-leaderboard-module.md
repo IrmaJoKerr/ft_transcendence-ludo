@@ -22,7 +22,7 @@
 The Leaderboard module shows a **ranked list of players**, sorted by rating
 (their score). It supports:
 
-1. **Leaderboard querying** — get the list, split into pages, for global, ranked, casual, or bot modes.
+1. **Leaderboard querying** — get the list, split into pages, for global, ranked or casual modes.
 2. **Redis sorted sets** — the ranking is stored in Redis as a sorted set
    (`leaderboard:{mode}`), so it is always sorted by rating and fast to read.
 3. **Your own rank** — the request can also return the logged-in user's position via `myRank`.
@@ -39,7 +39,7 @@ The Leaderboard module shows a **ranked list of players**, sorted by rating
 | Store | What it holds | Role |
 |-------|---------------|------|
 | **Redis sorted set** `leaderboard:{mode}` | each player = `userId`, each rating = `rating` | The only leaderboard store; always sorted by rating and fast to read |
-| **PostgreSQL `User`** | the real ratings (`User.rating`) | Where the real ratings live — Redis is (re)built from this when empty |
+| **PostgreSQL `PlayerStats`** | the real ratings (`PlayerStats.rating`) | Where the real ratings live — Redis is (re)built from this when empty |
 
 ### How Redis sorted sets rank players
 
@@ -198,9 +198,9 @@ sequenceDiagram
     Client->>API: Request leaderboard
     API->>R: ZREVRANGE leaderboard:global
     R-->>API: (empty)
-    API->>DB: Read all users (id + User.rating)
-    DB-->>API: user list
-    loop For every non-bot user
+    API->>DB: Read every career row (user_id + PlayerStats.rating)
+    DB-->>API: career list
+    loop For every row (a bot has none)
         API->>R: ZADD leaderboard:global rating userId
     end
     API->>R: ZREVRANGE again (now filled)
@@ -217,7 +217,7 @@ background.
 #### 3c. Redis is completely down
 
 The Redis read is wrapped in `try/catch`. A Redis outage surfaces as an error.
-The board rebuilds itself automatically (fill-on-demand from `User.rating`)
+The board rebuilds itself automatically (fill-on-demand from `PlayerStats.rating`)
 once Redis is back up.
 
 ### Scenario 4 — Live updates after every game
@@ -233,7 +233,7 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     Engine->>PostGame: POST /api/game/end (players + results)
-    PostGame->>DB: Save Game + GameParticipant rows, update ratings
+    PostGame->>DB: Write MatchHistory rows, update PlayerStats ratings
     loop For each human player who just played
         PostGame->>R: ZADD leaderboard:global <newRating> <userId>
     end
@@ -253,7 +253,7 @@ sequenceDiagram
 | File | Role |
 |------|------|
 | `leaderboard.controller.ts` | HTTP route: GET with mode, page, limit query params (needs login) |
-| `leaderboard.service.ts` | Business logic: reads Redis, fills it from PostgreSQL (`User.rating`) when empty |
+| `leaderboard.service.ts` | Business logic: reads Redis, fills it from PostgreSQL (`PlayerStats.rating`) when empty |
 | `leaderboard-redis.service.ts` | Redis layer: ZADD / ZREVRANGE / ZREVRANK / ZCARD (PostgreSQL backfill orchestrated by LeaderboardService) |
 | `leaderboard.module.ts` | NestJS module — registers controller, services, and PrismaService |
 
@@ -268,7 +268,7 @@ sequenceDiagram
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `mode` | `'global' \| 'ranked' \| 'casual' \| 'bot'` | `'global'` | Which game mode to show |
+| `mode` | `'global' \| 'ranked' \| 'casual'` | `'global'` | Which game mode to show (there is no `bot` board: a bot is a seat, not an account) |
 | `page` | number (string) | `1` | Page number (starts at 1) |
 | `limit` | number (string) | `20` | Players per page (max 100) |
 
@@ -374,7 +374,7 @@ GET /api/leaderboard?mode=global&page=1&limit=20
   │   ├── ZREVRANGE leaderboard:{mode} page → entries
   │   ├── ZCARD leaderboard:{mode} → total
   │   ├── If entries empty OR total < 5:
-  │   │   └── Fill on demand: read all users (id + User.rating) from PostgreSQL
+  │   │   └── Fill on demand: read every career row (user_id + PlayerStats.rating) from PostgreSQL
   │   │       └── ZADD each into leaderboard:{mode}, then read again
   │   ├── If Redis still has no entries: return an empty board
   │   ├── Fetch user details from PostgreSQL, work out gamesPlayed/winRate/ranks
@@ -396,7 +396,7 @@ GAME END (MatchPostgameService.processGameEnd)
 
 FILL ON DEMAND (first read after Redis is empty)
   ├── GET /api/leaderboard finds Redis empty or < 5 entries
-  └── Reads all users from PostgreSQL and ZADDs them into leaderboard:{mode}
+  └── Reads every PlayerStats row from PostgreSQL and ZADDs it into leaderboard:{mode}
 ```
 
 
@@ -408,7 +408,7 @@ FILL ON DEMAND (first read after Redis is empty)
 
 | Dependency | Purpose |
 |-----------|---------|
-| `PrismaService` | Database access (User model — ratings, profile info) |
+| `PrismaService` | Database access (`PlayerStats` ratings, `User` profile info) |
 | `LeaderboardRedisService` | Redis layer: sorted-set reads/writes (PostgreSQL backfill is in LeaderboardService) |
 | `ioredis` | Redis client |
 

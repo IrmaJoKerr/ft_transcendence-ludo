@@ -339,7 +339,8 @@ The full design, including the budgets, the registry keys and the settlement pat
   events are closed by default).
 - **Nothing is written at the end.** The match hash carries `isGuest=true`, so
   the engine never calls `/api/game/end` or `/api/game/:id/started` for it: no
-  participant rows, counters or leaderboard, exactly like hotseat. An abort
+  `MatchHistory` rows, no `PlayerStats` counters and no leaderboard, exactly like
+  hotseat. An abort
   instead prices the counter, frees the live-room slots and revokes the token;
   a normal finish frees the slots without pricing an abort.
 

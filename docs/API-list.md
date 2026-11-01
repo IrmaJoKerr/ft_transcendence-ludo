@@ -955,14 +955,18 @@ Get a user's profile, **as the caller is allowed to see it**: every render is ga
   "createdAt": "ISO-date-string",
   "avatarStyle": "string",
   "avatarV": 1793376265279,
-  "rating": 0,
-  "highestRating": 0,
-  "wins": 0,
-  "losses": 0,
-  "winStreak": 0,
-  "bestWinStreak": 0,
-  "botWins": 0,
-  "humanWins": 0,
+  "stats": {
+    "rating": 0,
+    "highestRating": 0,
+    "gamesPlayed": 0,
+    "wins": 0,
+    "losses": 0,
+    "winStreak": 0,
+    "bestWinStreak": 0,
+    "botWins": 0,
+    "humanWins": 0,
+    "lastRatingDelta": 0
+  },
   "hasAvatarPhoto": false,
   "status": "online | playing | offline",
   "visibility": "full"
@@ -1015,15 +1019,30 @@ Get a user's game history.
   "games": [
     {
       "gameId": "uuid",
-      "status": "COMPLETED | ABANDONED",
+      "playedAt": "ISO-date-string (the match's start: the sort key and the printed date)",
+      "durationMs": 1080000,
       "gameType": "PVP | PVE",
+      "gameModes": {
+        "clashEnabled": true,
+        "noSafeZones": false,
+        "freeExit": false,
+        "clashKeyShift": 1,
+        "playerCount": 4
+      },
       "color": "RED | GREEN | YELLOW | BLUE",
       "rank": 1,
-      "piecesCaptured": 3,
-      "piecesInGoal": 4,
       "ratingDelta": 5,
-      "startedAt": "ISO-date-string",
-      "endedAt": "ISO-date-string",
+      "totalTurns": 42,
+      "totalCaptures": 3,
+      "piecesInGoal": 4,
+      "piecesLost": 2,
+      "diceRolls": 37,
+      "sixes": 8,
+      "clashDefends": 2,
+      "clashAttacksWon": 0,
+      "clashWallBattlesWon": 1,
+      "clashWallsAttacked": 2,
+      "clashWallsDefended": 1,
       "participants": [
         {
           "username": "string",
@@ -1032,7 +1051,7 @@ Get a user's game history.
           "hasAvatarPhoto": false,
           "color": "RED",
           "rank": 1,
-          "piecesInGoal": 4
+          "isBot": false
         }
       ]
     }
@@ -1046,6 +1065,8 @@ Get a user's game history.
 }
 
 ```
+
+One indexed read over `(user_id, playedAt DESC)` plus a count, with no join: the row carries its own counters and its own participant snapshot (a bot seat included, marked `isBot`), so a row renders even after another player deletes their account. The store keeps the **newest 50 matches per player**, so `total` stops at 50: three pages of 20.
 
 **Errors:** 401 (no session); 404 if user not found; **403 `FRIEND_BLOCKED`** when a block exists between the caller and the target (any direction). The profile page skips this read when `visibility !== 'full'`; the 403 is what stops a deep link or `curl`.
 
@@ -1361,7 +1382,7 @@ Start an anonymous PvE game. This is the public door behind the login screen's *
 - The mode is forced to `pve` and the human seat is always `blue`. `mode`, `playerCount`, `seatColors` and `gameId` are not accepted fields.
 - `token` is an opaque `g_` token, not a JWT: the engine resolves it from Redis (`guesttok:<sha256>`) and it opens no backend route. It lives for 1 h and is revoked when the room is aborted.
 - The seat id is `guest-<sha256(token)>`, unique per mint, so a shared campus address never receives another guest's `MATCH_ACTIVE_GAME` refusal.
-- Nothing is saved: no `Game`, `GameParticipant`, counter, achievement or leaderboard row. The response has no `inviteCode`, and the room accepts no join.
+- Nothing is saved: no `MatchHistory` row, no `PlayerStats` counter, achievement or leaderboard row. The response has no `inviteCode`, and the room accepts no join.
 - Limits, settlement and the frontend flow are documented in [guest-mode.md](guest-mode.md).
 
 
@@ -1597,7 +1618,7 @@ to `WAITING` cannot resurrect a dead seat.
 
 **Source:** `backend/src/match/match.controller.ts` — MatchModule
 
-Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authenticated via `x-engine-key` header. The payload lists the **human seats that finished**: bots and seats nobody took are not sent. Each seat also carries its clash-mode tallies (`clashDefends`, `clashAttacksWon`), both optional and 0 by default. The engine additionally sends `totalTurns`, which this handler ignores.
+Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authenticated via `x-engine-key` header. The payload lists the **human seats that finished**: bots and seats nobody took are not sent. Every counter is optional and defaults to 0, so a room that outlived a redeploy can report the tallies it has.
 
 **Headers:** `x-engine-key: <ENGINE_API_KEY>`  
 **Body:**
@@ -1610,10 +1631,17 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
       "userId": "string (account id)",
       "color": "'RED'|'GREEN'|'YELLOW'|'BLUE'",
       "rank": 1,
+      "totalTurns": 42,
       "piecesCaptured": 3,
       "piecesInGoal": 4,
+      "piecesLost": 2,
+      "diceRolls": 37,
+      "sixes": 8,
       "clashDefends": 2,
-      "clashAttacksWon": 0
+      "clashAttacksWon": 0,
+      "clashWallBattlesWon": 1,
+      "clashWallsAttacked": 2,
+      "clashWallsDefended": 1
     }
   ]
 }
@@ -1630,12 +1658,13 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
 
 ```
 
-**Errors:** 400 if `gameId` is missing, `participants` is missing or empty, a PvP result carries fewer than 2 human entries, or no entry holds an account. The backend applies the same bot rule as the engine: a seat the room hash flags `player<N>_isBot` is dropped before anything is written, and the PvP minimum counts what is left, so a bot never stands in for the second player (`MATCH_END_PVP_MIN_PLAYERS`). A participant whose id has no `User` row is skipped too (`user_id` is a foreign key), and when that leaves nobody the request answers `MATCH_END_PLAYERS_REQUIRED` before the transaction, so no bare `Game` row is left behind. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points).
+**Errors:** 400 if `gameId` is missing, `participants` is missing or empty, a PvP result carries fewer than 2 human entries, or no entry holds an account. The backend applies the same bot rule as the engine: a seat the room hash flags `player<N>_isBot` is dropped before anything is written, and the PvP minimum counts what is left, so a bot never stands in for the second player (`MATCH_END_PVP_MIN_PLAYERS`). A participant whose id has no `User` row is skipped too (`user_id` is a foreign key), and when that leaves nobody the request answers `MATCH_END_PLAYERS_REQUIRED` before the transaction, so no row is left behind. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points): the match rows themselves are the guard, and `@@unique([user_id, game_id])` settles the delivery that races the guard.
 
 **Side effects:**
-- Writes the `Game` row and one `GameParticipant` row per participant that survives the bot flag and holds an account
-- Updates each of those participants' `User` row: `rating` (clamped at 0), `highestRating`, `wins`, `losses`, `humanWins`, `botWins`, `winStreak`, `bestWinStreak`, `pveGameStreak` (scoring via `ratingDeltaFor()`)
-- Evaluates achievements for all participants (fires unlock notifications)
+- Writes one `MatchHistory` row per participant that survives the bot flag and holds an account, with every counter, the room's rules (`gameModes`, including `playerCount`), the participant snapshot and the **clamped** `ratingDelta` that was applied
+- Trims that seat's history to its newest 50 rows, in the same transaction
+- Upserts the participant's `PlayerStats` row (`upsert`, so a row lost to a manual `DELETE` heals instead of bricking match-end): `rating` (clamped at 0), `highestRating`, `gamesPlayed`, `wins`, `losses`, `humanWins`, `botWins`, `winStreak`, `bestWinStreak`, `pveGameStreak`, `lastRatingDelta` and the lifetime counter sums (scoring via `ratingDeltaFor()`)
+- Evaluates achievements for all participants from the rows just written (fires unlock notifications)
 - Sends a `match_finished` notification to every scored participant
 - Updates the Redis `leaderboard:global` sorted set, one member per scored participant
 - Deletes `match:{gameId}` from Redis
@@ -1688,7 +1717,7 @@ Get paginated leaderboard rankings.
 **Query Params:**
 | Param | Type | Default | Max |
 |---|---|---|---|
-| `mode` | `global` \| `ranked` \| `casual` \| `bot` | `global` | — |
+| `mode` | `global` \| `ranked` \| `casual` | `global` | — |
 | `page` | integer | `1` | — |
 | `limit` | integer | `20` | `100` |
 
@@ -1835,11 +1864,16 @@ Get player statistics for the current user.
 {
   "rating": 1200,
   "highestRating": 1240,
+  "lastRatingDelta": 10,
   "totalGames": 42,
   "wins": 20,
   "losses": 22,
+  "totalTurns": 980,
   "totalCaptures": 85,
   "totalPiecesInGoal": 168,
+  "totalPiecesLost": 91,
+  "totalDiceRolls": 1044,
+  "totalSixes": 173,
   "avgCapturesPerGame": 2.0
 }
 

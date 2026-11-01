@@ -17,7 +17,7 @@
 
 ## Overview
 
-The Player Stats module works out aggregate statistics from a user's `GameParticipant` records. It supports:
+The Player Stats module reads the user's one `PlayerStats` row: the career is a row, not an aggregation over history (history is a trimmed window of the newest 50 matches). It supports:
 
 1. **Own stats** — an authenticated user fetches their own totals.
 
@@ -33,7 +33,7 @@ Stats include: total games, wins, losses, total captures, total pieces in goal, 
 | File | Role |
 |------|------|
 | `stats.controller.ts` | HTTP route: GET own stats |
-| `stats.service.ts` | Business logic: aggregate stats from GameParticipant records |
+| `stats.service.ts` | Business logic: lifetime totals from the `PlayerStats` row |
 | `stats.module.ts` | NestJS module — registers controller, service, and PrismaService |
 
 
@@ -80,7 +80,7 @@ result in PvE gains `(3 + 1) * 1 = 4`.
 
 | Caller | Use |
 |--------|-----|
-| `match.postgame.service.ts` | Applies the delta to `User.rating` when a real match ends (bots are skipped) |
+| `match.postgame.service.ts` | Applies the delta to `PlayerStats.rating` when a real match ends (bots are skipped) |
 | `user.service.ts` | Derives the same per-game `ratingDelta` for the profile and game-history payloads, so clients can show how much a match moved the rating |
 
 
@@ -117,9 +117,8 @@ sequenceDiagram
     DB-->>Server: Account and match history
     Server->>Server: Count up the numbers:
     Note over Server: rating & highestRating = saved scores
-    Note over Server: totalGames = games played
-    Note over Server: wins = games you finished 1st, losses = the rest
-    Note over Server: totalCaptures / totalPiecesInGoal = add up the counters
+    Note over Server: totalGames = gamesPlayed on the one career row
+    Note over Server: wins / losses / streaks / lifetime counters are columns there
     Note over Server: avgCapturesPerGame = captures ÷ games
     Server-->>Site: The stats summary
     Site-->>User: Show the numbers in the widget
@@ -135,20 +134,17 @@ sequenceDiagram
 ### Get Own Stats Path
 ```
 GET /api/stats (JWT required)
-  ├── user.findUnique({ where: { id: userId } })
+  ├── playerStats.findUnique({ where: { user_id: userId } })
   │   ├── Not found → { error: 'User not found' }
-  │   └── Found → continue
-  ├── gameParticipant.findMany({ where: { user_id } })
-  ├── Calculate aggregates:
-  │   ├── rating = user.rating
-  │   ├── highestRating = user.highestRating
-  │   ├── totalGames = count
-  │   ├── wins = count where rank = 1
-  │   ├── losses = totalGames - wins
-  │   ├── totalCaptures = sum(piecesCaptured)
-  │   ├── totalPiecesInGoal = sum(piecesInGoal)
-  │   └── avgCapturesPerGame = totalCaptures / totalGames
-  └── 200 { rating, highestRating, totalGames, wins, losses, totalCaptures, totalPiecesInGoal, avgCapturesPerGame }
+  │   └── Found → read the row
+  ├── Map the row (no aggregation, no history read):
+  │   ├── rating / highestRating / lastRatingDelta
+  │   ├── totalGames = gamesPlayed
+  │   ├── wins / losses
+  │   ├── totalTurns / totalCaptures / totalPiecesInGoal / totalPiecesLost
+  │   ├── totalDiceRolls / totalSixes
+  │   └── avgCapturesPerGame = totalCaptures ÷ gamesPlayed
+  └── 200 { rating, highestRating, lastRatingDelta, totalGames, wins, losses, totalTurns, totalCaptures, totalPiecesInGoal, totalPiecesLost, totalDiceRolls, totalSixes, avgCapturesPerGame }
 ```
 
 
@@ -160,5 +156,5 @@ GET /api/stats (JWT required)
 
 | Dependency | Purpose |
 |-----------|---------|
-| `PrismaService` | Database access (User, GameParticipant models) |
+| `PrismaService` | Database access (User, PlayerStats, MatchHistory models) |
 | `JwtAuthGuard` | Protects stats endpoint |

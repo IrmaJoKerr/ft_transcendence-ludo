@@ -175,6 +175,11 @@ export class LudoEngine {
       // The seat's die face, stamped by the true roller. A forfeit advances the turn
       // below, so a rejoining client could not read the roller off currentTurn.
       currentPlayer.lastRoll = diceValue;
+      // Roll tallies, counted here because this is the only place that sees the
+      // face: a bot never gets a match row of its own, and a forfeit still spent
+      // the roll. Both ride the result payload into the row the profile prints.
+      currentPlayer.stats.diceRolls = (currentPlayer.stats.diceRolls ?? 0) + 1;
+      if (diceValue === 6) currentPlayer.stats.sixes = (currentPlayer.stats.sixes ?? 0) + 1;
       // Per-player 6-streak (classic rule): every 6 grants a bonus roll; the
       // third consecutive 6 forfeits the turn. Lives on PlayerMeta so it
       // resets on turn advance.

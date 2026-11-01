@@ -28,11 +28,6 @@ enum PlayerColor {
   BLUE
 }
 
-enum GameStatus {
-  COMPLETED
-  ABANDONED
-}
-
 enum GameType {
   PVP
   PVE
@@ -46,26 +41,19 @@ model User {
   displayName      String    @unique
   email            String?   @unique
   password_hash    String? // null for OAuth-only users
-  emailVerified            DateTime?
-  twoFactorEnabled         Boolean   @default(false)
-  language                 String    @default("en") // email language: en | fr | ms
+  emailVerified    DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  language         String    @default("en") // email language: en | fr | ms
 
-  accounts      Account[]
-  achievement   Achievement?
+  accounts    Account[]
+  achievement Achievement?
+  stats       PlayerStats?
+  history     MatchHistory[]
 
-  gameParticipants    GameParticipant[]
   friendshipsAsUser1 Friendship[] @relation("FriendshipUser1")
   friendshipsAsUser2 Friendship[] @relation("FriendshipUser2")
 
-  rating                 Int        @default(0)
-  highestRating          Int        @default(0)
-  wins                   Int        @default(0)
-  losses                 Int        @default(0)
-  winStreak              Int        @default(0)
-  bestWinStreak          Int        @default(0)
-  botWins                Int        @default(0)
-  humanWins              Int        @default(0)
-  avatarStyle            String     @default("bottts")
+  avatarStyle            String  @default("bottts")
   avatarPhoto            Bytes?
   avatarPhotoContentType String?
   // Derivative of avatarPhoto, built on upload (256 px WebP): what the avatar
@@ -75,9 +63,6 @@ model User {
   // avatarPhotoContentType, and both is written by the same update.
   avatarThumb            Bytes?
   avatarThumbContentType String?
-  disconnectCount        Int        @default(0)
-  reconnectCount         Int        @default(0)
-  pveGameStreak          Int        @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -123,36 +108,94 @@ model Account {
   @@index([userId])
 }
 
-// ─── Game (historical results only: matchmaking lives in Redis) ─────────────
+// ─── PlayerStats (the career: one row per account) ───────────────────────────
 
-model Game {
-  id         String     @id
-  startedAt  DateTime
-  endedAt    DateTime
-  status     GameStatus @default(COMPLETED)
-  gameType   GameType   @default(PVP)
-  inviteCode String?    @unique
+// The mutable half of a career, and the only place a lifetime number is read
+// from. Every account gets a row at creation (`stats: { create: {} }`) and the
+// postgame write is an upsert, so a row lost to a manual DELETE self-heals instead
+// of bricking match-end. A bot has no row: it is a seat, not an account.
+model PlayerStats {
+  id      String @id @default(uuid()) // spare id, like Achievement
+  user_id String @unique // one row per account: the real key
 
-  participants GameParticipant[]
-}
+  rating        Int @default(0) // the career rating; the leaderboard rebuild reads this
+  highestRating Int @default(0)
 
-model GameParticipant {
-  id              String      @id
-  game_id         String
-  user_id         String
-  color           PlayerColor
-  rank            Int // 1st, 2nd, 3rd, 4th place
-  piecesCaptured  Int         @default(0)
-  piecesInGoal    Int         @default(0) // 0-4
-  clashDefends    Int         @default(0) // QTE: rounds won as defender
-  clashAttacksWon Int         @default(0) // QTE: rounds won as attacker
-  barrierBreaks   Int         @default(0) // Wall Breaker: token-priced prison exits that won their clash chain
+  gamesPlayed   Int @default(0)
+  wins          Int @default(0)
+  losses        Int @default(0)
+  winStreak     Int @default(0)
+  bestWinStreak Int @default(0)
+  botWins       Int @default(0) // rank-1 in PVE
+  humanWins     Int @default(0) // rank-1 in PVP
+  pveGameStreak Int @default(0) // consecutive PvE games, any outcome
 
-  game Game @relation(fields: [game_id], references: [id], onDelete: Cascade)
+  totalTurns          Int @default(0)
+  totalCaptures       Int @default(0)
+  totalPiecesInGoal   Int @default(0)
+  totalPiecesLost     Int @default(0)
+  totalDiceRolls      Int @default(0)
+  totalSixes          Int @default(0)
+  clashDefends        Int @default(0) // repulses: the defender won the round
+  clashAttacksWon     Int @default(0)
+  clashWallBattlesWon Int @default(0) // Wall Breaker chains won on a wall
+  clashWallsAttacked  Int @default(0)
+  clashWallsDefended  Int @default(0)
+
+  // The swing the last match applied, clamped, for the stats card's "latest" line.
+  lastRatingDelta Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@unique([game_id, user_id])
-  @@unique([game_id, color])
+  @@index([rating(sort: Desc)]) // the leaderboard rebuild sorts on this
+}
+
+// ─── MatchHistory (one row per account per finished match) ───────────────────
+
+// What happened, written once and never recomputed: `ratingDelta` is the clamped
+// delta that was actually applied, and the counters are the ones the engine
+// tallied. There is no parent `Game` row — `game_id` is the engine's id, and a
+// row renders on its own from `participants`, so nothing here needs a join.
+model MatchHistory {
+  id      String @id @default(uuid())
+  user_id String
+  game_id String // the engine's match id: no parent row, no foreign key
+
+  playedAt   DateTime // start of the match: the sort key and the printed date
+  durationMs Int      @default(0) // end minus start: what achSpeedDemon reads
+
+  gameType  GameType
+  gameModes Json // the room rules as played (see room-rules.ts), plus playerCount
+  color     PlayerColor
+  rank      Int
+
+  ratingDelta Int // immutable, and the clamped delta actually applied
+
+  totalTurns          Int @default(0)
+  totalCaptures       Int @default(0)
+  piecesInGoal        Int @default(0)
+  piecesLost          Int @default(0)
+  diceRolls           Int @default(0)
+  sixes               Int @default(0)
+  clashDefends        Int @default(0)
+  clashAttacksWon     Int @default(0)
+  clashWallBattlesWon Int @default(0)
+  clashWallsAttacked  Int @default(0)
+  clashWallsDefended  Int @default(0)
+
+  // Snapshot of every seat in the room, bots included: the row renders with no
+  // join, and it still reads the same after another player deletes their account.
+  participants Json
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // The idempotency guard: a duplicate result delivery for the same seat is
+  // refused by the data, not by a `Game` row that no longer exists.
+  @@unique([user_id, game_id])
+  @@index([user_id, playedAt(sort: Desc)]) // the history page read
+  @@index([game_id]) // "who else was in my match", per-game achievement evaluation
 }
 
 // ─── Friendship ──────────────────────────────────────────────────────────────

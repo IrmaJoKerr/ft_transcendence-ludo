@@ -54,7 +54,7 @@ The registry (`achievements.registry.ts`) defines two rule types:
 | # | Key (field) | Name (display) | Type | Condition | Source |
 |---|-------------|----------------|------|-----------|--------|
 | 1 | `achFirstBlood` | First Blood | lifetime | 1 win | total wins (PVP+PVE) |
-| 2 | `achOnFire` | On Fire | lifetime | 2-game win streak | `User.winStreak` |
+| 2 | `achOnFire` | On Fire | lifetime | 2-game win streak | `PlayerStats.winStreak` |
 | 3 | `achDiceMaster` | Dice Master | lifetime | 3 wins | total wins (PVP+PVE) |
 | 4 | `achBabySteps` | Baby Steps | lifetime | 1 bot win | PVE wins |
 | 5 | `achTheDiceLoveMe` | The Dice Love Me | lifetime | 3 bot wins | PVE wins |
@@ -63,15 +63,15 @@ The registry (`achievements.registry.ts`) defines two rule types:
 | 8 | `achGrandBotMaster` | Grand Bot Master | lifetime | 12 wins | total wins (PVP+PVE) |
 | 9 | `achWorldChampion` | World Champion | lifetime | 15 wins | total wins (PVP+PVE) |
 | 10 | `achft_Transcendence` | FT Transcendence | lifetime | 10 human wins | PVP wins |
-| 11 | `achLoveTheMachine` | Love The Machine | lifetime | 3-game PvE streak | `User.pveGameStreak` |
-| 12 | `achSpeedDemon` | Speed Demon | per-game | Win in under 30 minutes | rank 1 + game duration (`Game.startedAt` / `Game.endedAt`) |
-| 13 | `achUnstoppable` | Unstoppable | per-game | Capture ≥ 3 pieces in one game | `GameParticipant.piecesCaptured` |
-| 14 | `achSteadyDefender` | Steady Defender | per-game | Win ≥ 2 clash rounds as defender in one game | `GameParticipant.clashDefends` |
-| 15 | `achMercilessAttacker` | Merciless Attacker | per-game | Win ≥ 2 clash rounds as attacker in one game | `GameParticipant.clashAttacksWon` |
+| 11 | `achLoveTheMachine` | Love The Machine | lifetime | 3-game PvE streak | `PlayerStats.pveGameStreak` |
+| 12 | `achSpeedDemon` | Speed Demon | per-game | Win in under 30 minutes | rank 1 + `MatchHistory.durationMs` |
+| 13 | `achUnstoppable` | Unstoppable | per-game | Capture ≥ 3 pieces in one game | `MatchHistory.totalCaptures` |
+| 14 | `achSteadyDefender` | Steady Defender | per-game | Win ≥ 2 clash rounds as defender in one game | `MatchHistory.clashDefends` |
+| 15 | `achMercilessAttacker` | Merciless Attacker | per-game | Win ≥ 2 clash rounds as attacker in one game | `MatchHistory.clashAttacksWon` |
 
-> **The two clash rules** (14, 15) read the clash-mode tallies the engine sends on `POST /api/game/end`. With clash off both columns are 0, so neither can unlock. A chain counts one round per defender, and a repelled attacker still records every round it won (`clash-engine.ts`), so a defended wall run can unlock both.
+> **The two clash rules** (14, 15) read the clash-mode tallies the engine sends on `POST /api/game/end` and the row keeps. With clash off both columns are 0, so neither can unlock. A chain counts one round per defender, and a repelled attacker still records every round it won (`clash-engine.ts`), so a defended wall run can unlock both.
 
-> **Lifetime rule sources** (`wins`, `botWins`, `humanWins`) come from `LifecycleCounts`, computed once per evaluation from the user's `COMPLETED` PVP/PVE participations (`rank === 1`). The streak inputs (`winStreak`, `pveGameStreak`) are stored on the **`User`** model, not on `Achievement` — the `Achievement` row stores only the 15 unlocked flags. In-app display copy for each name/description is defined in `frontend/src/locales/en.ts` (`achXxx` / `achXxxDesc` keys).
+> **Lifetime rule sources** (`wins`, `botWins`, `humanWins`, `totalGames`) come from `LifecycleCounts`, read as columns of the user's one **`PlayerStats`** row — not counted from history, which is a trimmed window. The streak inputs (`winStreak`, `pveGameStreak`) are columns of that same row. The `Achievement` row stores only the 15 unlocked flags. In-app display copy for each name/description is defined in `frontend/src/locales/en.ts` (`achXxx` / `achXxxDesc` keys).
 
 To add or tweak an achievement, edit `ACHIEVEMENT_KEYS` / `ACHIEVEMENT_RULES` in `achievements.registry.ts` — no new endpoints or logic are needed.
 
@@ -133,8 +133,8 @@ sequenceDiagram
     participant Notify as NotificationService
 
     PostGame->>Service: "Check achievements for this match"
-    Service->>DB: Load the match + its players
-    loop For each real player (skip bots)
+    Service->>DB: Load the match's MatchHistory rows (one per seat, bots have none)
+    loop For each row
         Service->>Service: Compare the player's stats against each achievement rule
         alt A rule is now satisfied
             Service->>DB: Unlock it
@@ -184,7 +184,7 @@ POST /api/achievements/check (JWT)
 - **`wins` is a shared counter across 6 achievements.** `achFirstBlood` (1), `achDiceMaster` (3), `achTactician` (5), `achMaster` (8), `achGrandBotMaster` (12), `achWorldChampion` (15) — they unlock in sequence as `wins` climbs, not independently.
 - **`botWins` and `humanWins` are subsets of `wins`** (every win is either PVP or PVE), not separate counters.
 - **`achTheDiceLoveMe` (`botWins >= 3`) is unreachable from `seed.ts` alone** — seeded `botWins` caps at 2 by design; only real PvE play (or the `POST /check` backfill) can unlock it.
-- **`achLoveTheMachine` depends on `User.pveGameStreak`**, which increments on any PVE game (any rank) and resets to 0 on a PVP game (`match.postgame.service.ts`). It is not derivable from lifetime win/loss counts, so seed data approximates it rather than guaranteeing it.
+- **`achLoveTheMachine` depends on `PlayerStats.pveGameStreak`**, which increments on any PVE game (any rank) and resets to 0 on a PVP game (`match.postgame.service.ts`). It is not derivable from lifetime win/loss counts, so seed data approximates it rather than guaranteeing it.
 - **`achSpeedDemon` needs both `startedAt` and `endedAt`** on the game; if either is missing, progress is 0 (no unlock) — it does not error.
 - **`POST /achievements/check`** runs the same rules with `announce: false` — a silent backfill pass useful after schema/seed changes. Because no single game is passed in, it replays the user's full `COMPLETED` game history so per-game rules can unlock from historical games, not just the latest one.
 - **Frontend badge counter** (`achievementsBadge` / `achievementsTab`) is `unlocked / 15`.
@@ -199,7 +199,7 @@ POST /api/achievements/check (JWT)
 
 | Dependency | Purpose |
 |-----------|---------|
-| `PrismaService` | Database access (Achievement, Game, GameParticipant models) |
+| `PrismaService` | Database access (Achievement, PlayerStats, MatchHistory models) |
 | `NotificationService` | Push an `achievement` notification on unlock |
 | `BlockStateService` | `GET /api/achievements?username=` is pair-gated: a block between the caller and that user is `403 FRIEND_BLOCKED` (see `backend-friends-module.md`) |
 | `JwtAuthGuard` | Protects achievement endpoints |

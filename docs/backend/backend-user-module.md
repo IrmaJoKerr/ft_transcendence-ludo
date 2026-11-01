@@ -61,14 +61,18 @@ Every route here is `JwtAuthGuard`-protected. The profile gate is the pair, not 
   username: string;  // Player's username
   displayName: string;  // Name shown in the game
   avatarStyle: string;      // Avatar style (from User)
-  rating: number;           // Rating (from User)
-  highestRating: number;    // Peak rating (from User)
-  wins: number;  // Games won
-  losses: number;  // Games lost
-  winStreak: number;  // Wins in a row right now
-  bestWinStreak: number;  // Longest winning streak ever
-  botWins: number;  // Wins against bots
-  humanWins: number;  // Wins against humans
+  stats: {                  // The career row (PlayerStats), read in the same query
+    rating: number;         // Career rating
+    highestRating: number;  // Peak rating
+    gamesPlayed: number;    // Finished games
+    wins: number;           // Games won
+    losses: number;         // Games lost
+    winStreak: number;      // Wins in a row right now
+    bestWinStreak: number;  // Longest winning streak ever
+    botWins: number;        // Wins against bots
+    humanWins: number;      // Wins against humans
+    lastRatingDelta: number; // The swing the last match applied
+  } | null;                 // null on a blocked payload
   hasAvatarPhoto: boolean;  // Whether a custom photo is set (from avatarPhotoContentType)
   createdAt: string;  // When the record was created
   status: 'online' | 'playing' | 'offline';  // From PresenceService (Redis)
@@ -79,24 +83,39 @@ Every route here is `JwtAuthGuard`-protected. The profile gate is the pair, not 
 
 ```typescript
 {
-  gameId: string;  // ID of the game
-  status: 'COMPLETED' | 'ABANDONED';  // Current status
+  gameId: string;  // The engine's match id
+  playedAt: string;  // When the match started (the sort key and the printed date)
+  durationMs: number;  // How long it took
   gameType: 'PVP' | 'PVE';  // Game mode
+  gameModes: {  // The room as played (room-rules.ts), plus playerCount
+    clashEnabled?: boolean;
+    noSafeZones?: boolean;
+    freeExit?: boolean;
+    clashKeyShift?: number;
+    playerCount?: number;
+  } | null;
   color: 'RED' | 'GREEN' | 'YELLOW' | 'BLUE';  // Seat color
   rank: number;  // Position in the ranking
-  piecesCaptured: number;  // Pieces knocked off
+  ratingDelta: number;  // The clamped delta that was applied, stored with the row
+  totalTurns: number;  // Turns this seat took
+  totalCaptures: number;  // Pieces knocked off
   piecesInGoal: number;  // Pieces finished (0-4)
-  ratingDelta: number;  // Rating earned for this game (never negative)
-  startedAt: string;  // When the game started
-  endedAt: string | null;  // When the game ended
-  participants: Array<{  // Every human who played
-    username: string;  // Player's username
+  piecesLost: number;  // Pieces this seat lost
+  diceRolls: number;  // Rolls this seat took
+  sixes: number;  // Of those, the 6s
+  clashDefends: number;  // Clash rounds won as defender (repulses)
+  clashAttacksWon: number;  // Clash rounds won as attacker
+  clashWallBattlesWon: number;  // Wall Breaker chains won
+  clashWallsAttacked: number;  // Landings on a wall
+  clashWallsDefended: number;  // Walls that held
+  participants: Array<{  // Snapshot of every seat, bots included
+    username: string;  // Player's username (a bot's id: bot-<color>)
     displayName: string;  // Player's display name
-    avatarStyle: string;  // Avatar style name
+    avatarStyle: string | null;  // Avatar style name
     hasAvatarPhoto: boolean;  // Whether the player has a custom avatar photo
     color: string;  // Seat color
-    rank: number;  // Position in the ranking
-    piecesInGoal: number;  // Pieces finished (0-4)
+    rank: number | null;  // Position in the ranking (null for a bot the engine never ranked)
+    isBot: boolean;  // true for a bot seat
   }>;
 }
 ```
@@ -230,10 +249,10 @@ GET /api/user/:username  (JWT)
   │   └── found → avatarMeta.syncFromUser(row)
   │        (read first, write only when has/style diverge; returns the record's `v`)
   ├── blockState.between(callerId, user.id)
-  │   ├── 'none' → full profile: stats + presence status + visibility: 'full' + avatarV
+  │   ├── 'none' → full profile: the PlayerStats row + presence status + visibility: 'full' + avatarV
   │   └── otherwise → 200 with the degraded shape: id, username, displayName,
   │        avatarStyle, hasAvatarPhoto, avatarV, visibility: 'blocked-by-you' | 'blocked-by-them'
-  │        (no createdAt, no rating, no stats, no presence)
+  │        (no createdAt, no stats row, no presence)
   └── A block is never a 403 here: the page still renders, degraded
 ```
 
@@ -242,9 +261,9 @@ GET /api/user/:username  (JWT)
 GET /api/user/:username/games?page=&limit= (JWT)
   ├── user.findUnique({ username }) → null → 404
   ├── blockState.assertUnblocked(callerId, user.id) → any block → 403 FRIEND_BLOCKED
-  ├── gameParticipant.findMany({ where: { user: { username } }, include: [game, user] })
-  ├── Map to GameHistoryItem[] (each includes gameType, rank, piecesCaptured,
-  │   piecesInGoal, ratingDelta, participants with avatarStyle from user)
+  ├── matchHistory.findMany({ where: { user_id }, orderBy: { playedAt: 'desc' }, skip, take })
+  ├── Map to GameHistoryItem[] (the row's own counters, gameModes and participants
+  │   snapshot: no join, and no recomputation of ratingDelta)
   └── Return { games, pagination: { page, limit, total, totalPages } }
 ```
 
@@ -304,7 +323,7 @@ DELETE /api/user/avatar (JWT)
 
 | Dependency | Purpose |
 |-----------|---------|
-| `PrismaService` | Database access (User, GameParticipant, Game models) |
+| `PrismaService` | Database access (User, PlayerStats, MatchHistory models) |
 | `PresenceService` | `status` (`online`/`playing`/`offline`) on the public profile |
 | `NotificationService` | Two owner-only events per avatar change: a persisted `profile_updated` self-confirmation (`items: ['avatar']` - the actor's own bell row and toast, and the only audience) plus the transient `avatar_changed` state sync pushed with `notifyTransient()` (never `broadcast()`: no other account is told, so an already-open view elsewhere catches up on its next profile/roster fetch) |
 | `AvatarMetaService` | Keeps the shared `avatar:<userId>` Redis record in sync (see `avatar-system.md`) and supplies the profile's `avatarV` stamp |

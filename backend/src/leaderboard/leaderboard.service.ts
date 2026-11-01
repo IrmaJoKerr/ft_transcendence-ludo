@@ -27,9 +27,15 @@ export interface LeaderboardResponse {
   source: 'redis'; // where the data was read from
 }
 
+// The boards that exist. A bot is a seat, not an account, so there is no bot
+// board: every rating here belongs to a PlayerStats row, and the `match:*` hash is
+// where a bot lives. `global` is what the client asks for today; `ranked`/`casual`
+// are the same board until per-mode ratings exist.
+export type LeaderboardMode = 'global' | 'ranked' | 'casual';
+
 @Injectable()
-// Leaderboard reads: merges Redis-ranked user ids with Postgres user
-// details, rebuilding the Redis board from User.rating when empty.
+// Leaderboard reads: merges Redis-ranked user ids with Postgres account details,
+// rebuilding the Redis board from PlayerStats.rating when empty.
 // Used by leaderboard.controller.ts (GET /api/leaderboard).
 export class LeaderboardService {
   constructor(
@@ -37,10 +43,10 @@ export class LeaderboardService {
     private readonly redisService: LeaderboardRedisService,
   ) {}
 
-  // One page of the board for a mode (global/ranked/casual/bot), plus the
-  // caller's own rank when userId is given. Used by GET /api/leaderboard.
+  // One page of the board for a mode (global/ranked/casual), plus the caller's own
+  // rank when userId is given. Used by GET /api/leaderboard.
   async getLeaderboard(options: {
-    mode?: 'global' | 'ranked' | 'casual' | 'bot';
+    mode?: LeaderboardMode;
     page: number;
     limit: number;
     userId?: string;
@@ -55,15 +61,15 @@ export class LeaderboardService {
       let total = await this.redisService.getLeaderboardCount(mode);
 
       // If Redis has no entries or is missing users, auto-populate from PostgreSQL.
-      // Reading `User` is itself the bot filter: a bot is a seat, not an account,
-      // so it owns no row that could be rebuilt into the board.
+      // Reading `PlayerStats` is itself the bot filter: a bot is a seat, not an
+      // account, so it owns no row that could be rebuilt into the board.
       if (redisEntries.length === 0 || total < 5) {
-        const allDbUsers = await this.prisma.db.user.findMany({
-          select: { id: true, rating: true },
+        const allDbUsers = await this.prisma.db.playerStats.findMany({
+          select: { user_id: true, rating: true },
         });
         if (allDbUsers.length > 0) {
           for (const u of allDbUsers) {
-            await this.redisService.updateLeaderboardEntry(u.id, u.rating, mode);
+            await this.redisService.updateLeaderboardEntry(u.user_id, u.rating, mode);
           }
           redisEntries = await this.redisService.getLeaderboardFromRedis(mode, page, limit);
           total = await this.redisService.getLeaderboardCount(mode);
@@ -78,11 +84,10 @@ export class LeaderboardService {
             id: true,
             username: true,
             displayName: true,
-            rating: true,
-            wins: true,
-            losses: true,
             avatarStyle: true,
             avatarPhotoContentType: true,
+            // The board prints a career, so the card reads the one row that holds it.
+            stats: { select: { rating: true, gamesPlayed: true, wins: true, losses: true } },
           },
         });
 
@@ -94,9 +99,12 @@ export class LeaderboardService {
           // a hand-written `bot-` id) stops here.
           if (!user) continue;
 
-          const gamesPlayed = user.wins + user.losses;
-          const wins = user.wins;
-          const losses = user.losses;
+          const wins = user.stats?.wins ?? 0;
+          const losses = user.stats?.losses ?? 0;
+          // `gamesPlayed` is the career counter; the sum is the fallback for a row
+          // written before the counter existed, so the card can never read 0 games
+          // for a player who has wins.
+          const gamesPlayed = user.stats?.gamesPlayed ?? wins + losses;
           const winRate = gamesPlayed > 0 ? Math.round((wins / gamesPlayed) * 100) : 0;
 
           entries.push({
@@ -130,14 +138,20 @@ export class LeaderboardService {
           if (myRank) {
             const user = await this.prisma.db.user.findUnique({
               where: { id: userId },
-              select: { username: true, displayName: true, rating: true },
+              select: {
+                username: true,
+                displayName: true,
+                stats: { select: { rating: true } },
+              },
             });
             if (user) {
               response.myRank = {
                 rank: myRank,
                 username: user.username,
                 displayName: user.displayName,
-                rating: user.rating,
+                // The board's own score, which is what `rank` was computed on: the
+                // row is the fallback for a caller Redis has not scored yet.
+                rating: user.stats?.rating ?? 0,
               };
             }
           }
@@ -146,8 +160,8 @@ export class LeaderboardService {
         return response;
       }
     } catch (err) {
-      // Redis is the leaderboard's only store, rebuilt from User.rating whenever it
-      // comes up empty. Surfaces the failure instead of hiding it.
+      // Redis is the leaderboard's only store, rebuilt from PlayerStats.rating
+      // whenever it comes up empty. Surfaces the failure instead of hiding it.
       console.warn('Redis leaderboard read failed:', err);
       throw err;
     }

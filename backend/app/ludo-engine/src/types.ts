@@ -90,10 +90,21 @@ export interface PlayerMeta {
     // clash QTE tallies: drives the two clash achievements
     clashDefends: number;
     clashAttacksWon: number;
-    // Wall Breaker tallies: a clash won on a landing that stood a barrier
+    // Wall Breaker tallies: a clash chain won on a landing that stood a barrier
     // (drives achTearDownThisWall). Absent on a state written before the token
-    // existed.
-    barrierBreaks: number;
+    // existed, and on one written before the rename that gave it this name.
+    clashWallBattlesWon: number;
+    // Every face this seat drew, and how many of them landed on a 6: the match row
+    // prints both beside the turn count.
+    diceRolls: number;
+    sixes: number;
+    // Pieces this seat lost, however they went home: a plain capture, an
+    // intermediate clash round, a cleared wall or a repulsed attack of its own.
+    piecesLost: number;
+    // Landings that stood a wall (two or more defenders): `attacked` counts every
+    // one, `defended` the ones the wall survived.
+    clashWallsAttacked: number;
+    clashWallsDefended: number;
   };
   // Wall Breaker arm switch, clash mode only. While on, this seat may attack a wall
   // and every such landing spends a token; while off the wall blocks. Never settable
@@ -171,7 +182,7 @@ export interface PendingCapture {
   beatenDefenderIds?: PieceId[];
   // 1 when the landing square stood 2 or more defenders, else 0. Stamped at move time
   // because the wall is gone once the chain resolves; a won chain credits that many
-  // barrierBreaks. A lone defender pays nothing.
+  // clashWallBattlesWon. A lone defender pays nothing.
   barrierBattles?: number;
   // The key-shift seam: the letter each seat ended its last round on. Round n+1 of a
   // chain opens on a different letter per seat, so the seam between two rounds is

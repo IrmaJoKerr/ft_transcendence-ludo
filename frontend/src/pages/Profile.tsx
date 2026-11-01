@@ -38,43 +38,90 @@ interface UserProfile {
   avatarV?: number;
   /** Absent only from a pre-gate payload; read as full. */
   visibility?: ProfileVisibility;
-  rating: number;
-  highestRating: number;
-  wins: number;
-  losses: number;
-  winStreak: number;
-  bestWinStreak: number;
+  /**
+   * The career row (PlayerStats), not the account: rating, record and streaks all
+   * live together there. Absent on a blocked payload, which carries identity only.
+   */
+  stats?: {
+    rating: number;
+    highestRating: number;
+    gamesPlayed: number;
+    wins: number;
+    losses: number;
+    winStreak: number;
+    bestWinStreak: number;
+    botWins: number;
+    humanWins: number;
+    lastRatingDelta: number;
+  } | null;
   createdAt: string;
   status: PresenceStatus;
 }
 
-type Participant = {
+// One seat of a finished room, as the row's snapshot keeps it: a bot seat is in
+// here too (a bot has no account, so `isBot` is the only marker it ever gets).
+type MatchParticipant = {
   username: string;
+  displayName: string;
   avatarStyle: string | null;
-  hasAvatarPhoto?: boolean;
-  color: number;
+  hasAvatarPhoto: boolean;
+  color: string; // 'RED' | 'GREEN' | 'YELLOW' | 'BLUE'
   rank: number | null;
-  piecesInGoal: number;
+  isBot: boolean;
 };
 
-type MatchHistory = {
-  games: Array<{
-    gameId: string;
-    status: string;
-    gameType: 'PVP' | 'PVE';
-    color: number;
-    rank: number | null;
-    piecesCaptured: number;
-    piecesInGoal: number;
-    ratingDelta: number;
-    startedAt: string;
-    endedAt: string | null;
-    participants: Participant[];
-  }>;
-  total: number;
-  page: number;
-  limit: number;
+// The room a match was played in, recorded with the row (room-rules.ts on the
+// backend). `{}` means the standard room.
+type RoomRules = {
+  clashEnabled?: boolean;
+  noSafeZones?: boolean;
+  freeExit?: boolean;
+  clashKeyShift?: number;
+  playerCount?: number;
 };
+
+// One finished match. Every counter is the one the match recorded: `ratingDelta`
+// is the clamped delta that was applied, never recomputed here.
+type MatchHistoryRow = {
+  gameId: string;
+  playedAt: string;
+  durationMs: number;
+  gameType: 'PVP' | 'PVE';
+  gameModes: RoomRules | null;
+  color: string;
+  rank: number | null;
+  ratingDelta: number;
+  totalTurns: number;
+  totalCaptures: number;
+  piecesInGoal: number;
+  piecesLost: number;
+  diceRolls: number;
+  sixes: number;
+  clashDefends: number;
+  clashAttacksWon: number;
+  clashWallBattlesWon: number;
+  clashWallsAttacked: number;
+  clashWallsDefended: number;
+  participants: MatchParticipant[];
+};
+
+// The page fields are nested under `pagination`, which is what the API returns.
+type MatchHistory = {
+  games: MatchHistoryRow[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+};
+
+// The seat colours, as the swatch beside each name paints them.
+const SEAT_COLOR: Record<string, string> = {
+  RED: '#ff3b5c',
+  GREEN: '#00ff88',
+  YELLOW: '#ffe600',
+  BLUE: '#00b3ff',
+};
+
+// How many rows a history page asks for. The backend keeps the newest 50, so three
+// pages have somewhere to go.
+const HISTORY_PAGE_SIZE = 20;
 
 type Friend = {
   id: string;
@@ -449,6 +496,7 @@ export function Profile() {
     profile?.username ?? '',
   );
   const [gamesData, setGamesData] = useState<MatchHistory | null>(null);
+  const [gamesLoading, setGamesLoading] = useState(false);
   const [friendsData, setFriendsData] = useState<Friend[] | null>(null);
   type AchievementReport = { unlocked: boolean; progress: number; target: number };
   type AchievementsResponse = Record<string, AchievementReport>;
@@ -590,7 +638,11 @@ export function Profile() {
           });
         }
 
-        fetch(`/api/user/${username}/games?limit=30`, { credentials: 'include' })
+        // One page at a time: the backend keeps the newest 50 rows per player and
+        // returns `pagination`, which is what "load more" walks.
+        fetch(`/api/user/${username}/games?page=1&limit=${HISTORY_PAGE_SIZE}`, {
+          credentials: 'include',
+        })
           .then((r) => (r.ok ? r.json() : null))
           .then((games) => {
             if (!cancelled) setGamesData(games);
@@ -642,18 +694,45 @@ export function Profile() {
   const isBlockedView =
     profile?.visibility === 'blocked-by-you' || profile?.visibility === 'blocked-by-them';
 
-  const totalGames = profile && !isBlockedView ? profile.wins + profile.losses : 0;
-  const winRate =
-    profile && !isBlockedView && totalGames > 0 ? Math.round((profile.wins / totalGames) * 100) : 0;
+  // The career row, or null when the viewer may not see stats (a blocked pair) or
+  // the payload predates the split. Every stat below reads it, never the account.
+  const career = profile && !isBlockedView ? (profile.stats ?? null) : null;
+  const totalGames = career ? career.gamesPlayed : 0;
+  const winRate = career && totalGames > 0 ? Math.round((career.wins / totalGames) * 100) : 0;
   const statusStyle =
     profile && !isBlockedView ? STATUS_STYLE[profile.status] : STATUS_STYLE.offline;
-  const peakRating = profile && !isBlockedView ? profile.highestRating || profile.rating : 1200;
+  const peakRating = career ? career.highestRating || career.rating : 1200;
 
   const unlockedCount = ACHIEVEMENTS_DEF.filter(
     (a) => getAchievementReport(a.key)?.unlocked === true,
   ).length;
   const totalAchievements = ACHIEVEMENTS_DEF.length;
   const achievementPercent = Math.round((unlockedCount / totalAchievements) * 100);
+
+  const hasMoreMatches = gamesData ? gamesData.pagination.page < gamesData.pagination.totalPages : false;
+
+  // Append the next page. The list is the server's order (newest first), so the rows
+  // are concatenated rather than merged, and `pagination` moves to the page just
+  // fetched so a second click continues from there.
+  const loadMoreMatches = () => {
+    if (!username || !gamesData || gamesLoading || !hasMoreMatches) return;
+    const next = gamesData.pagination.page + 1;
+    setGamesLoading(true);
+    fetch(`/api/user/${username}/games?page=${next}&limit=${HISTORY_PAGE_SIZE}`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((page: MatchHistory | null) => {
+        if (!page) return;
+        setGamesData((prev) =>
+          prev
+            ? { games: [...prev.games, ...page.games], pagination: page.pagination }
+            : page,
+        );
+      })
+      .catch(() => {})
+      .finally(() => setGamesLoading(false));
+  };
 
   // Degraded render: the three collateral reads were skipped, so this branch is
   // the only one that may paint anything for a blocked pair. `!loading` keeps a
@@ -1195,7 +1274,7 @@ export function Profile() {
                           letterSpacing: '0.03em',
                         }}
                       >
-                        {profile.rating}
+                        {career?.rating ?? 0}
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <div
@@ -1320,7 +1399,7 @@ export function Profile() {
                           lineHeight: 1,
                         }}
                       >
-                        {profile.wins}
+                        {career?.wins ?? 0}
                       </div>
                       <div
                         style={{
@@ -1365,7 +1444,7 @@ export function Profile() {
                           lineHeight: 1,
                         }}
                       >
-                        {profile.losses}
+                        {career?.losses ?? 0}
                       </div>
                       <div
                         style={{
@@ -1464,7 +1543,7 @@ export function Profile() {
                           lineHeight: 1,
                         }}
                       >
-                        {profile.bestWinStreak}
+                        {career?.bestWinStreak ?? 0}
                       </div>
                       <div
                         style={{
@@ -1474,7 +1553,7 @@ export function Profile() {
                           marginTop: 2,
                         }}
                       >
-                        {t('profile.currentStreakCount', { count: profile.winStreak })}
+                        {t('profile.currentStreakCount', { count: career?.winStreak ?? 0 })}
                       </div>
                     </div>
                   </div>
@@ -1616,13 +1695,42 @@ export function Profile() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                               {gamesData.games.map((g) => {
                                 const isWin = g.rank === 1;
+                                const playedAt = new Date(g.playedAt);
+                                // The chips come from the room the match recorded, not
+                                // from the lobby: a finished game's rules survive only
+                                // on the row. `{}` draws none (a standard room), and a
+                                // rule this client does not know yet draws none either.
+                                const chips: string[] = [];
+                                if (g.gameModes?.clashEnabled) chips.push(t('game.clashMode'));
+                                if (g.gameModes?.noSafeZones)
+                                  chips.push(t('game.noSafeZones'));
+                                if (g.gameModes?.freeExit) chips.push(t('game.freeExit'));
+                                const keyShift = g.gameModes?.clashKeyShift ?? 0;
+                                if (keyShift > 0)
+                                  chips.push(t('profile.chipKeyShift', { count: keyShift }));
+                                // The stats card in miniature: same counters, same
+                                // order, so the numbers read the same in both places.
+                                const counters: Array<[string, number]> = [
+                                  [t('profile.statTurns'), g.totalTurns],
+                                  [t('profile.statRolls'), g.diceRolls],
+                                  [t('profile.statSixes'), g.sixes],
+                                  [t('profile.statCaptures'), g.totalCaptures],
+                                  [t('profile.statPiecesHome'), g.piecesInGoal],
+                                  [t('profile.statPiecesLost'), g.piecesLost],
+                                ];
+                                // Clash numbers exist only in a clash room, so they are
+                                // added there instead of printing zeroes everywhere.
+                                if (g.gameModes?.clashEnabled) {
+                                  counters.push(
+                                    [t('profile.statWallsWon'), g.clashWallBattlesWon],
+                                    [t('profile.statWallsHeld'), g.clashWallsDefended],
+                                    [t('profile.statRepulses'), g.clashDefends],
+                                  );
+                                }
                                 return (
                                   <div
                                     key={g.gameId}
                                     style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
                                       padding: '12px 18px',
                                       borderRadius: 7,
                                       background: isWin
@@ -1633,112 +1741,180 @@ export function Profile() {
                                       transition: 'all 0.18s ease',
                                     }}
                                   >
-                                    {/* Left: Result Tag & Info */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                                      <span
+                                    {/* Line 1 : the outcome, the mode, the room, the swing */}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      <div
                                         style={{
-                                          fontSize: '0.88rem',
-                                          fontWeight: 900,
-                                          padding: '5px 12px',
-                                          borderRadius: 5,
-                                          background: isWin
-                                            ? 'rgba(0, 255, 136, 0.22)'
-                                            : 'rgba(255, 0, 127, 0.22)',
-                                          color: isWin ? '#00ff88' : '#ff007f',
-                                          border: `1px solid ${isWin ? '#00ff88' : '#ff007f'}`,
-                                          textShadow: isWin
-                                            ? '0 0 10px #00ff88'
-                                            : '0 0 10px #ff007f',
-                                          minWidth: 105,
-                                          textAlign: 'center',
-                                          letterSpacing: '0.04em',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 10,
+                                          flexWrap: 'wrap',
                                         }}
                                       >
-                                        {isWin
-                                          ? t('profile.rankVictoryHeader')
-                                          : t('profile.rankOtherHeader', { rank: g.rank ?? '?' })}
-                                      </span>
-
-                                      <div>
-                                        <div
+                                        <span
                                           style={{
-                                            fontSize: '1rem',
+                                            fontSize: '0.8rem',
                                             fontWeight: 900,
-                                            color: '#ffffff',
-                                            letterSpacing: '0.03em',
+                                            padding: '4px 12px',
+                                            borderRadius: 4,
+                                            background: isWin
+                                              ? 'rgba(0, 255, 136, 0.22)'
+                                              : 'rgba(255, 0, 127, 0.22)',
+                                            color: isWin ? '#00ff88' : '#ff007f',
+                                            border: `1px solid ${isWin ? '#00ff88' : '#ff007f'}`,
+                                            letterSpacing: '0.5px',
                                           }}
                                         >
                                           {isWin
-                                            ? t('profile.missionAccomplished')
-                                            : t('profile.tacticalDefeat')}
-                                        </div>
-                                        <div
+                                            ? t('profile.badgeWinText')
+                                            : t('profile.badgeLossText')}
+                                        </span>
+                                        <span
                                           style={{
-                                            color: 'var(--text-muted)',
-                                            fontSize: '0.74rem',
-                                            marginTop: 3,
+                                            fontSize: '0.78rem',
+                                            fontWeight: 900,
+                                            color: '#ffffff',
+                                            letterSpacing: '0.04em',
                                           }}
                                         >
-                                          {t('profile.combatantsCount', {
-                                            count: g.participants.length,
-                                          })}{' '}
-                                          • {new Date(g.startedAt).toLocaleDateString()}{' '}
-                                          {new Date(g.startedAt).toLocaleTimeString([], {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                          })}
-                                        </div>
+                                          {g.gameType === 'PVE'
+                                            ? t('results.modePve')
+                                            : t('results.modePvp')}
+                                        </span>
+                                        {chips.map((chip) => (
+                                          <span
+                                            key={chip}
+                                            style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 700,
+                                              letterSpacing: '0.04em',
+                                              padding: '3px 8px',
+                                              borderRadius: 3,
+                                              color: 'var(--accent-cyan)',
+                                              border: '1px solid rgba(0, 240, 255, 0.35)',
+                                              background: 'rgba(0, 240, 255, 0.08)',
+                                            }}
+                                          >
+                                            {chip}
+                                          </span>
+                                        ))}
                                       </div>
-                                    </div>
-
-                                    {/* Right: Scores & ELO Delta */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                      <div style={{ textAlign: 'right' }}>
-                                        <div
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <span
                                           style={{
-                                            fontSize: '0.94rem',
+                                            fontSize: '0.9rem',
                                             fontWeight: 900,
-                                            color: isWin ? '#00ff88' : '#ff007f',
-                                            textShadow: isWin
-                                              ? '0 0 8px rgba(0, 255, 136, 0.6)'
-                                              : '0 0 8px rgba(255, 0, 127, 0.6)',
                                             lineHeight: 1,
+                                            color:
+                                              g.ratingDelta > 0
+                                                ? '#00ff88'
+                                                : g.ratingDelta < 0
+                                                  ? '#ff007f'
+                                                  : 'var(--text-muted)',
+                                            textShadow:
+                                              g.ratingDelta > 0
+                                                ? '0 0 8px rgba(0, 255, 136, 0.6)'
+                                                : 'none',
                                           }}
                                         >
                                           {`${g.ratingDelta > 0 ? '+' : ''}${g.ratingDelta} ELO`}
-                                        </div>
-                                        <div
+                                        </span>
+                                        <span
+                                          style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                                        >
+                                          {playedAt.toLocaleDateString()}{' '}
+                                          {playedAt.toLocaleTimeString([], {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Line 2 : the counters, hidden on a narrow screen */}
+                                    <div
+                                      className="hidden sm:flex"
+                                      style={{
+                                        gap: 14,
+                                        marginTop: 7,
+                                        fontSize: '0.72rem',
+                                        color: 'var(--text-muted)',
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      {counters.map(([label, value]) => (
+                                        <span key={label}>
+                                          {label}{' '}
+                                          <b style={{ color: '#ffffff' }}>{value}</b>
+                                        </span>
+                                      ))}
+                                    </div>
+
+                                    {/* Line 3 : the company, from the row's own snapshot */}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        gap: 12,
+                                        marginTop: 7,
+                                        flexWrap: 'wrap',
+                                        fontSize: '0.72rem',
+                                      }}
+                                    >
+                                      {g.participants.map((seat) => (
+                                        <span
+                                          key={`${seat.username}-${seat.color}`}
                                           style={{
-                                            fontSize: '0.72rem',
-                                            color: 'var(--text-muted)',
-                                            marginTop: 3,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 5,
+                                            color:
+                                              seat.color === g.color
+                                                ? '#ffffff'
+                                                : 'var(--text-muted)',
+                                            fontWeight: seat.color === g.color ? 900 : 500,
                                           }}
                                         >
-                                          {t('profile.goalProgressText', { count: g.piecesInGoal })}
-                                        </div>
-                                      </div>
-                                      <span
-                                        style={{
-                                          fontSize: '0.8rem',
-                                          padding: '4px 12px',
-                                          borderRadius: 4,
-                                          background: isWin
-                                            ? 'rgba(0, 255, 136, 0.22)'
-                                            : 'rgba(255, 0, 127, 0.22)',
-                                          color: isWin ? '#00ff88' : '#ff007f',
-                                          fontWeight: 900,
-                                          border: `1px solid ${isWin ? '#00ff88' : '#ff007f'}`,
-                                          letterSpacing: '0.5px',
-                                        }}
-                                      >
-                                        {isWin
-                                          ? t('profile.badgeWinText')
-                                          : t('profile.badgeLossText')}
-                                      </span>
+                                          <span
+                                            aria-hidden
+                                            style={{
+                                              width: 8,
+                                              height: 8,
+                                              borderRadius: 2,
+                                              display: 'inline-block',
+                                              background:
+                                                SEAT_COLOR[seat.color] ?? 'var(--text-muted)',
+                                            }}
+                                          />
+                                          {seat.isBot ? seat.displayName : seat.username}
+                                          {seat.isBot ? ` ${t('profile.botTag')}` : ''}
+                                          {seat.color === g.color ? ` ${t('profile.youTag')}` : ''}
+                                        </span>
+                                      ))}
                                     </div>
                                   </div>
                                 );
                               })}
+                              {hasMoreMatches && (
+                                <button
+                                  type="button"
+                                  onClick={loadMoreMatches}
+                                  disabled={gamesLoading}
+                                  className={RETRO_BTN}
+                                  style={{ marginTop: 4, alignSelf: 'center', fontSize: '0.8rem' }}
+                                >
+                                  {gamesLoading
+                                    ? t('profile.loadingMoreMatches')
+                                    : t('profile.loadMoreMatches')}
+                                </button>
+                              )}
                             </div>
                           )
                         ) : (

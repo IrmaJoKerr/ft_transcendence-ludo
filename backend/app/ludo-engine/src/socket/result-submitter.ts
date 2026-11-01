@@ -83,8 +83,9 @@ export class ResultSubmitter {
           );
         }
 
-        // The three clash tallies ride along for the clash achievements; a seat
-        // record written before they existed reads 0.
+        // Every tally the match row prints. `?? 0` covers a seat record written
+        // before a counter existed (a room that outlived a redeploy), where undefined
+        // would reach the backend as a hole in the payload.
         participants.push({
           userId,
           color: player.color.toUpperCase(),
@@ -92,9 +93,14 @@ export class ResultSubmitter {
           totalTurns: stats.turns,
           piecesCaptured: stats.captures,
           piecesInGoal,
+          piecesLost: stats.piecesLost ?? 0,
+          diceRolls: stats.diceRolls ?? 0,
+          sixes: stats.sixes ?? 0,
           clashDefends: stats.clashDefends ?? 0,
           clashAttacksWon: stats.clashAttacksWon ?? 0,
-          barrierBreaks: stats.barrierBreaks ?? 0,
+          clashWallBattlesWon: stats.clashWallBattlesWon ?? 0,
+          clashWallsAttacked: stats.clashWallsAttacked ?? 0,
+          clashWallsDefended: stats.clashWallsDefended ?? 0,
         });
       }
 

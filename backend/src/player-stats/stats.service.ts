@@ -7,32 +7,32 @@ import { PrismaService } from '../prisma.service';
 export class StatsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Lifetime totals for the logged-in user: rating, games, wins/losses,
-  // captures and goals. Used by GET /api/stats.
+  // Lifetime totals for the logged-in user: rating, games, wins/losses and the
+  // counter sums. One row read: the career lives in PlayerStats, so nothing here
+  // aggregates over history (which is a trimmed window, not the record).
   async getStats(userId: string) {
-    const user = await this.prisma.db.user.findUnique({ where: { id: userId } });
-    if (!user) {
+    const stats = await this.prisma.db.playerStats.findUnique({ where: { user_id: userId } });
+    if (!stats) {
       return { error: 'User not found' };
     }
 
-    const participations = await this.prisma.db.gameParticipant.findMany({
-      where: { user_id: userId },
-    });
-
-    const totalGames = participations.length;
-    const wins = participations.filter((p) => p.rank === 1).length;
-    const totalCaptures = participations.reduce((s, p) => s + p.piecesCaptured, 0);
-    const totalPiecesInGoal = participations.reduce((s, p) => s + p.piecesInGoal, 0);
+    const totalGames = stats.gamesPlayed;
 
     return {
-      rating: user.rating,
-      highestRating: user.highestRating,
+      rating: stats.rating,
+      highestRating: stats.highestRating,
+      lastRatingDelta: stats.lastRatingDelta,
       totalGames,
-      wins,
-      losses: totalGames - wins,
-      totalCaptures,
-      totalPiecesInGoal,
-      avgCapturesPerGame: totalGames > 0 ? Math.round((totalCaptures / totalGames) * 10) / 10 : 0,
+      wins: stats.wins,
+      losses: stats.losses,
+      totalTurns: stats.totalTurns,
+      totalCaptures: stats.totalCaptures,
+      totalPiecesInGoal: stats.totalPiecesInGoal,
+      totalPiecesLost: stats.totalPiecesLost,
+      totalDiceRolls: stats.totalDiceRolls,
+      totalSixes: stats.totalSixes,
+      avgCapturesPerGame:
+        totalGames > 0 ? Math.round((stats.totalCaptures / totalGames) * 10) / 10 : 0,
     };
   }
 }

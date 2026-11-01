@@ -4,7 +4,7 @@
 
 - [Overview](#overview) — Prisma ORM schema for PostgreSQL
 - [Enums](#enums) — All enum types used in the database
-- [Models](#models) — All 7 models with fields, types, and relations
+- [Models](#models) — All 6 models with fields, types, and relations
 - [Entity Relationships](#entity-relationships) — ER diagram showing model relations
 - [Indexes](#indexes) — Database indexes for query performance
 
@@ -15,11 +15,13 @@
 
 ## Overview
 
-The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **6 models** and **4 enums** covering users, achievements, OAuth accounts, games and friendships. Notifications are not a table: the bell lives in Redis (see [backend-notification-module.md](./backend-notification-module.md) and D12 in `todo.md`). The Prisma client is generated into `backend/generated` (gitignored).
+The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **6 models** and **3 enums**, one table per job: `User` for the account, `PlayerStats` for the career, `MatchHistory` for what happened, plus `Achievement`, `Account` and `Friendship`. Notifications are not a table: the bell lives in Redis (see [backend-notification-module.md](./backend-notification-module.md) and D12 in `todo.md`). The Prisma client is generated into `backend/generated` (gitignored).
 
-> **Notable shift:** The `Achievement` model now holds **only the achievement
-> flags**. All per-user stats (rating, wins, streaks), avatar data, and
-> disconnect/reconnect counters live directly on **`User`**.
+> **Notable shift (2026-11-01):** the career left `User`. `rating`, the
+> win/loss record and every streak now live on **`PlayerStats`** (one row per
+> account), and a finished match is one **`MatchHistory`** row per seat. `Game`
+> and `GameParticipant` are gone with the `GameStatus` enum they needed, and
+> `Achievement` still holds **only the achievement flags**.
 
 
 ---
@@ -70,20 +72,6 @@ enum PlayerColor {
 ---
 
 
-### GameStatus
-
-```prisma
-enum GameStatus {
-  COMPLETED
-  ABANDONED
-}
-```
-
-
----
----
-
-
 ### GameType
 
 ```prisma
@@ -109,8 +97,9 @@ enum GameType {
 
 ### User
 
-The main account record. Holds login info plus all per-user stats, avatar
-data, and disconnect/reconnect counters.
+The account record and nothing else: identity, credentials, the avatar bytes and
+the email language. The career is one `PlayerStats` row, history is
+`MatchHistory` rows, and neither is a column here.
 
 | Field | Type | Attributes | Description |
 |-------|------|------------|-------------|
@@ -122,24 +111,19 @@ data, and disconnect/reconnect counters.
 | `emailVerified` | DateTime? | | When email was verified |
 | `twoFactorEnabled` | Boolean | Default: false | Whether email-code 2FA is required at login |
 | `language` | String | Default: `"en"` | UI/transactional-email language (`en` \| `fr` \| `ms`) |
-| `rating` | Int | Default: 0 | Elo-like rating |
-| `highestRating` | Int | Default: 0 | Peak rating achieved |
-| `wins` | Int | Default: 0 | Total games won |
-| `losses` | Int | Default: 0 | Total games lost |
-| `winStreak` | Int | Default: 0 | Current consecutive wins |
-| `bestWinStreak` | Int | Default: 0 | Best consecutive wins |
-| `botWins` | Int | Default: 0 | Games won against bots |
-| `humanWins` | Int | Default: 0 | Games won against humans |
 | `avatarStyle` | String | Default: `"bottts"` | DiceBear avatar style identifier |
 | `avatarPhoto` | Bytes? | | Binary custom avatar image data |
 | `avatarPhotoContentType` | String? | | MIME type of custom avatar |
-| `disconnectCount` | Int | Default: 0 | Number of disconnects |
-| `reconnectCount` | Int | Default: 0 | Number of reconnects |
-| `pveGameStreak` | Int | Default: 0 | Consecutive PvE games (any outcome) |
+| `avatarThumb` | Bytes? | | 256 px WebP derivative of the photo (the avatar route prefers it) |
+| `avatarThumbContentType` | String? | | MIME type of the derivative |
 | `createdAt` | DateTime | Auto | Account creation timestamp |
 | `updatedAt` | DateTime | Auto | Last update timestamp |
 
-**Relations:** `accounts`, `achievement` (1:1), `gameParticipants`, `friendshipsAsUser1`, `friendshipsAsUser2`
+**Relations:** `accounts`, `achievement` (1:1), `stats` (1:1, `PlayerStats`), `history` (`MatchHistory[]`), `friendshipsAsUser1`, `friendshipsAsUser2`
+
+13 columns, and eight of them are identity. Nine career columns moved to
+`PlayerStats` and two dead ones (`disconnectCount`, `reconnectCount`, written by
+nobody and read by nobody) were deleted outright.
 
 
 ---
@@ -149,7 +133,7 @@ data, and disconnect/reconnect counters.
 ### Achievement
 
 1:1 with `User`. Holds **only the achievement flags** — no stats, rating, or
-avatar data (those live on `User`).
+avatar data (those live on `PlayerStats` and `User`).
 
 | Field | Type | Attributes | Description |
 |-------|------|------------|-------------|
@@ -182,43 +166,87 @@ OAuth provider links, one row per provider per user.
 ---
 
 
-### Game
+### PlayerStats
 
-Historical results only — live matchmaking state is stored in Redis, not here.
+The career: one row per account, created with the account (`stats: { create: {} }`)
+and updated in place by the postgame write. Every lifetime number a page prints is
+read from here — nothing aggregates over history, which is a trimmed window.
 
 | Field | Type | Attributes | Description |
 |-------|------|------------|-------------|
-| `id` | String | UUID, PK | Unique game identifier |
-| `startedAt` | DateTime | | When the game started |
-| `endedAt` | DateTime | | When the game ended |
-| `status` | GameStatus | Default: COMPLETED | Completion state |
-| `gameType` | GameType | Default: PVP | PvP or PvE |
-| `inviteCode` | String? | Unique | Join code for invite games |
+| `id` | String | UUID, PK | Spare id (the shape every model has); `user_id` is the real key |
+| `user_id` | String | Unique, FK | Owning account |
+| `rating` | Int | Default: 0 | Elo-like career rating (the leaderboard rebuild reads this) |
+| `highestRating` | Int | Default: 0 | Peak rating achieved |
+| `gamesPlayed` | Int | Default: 0 | Finished PvP/PvE games |
+| `wins` / `losses` | Int | Default: 0 | Rank-1 / everything else |
+| `winStreak` / `bestWinStreak` | Int | Default: 0 | Current and best consecutive wins |
+| `botWins` / `humanWins` | Int | Default: 0 | Rank-1 in PvE / in PvP |
+| `pveGameStreak` | Int | Default: 0 | Consecutive PvE games (any outcome) |
+| `totalTurns` | Int | Default: 0 | Lifetime turns taken |
+| `totalCaptures` | Int | Default: 0 | Lifetime pieces knocked off |
+| `totalPiecesInGoal` | Int | Default: 0 | Lifetime pieces finished |
+| `totalPiecesLost` | Int | Default: 0 | Lifetime pieces sent home by anyone |
+| `totalDiceRolls` / `totalSixes` | Int | Default: 0 | Lifetime rolls, and the 6s among them |
+| `clashDefends` | Int | Default: 0 | Repulses: clash rounds won as defender |
+| `clashAttacksWon` | Int | Default: 0 | Clash rounds won as attacker |
+| `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won on a landing that stood a barrier |
+| `clashWallsAttacked` / `clashWallsDefended` | Int | Default: 0 | Landings on a wall / walls that held |
+| `lastRatingDelta` | Int | Default: 0 | The clamped swing the last match applied |
+| `updatedAt` | DateTime | Auto | Last change |
 
-**Relations:** `participants` (GameParticipant[])
+**Relations:** `user` (back-reference, `onDelete: Cascade`)
+
+**Index:** `rating` descending, for the leaderboard rebuild.
+
+A bot has no row: it is a seat in the `match:*` hash, not an account, so the FK is
+satisfied by absence and no reader needs a bot filter.
 
 
 ---
 ---
 
 
-### GameParticipant
+### MatchHistory
 
-One row per player per game.
+What happened: one row per account per finished match, written once and never
+recomputed. There is no parent `Game` row — `game_id` is the engine's match id, and
+the row carries its own counters and its own company line.
 
 | Field | Type | Attributes | Description |
 |-------|------|------------|-------------|
 | `id` | String | UUID, PK | Unique identifier |
-| `game_id` | String | FK | Owning game |
-| `user_id` | String | FK | Player (human accounts only; bots are never written) |
-| `color` | PlayerColor | | Seat color |
-| `rank` | Int | | Final placement (1st-4th) |
-| `piecesCaptured` | Int | Default: 0 | Pieces knocked off |
-| `piecesInGoal` | Int | Default: 0 | Pieces finished (0-4) |
-| `clashDefends` | Int | Default: 0 | Clash (QTE) rounds won as defender |
-| `clashAttacksWon` | Int | Default: 0 | Clash (QTE) rounds won as attacker |
+| `user_id` | String | FK | The account this row belongs to (cascade with it) |
+| `game_id` | String | | The engine's match id — no parent row, no FK |
+| `playedAt` | DateTime | | Start of the match: the sort key and the printed date |
+| `durationMs` | Int | Default: 0 | End minus start (what `achSpeedDemon` reads) |
+| `gameType` | GameType | | PvP or PvE |
+| `gameModes` | JSON | | The room as played (`clashEnabled`, `noSafeZones`, `freeExit`, `clashKeyShift`, `playerCount`) |
+| `color` | PlayerColor | | Seat colour |
+| `rank` | Int | | Final placement |
+| `ratingDelta` | Int | | The **clamped** delta that was actually applied, kept forever |
+| `totalTurns` | Int | Default: 0 | Turns this seat took |
+| `totalCaptures` | Int | Default: 0 | Pieces this seat knocked off |
+| `piecesInGoal` | Int | Default: 0 | Pieces this seat finished (0-4) |
+| `piecesLost` | Int | Default: 0 | Pieces this seat lost |
+| `diceRolls` / `sixes` | Int | Default: 0 | Rolls this seat took, and the 6s among them |
+| `clashDefends` | Int | Default: 0 | Repulses (rounds won as defender) |
+| `clashAttacksWon` | Int | Default: 0 | Rounds won as attacker |
+| `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won |
+| `clashWallsAttacked` / `clashWallsDefended` | Int | Default: 0 | Landings on a wall / walls that held |
+| `participants` | JSON | | Snapshot of every seat, bots included, so the row renders with no join |
 
-**Relations:** `game`, `user`
+**Relations:** `user` (back-reference, `onDelete: Cascade`)
+
+**Indexes:** `(user_id, game_id)` unique (the idempotency guard), `(user_id,
+playedAt DESC)` (the history page), `game_id` ("who else was in my match", and the
+postgame/achievement lookups).
+
+**Retention: the newest 50 per user.** The trim runs inside the same postgame
+transaction as the insert, so a player's row count is bounded by one game's write.
+Nothing derives a lifetime number from these rows (that is `PlayerStats`), which is
+why trimming cannot lose a total — and why a retroactive `POST /api/achievements/check`
+can only see the last 50 games.
 
 
 ---
@@ -309,10 +337,10 @@ never be silently rewritten from the other.
 erDiagram
     User ||--|| Achievement : "1:1 (achievement flags)"
     User ||--o{ Account : "OAuth links"
-    User ||--o{ GameParticipant : "plays"
+    User ||--|| PlayerStats : "one career row"
+    User ||--o{ MatchHistory : "what happened"
     User ||--o{ Friendship : "user1 (user1Id)"
     User ||--o{ Friendship : "user2 (user2Id)"
-    Game ||--o{ GameParticipant : "includes"
 
     User {
         string id PK "Unique ID"
@@ -323,20 +351,9 @@ erDiagram
         datetime emailVerified "When email was verified"
         boolean twoFactorEnabled "Is 2FA on?"
         string language "Email/UI language"
-        int rating "Skill score"
-        int highestRating "Best rating ever"
-        int wins "Games won"
-        int losses "Games lost"
-        int winStreak "Wins in a row now"
-        int bestWinStreak "Longest streak ever"
-        int botWins "Wins vs bots"
-        int humanWins "Wins vs humans"
         string avatarStyle "Avatar style name"
         bytes avatarPhoto "Uploaded avatar image"
         string avatarPhotoContentType "Avatar image type"
-        int disconnectCount "Times disconnected"
-        int reconnectCount "Times reconnected"
-        int pveGameStreak "PvE games in a row"
         datetime createdAt "When the account was made"
         datetime updatedAt "Last change"
     }
@@ -365,24 +382,55 @@ erDiagram
         string provider "Which OAuth (Google...)"
         string providerAccountId "ID from that provider"
     }
-    Game {
+    PlayerStats {
         string id PK "Unique ID"
-        datetime startedAt "When the game started"
-        datetime endedAt "When the game ended"
-        GameStatus status "State of the game"
-        GameType gameType "PvP / PvE"
-        string inviteCode UK "Code to join"
-    }
-    GameParticipant {
-        string id PK "Unique ID"
-        string game_id FK "Which game"
-        string user_id FK "Which player"
-        PlayerColor color "Seat color"
-        int rank "1st, 2nd, ..."
-        int piecesCaptured "Pieces knocked off"
-        int piecesInGoal "Pieces finished"
+        string user_id UK "Which account (one row each)"
+        int rating "Career rating"
+        int highestRating "Peak rating"
+        int gamesPlayed "Finished games"
+        int wins "Rank-1 finishes"
+        int losses "Everything else"
+        int winStreak "Current win streak"
+        int bestWinStreak "Best win streak"
+        int botWins "Rank-1 in PvE"
+        int humanWins "Rank-1 in PvP"
+        int pveGameStreak "PvE games in a row"
+        int totalTurns "Lifetime turns"
+        int totalCaptures "Lifetime captures"
+        int totalPiecesInGoal "Lifetime pieces home"
+        int totalPiecesLost "Lifetime pieces lost"
+        int totalDiceRolls "Lifetime rolls"
+        int totalSixes "Lifetime sixes"
         int clashDefends "Clash rounds won defending"
         int clashAttacksWon "Clash rounds won attacking"
+        int clashWallBattlesWon "Wall Breaker chains won"
+        int clashWallsAttacked "Landings on a wall"
+        int clashWallsDefended "Walls that held"
+        int lastRatingDelta "Last applied swing"
+    }
+    MatchHistory {
+        string id PK "Unique ID"
+        string user_id FK "Which account"
+        string game_id "Engine match id (no parent row)"
+        datetime playedAt "Match start: sort key"
+        int durationMs "How long it took"
+        GameType gameType "PvP / PvE"
+        JSON gameModes "The room as played"
+        PlayerColor color "Seat color"
+        int rank "1st, 2nd, ..."
+        int ratingDelta "The clamped delta applied"
+        int totalTurns "Turns this seat took"
+        int totalCaptures "Pieces knocked off"
+        int piecesInGoal "Pieces finished"
+        int piecesLost "Pieces lost"
+        int diceRolls "Rolls this seat took"
+        int sixes "Sixes among them"
+        int clashDefends "Clash rounds won defending"
+        int clashAttacksWon "Clash rounds won attacking"
+        int clashWallBattlesWon "Wall Breaker chains won"
+        int clashWallsAttacked "Landings on a wall"
+        int clashWallsDefended "Walls that held"
+        JSON participants "Every seat, bots included"
     }
     Friendship {
         string id PK "Unique ID"
@@ -415,9 +463,11 @@ erDiagram
 | Achievement | `userId` | Unique | 1:1 lookup by user |
 | Account | `(provider, providerAccountId)` | Unique | Fast OAuth lookup |
 | Account | `userId` | Index | Fast user account lookup |
-| Game | `inviteCode` | Unique | Fast invite code lookup |
-| GameParticipant | `(game_id, user_id)` | Unique | Prevent duplicate entries |
-| GameParticipant | `(game_id, color)` | Unique | Prevent duplicate colors |
+| PlayerStats | `user_id` | Unique | One career row per account |
+| PlayerStats | `rating` | Index (DESC) | The leaderboard rebuild's sort |
+| MatchHistory | `(user_id, game_id)` | Unique | The idempotency guard: one row per seat per match |
+| MatchHistory | `(user_id, playedAt DESC)` | Index | The history page read |
+| MatchHistory | `game_id` | Index | "Who else was in my match", and the postgame lookups |
 | Friendship | `pairKey` | Unique | One row per unordered user pair |
 | Friendship | `(user1Id, user1Status)` | Index | Fast lookup of a user's user1-direction rows |
 | Friendship | `(user2Id, user2Status)` | Index | Fast lookup of a user's user2-direction rows |

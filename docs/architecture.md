@@ -270,8 +270,8 @@ the three repair triggers — so an idle session sends no request and receives n
 
 Prisma-managed, schema at `backend/prisma/schema.prisma`.
 
-**Models:** `User` (account + per-user stats, avatar, counters), `Account` (OAuth provider links), `Achievement` (16 achievement flags), `Game`, `GameParticipant`, `Friendship`, `Notification`
-**Enums:** `FriendshipStatus`, `PlayerColor`, `GameStatus`, `GameType`
+**Models:** `User` (the account: identity, avatar, language), `PlayerStats` (the career: rating, record, streaks, lifetime counters), `MatchHistory` (one row per seat per finished match), `Account` (OAuth provider links), `Achievement` (16 achievement flags), `Friendship`
+**Enums:** `FriendshipStatus`, `PlayerColor`, `GameType`
 
 Schema is applied with `npx prisma db push` (**no** `--accept-data-loss`) from
 `backend/docker-entrypoint.sh` on every boot — the runtime deliberately uses **db
@@ -376,7 +376,7 @@ Details: [ludo-engine-socket-system.md](./ludo-engine/ludo-engine-socket-system.
 | `FriendsModule` | `/api/friends` | Requests, accept/decline, block |
 | `LeaderboardModule` | `/api/leaderboard` | Rankings, Redis sorted sets (Postgres backfill when the set is empty; a Redis outage surfaces as an error) |
 | `AchievementsModule` | `/api/achievements` | 16 Ludo achievements |
-| `StatsModule` | `/api/stats` | Per-player aggregates |
+| `StatsModule` | `/api/stats` | The player's one `PlayerStats` row (lifetime totals) |
 | `MatchModule` | `/api/match`, `/api/game` | Matchmaking (PvP/PvE/hotseat), game lifecycle, and the public guest door (`POST /api/match/guest`) |
 | `PresenceModule` | none (socket only) | Online/offline/playing tracking on the session socket; no HTTP routes since D11 |
 | `NotificationModule` | `/api/notifications` | The bell's two write routes; frames and the unread snapshot ride the session socket, storage is the `notif:` pair in Redis |
@@ -417,7 +417,7 @@ boundary rests on three properties:
 - A match token is signed with `ENGINE_JWT_SECRET`, carries `aud: 'ludo-engine'`, uses `HS256` and has a 24 h `exp`; the engine rejects anything else, including a session access token, which has neither the audience nor the signature.
 - A guest token is opaque (`g_…`), not a JWT: the engine resolves `guesttok:<sha256(token)>` from Redis and sets `socket.data.isGuest`; the token can open no `JwtAuthGuard` route, and the player branch is unreachable because the handshake branches on the prefix first.
 - `POST /api/match/guest` is public by design (no `JwtAuthGuard`), but the body is a DTO class, the mode is forced to `pve` and the seat is server-assigned; the route is bounded by the nginx `guest` zone, its own `@Throttle`, and the per-address and global counters in `GuestLimitService`.
-- A guest room writes nothing durable: `isGuest=true` in the match hash suppresses both engine callbacks, so no `Game`, `GameParticipant`, counter or leaderboard row exists. The abort path only increments `guest:abort:<sha256(ip)>` and frees the live slots.
+- A guest room writes nothing durable: `isGuest=true` in the match hash suppresses both engine callbacks, so no `MatchHistory` row, no `PlayerStats` counter and no leaderboard entry exists. The abort path only increments `guest:abort:<sha256(ip)>` and frees the live slots.
 - A guest socket drives an allow-list (`GUEST_EVENTS`): the game events plus `join_game`, `end_game`, `leave_game` and `disconnect`; `player_ready`, `select_color`, `update_modifiers` and any future event are dropped without a disconnect.
 - `join_game` binds the socket to the room and colour named by the token (`tokenGameId`, `tokenColor`); the client's arguments are fallbacks only.
 - A socket holds a room and seat binding only while its join is accepted: a refusal or a takeover clears `socket.data.gameId` and `playerColor` (`detachSocket()`), so its later `disconnect` cannot disturb a live seat.

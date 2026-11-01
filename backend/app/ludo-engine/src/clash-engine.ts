@@ -422,6 +422,9 @@ export class ClashEngine {
           defenderPiece.step = 0;
           defenderPiece.isInBase = true;
           defenderPiece.isInGoal = false;
+          // An intermediate round still cost this seat a piece: the chain goes on,
+          // but the defender sent home here never comes back to the square.
+          if (defenderMeta) defenderMeta.stats.piecesLost = (defenderMeta.stats.piecesLost ?? 0) + 1;
         }
         pc.beatenDefenderIds = [...ledger.beaten, defenderPieceId];
         pc.remainingDefenderIds = ledger.remaining.slice(1);
@@ -488,6 +491,19 @@ export class ClashEngine {
       // re-deriving it from the ids, which a repulse rewrites to the attacker's own.
       const defenderCount = pc.capturedPieceIds.length;
       const wallBroken = defenderCount >= 2;
+      // Wall tallies: a landing that stood two or more defenders is an attack on a
+      // wall, and a wall is credited with a defence when it held (the attacker lost
+      // the chain). Both are per chain, counted once, at the end of it.
+      if (wallBroken) {
+        if (attackerMeta) {
+          attackerMeta.stats.clashWallsAttacked =
+            (attackerMeta.stats.clashWallsAttacked ?? 0) + 1;
+        }
+        if (!attackerWon && defenderMeta) {
+          defenderMeta.stats.clashWallsDefended =
+            (defenderMeta.stats.clashWallsDefended ?? 0) + 1;
+        }
+      }
       if (!attackerWon) {
         // REPULSE: the attacker goes home and the defender holds the square.
         // executeMove walked the mover to `to` with isCapture=false, so re-home it and
@@ -497,6 +513,9 @@ export class ClashEngine {
           moverPiece.step = 0;
           moverPiece.isInBase = true;
           moverPiece.isInGoal = false;
+          // A repulsed attack is the attacker losing a piece, and the one capture a
+          // seat can suffer by its own hand.
+          if (attackerMeta) attackerMeta.stats.piecesLost = (attackerMeta.stats.piecesLost ?? 0) + 1;
         }
         result.captured = true;
         result.capturedPieceIds = [pc.pieceId];
@@ -518,6 +537,10 @@ export class ClashEngine {
           captured.step = 0;
           captured.isInBase = true;
           captured.isInGoal = false;
+          // A cleared wall can stand pieces of more than one colour, so the loss is
+          // counted against the seat that owned each piece, never against the square.
+          const owner = state.players.find((p) => p.color === captured.color);
+          if (owner) owner.stats.piecesLost = (owner.stats.piecesLost ?? 0) + 1;
         }
         result.captured = capturedIds.length > 0;
         result.capturedPieceIds = capturedIds;
@@ -533,8 +556,8 @@ export class ClashEngine {
           // stood 2 or more defenders, stamped at move time. Only a chain won end to end
           // reaches here. `?? 0` keeps an older seat record from turning the tally to NaN.
           if (pc.barrierBattles) {
-            attackerMeta.stats.barrierBreaks =
-              (attackerMeta.stats.barrierBreaks ?? 0) + pc.barrierBattles;
+            attackerMeta.stats.clashWallBattlesWon =
+              (attackerMeta.stats.clashWallBattlesWon ?? 0) + pc.barrierBattles;
           }
           // Token income: a clash won against exactly one defender pays one token
           // back, up to the cap. A won barrier pays nothing. Same branch as the credit

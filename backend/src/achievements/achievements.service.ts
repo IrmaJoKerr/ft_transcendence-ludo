@@ -8,28 +8,11 @@ import {
   AchKey,
   AchievementRule,
   LifecycleCounts,
-  GameParticipantLike,
-  GameLike,
+  MatchRowLike,
 } from './achievements.registry';
-import type { GameType } from '../../generated/prisma/client';
 
-// Game types that count toward lifetime achievement counters.
-const RATED_GAME_TYPES: readonly GameType[] = ['PVP', 'PVE'];
-
-// Structural shapes (kept local / decoupled from generated Prisma payloads).
 // An Achievement row exposes one boolean flag per AchKey.
 type AchievementFlags = Partial<Record<AchKey, boolean>>;
-
-// A Game row (with optional participants) that the per-game rules evaluate.
-interface GameWithParticipants extends GameLike {
-  participants?: Array<GameParticipantLike & { user_id: string }>;
-}
-
-// The User fields the lifetime counters read.
-interface UserStreaks {
-  winStreak?: number | null;
-  pveGameStreak?: number | null;
-}
 
 @Injectable()
 // Achievement unlock engine: evaluates the registry rules for a user or a
@@ -47,17 +30,11 @@ export class AchievementsService {
   // Post-game auto-hook from processGameEnd. Never throws : failures log.
   async evaluateAfterGame(gameId: string): Promise<void> {
     try {
-      const game = await this.prisma.db.game.findUnique({
-        where: { id: gameId },
-        include: { participants: true },
-      });
-      if (!game) return;
-
-      // Every participant row points at a real account: `user_id` is a foreign
-      // key onto `User` (random UUIDs), and postgame writes no row for a seat it
-      // could not load an account for. There is no bot row to skip.
-      for (const p of game.participants) {
-        await this.evaluateForUser(p.user_id, game, true);
+      // The rows postgame has just written: one per seat, so each one is already
+      // that user's participation. No parent row to load, no join.
+      const rows = await this.prisma.db.matchHistory.findMany({ where: { game_id: gameId } });
+      for (const row of rows) {
+        await this.evaluateForUser(row.user_id, row, true);
       }
     } catch (err) {
       this.logger.warn(`evaluateAfterGame failed for game ${gameId}: ${(err as Error).message}`);
@@ -65,11 +42,11 @@ export class AchievementsService {
   }
 
   // Full evaluation for a user: lifetime rules from LifecycleCounts, per-game
-  // rules from the passed-in game (or a retroactive loop over past games).
+  // rules from the passed-in row (or a retroactive loop over retained matches).
   // announce=false = silent backfill (POST /check).
   async evaluateForUser(
     userId: string,
-    game?: GameWithParticipants | null,
+    row?: MatchRowLike | null,
     announce = true,
   ): Promise<{ unlocked: string[] }> {
     const user = await this.prisma.db.user.findUnique({
@@ -80,8 +57,8 @@ export class AchievementsService {
 
     const unlocked: string[] = [];
 
-    // LifecycleCounts : computed once per evaluation (PVP/PVE only).
-    const counts = await this.computeLifecycleCounts(userId, user);
+    // LifecycleCounts : one row read per evaluation.
+    const counts = await this.computeLifecycleCounts(userId);
 
     // Evaluate lifetime rules (registry-driven), then per-game rules.
     for (const rule of ACHIEVEMENT_RULES) {
@@ -90,24 +67,34 @@ export class AchievementsService {
       }
     }
 
-    // Per-game rules: evaluate the passed-in game, or (silent backfill) run
-    // a retroactive loop over all past games so history can unlock them too.
+    // Per-game rules: evaluate the row just written, or (silent backfill) run a
+    // retroactive loop over the retained matches so history can unlock them too.
+    // What the trim costs: only the newest 50 rows are here, so a backfill on an old
+    // account cannot see further back. Per-game flags are evaluated at match end
+    // anyway, so the loss is confined to `POST /check` on a long-standing account.
     const perGameRules = ACHIEVEMENT_RULES.filter((r) => r.type === 'per-game');
-    if (game) {
+    if (row) {
       for (const rule of perGameRules) {
-        await this.evaluateRule(userId, user.achievement, rule, counts, game, announce, unlocked);
+        await this.evaluateRule(userId, user.achievement, rule, counts, row, announce, unlocked);
       }
     } else {
-      const games = await this.prisma.db.game.findMany({
-        where: { status: 'COMPLETED', participants: { some: { user_id: userId } } },
-        orderBy: { endedAt: 'desc' },
-        include: { participants: true },
+      const rows = await this.prisma.db.matchHistory.findMany({
+        where: { user_id: userId },
+        orderBy: { playedAt: 'desc' },
       });
-      for (const g of games) {
+      for (const matchRow of rows) {
         for (const rule of perGameRules) {
           // Skip rules already unlocked during this evaluation pass.
           if (unlocked.includes(rule.key)) continue;
-          await this.evaluateRule(userId, user.achievement, rule, counts, g, announce, unlocked);
+          await this.evaluateRule(
+            userId,
+            user.achievement,
+            rule,
+            counts,
+            matchRow,
+            announce,
+            unlocked,
+          );
         }
       }
     }
@@ -121,7 +108,7 @@ export class AchievementsService {
     flags: AchievementFlags | null,
     rule: AchievementRule,
     counts: LifecycleCounts,
-    game: GameWithParticipants | null,
+    row: MatchRowLike | null,
     announce: boolean,
     unlocked: string[],
   ): Promise<void> {
@@ -134,12 +121,9 @@ export class AchievementsService {
     if (rule.type === 'lifetime' && rule.source) {
       progress = rule.source(counts);
       target = rule.target ?? 0;
-    } else if (rule.type === 'per-game' && rule.perGameSource && game) {
-      const myParticipation = game.participants?.find((p) => p.user_id === userId);
-      if (myParticipation) {
-        progress = rule.perGameSource(myParticipation, game);
-        target = rule.perGameTarget ?? 0;
-      }
+    } else if (rule.type === 'per-game' && rule.perGameSource && row) {
+      progress = rule.perGameSource(row);
+      target = rule.perGameTarget ?? 0;
     }
 
     if (target > 0 && progress >= target) {
@@ -178,13 +162,14 @@ export class AchievementsService {
     });
     if (!user) return {};
 
-    const counts = await this.computeLifecycleCounts(effectiveUserId, user);
-    const latestGame = await this.prisma.db.game.findFirst({
-      where: { status: 'COMPLETED', participants: { some: { user_id: effectiveUserId } } },
-      orderBy: { endedAt: 'desc' },
-      include: { participants: true },
+    const counts = await this.computeLifecycleCounts(effectiveUserId);
+    // The newest retained match is what the per-game progress bars report, and it is
+    // also the row the "closest to unlocking" numbers come from. Absent (no match
+    // yet) reads as 0 progress, never as an error.
+    const latestMatch = await this.prisma.db.matchHistory.findFirst({
+      where: { user_id: effectiveUserId },
+      orderBy: { playedAt: 'desc' },
     });
-    const myParticipation = latestGame?.participants.find((p) => p.user_id === effectiveUserId);
 
     const result: Record<string, { unlocked: boolean; progress: number; target: number }> = {};
 
@@ -200,9 +185,9 @@ export class AchievementsService {
         progress = rule.source(counts);
         target = rule.target ?? 0;
       } else if (rule.type === 'per-game' && rule.perGameSource) {
-        // Per-game progress = current game value (0 when no game in progress).
-        if (myParticipation && latestGame) {
-          progress = rule.perGameSource(myParticipation, latestGame);
+        // Per-game progress = the newest match's own value (0 when there is none).
+        if (latestMatch) {
+          progress = rule.perGameSource(latestMatch);
         }
         target = rule.perGameTarget ?? 0;
       }
@@ -213,33 +198,18 @@ export class AchievementsService {
     return result;
   }
 
-  // Compute lifetime counters once per evaluation (PVP/PVE games only).
-  private async computeLifecycleCounts(
-    userId: string,
-    user: UserStreaks,
-  ): Promise<LifecycleCounts> {
-    const participations = await this.prisma.db.gameParticipant.findMany({
-      where: { user_id: userId },
-      include: { game: { select: { gameType: true, status: true } } },
-    });
-
-    // Only COMPLETED PVP/PVE participations count : ABANDONED games have no
-    // definitive result, and hotseat is demo-and-forget (never reaches the DB).
-    const pvpPve = participations.filter(
-      (p) => p.game.status === 'COMPLETED' && RATED_GAME_TYPES.includes(p.game.gameType),
-    );
-
-    const wins = pvpPve.filter((p) => p.rank === 1).length;
-    const botWins = pvpPve.filter((p) => p.rank === 1 && p.game.gameType === 'PVE').length;
-    const humanWins = pvpPve.filter((p) => p.rank === 1 && p.game.gameType === 'PVP').length;
-
+  // The lifetime counters, read from the one row that holds them. Nothing is derived
+  // from history: history is a trimmed window, PlayerStats is the record, so the
+  // numbers can no longer disagree with each other after a bad write.
+  private async computeLifecycleCounts(userId: string): Promise<LifecycleCounts> {
+    const stats = await this.prisma.db.playerStats.findUnique({ where: { user_id: userId } });
     return {
-      wins,
-      botWins,
-      humanWins,
-      totalGames: pvpPve.length,
-      winStreak: user.winStreak ?? 0,
-      pveGameStreak: user.pveGameStreak ?? 0,
+      wins: stats?.wins ?? 0,
+      botWins: stats?.botWins ?? 0,
+      humanWins: stats?.humanWins ?? 0,
+      totalGames: stats?.gamesPlayed ?? 0,
+      winStreak: stats?.winStreak ?? 0,
+      pveGameStreak: stats?.pveGameStreak ?? 0,
     };
   }
 

@@ -469,16 +469,18 @@ loadGameState(gameId)
   │   ├── Found → deserialize JSON to GameState
   │   │   └── withBarrierDefaults(state)
   │   │       ├── player.barrierTokens === undefined → 0
-  │   │       └── player.stats.barrierBreaks === undefined → 0
+  │   │       ├── stats.barrierBreaks (legacy) → stats.clashWallBattlesWon, then deleted
+  │   │       └── diceRolls / sixes / piecesLost / clashWallsAttacked / clashWallsDefended → 0
   │   └── Not found → return null
   └── Done
 ```
 
 `withBarrierDefaults` is the ONE door the state comes back through: a live room survives a redeploy in
 Redis, so a `GameState` without the Wall Breaker fields can be loaded mid-game, and it is normalised
-there. Both NUMERIC fields feed
+there. Every NUMERIC field feeds
 arithmetic (`barrierTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
-to `BARRIER_BUSTER_TOKEN_CAP`, `stats.barrierBreaks += 1` when a barrier chain is won), and `undefined - 1` is
+to `BARRIER_BUSTER_TOKEN_CAP`, `stats.clashWallBattlesWon += 1` when a barrier chain is won, and the
+match-row counters the engine tallies per seat), and `undefined - 1` is
 `NaN`: one NaN seat would stay broken for the rest of the
 match, because every later turn reads the poisoned counter back out of Redis. Normalizing at the
 load site (rather than at each read) keeps the fix in one place; the per-site `?? 0` reads stay as

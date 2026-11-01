@@ -33,7 +33,7 @@ The mode rests on four properties:
    validated by a DTO before any Redis key is written.
 2. **A normal engine room.** The engine sees an ordinary PvE room: the same seats, bots, room
    rules and socket events. Only the credential differs.
-3. **Nothing durable is written.** No `Game`, `GameParticipant`, user counter, achievement or
+3. **Nothing durable is written.** No `MatchHistory` row, no `PlayerStats` counter, achievement or
    leaderboard entry exists for a guest room. The Postgres schema is untouched, exactly as for
    hotseat.
 4. **The door is bounded.** Per-address budgets price mints and aborts, a global ceiling bounds

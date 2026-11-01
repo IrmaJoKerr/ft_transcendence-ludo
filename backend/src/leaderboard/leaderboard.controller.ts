@@ -1,5 +1,5 @@
 import { Controller, Get, UseGuards, Request, Query } from '@nestjs/common';
-import { LeaderboardService } from './leaderboard.service';
+import { LeaderboardService, LeaderboardMode } from './leaderboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 function positiveIntOr(value: string | undefined, fallback: number): number {
@@ -18,7 +18,7 @@ export class LeaderboardController {
   @Get()
   async getLeaderboard(
     @Request() req: { user: { id: string } },
-    @Query('mode') mode?: 'global' | 'ranked' | 'casual' | 'bot',
+    @Query('mode') mode?: LeaderboardMode,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {

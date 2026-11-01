@@ -205,6 +205,10 @@ export class AuthService implements OnModuleDestroy {
         language: dto.language ?? 'en',
         password_hash: passwordHash,
         achievement: { create: { id: crypto.randomUUID() } },
+        // Every account owns one career row. The postgame write updates it (and
+        // upserts it), but a missing row here would mean a new account cannot
+        // record its first match.
+        stats: { create: {} },
       },
     });
 
@@ -1049,6 +1053,10 @@ export class AuthService implements OnModuleDestroy {
         email,
         emailVerified: email ? new Date() : null,
         achievement: { create: { id: crypto.randomUUID() } },
+        // Every account owns one career row. The postgame write updates it (and
+        // upserts it), but a missing row here would mean a new account cannot
+        // record its first match.
+        stats: { create: {} },
       },
       select: OAUTH_USER_FIELDS,
     });
