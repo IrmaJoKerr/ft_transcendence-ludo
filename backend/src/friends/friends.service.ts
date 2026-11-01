@@ -60,9 +60,9 @@ export class FriendsService {
     });
   }
 
-  // Create a match room, seat both players and notify the invitee.
+  // Create a match room, stage the invite for the friend and notify them.
   // POST /api/friends/:friendId/invite
-  async inviteToGame(userId: string, friendId: string) {
+  async inviteToGame(userId: string, friendId: string, hostColor: string) {
     if (userId === friendId)
       throw new BadRequestException({
         code: 'FRIEND_INVITE_SELF',
@@ -81,22 +81,16 @@ export class FriendsService {
         message: 'You are not friends with this user',
       });
 
-    const match = await this.matchService.createInvite(userId);
+    const match = await this.matchService.createInvite(userId, undefined, hostColor);
     const inviter = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { username: true, displayName: true },
     });
 
-    // Seat the friend into the room now : they only confirm before entering,
-    // they don't have to "accept" first.
-    const friendSeat = await this.matchService.joinMatch(match.gameId, friendId);
-
-    // Push a real-time notification to the friend instead of a polled Redis key.
+    // The friend is NOT seated here: a seat owns a colour, so they claim one from
+    // the palette when they accept. The invite carries the room only.
     await this.notificationService.notify(friendId, 'game_invite', {
-      gameId: friendSeat.gameId,
-      token: friendSeat.token,
-      engineUrl: friendSeat.engineUrl,
-      color: friendSeat.color,
+      gameId: match.gameId,
       inviteCode: match.inviteCode,
       fromUsername: inviter?.username ?? 'A friend',
     });

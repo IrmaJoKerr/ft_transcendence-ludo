@@ -32,6 +32,10 @@ export type RoomSnapshotRow = {
   clashKeyShift: 0 | 1 | 2;
   /** Seat slots in order; empty strings for free slots. */
   seatIds: string[];
+  /** Each slot's colour, slot order (blue, red, green, yellow): the claim's address book. */
+  seatColors: string[];
+  /** The colours a joiner may still claim: a slot with no seat in a joinable room. */
+  freeColors: string[];
   /** Users whose seat the engine finalized: never rejoined, never listed. */
   finalizedIds: string[];
   /** The engine has already started this room's game. */
@@ -50,6 +54,12 @@ export type LobbyRoom = {
   maxSeats: number;
   mode: 'classic' | 'duel';
   mySeat: boolean;
+  /**
+   * The corners a joiner may still claim, in canonical order. The join palette is
+   * built from exactly this list, so a taken colour is never offered; the join
+   * route checks the same thing again (HSETNX).
+   */
+  freeColors: string[];
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
@@ -95,6 +105,7 @@ export function lobbyRoomsFor(snapshot: RoomSnapshotRow[], viewerId?: string): L
       maxSeats: room.maxSeats,
       mode: room.mode,
       mySeat: slotIndex !== -1,
+      freeColors: room.freeColors,
       clashEnabled: room.clashEnabled,
       noSafeZones: room.noSafeZones,
       freeExit: room.freeExit,
@@ -185,7 +196,9 @@ export class MatchQueryService {
         if (!data.id) continue;
 
         const seatIds = [data.player1_id, data.player2_id, data.player3_id, data.player4_id];
-        const seatColors = SLOT_COLORS.map((fallback, i) => data[`player${i + 1}_color`] || fallback);
+        const seatColors = SLOT_COLORS.map(
+          (fallback, i) => data[`player${i + 1}_color`] || fallback,
+        );
         const engine = readEngineState(await this.redis.hget(`game:${data.id}`, 'state'), seatColors);
         const maxSeats = parseInt(data.playerCount || '4', 10);
 
@@ -194,7 +207,9 @@ export class MatchQueryService {
           roomCode: data.inviteCode,
           status: data.status,
           gameType: data.gameType,
-          hostId: data.player1_id ?? '',
+          // The host is its own field: their seat is their colour's slot, which is not
+          // always slot 1, so `player1_id` cannot stand in for them.
+          hostId: data.hostId || '',
           host: '',
           hostUsername: '',
           hasAvatarPhoto: false,
@@ -203,6 +218,10 @@ export class MatchQueryService {
           mode: maxSeats === 2 ? 'duel' : 'classic',
           ...readRoomRules(data),
           seatIds,
+          seatColors,
+          // An empty slot in a room that declares it is a free corner. Beyond
+          // `playerCount` the slot is not part of the room at all.
+          freeColors: seatColors.filter((_, i) => i < maxSeats && !seatIds[i]),
           finalizedIds: seatIds.filter((id, i) => !!id && engine.finalizedColors.has(seatColors[i])),
           started: engine.started,
         });

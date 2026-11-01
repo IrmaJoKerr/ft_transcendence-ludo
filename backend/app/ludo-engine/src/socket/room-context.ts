@@ -22,14 +22,6 @@ export class RoomContext {
     this.seats.set(color, userId);
   }
 
-  // Vacate a seat only while it still maps to this user: during a colour swap
-  // the old colour may already belong to the other player.
-  unbindSeatIf(color: PlayerColor, userId: string): boolean {
-    if (this.seats.get(color) !== userId) return false;
-    this.seats.delete(color);
-    return true;
-  }
-
   // Hydrate the human seat bindings from the persisted state, so a rebuilt room
   // knows who held which colour without waiting for a rejoin.
   rebuild(state: GameState): void {

@@ -119,7 +119,6 @@ export type ClientEvents = {
   // `clash_result` frame this receipt belongs to.
   clash_card_hold: (cardId: string, holdMs: number) => void;
   player_ready: () => void;
-  select_color: (color: PlayerColor) => void;
   update_modifiers: (rules: RoomRules) => void;
   leave_game: () => void;
   end_game: () => void;

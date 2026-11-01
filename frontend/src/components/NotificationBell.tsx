@@ -2,11 +2,11 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { apiFetch } from '../api';
 import type { Notification } from '../hooks/useNotifications';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { useApp } from '../store';
-import type { PlayerColor } from '../game/types';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 import { railButtonStyle, railHoverHandlers } from './railButton';
@@ -232,7 +232,7 @@ export function NotificationBell({
   const setOpen = setBellOpen;
   const ref = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { setActiveMatch } = useApp();
+  const { activeMatch, setActiveMatch } = useApp();
 
   const list = Array.isArray(notifications) ? notifications : [];
   const count = typeof unreadCount === 'number' ? unreadCount : list.filter((n) => !n.read).length;
@@ -291,6 +291,19 @@ export function NotificationBell({
     setOpen(!open);
   };
 
+  // Same contract as the toast's accept: abort, then hand the code to the lobby.
+  const acceptInvite = async (p: Record<string, unknown>) => {
+    const currentGameId = activeMatch?.gameId;
+    if (currentGameId && currentGameId !== p.gameId) {
+      await apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
+        // Non-fatal: the navigation below still happens.
+      });
+      setActiveMatch(null);
+    }
+    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
+    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
+  };
+
   const handleItemClick = (n: Notification) => {
     if (n.id) {
       onMarkRead(n.id);
@@ -304,17 +317,11 @@ export function NotificationBell({
     const p = parseNotificationPayload(n.payload);
 
     if (n.type === 'game_invite') {
-      setActiveMatch({
-        gameId: p.gameId as string,
-        token: p.token as string,
-        color: p.color as PlayerColor,
-        inviteCode: p.inviteCode as string | undefined,
-        mode: 'pvp',
-        playerCount: 4,
-      });
-      if (p.gameId) {
-        navigate(`/game?gameId=${p.gameId}`);
-      }
+      // The invite carries the room, not a seat: accepting lands in the lobby with
+      // the code filled in, where the invitee claims one of the room's free corners.
+      // A live game is dropped first (awaited, so the lobby's own "active game" check
+      // agrees), or the backend would answer MATCH_ACTIVE_GAME at the claim.
+      void acceptInvite(p);
       setOpen(false);
     } else if (n.type === 'friend_request' || n.type === 'friend_accepted') {
       navigate('/friends');

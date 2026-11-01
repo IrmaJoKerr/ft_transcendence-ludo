@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/notification.service';
@@ -36,8 +42,9 @@ export class MatchPlayerService {
     });
   }
 
-  // Join an existing WAITING match by filling the next empty slot.
-  async joinMatch(gameId: string, userId: string) {
+  // Join an existing WAITING match at one corner. The joiner chooses it (`color`) and
+  // the claim is final: no default, no swap afterwards.
+  async joinMatch(gameId: string, userId: string, color: string) {
     const data = await this.redis.hgetall(`match:${gameId}`);
     if (!data.id)
       throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
@@ -85,17 +92,32 @@ export class MatchPlayerService {
     if (occupiedIds.length >= maxSeats)
       throw new ForbiddenException({ code: 'MATCH_ROOM_FULL', message: 'Room is full' });
 
-    const slotIndex = !data.player2_id ? 1 : !data.player3_id ? 2 : 3;
+    // A claimed colour is a seat: it lands at that colour's own slot, and nothing
+    // else may take it. There is no fallback slot.
+    const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
+    const slot = colorSlot.get(color);
+    if (!slot || slot > maxSeats) {
+      throw new BadRequestException({
+        code: 'MATCH_INVALID_COLOR',
+        message: `color is required and must be one of ${SLOT_COLORS.slice(0, maxSeats).join(', ')}`,
+      });
+    }
+    const slotIndex = slot - 1;
+    const assignedColor = color;
     const slotKey = `player${slotIndex + 1}`;
-    const assignedColor = SLOT_COLORS[slotIndex];
 
-    await this.redis.hset(
-      `match:${gameId}`,
-      `${slotKey}_id`,
-      userId,
-      `${slotKey}_color`,
-      assignedColor,
-    );
+    // HSETNX is the whole claim protocol: two joiners racing for one colour produce
+    // one seat and one MATCH_COLOR_TAKEN, never a silent overwrite. The colour field
+    // is written after the id, so a failed claim leaves nothing behind; a missing
+    // colour field reads back as that slot's own colour anyway.
+    const claimed = await this.redis.hsetnx(`match:${gameId}`, `${slotKey}_id`, userId);
+    if (!claimed) {
+      throw new ConflictException({
+        code: 'MATCH_COLOR_TAKEN',
+        message: 'That color was just taken',
+      });
+    }
+    await this.redis.hset(`match:${gameId}`, `${slotKey}_color`, assignedColor);
     // A seat taken is a lobby/mine change for everyone.
     await publishRoomsChanged(this.redis);
 
@@ -200,8 +222,9 @@ export class MatchPlayerService {
     };
   }
 
-  // Seat a friend into an existing WAITING PvP room and stage an
-  // `invite:{friendId}` record for their client's next poll.
+  // Invite a friend into an existing WAITING PvP room. The seat is deliberately not
+  // created here: a seat owns a colour, so the friend claims one from the palette
+  // when they accept (POST api/match/join/:code). This stages the room for them.
   async inviteFriendToGame(gameId: string, hostId: string, friendId: string) {
     const data = await this.redis.hgetall(`match:${gameId}`);
     if (!data.id)
@@ -242,36 +265,26 @@ export class MatchPlayerService {
         message: 'You are not friends with this user',
       });
 
-    const friendSeat = await this.joinMatch(gameId, friendId);
     const fromUsername = (await this.resolveUsername(hostId)) ?? 'A friend';
+    const inviteCode = data.inviteCode || undefined;
 
     await this.redis.set(
       `invite:${friendId}`,
-      JSON.stringify({
-        gameId: friendSeat.gameId,
-        token: friendSeat.token,
-        engineUrl: friendSeat.engineUrl,
-        color: friendSeat.color,
-        inviteCode: data.inviteCode || undefined,
-        fromUsername,
-        createdAt: Date.now(),
-      }),
+      JSON.stringify({ gameId, inviteCode, fromUsername, createdAt: Date.now() }),
       'EX',
       300,
     );
 
-    // Push real-time notification to the friend via SSE / Redis pub/sub
+    // The invite carries the room, not a seat: the friend picks their corner when
+    // they accept, so no token and no colour travel here.
     await this.notificationService.notify(friendId, 'game_invite', {
-      gameId: friendSeat.gameId,
-      token: friendSeat.token,
-      engineUrl: friendSeat.engineUrl,
-      color: friendSeat.color,
-      inviteCode: data.inviteCode || undefined,
+      gameId,
+      inviteCode,
       fromUsername,
       playerCount: parseInt(data.playerCount || '4', 10),
     });
 
-    return { gameId: friendSeat.gameId };
+    return { gameId };
   }
 
   // Toggle the ready flag for a player in a WAITING match.

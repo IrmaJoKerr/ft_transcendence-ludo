@@ -100,6 +100,11 @@ export class MatchCreatorService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // The host's own corner. Required at runtime in every mode: a seat owns a colour,
+    // and the host picks theirs before anybody else's is decided. Optional in the
+    // signature because it follows optional seat params; `createMatchLocked` refuses
+    // its absence (MATCH_INVALID_COLOR), so there is still no fallback colour.
+    hostColor?: string,
     // The host's room rules from the same create payload as the seats. Normalized
     // here, at the service boundary, so every caller gets the same defaults; the
     // hash write below takes the normalized object only.
@@ -152,6 +157,7 @@ export class MatchCreatorService {
         botColors,
         botNames,
         seatColors,
+        hostColor,
         roomRules,
       ),
     );
@@ -187,6 +193,8 @@ export class MatchCreatorService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // The host's picked corner; refused below when absent, never defaulted.
+    hostColor?: string,
     // Always the NORMALIZED rules, never raw wire values: this is the path that
     // writes Redis. The default keeps a caller that has none on the standard room
     // (the public entry point normalizes, so it always passes one).
@@ -218,26 +226,43 @@ export class MatchCreatorService {
     const gameId = crypto.randomUUID();
     const totalBots = botCount;
     const isPvP = mode === 'pvp';
-    const player1Color = SLOT_COLORS[0];
+
+    // Slot→color mapping is fixed by index (0=blue,1=red,2=green,3=yellow): the
+    // slot is the colour's own address in the hash, and a participant is written at
+    // the slot of the colour they hold. It is never used to derive a colour back.
+    const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
+    // The host picks first, so their seat is their colour's seat: slot 1 is no longer
+    // "the host slot", it is blue's slot, and the host lands wherever their pick is.
+    // No fallback: a create without a colour is refused here, before anything is written.
+    if (!hostColor || !colorSlot.has(hostColor)) {
+      throw new BadRequestException({
+        code: 'MATCH_INVALID_COLOR',
+        message: `hostColor is required and must be one of ${SLOT_COLORS.join(', ')}`,
+      });
+    }
+    const hostSlot = colorSlot.get(hostColor)!;
 
     const updates: Record<string, string> = {
       id: gameId,
       status: isPvP ? 'WAITING' : 'ACTIVE',
       gameType: mode.toUpperCase(),
       playerCount: playerCount.toString(),
-      player1_id: userId,
-      player1_color: player1Color,
+      // The host is its own field: the seat they occupy is their colour's slot, so
+      // `player1_id` can no longer stand in for "who created this room".
+      hostId: userId,
+      [`player${hostSlot}_id`]: userId,
+      [`player${hostSlot}_color`]: hostColor,
       createdAt: Date.now().toString(),
     };
 
-    // Slot→color mapping is fixed by index (0=blue,1=red,2=green,3=yellow).
     // Persist the exact seat order so the engine creates matching colors :
-    // hotseat can skip seats (e.g. blue + green + yellow, no red).
-    const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
+    // hotseat can skip seats (e.g. blue + green + yellow, no red), and the order is
+    // the rotation order. A caller with no explicit order gets the host's corner
+    // first, then the free corners in canonical order.
     const resolvedSeatColors =
       Array.isArray(seatColors) && seatColors.length > 0
         ? seatColors
-        : SLOT_COLORS.slice(0, playerCount);
+        : [hostColor, ...SLOT_COLORS.filter((c) => c !== hostColor)].slice(0, playerCount);
     if (resolvedSeatColors.length !== playerCount) {
       throw new BadRequestException({
         code: 'MATCH_SEAT_COLORS_LENGTH',
@@ -249,10 +274,20 @@ export class MatchCreatorService {
         throw new BadRequestException(`Invalid seat color: ${c}`);
       }
     }
-    if (resolvedSeatColors[0] !== SLOT_COLORS[0]) {
+    // The palette cannot produce a duplicate, but the route can be called directly,
+    // and two seats on one colour would collide on the same hash slot.
+    if (new Set(resolvedSeatColors).size !== resolvedSeatColors.length) {
       throw new BadRequestException({
-        code: 'MATCH_HOST_BLUE',
-        message: 'The host (first seat) must be blue',
+        code: 'MATCH_DUPLICATE_COLOR',
+        message: 'Each seat must have its own color',
+      });
+    }
+    // The engine builds its seats from this list, so a host colour missing from it
+    // would seat the host nowhere.
+    if (!isPvP && !resolvedSeatColors.includes(hostColor)) {
+      throw new BadRequestException({
+        code: 'MATCH_INVALID_COLOR',
+        message: 'seatColors must include the host color',
       });
     }
     updates.seatColors = resolvedSeatColors.join(',');
@@ -273,8 +308,16 @@ export class MatchCreatorService {
       }
       for (const [index, color] of assignedBotColors.entries()) {
         const slot = colorSlot.get(color);
-        if (!slot || slot < 2 || slot > 4) {
+        // A bot may hold any corner, blue included: the host no longer owns it by
+        // construction. What a bot may not do is share one.
+        if (!slot) {
           throw new BadRequestException(`Invalid bot color: ${color}`);
+        }
+        if (color === hostColor || assignedBotColors.indexOf(color) !== index) {
+          throw new BadRequestException({
+            code: 'MATCH_DUPLICATE_COLOR',
+            message: 'Each seat must have its own color',
+          });
         }
         updates[`player${slot}_id`] = BOT_PREFIX + color;
         updates[`player${slot}_color`] = color;
@@ -327,7 +370,7 @@ export class MatchCreatorService {
         displayName,
         role: 'player1',
         mode,
-        color: player1Color,
+        color: hostColor,
       });
     }
 
@@ -338,7 +381,7 @@ export class MatchCreatorService {
       gameId,
       token,
       engineUrl: ENGINE_WS_URL,
-      color: player1Color,
+      color: hostColor,
       mode,
       playerCount,
       rules,
@@ -418,8 +461,9 @@ export class MatchCreatorService {
     };
   }
 
-  // Create a PvP room and return its invite code (alias for createMatch).
-  async createInvite(userId: string, rules?: Partial<RoomRules>) {
+  // Create a PvP room and return its invite code (alias for createMatch). The room
+  // browser asks the host for a corner first: the other three stay free for joiners.
+  async createInvite(userId: string, rules: Partial<RoomRules> | undefined, hostColor?: string) {
     // The three `undefined`s are botColors/botNames/seatColors: a PvP room has no
     // bots and takes the dense default seat order.
     const result = await this.createMatch(
@@ -430,13 +474,15 @@ export class MatchCreatorService {
       undefined,
       undefined,
       undefined,
+      hostColor,
       rules,
     );
     return result;
   }
 
-  // Create a PvE match with the specified number of bot opponents.
-  async playBot(userId: string, playerCount: number = 2) {
+  // Create a PvE match with the specified number of bot opponents. The caller
+  // supplies the host's corner; bot colours are dealt below it.
+  async playBot(userId: string, playerCount: number, hostColor?: string) {
     if (playerCount !== 2 && playerCount !== 4) {
       throw new BadRequestException({
         code: 'MATCH_PLAYER_COUNT_2_4',
@@ -444,7 +490,7 @@ export class MatchCreatorService {
       });
     }
     const botCount = playerCount - 1;
-    return this.createMatch(userId, 'pve', playerCount, botCount);
+    return this.createMatch(userId, 'pve', playerCount, botCount, undefined, undefined, undefined, hostColor);
   }
 
   // The guest door: an anonymous, ephemeral PvE room. Not createMatch(): mode is
@@ -463,11 +509,12 @@ export class MatchCreatorService {
 
     let result: MatchRoomHandoff;
     try {
-      // Seat order: the human's fixed blue plus the bot colours in setup order, so
-      // a sparse layout is dealt as-is. The client never chooses the human's colour;
-      // a botColors/botCount mismatch stays undefined for createMatchLocked to report.
+      // Seat order: the guest's picked corner plus the bot colours in setup order, so
+      // a sparse layout is dealt as-is. A botColors/botCount mismatch stays undefined
+      // for createMatchLocked to report.
+      const hostColor = dto.hostColor;
       const seatColors =
-        dto.botColors?.length === botCount ? ['blue', ...dto.botColors] : undefined;
+        dto.botColors?.length === botCount ? [hostColor, ...dto.botColors] : undefined;
       result = await this.createMatchLocked(
         guestId,
         'pve',
@@ -476,6 +523,7 @@ export class MatchCreatorService {
         dto.botColors,
         dto.botNames,
         seatColors,
+        hostColor,
         normalizeRoomRules(dto),
         { guestToken: token, guestIpHash: guestIpHash(ip) },
       );
@@ -501,7 +549,8 @@ export class MatchCreatorService {
     return { ...result, isGuest: true };
   }
 
-  // Join a PvP room by its 6-character invite code.
+  // Join a PvP room by its 6-character invite code. The claimed `color` rides the
+  // joiner closure below, because the seat is written by MatchPlayerService.
   async joinByInvite(
     inviteCode: string,
     userId: string,
@@ -514,7 +563,9 @@ export class MatchCreatorService {
       for (const key of keys) {
         const data = await this.redis.hgetall(key);
         if (data.inviteCode === inviteCode && data.status === 'WAITING') {
-          if (data.player1_id === userId) {
+          // The host is its own field: their seat is their colour's slot, which is
+          // not always slot 1.
+          if (data.hostId === userId) {
             throw new BadRequestException({
               code: 'MATCH_OWN_INVITE',
               message: 'You cannot join your own invite',

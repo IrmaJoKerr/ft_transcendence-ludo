@@ -286,7 +286,12 @@ export class JoinManager {
     if (state.status === 'active') return;
 
     if (matchData.gameType === 'PVE') {
-      for (let i = 2; i <= 4; i++) {
+      // Every slot, slot 1 included. The host sits at *their colour's* slot now, so
+      // with a non-blue host slot 1 is an ordinary bot seat; starting this loop at 2
+      // was the old "blue is the host" assumption and it silently dropped the blue
+      // bot (never active, no bot instance, so the quadrant never played). Slots
+      // beyond `playerCount` have no id and are skipped by the guard below.
+      for (let i = 1; i <= 4; i++) {
         const slotUserId = matchData[`player${i}_id`];
         const slotColor = SLOT_COLORS[i - 1];
         if (!slotUserId || !isBotMatchSeat(matchData, slotColor)) continue;

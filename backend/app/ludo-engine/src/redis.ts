@@ -139,7 +139,11 @@ export class RedisGameStore {
     const players: PlayerMeta[] = activeColors.map((color) => ({
       color,
       status: 'inactive',
-      username: color === 'blue' ? 'You' : color.charAt(0).toUpperCase() + color.slice(1),
+      // A placeholder only: the join path writes the real `username`/`displayName`
+      // for whichever seat connects (bots included). No seat is special here any
+      // more, so blue gets the same label as the other three: the host owns the
+      // corner they picked when the room was created, which is not always blue.
+      username: color.charAt(0).toUpperCase() + color.slice(1),
       isBot: false,
       isConnected: false,
       hasAvatarPhoto: false,
@@ -316,24 +320,19 @@ export class RedisGameStore {
     await this.notifyRoomsChanged();
   }
 
-  async clearSeatUser(gameId: string, color: PlayerColor): Promise<void> {
-    await this.client.hdel(this.matchKey(gameId), this.seatUserField(color));
-    await this.notifyRoomsChanged();
-  }
-
   seatUserFrom(matchData: Record<string, string> | null, color: PlayerColor): string | undefined {
     return matchData?.[this.seatUserField(color)];
   }
 
   // FREE a non-host seat on abort: delete the slot from the match hash so the room
-  // can hand it to someone else. The host seat is never cleared.
+  // can hand it to someone else. The host seat is never cleared, wherever it sits:
+  // the host is `hostId`, and their colour's slot is not always slot 1.
   async clearMatchSeat(gameId: string, color: PlayerColor): Promise<void> {
     const data = await this.getMatchData(gameId);
     if (!data) return;
-    if (data.player1_color === color) return; // never clear the host's seat
-
     const slotIndex = COLORS.indexOf(color);
-    if (slotIndex <= 0) return; // unknown color or host slot
+    if (slotIndex === -1) return; // unknown colour
+    if (data[`player${slotIndex + 1}_id`] === data.hostId) return; // never clear the host's seat
     await this.client.hdel(
       this.matchKey(gameId),
       `player${slotIndex + 1}_id`,
@@ -354,9 +353,9 @@ export class RedisGameStore {
   async reserveMatchSeat(gameId: string, color: PlayerColor): Promise<void> {
     const data = await this.getMatchData(gameId);
     if (!data) return;
-    if (data.player1_color === color) return; // host keeps a live seat
     const slotIndex = COLORS.indexOf(color);
-    if (slotIndex <= 0) return; // unknown colour or host slot
+    if (slotIndex === -1) return; // unknown colour
+    if (data[`player${slotIndex + 1}_id`] === data.hostId) return; // host keeps a live seat
     await this.client.hset(this.matchKey(gameId), `player${slotIndex + 1}_left`, '1');
     await this.notifyRoomsChanged();
     await this.setIdleSince(gameId, Date.now());

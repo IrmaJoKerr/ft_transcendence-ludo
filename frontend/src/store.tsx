@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import i18n from './i18n';
-import { BOT_POOL } from './theme';
+import { BOT_POOL, SEAT_COLORS, type ColorKey } from './theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
 import { connectSessionSocket } from './sessionSocket';
 import type { SessionSocket } from './sessionSocket';
@@ -42,11 +42,39 @@ function apiError(body: unknown, fallback: string): string {
  * failed, so the single-use token was never consumed and the link still works. */
 export type VerifyOutcome = 'signup' | 'change' | 'conflict' | 'invalid' | 'error';
 
+/**
+ * One card of the Lobby roster. A seated card owns its colour: the colour is the
+ * seat, so it is picked when the seat is taken and never re-derived from the card
+ * index afterwards. An empty card owns nothing (there is no colour to own yet).
+ */
 export type Seat =
-  | { type: 'you' }
-  | { type: 'bot'; name: string }
-  | { type: 'player'; name: string }
+  | { type: 'you'; color: ColorKey }
+  | { type: 'bot'; name: string; color: ColorKey }
+  | { type: 'player'; name: string; color: ColorKey }
   | { type: 'empty' };
+
+/** A seat that occupies a card, and therefore holds one of the four corners. */
+export type OccupiedSeat = Exclude<Seat, { type: 'empty' }>;
+
+/** Narrows a roster card to the ones that own a colour. */
+export function isOccupiedSeat(seat: Seat): seat is OccupiedSeat {
+  return seat.type !== 'empty';
+}
+
+/**
+ * The corners nobody has claimed yet, in the canonical blue-first order. Every
+ * palette is built from this: a taken colour is never offered, so the picker
+ * cannot produce a duplicate (the server checks the same rule).
+ */
+export function freeColors(seats: Seat[]): ColorKey[] {
+  const taken = new Set(seats.filter(isOccupiedSeat).map((seat) => seat.color));
+  return SEAT_COLORS.filter((color) => !taken.has(color));
+}
+
+/** A fresh roster: four empty cards. */
+function emptySeats(): Seat[] {
+  return [{ type: 'empty' }, { type: 'empty' }, { type: 'empty' }, { type: 'empty' }];
+}
 
 export type PlayerCount = 2 | 3 | 4;
 
@@ -142,6 +170,8 @@ export type LastResult = {
  * screen. Not persisted: a guest session dies with the tab. */
 export type GuestSetup = {
   botCount: number;
+  /** The guest's own corner: the palette is theirs too, and there is no default. */
+  hostColor: string;
   botColors?: string[];
   botNames?: string[];
   clashEnabled: boolean;
@@ -185,14 +215,18 @@ type AppState = {
   turn: number;
   settings: Record<string, boolean>;
   setPlayerCount: (c: PlayerCount) => void;
-  addBot: (i: number) => void;
-  removeBot: (i: number) => void;
-  addPlayer: (i: number) => void;
-  removePlayer: (i: number) => void;
+  /** Seats the host (`you`) on card `i` with the picked colour. One host card only: a re-pick moves the seat. */
+  placeHost: (i: number, color: ColorKey) => void;
+  /** Seats a bot on card `i` at the picked colour. */
+  addBot: (i: number, color: ColorKey) => void;
+  /** Seats a local hotseat pilot on card `i` at the picked colour. */
+  addPlayer: (i: number, color: ColorKey) => void;
+  /** Empties card `i`, host card included: an emptied card gives its colour back. */
+  removeSeat: (i: number) => void;
   renamePlayer: (i: number, name: string) => void;
-  /** Clears every seat but the host: call when entering the sub-lobby so a fresh room never inherits bots/players from a previous session. */
+  /** Clears every card: call when entering the sub-lobby so a fresh room never inherits seats from a previous session. */
   resetSeats: () => void;
-  /** Fills remaining empty seats with Easy bots. Returns false when no bot is seated yet. */
+  /** False until the host is seated: every other card is added after the host's colour is theirs. */
   startGame: () => boolean;
   roll: () => void;
   endTurn: () => void;
@@ -219,6 +253,35 @@ type AppState = {
 };
 
 const Ctx = createContext<AppState | null>(null);
+
+function storedSeats(): Seat[] {
+  try {
+    const raw = sessionStorage.getItem(SEATS_KEY);
+    if (!raw) return emptySeats();
+    const parsed = JSON.parse(raw) as Array<{ type?: unknown; name?: unknown; color?: unknown }>;
+    if (!Array.isArray(parsed) || parsed.length !== 4) return emptySeats();
+    // A value written before the colour moved onto the seat has no `color` on its
+    // occupied cards, and one colour may never sit on two cards: either fault
+    // discards the whole value rather than minting a duplicate.
+    const taken = new Set<ColorKey>();
+    const seats = parsed.map((seat): Seat => {
+      const color = SEAT_COLORS.find((c) => c === seat?.color && !taken.has(c));
+      if (!color) return { type: 'empty' };
+      taken.add(color);
+      const name = typeof seat.name === 'string' && seat.name ? seat.name : '';
+      if (seat.type === 'you') return { type: 'you', color };
+      if (seat.type === 'bot') return { type: 'bot', name: name || 'Bot', color };
+      if (seat.type === 'player')
+        return { type: 'player', name: name || i18n.t('lobby.defaultPlayerName', { num: 2 }), color };
+      return { type: 'empty' };
+    });
+    if (parsed.some((seat, i) => seat?.type !== 'empty' && seats[i].type === 'empty')) return emptySeats();
+    return seats;
+  } catch {
+    /* a corrupt value is a fresh roster */
+    return emptySeats();
+  }
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeType>(storedTheme);
@@ -526,19 +589,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const [playerCount, setPlayerCount] = useState<PlayerCount>(4);
-  const [seats, setSeats] = useState<Seat[]>(() => {
-    try {
-      const raw = sessionStorage.getItem(SEATS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Seat[];
-        if (Array.isArray(parsed) && parsed.length === 4 && parsed.some((x) => x.type === 'you'))
-          return parsed;
-      }
-    } catch {
-      /* ignore corrupt value */
-    }
-    return [{ type: 'you' }, { type: 'empty' }, { type: 'empty' }, { type: 'empty' }];
-  });
+  const [seats, setSeats] = useState<Seat[]>(storedSeats);
   const [dice, setDice] = useState(4);
   const [rolling, setRolling] = useState(false);
   const [turn, setTurn] = useState(0);
@@ -570,35 +621,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void i18n.changeLanguage(lang);
   }, [lang]);
 
-  const addBot = useCallback((i: number) => {
+  const placeHost = useCallback((i: number, color: ColorKey) => {
+    setSeats((prev) => {
+      const next = prev.slice();
+      // One host card only: re-picking moves the seat instead of seating it twice.
+      for (let k = 0; k < next.length; k++) if (next[k].type === 'you') next[k] = { type: 'empty' };
+      next[i] = { type: 'you', color };
+      return next;
+    });
+  }, []);
+
+  const addBot = useCallback((i: number, color: ColorKey) => {
     setSeats((prev) => {
       const used = prev.filter((s) => s.type === 'bot').map((s) => s.name);
       const name = BOT_POOL.find((n) => !used.includes(n)) ?? 'Bot';
       const next = prev.slice();
-      next[i] = { type: 'bot', name };
+      next[i] = { type: 'bot', name, color };
       return next;
     });
   }, []);
 
-  const removeBot = useCallback((i: number) => {
-    setSeats((prev) => {
-      const next = prev.slice();
-      next[i] = { type: 'empty' };
-      return next;
-    });
-  }, []);
-
-  const addPlayer = useCallback((i: number) => {
+  const addPlayer = useCallback((i: number, color: ColorKey) => {
     setSeats((prev) => {
       const existing = prev.filter((s) => s.type === 'player').length;
       const name = i18n.t('lobby.defaultPlayerName', { num: existing + 2 });
       const next = prev.slice();
-      next[i] = { type: 'player', name };
+      next[i] = { type: 'player', name, color };
       return next;
     });
   }, []);
 
-  const removePlayer = useCallback((i: number) => {
+  // One remove path for every card: emptying the host's card gives its colour back
+  // and reopens the palette, because no card may be filled before the host's.
+  const removeSeat = useCallback((i: number) => {
     setSeats((prev) => {
       const next = prev.slice();
       next[i] = { type: 'empty' };
@@ -608,29 +663,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const renamePlayer = useCallback((i: number, name: string) => {
     setSeats((prev) => {
-      if (prev[i].type !== 'player') return prev;
+      const seat = prev[i];
+      if (seat.type !== 'player') return prev;
       const next = prev.slice();
-      next[i] = { type: 'player', name };
+      next[i] = { type: 'player', name, color: seat.color };
       return next;
     });
   }, []);
 
   const resetSeats = useCallback(() => {
-    setSeats([{ type: 'you' }, { type: 'empty' }, { type: 'empty' }, { type: 'empty' }]);
+    setSeats(emptySeats());
   }, []);
 
+  // Nothing is auto-filled any more: every card is a seat the user placed, so the
+  // only thing left to check is that the host took theirs.
   const startGame = useCallback((): boolean => {
-    const bots = seats.slice(0, playerCount).filter((s) => s.type === 'bot').length;
-    if (bots < 1) return false;
-    const used = seats.filter((s) => s.type === 'bot').map((s) => s.name);
-    const pool = BOT_POOL.filter((n) => !used.includes(n));
-    setSeats((prev) =>
-      prev.map((s, i): Seat => {
-        if (i < playerCount && s.type === 'empty')
-          return { type: 'bot', name: pool.shift() ?? 'Bot' };
-        return s;
-      }),
-    );
+    if (!seats.slice(0, playerCount).some((s) => s.type === 'you')) return false;
     setTurn(0);
     return true;
   }, [seats, playerCount]);
@@ -704,10 +752,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       turn,
       settings,
       setPlayerCount,
+      placeHost,
       addBot,
-      removeBot,
       addPlayer,
-      removePlayer,
+      removeSeat,
       renamePlayer,
       resetSeats,
       startGame,
@@ -748,10 +796,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       rolling,
       turn,
       settings,
+      placeHost,
       addBot,
-      removeBot,
       addPlayer,
-      removePlayer,
+      removeSeat,
       renamePlayer,
       resetSeats,
       startGame,

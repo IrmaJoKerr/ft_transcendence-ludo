@@ -18,6 +18,11 @@ const COLORS = ['blue', 'red', 'green', 'yellow'];
 // fails at the HTTP boundary before any Redis key is written. Deliberately absent:
 // `mode`, `playerCount`, `seatColors` and `gameId`.
 export class CreateGuestMatchDto {
+  // The guest's own corner, from the same palette a signed-in host uses. Required:
+  // the host picks in every mode, and no mode has a fallback colour.
+  @IsIn(COLORS)
+  hostColor!: string;
+
   // Required, not optional: a guest has no session to default against and a
   // bot-less "PvE" room is meaningless. 1-3 mirrors createMatch's PvE checks
   // (playerCount 2-4) and the four-colour seat table.

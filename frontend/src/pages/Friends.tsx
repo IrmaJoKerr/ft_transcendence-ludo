@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchWithCsrf, postApi, translateErrorCode } from '../api';
+import { ColorPaletteModal } from '../components/ColorPaletteModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
 import type { PlayerColor } from '../game/types';
 import { navigate } from '../router';
 import { useApp } from '../store';
 import { useFriendships } from '../hooks/useFriendships';
-import { STATUS_STYLE, type PresenceStatus } from '../theme';
+import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
@@ -69,6 +70,9 @@ export function Friends() {
   const [searchUsername, setSearchUsername] = useState('');
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [invitingId, setInvitingId] = useState<string | null>(null);
+  // The friend being challenged, while the inviter picks the corner they will host
+  // in. The room does not exist until a colour is picked, so the pick comes first.
+  const [paletteFriendId, setPaletteFriendId] = useState<string | null>(null);
 
   const fetchData = () => {
     refresh();
@@ -138,7 +142,7 @@ export function Friends() {
     fetchData();
   };
 
-  const handleInvite = async (friendId: string) => {
+  const handleInvite = async (friendId: string, hostColor: ColorKey) => {
     setInvitingId(friendId);
     setMsg(null);
     retroAudio.playUiBeep(780, 0.06);
@@ -151,7 +155,7 @@ export function Friends() {
         inviteCode?: string;
         mode: 'pvp' | 'pve' | 'hotseat';
         playerCount: number;
-      }>('/api/friends/' + friendId + '/invite');
+      }>('/api/friends/' + friendId + '/invite', { hostColor });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
     } catch (e) {
@@ -681,7 +685,9 @@ export function Friends() {
                                   className={RETRO_BTN}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    void handleInvite(f.id);
+                                    retroAudio.playUiBeep(780, 0.06);
+                                    setMsg(null);
+                                    setPaletteFriendId(f.id);
                                   }}
                                   disabled={invitingId === f.id}
                                   style={{
@@ -1165,6 +1171,23 @@ export function Friends() {
           </div>
         </div>
       </div>
+
+      {/* The corner picker. The inviter hosts the room, so they claim one corner
+          before it exists; the friend picks from the remaining three when they
+          accept the invite. */}
+      {paletteFriendId !== null && (
+        <ColorPaletteModal
+          isOpen
+          title={t('lobby.pickColorTitle')}
+          colors={SEAT_COLORS}
+          onPick={(color) => {
+            const friendId = paletteFriendId;
+            setPaletteFriendId(null);
+            void handleInvite(friendId, color);
+          }}
+          onCancel={() => setPaletteFriendId(null)}
+        />
+      )}
     </>
   );
 }

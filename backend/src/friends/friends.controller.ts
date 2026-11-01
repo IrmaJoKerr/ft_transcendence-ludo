@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Delete, UseGuards, Request, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Delete,
+  UseGuards,
+  Request,
+  Param,
+  Query,
+  Body,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { FRIENDS_THROTTLE } from '../common/throttles';
 import { FriendsService } from './friends.service';
@@ -74,8 +84,13 @@ export class FriendsController {
   @UseGuards(JwtAuthGuard)
   @Throttle(FRIENDS_THROTTLE.invite)
   @Post('api/friends/:friendId/invite')
-  inviteToGame(@Request() req: { user: { id: string } }, @Param('friendId') friendId: string) {
-    return this.friends.inviteToGame(req.user.id, friendId);
+  inviteToGame(
+    @Request() req: { user: { id: string } },
+    @Param('friendId') friendId: string,
+    // The inviter's own corner: the room is created for them, so they pick first.
+    @Body('hostColor') hostColor: string,
+  ) {
+    return this.friends.inviteToGame(req.user.id, friendId, hostColor);
   }
 
   @UseGuards(JwtAuthGuard)

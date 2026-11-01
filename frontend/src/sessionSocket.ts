@@ -18,6 +18,8 @@ export type LobbyRoom = {
   maxSeats: number;
   mode: 'classic' | 'duel';
   mySeat?: boolean;
+  /** The corners a joiner may still claim, in canonical order (the join palette's list). */
+  freeColors?: string[];
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;

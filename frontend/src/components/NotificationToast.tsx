@@ -5,7 +5,6 @@ import type { Notification } from '../hooks/useNotifications';
 import { useApp } from '../store';
 import { navigate } from '../router';
 import { apiFetch } from '../api';
-import type { PlayerColor } from '../game/types';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN } from '../styles/tw';
 
@@ -237,34 +236,28 @@ function Toast({
   };
 
   // Accept a game invite
-  const acceptInvite = () => {
+  const acceptInvite = async () => {
     try {
       retroAudio.playUiBeep(880, 0.08);
     } catch {
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
-    // Strict state lock, mirrored from the backend: one live game at a time.
-    // Accepting the challenge aborts a live game first, so the switch never hits
-    // MATCH_ACTIVE_GAME. The abort is fire-and-forget; the room is dropped locally.
+    // Strict state lock, mirrored from the backend: one live game at a time. The
+    // invite carries the room, not a seat, so accepting lands in the lobby with the
+    // code filled in and the corner claimed there; a live game is dropped before
+    // that claim, or the backend would answer MATCH_ACTIVE_GAME. The abort is
+    // awaited (not fire-and-forget) so the lobby's own "active game" read agrees.
     const currentGameId = activeMatch?.gameId;
     if (currentGameId && currentGameId !== p.gameId) {
-      void apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
-        // Non-fatal: the switch below still happens.
+      await apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
+        // Non-fatal: the navigation below still happens.
       });
+      setActiveMatch(null);
     }
-    setActiveMatch({
-      gameId: p.gameId as string,
-      token: p.token as string,
-      color: p.color as PlayerColor,
-      inviteCode: p.inviteCode as string | undefined,
-      mode: 'pvp',
-      playerCount: 4,
-    });
     onDismiss(notification.id);
-    if (p.gameId) {
-      navigate(`/game?gameId=${p.gameId}`);
-    }
+    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
+    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
   };
 
   // Accept a friend request directly from toast

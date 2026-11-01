@@ -1,14 +1,15 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
+import { ColorPaletteModal } from '../components/ColorPaletteModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
 import type { PlayerColor } from '../game/types';
 import { useFitTextSize } from '../hooks/useFitTextSize';
-import { navigate } from '../router';
+import { navigate, useRoute } from '../router';
 import { useApp } from '../store';
 import type { LobbyRoom, MyRoom } from '../sessionSocket';
-import { COL } from '../theme';
+import { COL, SEAT_COLORS, type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
@@ -47,6 +48,17 @@ type MatchResult = {
 };
 
 const ROOM_AVATAR_HUES = [COL.red.base, COL.green.base, COL.yellow.base, COL.blue.base];
+
+/**
+ * The corners a room still offers, narrowed to the palette's key type. A room that
+ * lists none is full; a code that matches no listed room has no list at all, so the
+ * palette offers every corner and the server answers MATCH_COLOR_TAKEN if one is
+ * gone (the claim is final either way).
+ */
+function claimableColors(free?: string[]): ColorKey[] {
+  const pool = free ?? SEAT_COLORS;
+  return SEAT_COLORS.filter((color) => pool.includes(color));
+}
 
 function hueForHost(host: string): string {
   let hash = 0;
@@ -156,11 +168,10 @@ function PassActionPill({ label, probes, style }: PassActionPillProps) {
   );
 }
 
-
-
 export function LudoLobby() {
   const { t } = useTranslation();
   const { user, setActiveMatch, sessionSocket } = useApp();
+  const { query } = useRoute();
 
   // Every string a pass pill can display, so the three pills can share the widest
   // one's width. `creating` is in the list because the host pill swaps to it while
@@ -186,6 +197,15 @@ export function LudoLobby() {
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The colour picker. Both directions claim one corner: a created room is the
+  // host's own colour, a joined room is one of the corners it still lists. Nothing
+  // is posted until a colour is picked, and a pick is final (no swap afterwards).
+  const [palette, setPalette] = useState<
+    | { kind: 'create' }
+    | { kind: 'join'; code: string; room?: Room; colors: ColorKey[] }
+    | null
+  >(null);
 
   // Strict state lock, mirrored from the backend: /api/games/mine lists every room
   // this player is seated in, and the backend refuses create or join with
@@ -241,7 +261,7 @@ export function LudoLobby() {
     };
   }, [sessionSocket]);
 
-  const createRoom = async () => {
+  const createRoom = async (hostColor: ColorKey) => {
     if (lockedByActiveGame) {
       retroAudio.playUiBeep(300, 0.08);
       setError(t('lobbyBrowser.createRoomWhileActiveError'));
@@ -254,7 +274,10 @@ export function LudoLobby() {
       // A PvP room is created with the standard rules (false/false/false: clash
       // off, free exit off, safe zones ON, stored inverted). The host flips them
       // from the room's rules panel, which is where the wire carries the object.
+      // `hostColor` is the corner the host picked: the room is theirs, so their
+      // seat is written at that colour's slot and the other three stay claimable.
       const res = await postApi<MatchResult>('/api/match/pvp/invite', {
+        hostColor,
         clashEnabled: false,
         noSafeZones: false,
         freeExit: false,
@@ -266,6 +289,19 @@ export function LudoLobby() {
     } finally {
       setHostBusy(false);
     }
+  };
+
+  // Opening the palette is the whole "host a table" action now: the room does not
+  // exist until the host has picked the corner it will be theirs in.
+  const openCreateRoom = () => {
+    if (lockedByActiveGame) {
+      retroAudio.playUiBeep(300, 0.08);
+      setError(t('lobbyBrowser.createRoomWhileActiveError'));
+      return;
+    }
+    setError(null);
+    retroAudio.playUiBeep(920, 0.08);
+    setPalette({ kind: 'create' });
   };
 
   const rejoinRoom = async (room: Room) => {
@@ -283,14 +319,18 @@ export function LudoLobby() {
     }
   };
 
-  const joinByCode = async (code: string) => {
+  // The code path. A code that is one of this viewer's own rooms goes straight to
+  // the rejoin; anything else opens the palette on the corners that room lists, or
+  // on all four when the code matched no listed row (the server is the last word).
+  const openJoinByCode = (code: string) => {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
+    const listed = (rooms ?? []).find((r) => r.roomCode === trimmed);
     const ownRoom = (rooms ?? []).find(
       (r) => r.roomCode === trimmed && (r.mySeat ?? r.hostUsername === user?.username),
     );
     if (ownRoom) {
-      await rejoinRoom(ownRoom);
+      void rejoinRoom(ownRoom);
       return;
     }
     if (lockedByActiveGame) {
@@ -298,20 +338,33 @@ export function LudoLobby() {
       setError(t('lobbyBrowser.activeGameLockError'));
       return;
     }
+    setError(null);
+    retroAudio.playUiBeep(780, 0.06);
+    setPalette({ kind: 'join', code: trimmed, colors: claimableColors(listed?.freeColors) });
+  };
+
+  const joinByCode = async (code: string, color: ColorKey) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
     setJoiningByCode(true);
     setError(null);
     retroAudio.playUiBeep(780, 0.06);
     try {
-      const res = await postApi<MatchResult>(`/api/match/join/${encodeURIComponent(trimmed)}`, {});
+      // The claim is final: the seat is written at this colour's slot, and a taken
+      // colour answers MATCH_COLOR_TAKEN instead of seating the joiner elsewhere.
+      const res = await postApi<MatchResult>(`/api/match/join/${encodeURIComponent(trimmed)}`, {
+        color,
+      });
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('lobbyBrowser.joinFailed'));
       setJoiningByCode(false);
+      fetchRooms();
     }
   };
 
-  const joinRoom = async (room: Room) => {
+  const joinRoom = async (room: Room, color: ColorKey) => {
     // Strict lock: a second room cannot be entered while one game is live.
     if (lockedByActiveGame) {
       retroAudio.playUiBeep(300, 0.08);
@@ -324,7 +377,7 @@ export function LudoLobby() {
     try {
       const res = await postApi<MatchResult>(
         `/api/match/join/${encodeURIComponent(room.roomCode)}`,
-        {},
+        { color },
       );
       setActiveMatch(res);
       navigate(`/game?gameId=${res.gameId}`);
@@ -333,6 +386,35 @@ export function LudoLobby() {
       setJoiningRoomId(null);
       fetchRooms();
     }
+  };
+
+  // A row's JOIN opens the palette on the corners it still lists; a full row never
+  // gets here (the button is disabled).
+  const openJoinRoom = (room: Room) => {
+    if (lockedByActiveGame) {
+      retroAudio.playUiBeep(300, 0.08);
+      setError(t('lobbyBrowser.activeGameLockError'));
+      return;
+    }
+    setError(null);
+    retroAudio.playUiBeep(780, 0.06);
+    setPalette({
+      kind: 'join',
+      code: room.roomCode,
+      room,
+      colors: claimableColors(room.freeColors),
+    });
+  };
+
+  // One pick, one claim: the palette's target says whether this pick creates the
+  // room (the host's own corner) or joins one (a corner the room still lists).
+  const onPickColor = (color: ColorKey) => {
+    const target = palette;
+    setPalette(null);
+    if (!target) return;
+    if (target.kind === 'create') void createRoom(color);
+    else if (target.room) void joinRoom(target.room, color);
+    else void joinByCode(target.code, color);
   };
 
   const badgeStyle = (
@@ -359,6 +441,23 @@ export function LudoLobby() {
       textTransform: 'uppercase',
     };
   };
+
+  // A friend invite lands here as `?join=<code>`: the accept path in the notification
+  // bell/toast carries the room, not a seat, so the invitee claims a corner exactly
+  // like a hand-typed code. It waits for the first room snapshot, because that is
+  // what tells the palette which corners the room still offers; the ref makes it
+  // one-shot, so closing the palette does not reopen it on the next render.
+  const handledJoinCode = useRef<string | null>(null);
+  useEffect(() => {
+    const code = (query.get('join') ?? '').trim().toUpperCase();
+    if (!code || rooms === null || handledJoinCode.current === code) return;
+    handledJoinCode.current = code;
+    setRoomCodeInput(code);
+    openJoinByCode(code);
+    // `openJoinByCode` is re-created every render; the ref guard above is what keeps
+    // this effect from firing twice, so it is deliberately not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, rooms]);
 
   const filteredRooms = rooms ?? [];
 
@@ -452,7 +551,7 @@ export function LudoLobby() {
                     hostLocked
                       ? undefined
                       : () => {
-                          void createRoom();
+                          openCreateRoom();
                         }
                   }
                   role="button"
@@ -461,7 +560,7 @@ export function LudoLobby() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      if (!hostLocked) void createRoom();
+                      if (!hostLocked) openCreateRoom();
                     }
                   }}
                 >
@@ -842,7 +941,7 @@ export function LudoLobby() {
                           roomCodeInput.trim().length > 0 &&
                           !joiningByCode
                         ) {
-                          void joinByCode(roomCodeInput);
+                          void openJoinByCode(roomCodeInput);
                         }
                       }}
                       placeholder={t('ludoLobbyPasses.enterCodePlaceholder')}
@@ -870,7 +969,7 @@ export function LudoLobby() {
                     <button
                       type="button"
                       className={RETRO_BTN}
-                      onClick={() => void joinByCode(roomCodeInput)}
+                      onClick={() => openJoinByCode(roomCodeInput)}
                       disabled={!roomCodeInput.trim() || joiningByCode || lockedByActiveGame}
                       title={
                         lockedByActiveGame ? t('lobbyBrowser.activeGameLockTooltip') : undefined
@@ -1090,7 +1189,7 @@ export function LudoLobby() {
                                     className={RETRO_BTN}
                                     onClick={() => {
                                       if (isMySeat) void rejoinRoom(room);
-                                      else void joinRoom(room);
+                                      else openJoinRoom(room);
                                     }}
                                     disabled={
                                       (!isMySeat && (full || lockedByActiveGame)) ||
@@ -1140,6 +1239,20 @@ export function LudoLobby() {
           </div>
         </div>
       </div>
+
+      {/* The corner picker. It is the only place a seat colour is chosen: the host
+          picks the corner the room is created in, a joiner picks from the corners
+          that room still lists. `null` closes it, and the pick itself closes the
+          modal before the request goes out so a double click cannot claim twice. */}
+      {palette && (
+        <ColorPaletteModal
+          isOpen
+          title={t('lobby.pickColorTitle')}
+          colors={palette.kind === 'create' ? SEAT_COLORS : palette.colors}
+          onPick={onPickColor}
+          onCancel={() => setPalette(null)}
+        />
+      )}
     </>
   );
 }

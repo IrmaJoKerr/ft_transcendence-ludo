@@ -667,16 +667,6 @@ export class LudoEngine {
     );
   }
 
-  async handlePlayerSelectColor(gameId: string, userId: string, color: PlayerColor): Promise<void> {
-    if (!this.lobbyManager) {
-      throw new Error('Lobby manager not initialized');
-    }
-    await this.withGameLock(gameId, () =>
-      this.lobbyManager.handleSelectColor(gameId, userId, color),
-    );
-    await this.emitLobbyUpdate(gameId);
-  }
-
   // Host-only live update of the room rules. Normalized here, at the boundary where a
   // payload becomes state. LobbyManager mirrors the result and the broadcast carries
   // what was persisted, not what the caller asked for.

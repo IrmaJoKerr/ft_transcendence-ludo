@@ -40,21 +40,36 @@ export class MatchController {
     @Body('freeExit') freeExit?: boolean,
     // Clamped in room-rules.ts: 0 (off), 1 or 2, and 0 unless clash mode is on.
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
+    // The host's own corner. The room browser asks for it before the room exists,
+    // so the host's colour is theirs before anybody can claim another one; the
+    // remaining three corners stay free for joiners. Required at runtime, never
+    // defaulted: the service refuses a call that omits it (MATCH_INVALID_COLOR).
+    @Body('hostColor') hostColor?: string,
   ) {
-    return this.match.createInvite(req.user.id, {
-      clashEnabled,
-      noSafeZones,
-      freeExit,
-      clashKeyShift,
-    });
+    return this.match.createInvite(
+      req.user.id,
+      {
+        clashEnabled,
+        noSafeZones,
+        freeExit,
+        clashKeyShift,
+      },
+      hostColor,
+    );
   }
 
-  // PvP: Join by invite code
+  // PvP: Join by invite code. `color` is the corner the joiner claims: the claim
+  // is final, and the seat is written under it (a taken colour answers
+  // MATCH_COLOR_TAKEN). Without it the joiner takes the first free slot.
   @UseGuards(JwtAuthGuard)
   @Throttle(MATCH_THROTTLE.join)
   @Post('api/match/join/:code')
-  joinInvite(@Request() req: { user: { id: string } }, @Param('code') code: string) {
-    return this.match.joinByInvite(code, req.user.id);
+  joinInvite(
+    @Request() req: { user: { id: string } },
+    @Param('code') code: string,
+    @Body('color') color: string,
+  ) {
+    return this.match.joinByInvite(code, req.user.id, color);
   }
 
   // Guest: anonymous, ephemeral PvE room. The one public door into match creation:
@@ -70,8 +85,13 @@ export class MatchController {
   @UseGuards(JwtAuthGuard)
   @Throttle(MATCH_THROTTLE.pve)
   @Post('api/match/pve')
-  pve(@Request() req: { user: { id: string } }, @Body('playerCount') playerCount: number) {
-    return this.match.playBot(req.user.id, playerCount || 2);
+  pve(
+    @Request() req: { user: { id: string } },
+    @Body('playerCount') playerCount: number,
+    // Same rule as every other create: the host's corner is theirs to pick.
+    @Body('hostColor') hostColor: string,
+  ) {
+    return this.match.playBot(req.user.id, playerCount || 2, hostColor);
   }
 
   // Unified Match Creation
@@ -86,6 +106,10 @@ export class MatchController {
     @Body('botColors') botColors?: string[],
     @Body('botNames') botNames?: string[],
     @Body('seatColors') seatColors?: string[],
+    // The host's own corner: required in every mode, and there is no fallback. The
+    // remaining seats are added at their own colour (PvE/hotseat) or claimed by
+    // joiners (PvP). Required at runtime; the service refuses its absence.
+    @Body('hostColor') hostColor?: string,
     // The host's room rules ride the same body as the seats, so a room is created with
     // its rules in one call. Read as separate params because this route has no DTO, so
     // the ValidationPipe never runs and room-rules.ts coerces the raw values.
@@ -114,6 +138,7 @@ export class MatchController {
       botColors,
       botNames,
       seatColors,
+      hostColor,
       { clashEnabled, noSafeZones, freeExit, clashKeyShift },
     );
   }

@@ -27,6 +27,10 @@ export class MatchService {
     botColors?: string[],
     botNames?: string[],
     seatColors?: string[],
+    // The host's own corner. Required at runtime in every mode (a seat owns a colour
+    // and there is no fallback); optional here only because it follows optional
+    // seat params, so `createMatchLocked` is the one that refuses its absence.
+    hostColor?: string,
     // The room rules from the create body, already one object: the controller
     // shapes the wire params, the creator service normalizes and defaults them.
     rules: Partial<RoomRules> = {},
@@ -39,29 +43,30 @@ export class MatchService {
       botColors,
       botNames,
       seatColors,
+      hostColor,
       rules,
     );
   }
-  async createInvite(userId: string, rules?: Partial<RoomRules>) {
-    return this.creator.createInvite(userId, rules);
+  async createInvite(userId: string, rules: Partial<RoomRules> | undefined, hostColor?: string) {
+    return this.creator.createInvite(userId, rules, hostColor);
   }
-  async playBot(userId: string, playerCount: number = 2) {
-    return this.creator.playBot(userId, playerCount);
+  async playBot(userId: string, playerCount: number, hostColor?: string) {
+    return this.creator.playBot(userId, playerCount, hostColor);
   }
   // Guest creation: anonymous and ephemeral, so there is no userId. The IP is
   // the only budget key an account-less caller has.
   async createGuestMatch(ip: string, dto: CreateGuestMatchDto) {
     return this.creator.createGuestMatch(ip, dto);
   }
-  async joinByInvite(inviteCode: string, userId: string) {
+  async joinByInvite(inviteCode: string, userId: string, color: string) {
     return this.creator.joinByInvite(inviteCode, userId, (gameId: string, uid: string) =>
-      this.player.joinMatch(gameId, uid),
+      this.player.joinMatch(gameId, uid, color),
     );
   }
 
   // Joining
-  async joinMatch(gameId: string, userId: string) {
-    return this.player.joinMatch(gameId, userId);
+  async joinMatch(gameId: string, userId: string, color: string) {
+    return this.player.joinMatch(gameId, userId, color);
   }
   async rejoin(gameId: string, userId: string) {
     return this.player.rejoin(gameId, userId);

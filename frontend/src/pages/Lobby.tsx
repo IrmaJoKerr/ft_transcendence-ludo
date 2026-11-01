@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
+import { ColorPaletteModal } from '../components/ColorPaletteModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
-import { useApp, type PlayerCount } from '../store';
-import { SEAT_COLORS, type ColorKey } from '../theme';
+import { freeColors, isOccupiedSeat, useApp, type PlayerCount } from '../store';
+import { type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
@@ -39,6 +40,24 @@ const SEAT_HUES: Record<ColorKey, string> = {
   blue: '#00f0ff',
 };
 
+/** An empty card has no colour yet, so it is drawn neutral rather than coloured. */
+const EMPTY_CARD_HUE = '#b8a6e4';
+
+/** The `✕` on every filled card: one control, one style, whichever seat it empties. */
+const REMOVE_SEAT_BTN: React.CSSProperties = {
+  cursor: 'pointer',
+  background: 'rgba(255, 0, 85, 0.15)',
+  border: '1px solid #ff0055',
+  color: '#ff0055',
+  borderRadius: 4,
+  width: 26,
+  height: 26,
+  display: 'grid',
+  placeItems: 'center',
+  fontSize: '0.8rem',
+  flex: 'none',
+};
+
 // `guest` renders the same config screen without a session: bots only, no
 // state-lock poll, and its launch posts the public guest endpoint.
 export function Lobby({ guest = false }: { guest?: boolean } = {}) {
@@ -47,10 +66,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const {
     user,
     seats,
+    placeHost,
     addBot,
-    removeBot,
     addPlayer,
-    removePlayer,
+    removeSeat,
     renamePlayer,
     resetSeats,
     setActiveMatch,
@@ -61,6 +80,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [hasActiveGame, setHasActiveGame] = useState(false);
+  // The card the palette is filling: the host's own card on arrival, then whichever
+  // empty card's add action was pressed. Null while the palette is closed.
+  const [paletteCard, setPaletteCard] = useState<number | null>(null);
   // The room rules chosen on this screen travel with the create body as separate
   // fields of ONE payload. A standard room is false/false/false/0: safe zones are
   // stored inverted, so `noSafeZones: false` means they protect, and the key-shift
@@ -95,17 +117,36 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
 
   const playerCount = (Number(query.get('mode')) || 4) as PlayerCount;
   // Guests always fill with bots (there is nobody else to seat) and never pick
-  // the local-hotseat variant.
-  const allowAddPlayers = guest || query.get('bots') !== '0';
+  // the local-hotseat variant. `botRoom` is what "this room is filled with bots"
+  // means; it is also the mode switch below, because a bot room is a PvE room.
+  const botRoom = guest || query.get('bots') !== '0';
   const isLocal = !guest && query.get('local') === '1';
 
   const visible = seats.slice(0, playerCount);
-  const botCount = visible.filter((s) => s.type === 'bot').length;
-  const emptyCount = visible.filter((s) => s.type === 'empty').length;
+  const filledCount = visible.filter(isOccupiedSeat).length;
+  const hostSeat = visible.find((s) => s.type === 'you');
+  const hostSeated = hostSeat !== undefined;
+  const emptyCount = visible.length - filledCount;
 
-  const canStart = allowAddPlayers
-    ? botCount >= 1
-    : visible.filter((s) => s.type === 'you' || s.type === 'player').length >= 2;
+  // The host picks first: until their colour is theirs, no card can be filled, so
+  // the palette opens on arrival (and again whenever the host gives the seat back).
+  // A guest picks too: the guest mint takes the same `hostColor` as any other create.
+  useEffect(() => {
+    if (hostSeated) return;
+    setPaletteCard((prev) => prev ?? 0);
+  }, [hostSeated]);
+
+  // A pick is final and it seats whoever that card is for: the host on arrival,
+  // then a bot (bot room) or a local pilot (hotseat). One palette, one meaning.
+  const onPickColor = (color: ColorKey) => {
+    const card = paletteCard ?? 0;
+    setPaletteCard(null);
+    if (!hostSeated) placeHost(card, color);
+    else if (botRoom) addBot(card, color);
+    else addPlayer(card, color);
+  };
+
+  const canStart = hostSeated && filledCount >= 2;
 
   // Strict state lock, mirrored from the backend: with a live game on the books,
   // this screen cannot launch another one until the player leaves that game.
@@ -123,21 +164,20 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
     setStartError(null);
     setStarting(true);
     try {
+      // `canStart` guarantees both of these; the guard is for the type checker.
+      if (!hostSeat || !isOccupiedSeat(hostSeat)) return;
       // Guest launch: PvE only, and none of mode/playerCount/seatColors come from here;
-      // the server forces the mode, derives the count and seats the human as blue. The
-      // bot colours travel so the seats shown are the seats dealt.
+      // the server forces the mode and derives the count. The guest's corner and the
+      // bot colours travel, so the seats shown are the seats dealt.
       if (guest) {
-        // Named apart from the non-guest `botCount` below: that one is declared
-        // later in this same try block, so reading it here would hit its TDZ.
         const botsSeated = visible.filter((s) => s.type === 'bot').length;
-        const botColors = visible
-          .map((s, i) => (s.type === 'bot' ? SEAT_COLORS[i] : null))
-          .filter((c): c is ColorKey => c !== null);
+        const botColors = visible.filter((s) => s.type === 'bot').map((s) => s.color);
         const botNames = visible
           .map((s) => (s.type === 'bot' ? s.name : null))
           .filter((n): n is string => n !== null);
         const setup = {
           botCount: botsSeated,
+          hostColor: hostSeat.color,
           botColors: botColors.length > 0 ? botColors : undefined,
           botNames: botNames.length > 0 ? botNames : undefined,
           clashEnabled,
@@ -160,30 +200,24 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
         navigate(`/game?gameId=${res.gameId}`);
         return;
       }
-      const gameMode = allowAddPlayers ? 'pve' : isLocal || playerCount === 2 ? 'hotseat' : 'pvp';
-      const filledCount = visible.filter((s) => s.type === 'you' || s.type === 'player').length;
-      const botCount = allowAddPlayers ? visible.filter((s) => s.type === 'bot').length : 0;
-      // The bot seats are fixed by index (0=blue,1=red,2=green,3=yellow). Send
-      // the actual chosen bot colors so the backend places bots on the exact
-      // seats picked here instead of always filling red first.
-      const botColors = visible
-        .map((s, i) => (s.type === 'bot' ? SEAT_COLORS[i] : null))
-        .filter((c): c is ColorKey => c !== null);
+      const gameMode = botRoom ? 'pve' : isLocal || playerCount === 2 ? 'hotseat' : 'pvp';
+      const participants = filledCount;
+      const botCount = botRoom ? visible.filter((s) => s.type === 'bot').length : 0;
+      // A bot's colour is the colour its card was given, in card order: the seats
+      // shown here are the seats dealt, so the backend places each bot at the slot
+      // that colour owns instead of filling red first.
+      const botColors = visible.filter((s) => s.type === 'bot').map((s) => s.color);
       // The assistant name each bot seat was assigned here, index-aligned with
       // botColors. The engine has no locale, so the label travels with the match
       // and each client re-localizes the color word (FR: "bot-rouge (Siri)").
       const botNames = visible
         .map((s) => (s.type === 'bot' ? s.name : null))
         .filter((n): n is string => n !== null);
-      // Hotseat/PvE: send the exact seat colors, otherwise the engine's
-      // playerCount-based default re-densifies slots the user skipped.
-      const seatColors = visible
-        .map((s, i) =>
-          s.type === 'you' || s.type === 'player' || (gameMode === 'pve' && s.type === 'bot')
-            ? SEAT_COLORS[i]
-            : null,
-        )
-        .filter((c): c is ColorKey => c !== null);
+      // The seated cards' colours in card order: that IS the engine's rotation
+      // order. Hotseat and PvE send it because a room that skips a corner must not
+      // be re-densified; PvP leaves it out, because there every corner is a seat a
+      // joiner may claim (its host's own colour rides `hostColor`).
+      const seatColors = visible.filter(isOccupiedSeat).map((s) => s.color);
       const res = await postApi<{
         gameId: string;
         token: string;
@@ -194,15 +228,14 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
         playerCount: number;
       }>('/api/match/create', {
         mode: gameMode,
-        playerCount:
-          gameMode === 'hotseat' ? filledCount : gameMode === 'pve' ? 1 + botCount : playerCount,
+        playerCount: gameMode === 'hotseat' ? participants : gameMode === 'pve' ? 1 + botCount : playerCount,
         botCount,
+        // The host's colour is the host's seat: the server writes them at that
+        // colour's slot, so the card here and the quadrant in game are the same.
+        hostColor: hostSeat.color,
         botColors: botColors.length > 0 ? botColors : undefined,
         botNames: botNames.length > 0 ? botNames : undefined,
-        seatColors:
-          (gameMode === 'hotseat' || gameMode === 'pve') && seatColors.length > 0
-            ? seatColors
-            : undefined,
+        seatColors: gameMode === 'pvp' ? undefined : seatColors,
         // Room rules, one field each, so the backend persists them in the same
         // create call (no second transaction). All four default to the standard
         // game: clash off, free exit off, safe zones ON, no key switch.
@@ -355,9 +388,11 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   }}
                 >
                   {visible.map((seat, i) => {
-                    const ck = SEAT_COLORS[i];
-                    const hue = SEAT_HUES[ck];
-                    const colorName = t(COLOR_KEYS[ck]).toUpperCase();
+                    // A card's hue is its seat's colour. An empty card owns none, so
+                    // it is drawn neutral: no colour is ever read off a card index.
+                    const ck = isOccupiedSeat(seat) ? seat.color : null;
+                    const hue = ck ? SEAT_HUES[ck] : EMPTY_CARD_HUE;
+                    const colorName = ck ? t(COLOR_KEYS[ck]).toUpperCase() : t('lobby.freeSeat');
 
                     return (
                       <div
@@ -366,8 +401,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           position: 'relative',
                           borderRadius: 6,
                           background: 'rgba(10, 2, 28, 0.85)',
-                          border: `1.5px solid ${hue}`,
-                          boxShadow: `0 0 10px ${hue}25`,
+                          border: ck ? `1.5px solid ${hue}` : `1.5px dashed ${hue}66`,
+                          boxShadow: ck ? `0 0 10px ${hue}25` : 'none',
                           display: 'flex',
                           flexDirection: 'column',
                           height: 190,
@@ -376,7 +411,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         }}
                       >
                         {/* Color Header Stripe */}
-                        <div style={{ height: 4, background: hue }} />
+                        <div style={{ height: 4, background: ck ? hue : `${hue}44` }} />
 
                         <div
                           style={{
@@ -405,6 +440,21 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                             >
                               {t('lobby.seatBadgeHeader', { number: i + 1, color: colorName })}
                             </span>
+                            {/* The host card carries the same ✕ as every other card:
+                                giving the seat back frees its colour and reopens
+                                the palette, because the host picks first. */}
+                            {seat.type === 'you' && (
+                              <button
+                                onClick={() => {
+                                  retroAudio.playUiBeep(320, 0.05);
+                                  removeSeat(i);
+                                }}
+                                style={REMOVE_SEAT_BTN}
+                                title={t('lobby.removeSeatTooltip')}
+                              >
+                                ✕
+                              </button>
+                            )}
                           </div>
 
                           {/* SEAT CONTENT */}
@@ -575,22 +625,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                 <button
                                   onClick={() => {
                                     retroAudio.playUiBeep(320, 0.05);
-                                    removeBot(i);
+                                    removeSeat(i);
                                   }}
-                                  style={{
-                                    cursor: 'pointer',
-                                    background: 'rgba(255, 0, 85, 0.15)',
-                                    border: '1px solid #ff0055',
-                                    color: '#ff0055',
-                                    borderRadius: 4,
-                                    width: 26,
-                                    height: 26,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    fontSize: '0.8rem',
-                                    flex: 'none',
-                                  }}
-                                  title={t('lobby.removeBotTooltip')}
+                                  style={REMOVE_SEAT_BTN}
+                                  title={t('lobby.removeSeatTooltip')}
                                 >
                                   ✕
                                 </button>
@@ -737,22 +775,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                 <button
                                   onClick={() => {
                                     retroAudio.playUiBeep(320, 0.05);
-                                    removePlayer(i);
+                                    removeSeat(i);
                                   }}
-                                  style={{
-                                    cursor: 'pointer',
-                                    background: 'rgba(255, 0, 85, 0.15)',
-                                    border: '1px solid #ff0055',
-                                    color: '#ff0055',
-                                    borderRadius: 4,
-                                    width: 26,
-                                    height: 26,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    fontSize: '0.8rem',
-                                    flex: 'none',
-                                  }}
-                                  title={t('lobby.removePlayerTooltip')}
+                                  style={REMOVE_SEAT_BTN}
+                                  title={t('lobby.removeSeatTooltip')}
                                 >
                                   ✕
                                 </button>
@@ -773,8 +799,11 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                             <div
                               onClick={() => {
                                 retroAudio.playUiBeep(520, 0.05);
-                                if (allowAddPlayers) addBot(i);
-                                else addPlayer(i);
+                                // One palette, one target: the card. While the host is
+                                // unseated this fills *this* card with the host, which is
+                                // what "the host picks first" means; afterwards it adds a
+                                // bot (bot room) or a local pilot at the picked colour.
+                                setPaletteCard(i);
                               }}
                               style={{
                                 flex: 1,
@@ -812,9 +841,15 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                   color: hue,
                                   fontFamily: 'var(--font-mono)',
                                   fontWeight: 'bold',
+                                  textAlign: 'center',
+                                  padding: '0 4px',
                                 }}
                               >
-                                {allowAddPlayers ? t('lobby.addAiBot') : t('lobby.addHumanPilot')}
+                                {!hostSeated
+                                  ? t('lobby.pickColorTitle')
+                                  : botRoom
+                                    ? t('lobby.addAiBot')
+                                    : t('lobby.addHumanPilot')}
                               </div>
                             </div>
                           )}
@@ -899,7 +934,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                     {/* Only where a bot can actually be seated: hotseat (`bots=0`)
                         fills its seats with local pilots, so a bot tally there
                         would read a permanent `0 UNITS`. */}
-                    {allowAddPlayers && (
+                    {botRoom && (
                       <div
                         style={{
                           display: 'flex',
@@ -913,8 +948,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         </span>
                         <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
                           {t('lobby.unitsCount', {
-                            count: botCount,
-                            plural: botCount === 1 ? '' : 'S',
+                            count: visible.filter((s) => s.type === 'bot').length,
+                            plural: visible.filter((s) => s.type === 'bot').length === 1 ? '' : 'S',
                           })}
                         </span>
                       </div>
@@ -1108,9 +1143,11 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                     >
                       {lockedByActiveGame
                         ? t('lobby.activeGameLockError')
-                        : canStart
-                          ? t('lobby.allSystemsPassed')
-                          : t('lobby.assignAtLeastOne')}
+                        : !hostSeated
+                          ? t('lobby.pickColorTitle')
+                          : canStart
+                            ? t('lobby.allSystemsPassed')
+                            : t('lobby.assignAtLeastOne')}
                     </div>
                   </div>
 
@@ -1146,9 +1183,11 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           ? t('lobby.initializingArena')
                           : canStart
                             ? t('lobby.launchArenaMatch')
-                            : isLocal
-                              ? t('lobby.addPlayerToStart')
-                              : t('lobby.addBotToStart')}
+                            : !hostSeated
+                              ? t('lobby.pickColorTitle')
+                              : botRoom
+                                ? t('lobby.addBotToStart')
+                                : t('lobby.addPlayerToStart')}
                     </button>
 
                     {startError && (
@@ -1171,6 +1210,16 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
           </main>
         </div>
       </div>
+
+      {/* The colour picker. It lists the corners still free, so a taken colour is
+          never offered, and it closes on the first pick: the claim is final. */}
+      <ColorPaletteModal
+        isOpen={paletteCard !== null}
+        title={t('lobby.pickColorTitle')}
+        colors={freeColors(seats)}
+        onPick={onPickColor}
+        onCancel={() => setPaletteCard(null)}
+      />
     </>
   );
 }

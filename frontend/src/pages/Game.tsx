@@ -26,7 +26,7 @@ import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
 import { getApi, postApi, translateErrorCode } from '../api';
-import { useApp, type ResultPlayer } from '../store';
+import { useApp, isOccupiedSeat, type ResultPlayer, type Seat } from '../store';
 import { useFriendshipRecords } from '../hooks/useFriendships';
 import { useNotifications } from '../hooks/useNotifications';
 import { mergeFriends, type FriendRow } from '../friendshipFeed';
@@ -107,9 +107,20 @@ function MiniDie({ value }: { value: number }) {
   );
 }
 
-// Matches the backend's SLOT_COLORS: hotseat seat index i always maps to this
-// color, regardless of the Lobby seat-picker's own (unrelated) display order.
-const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+/**
+ * Last-resort roster for a result card, built from the seats this screen created,
+ * used when the engine's own player list never arrived. Each row carries the
+ * colour its seat owns: the colour is never taken from the seat's index, because a
+ * room can skip a corner (the red-first order this replaced relabelled quadrants).
+ */
+function seatsAsResultPlayers(seats: Seat[], you: string): ResultPlayer[] {
+  return seats.filter(isOccupiedSeat).map((seat) => ({
+    color: seat.color,
+    username: seat.type === 'you' ? you : seat.name,
+    isBot: seat.type === 'bot',
+    piecesInGoal: 0,
+  }));
+}
 
 // The recon panel's one write: a frame's entries arrive oldest-first and the panel
 // shows newest-first, capped at LOG_CAP (the engine's own bound). Kept pure and
@@ -216,15 +227,12 @@ export function Game() {
     }
   };
 
-  // Custom names typed into the Lobby seat-setup for local (hotseat) seats: seat
-  // 0 is always the logged-in host (uses their real username instead), so only
-  // look at seats[1..].
+  // Custom names typed into the Lobby seat-setup for local (hotseat) seats, keyed
+  // by the colour that seat owns: the card's colour IS the seat, so no index maps
+  // to a colour any more. The host seat (`you`) uses the real username instead.
   const localNames = useMemo<Partial<Record<PlayerColor, string>>>(() => {
     const names: Partial<Record<PlayerColor, string>> = {};
-    seats.forEach((seat, i) => {
-      if (i === 0) return;
-      if (seat.type === 'player') names[SLOT_COLORS[i]] = seat.name;
-    });
+    for (const seat of seats) if (seat.type === 'player') names[seat.color] = seat.name;
     return names;
   }, [seats]);
   // Seat label for the move log / podium rows: a hotseat seat's typed-in name
@@ -761,31 +769,7 @@ export function Game() {
       let players: ResultPlayer[] = toResultPlayers(viewRef.current.players);
 
       if (players.length === 0 && Array.isArray(seats) && seats.length > 0) {
-        const SEAT_COLORS: PlayerColor[] = ['red', 'green', 'yellow', 'blue'];
-        players = seats
-          .map((s, idx) => {
-            if (s.type === 'empty') return null;
-            const color = SEAT_COLORS[idx] || 'red';
-            let username: string;
-            if (s.type === 'you') username = user?.username ?? 'You';
-            else username = s.name;
-            return {
-              color,
-              username,
-              isBot: s.type === 'bot',
-              piecesInGoal: 0,
-            };
-          })
-          .filter(
-            (
-              p,
-            ): p is {
-              color: PlayerColor;
-              username: string;
-              isBot: boolean;
-              piecesInGoal: number;
-            } => p !== null,
-          );
+        players = seatsAsResultPlayers(seats, user?.username ?? 'You');
       }
 
       const matchNow = activeMatchRef.current;
@@ -1110,12 +1094,6 @@ export function Game() {
   // complete object.
   const emitKeyShift = (next: 0 | 1 | 2) => emitRule({ clashKeyShift: next });
 
-  const selectColor = (color: PlayerColor) => {
-    if (activeMatch?.mode === 'pvp') return;
-    retroAudio.playUiBeep(720, 0.05);
-    socketRef.current?.emit('select_color', color);
-  };
-
   const inviteFriend = async (friendId: string) => {
     if (!activeMatch || inviteStates[friendId] === 'busy') return;
     retroAudio.playUiBeep(800, 0.06);
@@ -1135,27 +1113,7 @@ export function Game() {
     let players: ResultPlayer[] = toResultPlayers(viewRef.current.players);
 
     if (players.length === 0 && Array.isArray(seats) && seats.length > 0) {
-      const SEAT_COLORS: PlayerColor[] = ['red', 'green', 'yellow', 'blue'];
-      players = seats
-        .map((s, idx) => {
-          if (s.type === 'empty') return null;
-          const color = SEAT_COLORS[idx] || 'red';
-          let username: string;
-          if (s.type === 'you') username = user?.username ?? 'You';
-          else username = s.name;
-          return {
-            color,
-            username,
-            isBot: s.type === 'bot',
-            piecesInGoal: 0,
-          };
-        })
-        .filter(
-          (
-            p,
-          ): p is { color: PlayerColor; username: string; isBot: boolean; piecesInGoal: number } =>
-            p !== null,
-        );
+      players = seatsAsResultPlayers(seats, user?.username ?? 'You');
     }
 
     if (
@@ -1686,22 +1644,10 @@ export function Game() {
                               !!user?.username &&
                               playerMeta?.username === user.username);
                           const isReady = view.readyPlayers.includes(ck);
-                          const takenByOther = Boolean(
-                            occupied &&
-                            !isYou &&
-                            playerMeta?.username &&
-                            playerMeta.username !== user?.username,
-                          );
-                          const canSelect = activeMatch.mode !== 'pvp' && !takenByOther && !isYou;
 
                           return (
                             <div
                               key={ck}
-                              onClick={() => {
-                                if (canSelect) {
-                                  selectColor(ck);
-                                }
-                              }}
                               title={
                                 isYou
                                   ? t('game.yourSeat', 'Your seat')
@@ -1715,25 +1661,17 @@ export function Game() {
                                 gap: 10,
                                 padding: '10px 12px',
                                 borderRadius: 4,
-                                cursor: canSelect
-                                  ? 'pointer'
-                                  : takenByOther
-                                    ? 'not-allowed'
-                                    : 'default',
+                                cursor: 'default',
                                 border: isYou
                                   ? `1.5px solid ${colorAccent}`
                                   : occupied
                                     ? `1px solid ${colorAccent}66`
-                                    : canSelect
-                                      ? `1.5px dashed ${colorAccent}`
-                                      : '1px dashed rgba(255, 255, 255, 0.15)',
+                                    : '1px dashed rgba(255, 255, 255, 0.15)',
                                 background: isYou
                                   ? `${colorAccent}26`
                                   : occupied
                                     ? 'rgba(25, 10, 56, 0.65)'
-                                    : canSelect
-                                      ? 'rgba(10, 5, 25, 0.5)'
-                                      : 'rgba(10, 5, 25, 0.35)',
+                                    : 'rgba(10, 5, 25, 0.35)',
                                 boxShadow: isYou ? `0 0 12px ${colorAccent}55` : 'none',
                                 opacity: occupied || isYou ? 1 : 0.5,
                                 transition: 'all 0.2s ease',
@@ -1776,7 +1714,7 @@ export function Game() {
                                     fontWeight: 'bold',
                                     fontSize: '0.7rem',
                                     color: colorAccent,
-                                    background: canSelect ? `${colorAccent}15` : 'transparent',
+                                    background: 'transparent',
                                     border: `1.5px dashed ${colorAccent}88`,
                                   }}
                                 >
@@ -1834,19 +1772,6 @@ export function Game() {
                                   }}
                                 >
                                   {isReady ? 'READY OK' : 'WAITING'}
-                                </span>
-                              ) : canSelect ? (
-                                <span
-                                  className={RETRO_BADGE}
-                                  style={{
-                                    padding: '2px 6px',
-                                    fontSize: '0.62rem',
-                                    border: `1px solid ${colorAccent}`,
-                                    color: colorAccent,
-                                    background: `${colorAccent}18`,
-                                  }}
-                                >
-                                  {t('game.chooseBadge')}
                                 </span>
                               ) : null}
                             </div>

@@ -229,39 +229,6 @@ export class SocketHandlers {
     })();
   }
 
-  handleSelectColor(socket: GameSocket, color: string): void {
-    const gameId = socket.data.gameId;
-    const userId = socket.data.userId;
-    if (!gameId || !userId) {
-      socket.emit('error', 'Not in a game');
-      return;
-    }
-
-    void (async () => {
-      try {
-        const previousColor = socket.data.playerColor;
-        await this.engine.handlePlayerSelectColor(gameId, userId, color as PlayerColor);
-        // Keep the socket binding and the room's seat bindings in sync with the
-        // engine's seat swap: vacate the old seat ONLY if it still maps to this
-        // user, since during a swap that color may already belong to the opponent.
-        if (
-          previousColor &&
-          previousColor !== color &&
-          this.rooms.get(gameId)?.unbindSeatIf(previousColor, userId)
-        ) {
-          await this.store.clearSeatUser(gameId, previousColor);
-        }
-        this.rooms.ensure(gameId).bindSeat(color as PlayerColor, userId);
-        await this.store.setSeatUser(gameId, color as PlayerColor, userId);
-        socket.data.playerColor = color as PlayerColor;
-      } catch (error) {
-        // LobbyManager throws i18n codes (lobby.ts); forward the code so the
-        // client can localize it. Unmapped messages stay console-only.
-        socket.emit('error', error instanceof Error ? error.message : String(error));
-      }
-    })();
-  }
-
   // 'update_modifiers' event: the host flips the room rules while WAITING. The object
   // passes through as sent; the façade normalizes it (only a literal `true` enables a
   // rule). LobbyManager throws i18n codes, forwarded so the client can localize them.
