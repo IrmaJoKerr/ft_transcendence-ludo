@@ -165,8 +165,7 @@ An error response has one of two shapes:
    - [`PATCH /api/auth/profile/password`](#patch-apiauthprofilepassword) — Change your password while logged in
    - [`DELETE /api/auth/profile`](#delete-apiauthprofile) — Permanently delete your account (password-verified)
 
-3. **[Auth — 2FA](#3-auth--2fa)** — Read and toggle two-factor authentication
-   - [`GET /api/auth/2fa`](#get-apiauth2fa) — Check whether 2FA is enabled on your account
+3. **[Auth — 2FA](#3-auth--2fa)** — Toggle two-factor authentication
    - [`PATCH /api/auth/2fa`](#patch-apiauth2fa) — Turn two-factor authentication on or off
 
 4. **[Auth — OAuth (Google / GitHub / 42)](#4-auth--oauth-google--github--42)** — Sign in with a third-party provider
@@ -804,32 +803,13 @@ change-password flow).
 ---
 
 
-#### `GET /api/auth/2fa`
-
-**Source:** `backend/src/auth/auth.controller.ts` — AuthModule
-
-Get the current user's 2FA preference.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Response:**
-
-```json
-{
-  "twoFactorEnabled": true
-}
-
-```
-
-
----
----
-
-
 #### `PATCH /api/auth/2fa`
 
 **Source:** `backend/src/auth/auth.controller.ts` — AuthModule
 
-Toggle the user's 2FA preference.
+Toggle the user's 2FA preference. There is no `GET` counterpart: the current value already rides on
+`GET /api/auth/me` and `GET /api/auth/profile` as `twoFactorEnabled`, which is where the Edit-Profile
+card reads it.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Body:**

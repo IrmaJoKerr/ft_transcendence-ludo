@@ -246,13 +246,8 @@ export class AuthController {
     return result;
   }
 
-  // 2FA preference (logged-in user toggles their own)
-  @UseGuards(JwtAuthGuard)
-  @Get('2fa')
-  getTwoFactor(@Req() req: Request) {
-    return this.authService.getTwoFactorSetting((req.user as { id: string }).id);
-  }
-
+  // 2FA preference (logged-in user toggles their own). The read has no route:
+  // `GET /api/auth/me` and `GET /api/auth/profile` already return `twoFactorEnabled`.
   @UseGuards(JwtAuthGuard)
   @Throttle(AUTH_THROTTLE.setTwoFactor)
   @Patch('2fa')

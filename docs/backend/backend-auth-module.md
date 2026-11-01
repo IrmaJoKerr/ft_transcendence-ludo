@@ -68,7 +68,7 @@ the single-use emailed tokens.
 | `dto/forgot-password.dto.ts` | Validation schema for `POST /api/auth/forgot-password` |
 | `dto/reset-password.dto.ts` | Validation schema for `POST /api/auth/reset-password` |
 | `dto/twofactor.dto.ts` | Validation schema for `POST /api/auth/2fa/verify` |
-| `dto/two-factor-setting.dto.ts` | Validation schema for `GET/PATCH /api/auth/2fa` |
+| `dto/two-factor-setting.dto.ts` | Validation schema for `PATCH /api/auth/2fa` |
 | `dto/password.rules.ts` | Shared password policy constants used by RegisterDto and ResetPasswordDto |
 | `dto/update-profile.dto.ts` | Validation schema for profile updates (incl. `currentPassword` for the email-change re-auth, and `language` for the transactional-email copy) |
 | `dto/resend-verification.dto.ts` | Validation schema for `POST /api/auth/resend-verification` |
@@ -167,8 +167,7 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])
 | `PATCH` | `/api/auth/profile` | JWT | Update profile (display name, email, 2FA, OAuth). Email changes are verify-then-commit; sensitive fields need `currentPassword` |
 | `PATCH` | `/api/auth/profile/password` | JWT | Change password while logged in (needs current password) |
 | `DELETE` | `/api/auth/profile` | JWT | Permanently delete the account (password-verified) |
-| `GET` | `/api/auth/2fa` | JWT | Get current user's 2FA preference |
-| `PATCH` | `/api/auth/2fa` | JWT | Toggle the user's 2FA preference (needs `currentPassword` on a password account) |
+| `PATCH` | `/api/auth/2fa` | JWT | Toggle the user's 2FA preference (needs `currentPassword` on a password account); the value is read back from `/api/auth/me` or `/api/auth/profile` |
 | `GET` | `/api/auth/google` | None | Redirect to Google OAuth |
 | `GET` | `/api/auth/google/callback` | None | Google OAuth callback |
 | `GET` | `/api/auth/github` | None | Redirect to GitHub OAuth |

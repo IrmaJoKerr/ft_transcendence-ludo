@@ -591,17 +591,6 @@ export class AuthService implements OnModuleDestroy {
     }
   }
 
-  // Read the user's current 2FA preference.
-  async getTwoFactorSetting(userId: string) {
-    const user = await this.prisma.db.user.findUnique({
-      where: { id: userId },
-      select: { twoFactorEnabled: true },
-    });
-    if (!user)
-      throw new UnauthorizedException({ code: 'USER_NOT_FOUND', message: 'User not found' });
-    return { twoFactorEnabled: user.twoFactorEnabled };
-  }
-
   // Turn email-code 2FA on or off for the user. Turning it off weakens the
   // account, so a password account must confirm its current password first;
   // OAuth-only accounts are trusted through the active session.
