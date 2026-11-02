@@ -16,14 +16,15 @@ import {
 } from './friendship-record';
 
 // The profile fields a record carries: the whole row the client keeps, so no
-// second request is needed to paint it.
+// second request is needed to paint it. The rating lives on the career row
+// (PlayerStats) since the account/stat split, so it is one nested select.
 const PROFILE_SELECT = {
   id: true,
   username: true,
   displayName: true,
   avatarStyle: true,
   avatarPhotoContentType: true,
-  rating: true,
+  stats: { select: { rating: true } },
 } as const;
 
 type ProfileRow = {
@@ -32,7 +33,7 @@ type ProfileRow = {
   displayName: string;
   avatarStyle: string;
   avatarPhotoContentType: string | null;
-  rating: number;
+  stats: { rating: number } | null;
 };
 
 // The publisher for `friendship:changed` (socket D2). A leaf module on purpose:
@@ -187,7 +188,9 @@ export class FriendshipEventsService implements OnModuleDestroy {
       // cached bytes are reused, which is exactly what an unchanged avatar wants.
       ...(avatarV === undefined ? {} : { avatarV }),
       hasAvatarPhoto: user.avatarPhotoContentType !== null,
-      rating: user.rating,
+      // The career row is the rating's home; no row yet reads as the schema's
+      // default, the same `?? 0` the list routes use.
+      rating: user.stats?.rating ?? 0,
       friendsSince: since ? since.toISOString() : null,
       ...(requestId ? { requestId } : {}),
     };

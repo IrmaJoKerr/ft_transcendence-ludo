@@ -478,6 +478,14 @@ friends.service.ts (mutation)     FriendshipEventsService.publishPair(a, b)
    HTTP response                             every tab of that account
 ```
 
+> **The profile select reads the career row (fixed 2026-11-02).** `PROFILE_SELECT` asks for
+> `stats: { select: { rating: true } }` and builds `rating: user.stats?.rating ?? 0`. The
+> account/stat split (`bb381b2`) moved `rating` off `User`, and the select here was missed: every
+> publish threw a Prisma validation error that the publisher's own `catch` swallowed into a warning,
+> so friends lists and the chat filter's live path (`noteBlockState`) silently stopped updating.
+> The `chat/` probe family in `Test-harnesses/` caught it; keep the two selects in step with
+> `friends.service.ts`'s list and blocked routes, which already read `stats`.
+
 **Audience is a subscription, not a graph.** Every session socket joins `friends:of:<ownUserId>` in
 `handleConnection`, next to `user:<id>`; the id comes from the handshake, never from a client payload,
 so a crafted join cannot read another account's rows. Joining at connect (rather than on a
