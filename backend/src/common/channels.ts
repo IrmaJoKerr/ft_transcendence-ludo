@@ -51,3 +51,12 @@ export async function publishMatchAbandon(
     console.error('Failed to publish match:abandon:', error);
   }
 }
+
+// The one public chat channel. Membership is the socket, so there is no join
+// event: this name keys the pub/sub channel, the transcript list, the id sequence
+// and the payload's `ch`.
+export const CHAT_CHANNEL = 'lobby';
+
+export const chatPubSubChannel = (ch: string): string => `chat:${ch}`;
+export const chatLogKey = (ch: string): string => `chat:${ch}:log`;
+export const chatSeqKey = (ch: string): string => `chat:${ch}:seq`;

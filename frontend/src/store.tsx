@@ -12,7 +12,7 @@ import i18n from './i18n';
 import { BOT_POOL, SEAT_COLORS, type ColorKey } from './theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
 import { connectSessionSocket } from './sessionSocket';
-import type { SessionSocket } from './sessionSocket';
+import type { ChatAck, ChatMessage, SessionSocket } from './sessionSocket';
 import type { PlayerColor } from './game/types';
 
 export type AuthUser = {
@@ -106,6 +106,11 @@ function storedTheme(): ThemeType {
 // the session socket's reconnect handshake off an expired token (see the store
 // docs).
 const ACCESS_TOKEN_REFRESH_MS = 14 * 60 * 1000;
+
+/** The transcript's length: the same 50 rows the backend keeps in its Redis list.
+ *  The ring lives here rather than in the dock's panel, so switching the channel
+ *  off, or being on `/game` where no panel renders, drops no line. */
+const CHAT_LOG_LIMIT = 50;
 /** settingOn/toggleSetting key for "show the rules popup when a match starts": read by Lobby's Rules button and Game.tsx. */
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
 /** Defaults for the settings toggles, keyed "<group>-<row>". */
@@ -244,6 +249,15 @@ type AppState = {
    * (D11): there is no REST read, and it survives a screen remount because this
    * listener lives as long as the connection. Null until the first push. */
   onlineCount: number | null;
+  /** Whether the session socket is up right now. The chat composer is disabled
+   * while it is not: an emit made offline would be queued and land minutes later. */
+  sessionConnected: boolean;
+  /** The public channel's transcript, oldest first, at most 50 lines. Held above
+   * the panel so a collapsed channel and `/game` both keep it current. */
+  chatLog: ChatMessage[];
+  /** Sends one line to the public channel. The ack reports a refusal (too long,
+   * too soon, empty, or the transport being down) for the panel's status line. */
+  sendChat: (text: string, done?: (reply: ChatAck) => void) => void;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
   guestSetup: GuestSetup | null;
@@ -518,6 +532,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // the connect-time emit happens once per connection, so a listener owned by the
   // connection cannot miss it the way a per-mount one would after a navigation.
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
+  // The public channel's transcript (queue item 3), and whether the socket is up.
+  // Both live here rather than in the dock's panel: the channel can be switched
+  // off, and most screens render no panel at all, but the log must not lose a line
+  // and the composer must know if a send is possible.
+  const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+  const [sessionConnected, setSessionConnected] = useState(false);
   // The effect keys on the id, not the object: a profile edit replaces `user` and
   // must not tear down a healthy connection.
   const sessionUserId = user?.id;
@@ -532,6 +552,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     socketRef.current?.emit('presence:playing', { playing });
   }, []);
 
+  // One line to the public channel. No socket means no channel, and the ack says
+  // so rather than swallowing the text: the panel keeps it and explains why.
+  const sendChat = useCallback((text: string, done?: (reply: ChatAck) => void) => {
+    const socket = socketRef.current;
+    if (!socket) {
+      done?.({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      return;
+    }
+    socket.emit('chat:send', { text }, (reply) => done?.(reply));
+  }, []);
+
   useEffect(() => {
     if (!sessionUserId) return;
     const socket = connectSessionSocket();
@@ -541,7 +572,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // A reconnected socket carries no state, so the flag is re-asserted on every
     // connect rather than only on the enter/leave transition.
     socket.on('connect', () => {
+      setSessionConnected(true);
       socket.emit('presence:playing', { playing: playingRef.current });
+    });
+    socket.on('disconnect', () => setSessionConnected(false));
+
+    // The transcript. The connect-time history replaces the ring, a live line
+    // appends to it, and the id merge keeps the overlap between the two from
+    // painting the newest line twice.
+    socket.on('chat:history', (messages) => setChatLog(messages.slice(-CHAT_LOG_LIMIT)));
+    socket.on('chat:message', (message) => {
+      setChatLog((prev) =>
+        prev.some((line) => line.id === message.id)
+          ? prev
+          : [...prev, message].slice(-CHAT_LOG_LIMIT),
+      );
     });
 
     // The site-wide badge. It arrives on every connection edge, and the gateway
@@ -572,8 +617,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       socketRef.current = null;
       setSessionSocket(null);
       // The badge belongs to the connection: a signed-out screen must not paint
-      // the last number this session saw.
+      // the last number this session saw. The transcript does too: another
+      // account's tab must not inherit this one's channel.
       setOnlineCount(null);
+      setChatLog([]);
+      setSessionConnected(false);
     };
   }, [sessionUserId]);
 
@@ -768,6 +816,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPlaying,
       sessionSocket,
       onlineCount,
+      sessionConnected,
+      chatLog,
+      sendChat,
       activeMatch,
       setActiveMatch,
       guestSetup,
@@ -812,6 +863,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setPlaying,
       sessionSocket,
       onlineCount,
+      sessionConnected,
+      chatLog,
+      sendChat,
       activeMatch,
       guestSetup,
       lastResult,

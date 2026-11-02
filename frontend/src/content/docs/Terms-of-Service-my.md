@@ -58,7 +58,7 @@ Anda bersetuju **tidak** untuk:
 ## 4. Kandungan dan kelakuan pengguna
 
 - Nama pengguna dan nama paparan anda tidak boleh ofensif, mengelirukan, atau melanggar hak orang ketiga.
-- Sebarang kandungan yang anda muat naik (cth., avatar) mestilah milik anda untuk digunakan dan tidak boleh melanggar undang-undang atau hak pihak ketiga. Apl tidak menawarkan mesej teks/chat yang dihasilkan pengguna.
+- Sebarang kandungan yang anda muat naik (cth., avatar) mestilah milik anda untuk digunakan dan tidak boleh melanggar undang-undang atau hak pihak ketiga. Apl menyediakan satu saluran chat awam di lobi: mesej yang anda hantar di sana boleh dilihat oleh setiap pengguna yang log masuk, tidak bersifat peribadi dan disimpan untuk tempoh terhad. Jangan gunakannya untuk mengganggu, menghantar spam atau melanggar undang-undang, dan jangan siarkan data peribadi sesiapa.
 - Tim berhak untuk mengeluarkan akaun atau kandungan mana-mana yang melanggar Syarat ini.
 
 

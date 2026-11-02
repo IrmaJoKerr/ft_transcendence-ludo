@@ -59,8 +59,8 @@ export class MatchController {
   }
 
   // PvP: Join by invite code. `color` is the corner the joiner claims: the claim
-  // is final, and the seat is written under it (a taken colour answers
-  // MATCH_COLOR_TAKEN). Without it the joiner takes the first free slot.
+  // is final, the seat is written under it (a taken colour answers
+  // MATCH_COLOR_TAKEN), and a call without one is refused (MATCH_INVALID_COLOR).
   @UseGuards(JwtAuthGuard)
   @Throttle(MATCH_THROTTLE.join)
   @Post('api/match/join/:code')

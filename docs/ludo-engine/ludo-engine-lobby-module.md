@@ -122,16 +122,12 @@ reserved seat cannot hold a room open. See also
 
 ## Logic Paths Summary
 
-### Color Selection Path
+### Seat Colour Path
 ```
-select_color(color)
-  ├── Game must be WAITING
-  ├── Color out of seat count → error
-  ├── Color taken by someone else → swap the two players' seats
-  ├── Color free → assign
-  ├── Mirror swap into engine GameState (seat identity only, pre-game)
-  ├── Clear the Ready flag on both colors involved (re-confirm after a change)
-  └── Emit color_selected / lobby_update
+join_game (the colour comes from the token, claimed at join)
+  ├── Seat colour resolved from the token (the backend already claimed it with HSETNX)
+  ├── Rotation and the board read the seat colours of the seats that joined
+  └── No swap path: a colour is claimed once, so there is nothing to re-pick
 ```
 
 ### Ready Check Path

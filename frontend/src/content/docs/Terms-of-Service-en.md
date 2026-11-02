@@ -58,7 +58,7 @@ You agree **not** to:
 ## 4. User content and conduct
 
 - Your username and display name must not be offensive, misleading, or infringe on the rights of others.
-- Any content you upload (e.g., an avatar) must be yours to use and must not violate any law or third-party right. The App does not offer user-generated text messaging/chat.
+- Any content you upload (e.g., an avatar) must be yours to use and must not violate any law or third-party right. The App offers one public lobby chat channel: a message you send there is visible to every signed-in user, is not private, and is kept for a limited time. Do not use it to harass, spam or break the law, and do not post personal data about anybody.
 - The Team may remove any account or content that breaches these Terms.
 
 

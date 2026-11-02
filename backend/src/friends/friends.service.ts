@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
+import { publishRoomsChanged } from '../common/channels';
 import { PrismaService } from '../prisma.service';
 import { PresenceService } from '../presence/presence.service';
 import { MatchService } from '../match/match.service';
@@ -538,6 +539,9 @@ export class FriendsService {
       // A block created out of nothing still hides whatever the other side had
       // (a pending request, or nothing at all) — both lists update live.
       void this.events.publishPair(userId, targetUserId);
+      // And the room list moves with it: a room holding either side stops being a
+      // row for the other, so the block needs no reload (queue item 3).
+      await publishRoomsChanged(this.redis);
       return { id: created.id };
     }
 
@@ -567,6 +571,7 @@ export class FriendsService {
     // The blocker sees `blocked` (their own list), the other side gets `none`:
     // a block placed against you removes the row rather than announcing it.
     void this.events.publishPair(userId, targetUserId);
+    await publishRoomsChanged(this.redis);
 
     return { ok: true };
   }
@@ -604,6 +609,8 @@ export class FriendsService {
     // Liftable state again: the row comes back as `none` (or `blocked` when the
     // other side still holds its own block), and the profile un-gates with it.
     void this.events.publishPair(userId, targetUserId);
+    // The other side's room comes back as a row for this viewer with it.
+    await publishRoomsChanged(this.redis);
 
     return { ok: true };
   }

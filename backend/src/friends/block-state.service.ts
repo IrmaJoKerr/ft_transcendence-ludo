@@ -53,4 +53,21 @@ export class BlockStateService {
       });
     }
   }
+
+  // Every id the viewer has blocked, in one read. The session socket seeds its
+  // chat filter from this at connect and keeps it current from
+  // `friendship:changed`, so the filter costs no query per message.
+  async blockedIds(viewerId: string): Promise<string[]> {
+    if (!viewerId) return [];
+    const rows = await this.prisma.db.friendship.findMany({
+      where: {
+        OR: [
+          { user1Id: viewerId, user1Status: 'blocked' },
+          { user2Id: viewerId, user2Status: 'blocked' },
+        ],
+      },
+      select: { user1Id: true, user2Id: true },
+    });
+    return rows.map((row) => (row.user1Id === viewerId ? row.user2Id : row.user1Id));
+  }
 }

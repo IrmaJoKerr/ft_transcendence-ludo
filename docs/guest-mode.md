@@ -245,7 +245,7 @@ A guest socket is a full seat for its room, but it drives an allow-list (`GUEST_
 
 | Refused | Why |
 | --- | --- |
-| `player_ready`, `select_color` | The room is already active and the seat is fixed at mint. |
+| `player_ready` | The room is already active and the seat is fixed at mint. |
 | `update_modifiers` | The rules are frozen at creation and the guest is not a host. |
 | any future event | The list is closed by default, so a new event is guest-refused until it is added on purpose. |
 

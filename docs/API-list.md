@@ -124,7 +124,9 @@ An error response has one of two shapes:
 | `MATCH_HOTSEAT_NO_BOTS` | 400 | Hot seat mode cannot have bots |
 | `MATCH_PVP_MIN_PLAYERS` | 400 | PvP mode needs at least 2 players |
 | `MATCH_SEAT_COLORS_LENGTH` | 400 | `seatColors` has the wrong number of items |
-| `MATCH_HOST_BLUE` | 400 | Host (first seat) must be blue |
+| `MATCH_INVALID_COLOR` | 400 | `hostColor` / `color` missing, or not one of the room's four corners |
+| `MATCH_COLOR_TAKEN` | 409 | Another joiner claimed that corner first (the claim is `HSETNX`) |
+| `MATCH_ROOM_UNAVAILABLE` | 403 | The room holds somebody the caller blocked (the neutral code: a block is never announced) |
 | `MATCH_BOT_COLORS` | 400 | `botColors` must match `botCount` |
 | `MATCH_PLAYER_COUNT_2_4` | 400 | Player count must be 2 or 4 |
 | `MATCH_OWN_INVITE` | 400 | Cannot join your own invite |
@@ -2228,6 +2230,9 @@ session socket is a cookie-authenticated connection at the page's own origin.
 | server → client | `rooms:list` | `LobbyRoom[]` | the open lobby, filtered for this viewer (`mySeat` is per account); pushed after a `rooms:changed` burst, debounced 500 ms and diffed |
 | server → client | `rooms:mine` | `MyRoom[]` | this account's own seats (rejoin banner, "has an active game") |
 | server → client | `friendship:changed` | `{ state, friend }` | one changed friendship row, **viewer-relative**: the same record drives the friends, requests and blocked lists (see below) |
+| server → client | `chat:history` | `ChatMessage[]` | the public channel's transcript, oldest first, re-sent on every (re)connect |
+| server → client | `chat:message` | `ChatMessage` | one live line on the public channel, filtered per recipient (a blocked pair never sees each other) |
+| client → server | `chat:send` | `{ text: string }` → ack | one line to the public channel; the ack is `{ ok: true }` or `{ ok: false, error }` with `CHAT_EMPTY`, `CHAT_TOO_LONG`, `CHAT_COOLDOWN` or `CHAT_UNAVAILABLE` |
 
 There is no client heartbeat event: the socket's own ping/pong (20 s / 20 s) is the liveness signal.
 A malformed `presence:playing` payload is refused by the DTO and dropped without an ack.
@@ -2621,28 +2626,6 @@ socket.emit('player_ready');
 ```
 
 **Response:** `lobby_update` broadcast (updated ready flags).
-
-
----
----
-
-
-#### `select_color`
-
-**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSelectColor`)
-
-Pick a seat color in the lobby. Picking or swapping a seat clears the Ready flag on both colors involved (readiness is tracked per color in engine state and must be re-confirmed after a change).
-
-```js
-socket.emit('select_color', color);
-
-```
-
-| Param | Type | Notes |
-|---|---|---|
-| `color` | `'red'` \| `'green'` \| `'yellow'` \| `'blue'` | The requested color |
-
-**Response:** `lobby_update` or `color_selected` broadcast.
 
 
 ---

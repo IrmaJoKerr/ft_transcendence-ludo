@@ -72,9 +72,18 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
   botCount?: number;         // 0 - (playerCount-1), PvE only
   botColors?: string[];      // Optional per-bot slot colors
   botNames?: string[];       // Optional per-bot assistant names, index-aligned with botColors
-  seatColors?: string[];     // Optional human seat colors
+  seatColors?: string[];     // Optional human seat colors, the host's corner first
+  hostColor?: string;        // REQUIRED at runtime: the host's own corner (no fallback)
 }
 ```
+
+The host owns a corner before any other seat exists: `hostColor` is required in every mode and
+`MATCH_INVALID_COLOR` answers its absence or a colour outside the room. The written `seatColors` starts
+with the host's colour and continues in canonical order, cut to `playerCount`, and a PvE or hotseat
+create refuses a list that does not hold the host's colour. A PvP joiner claims theirs in the join
+request (`color`), and the claim is final: `joinMatch` resolves that colour's slot and writes it with
+`HSETNX`, so one of two racing joiners gets the seat and the other gets `MATCH_COLOR_TAKEN`. There is no
+default corner and no in-room swap.
 
 `botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity, and the hash's `player{n}_isBot = 'true'` is what marks it as a bot. An empty or missing entry leaves the seat showing its plain id.
 
@@ -334,8 +343,8 @@ The full design, including the budgets, the registry keys and the settlement pat
 - **The engine trusts a registry, not a signature.** `guesttok:<sha256(token)>`
   is written at mint with a 1 h TTL; the handshake branches on the `g_` prefix,
   resolves the record and marks the socket `isGuest`. Guests may drive the
-  game events and `end_game`/`leave_game`, and are refused `player_ready`,
-  `select_color` and `update_modifiers` silently (an allow-list, so future
+  game events and `end_game`/`leave_game`, and are refused `player_ready` and
+  `update_modifiers` silently (an allow-list, so future
   events are closed by default).
 - **Nothing is written at the end.** The match hash carries `isGuest=true`, so
   the engine never calls `/api/game/end` or `/api/game/:id/started` for it: no

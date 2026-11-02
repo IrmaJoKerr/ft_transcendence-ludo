@@ -58,7 +58,7 @@ Vous acceptez **ne pas** :
 ## 4. Contenu et conduite de l'utilisateur
 
 - Votre nom d'utilisateur et votre nom affiché ne doivent pas être offensants, trompeurs, ou empiéter sur les droits des tiers.
-- Tout contenu que vous téléchargez (par ex., un avatar) doit être à vous pour être utilisé et ne doit pas violer aucune loi ou droit de tiers. L'App ne propose pas de messagerie texte/discussion générée par les utilisateurs.
+- Tout contenu que vous téléchargez (par ex., un avatar) doit être à vous pour être utilisé et ne doit pas violer aucune loi ou droit de tiers. L'App propose un canal de discussion public du lobby : un message que vous y envoyez est visible par tous les utilisateurs connectés, n'est pas privé et est conservé pendant une durée limitée. Ne l'utilisez pas pour harceler, spammer ou enfreindre la loi, et ne publiez aucune donnée personnelle concernant qui que ce soit.
 - L'équipe peut supprimer tout compte ou contenu qui enfreint ces Conditions.
 
 

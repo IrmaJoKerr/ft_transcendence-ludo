@@ -76,10 +76,14 @@ export type MyRoom = {
   maxSeats: number;
 };
 
-// The viewer's lobby list. A seated viewer sees the room even when it is full or
-// already started (it is their REJOIN row) unless the engine finalized the seat;
-// everybody else only sees rooms that can still take them.
-export function lobbyRoomsFor(snapshot: RoomSnapshotRow[], viewerId?: string): LobbyRoom[] {
+// The viewer's lobby list. A seated viewer keeps their own row (it is the REJOIN
+// row); everybody else sees rooms that can still take them, and never a room
+// holding somebody they have blocked.
+export function lobbyRoomsFor(
+  snapshot: RoomSnapshotRow[],
+  viewerId?: string,
+  blocked?: ReadonlySet<string>,
+): LobbyRoom[] {
   const rooms: LobbyRoom[] = [];
   for (const room of snapshot) {
     // The lobby is joinable PvP rooms only; `rooms:mine` covers everything.
@@ -88,6 +92,10 @@ export function lobbyRoomsFor(snapshot: RoomSnapshotRow[], viewerId?: string): L
     if (slotIndex !== -1) {
       if (viewerId && room.finalizedIds.includes(viewerId)) continue;
     } else {
+      // A blocked pair never meets in the open list, and the filter is
+      // server-side only: the browser's row carries no seat ids, so it could not
+      // answer the question even if it wanted to.
+      if (blocked && room.seatIds.some((id) => id && blocked.has(id))) continue;
       // A started or full room takes no new players. The engine state decides
       // "started", because the match hash can lag behind it.
       if (room.status === 'ACTIVE') continue;
@@ -251,7 +259,31 @@ export class MatchQueryService {
   // viewer's own seat in a room whose game has already started, as long as that
   // seat can still be reclaimed.
   async listOpenRooms(viewerId?: string): Promise<LobbyRoom[]> {
-    return lobbyRoomsFor(await this.snapshot(), viewerId);
+    const snapshot = await this.snapshot();
+    if (!viewerId) return lobbyRoomsFor(snapshot);
+    const blocked = (await this.blockedByViewer()).get(viewerId);
+    return lobbyRoomsFor(snapshot, viewerId, blocked);
+  }
+
+  // Every blocked pair, folded per account: one read per rooms flush, so the list
+  // filter costs one query rather than one per room. Both directions fold in,
+  // because a block hides the pair.
+  async blockedByViewer(): Promise<Map<string, Set<string>>> {
+    const rows = await this.prisma.db.friendship.findMany({
+      where: { OR: [{ user1Status: 'blocked' }, { user2Status: 'blocked' }] },
+      select: { user1Id: true, user2Id: true },
+    });
+    const map = new Map<string, Set<string>>();
+    const add = (viewer: string, other: string) => {
+      const set = map.get(viewer) ?? new Set<string>();
+      set.add(other);
+      map.set(viewer, set);
+    };
+    for (const row of rows) {
+      add(row.user1Id, row.user2Id);
+      add(row.user2Id, row.user1Id);
+    }
+    return map;
   }
 
   // List WAITING or ACTIVE matches that the given user is seated in.

@@ -28,6 +28,11 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    token never expires while a request is still waiting for a response. Presence rides on the socket —
    the connection itself is the liveness signal, so the store sends no periodic request at all;
    `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect.
+   The public chat channel rides it too: `chatLog` (the last 50 lines, oldest first, merged by message
+   id so the connect-time history and the last live frame cannot double) and `sessionConnected` (whether
+   the composer may send) live in the store, with `sendChat(text, ack)` as the one write. They are here
+   rather than in the dock's panel because the channel can be switched off and most screens render no
+   panel at all, while `/game` must still keep the log current.
    Notifications ride the same socket, so there is no second connection to keep alive: the socket's
    ping/pong is the only keep-alive. See [`../architecture.md`](../architecture.md) → Connection liveness.
 

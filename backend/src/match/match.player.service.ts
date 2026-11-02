@@ -92,6 +92,10 @@ export class MatchPlayerService {
     if (occupiedIds.length >= maxSeats)
       throw new ForbiddenException({ code: 'MATCH_ROOM_FULL', message: 'Room is full' });
 
+    // A block refuses the next seating, both ways round (queue item 3's lobby
+    // half). It is the same gate for `joinByInvite`, which routes through here.
+    await this.assertNoBlockedSeat(occupiedIds, userId);
+
     // A claimed colour is a seat: it lands at that colour's own slot, and nothing
     // else may take it. There is no fallback slot.
     const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
@@ -144,6 +148,27 @@ export class MatchPlayerService {
       // advertised rules, and the engine's join freezes the same values into state.
       rules: readRoomRules(data),
     };
+  }
+
+  // A block refuses the next seating, both ways round: the blocker is told
+  // FRIEND_BLOCKED, the blocked party gets the list's neutral refusal, because a
+  // block is never announced. Rejoin and my-rooms stay open.
+  private async assertNoBlockedSeat(slotIds: string[], userId: string): Promise<void> {
+    if (slotIds.length === 0) return;
+    const rows = await this.prisma.db.friendship.findMany({
+      where: { pairKey: { in: slotIds.map((id) => pairKey(userId, id)) } },
+      select: { user1Id: true, user1Status: true, user2Status: true },
+    });
+    for (const row of rows) {
+      if (row.user1Status !== 'blocked' && row.user2Status !== 'blocked') continue;
+      const callerIsUser1 = row.user1Id === userId;
+      const callerBlocked = (callerIsUser1 ? row.user1Status : row.user2Status) === 'blocked';
+      throw new ForbiddenException(
+        callerBlocked
+          ? { code: 'FRIEND_BLOCKED', message: 'Cannot join - user is blocked' }
+          : { code: 'MATCH_ROOM_UNAVAILABLE', message: 'Room is not available' },
+      );
+    }
   }
 
   // Rejoin a match the user is already seated in (fresh token, no new slot).

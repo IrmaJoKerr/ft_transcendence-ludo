@@ -258,6 +258,15 @@ query of its own, and the publisher builds nothing at all when neither recipient
 row. The client re-reads `GET /api/friends*` only on mount, on socket reconnect and on window focus —
 the three repair triggers — so an idle session sends no request and receives no frame.
 
+The public chat channel is the one broadcast that is filtered per person. A line goes to
+`chat:lobby` after `INCR chat:lobby:seq` mints its id and `LPUSH` + `LTRIM 0 49` writes it to
+`chat:lobby:log`; the broadcaster fans the frame out to its own instance's sockets, skipping a pair
+where either side has blocked the other. The recipient's own blocks are seeded at connect
+(`friendship:changed` keeps them current); the sender's list rides the frame, because a block is never
+announced to the side it hides from. A new socket receives `chat:history` at connect, so the transcript
+survives a reload without a second request.
+
+
 
 
 ---
@@ -418,7 +427,7 @@ boundary rests on three properties:
 - A guest token is opaque (`g_…`), not a JWT: the engine resolves `guesttok:<sha256(token)>` from Redis and sets `socket.data.isGuest`; the token can open no `JwtAuthGuard` route, and the player branch is unreachable because the handshake branches on the prefix first.
 - `POST /api/match/guest` is public by design (no `JwtAuthGuard`), but the body is a DTO class, the mode is forced to `pve` and the seat is server-assigned; the route is bounded by the nginx `guest` zone, its own `@Throttle`, and the per-address and global counters in `GuestLimitService`.
 - A guest room writes nothing durable: `isGuest=true` in the match hash suppresses both engine callbacks, so no `MatchHistory` row, no `PlayerStats` counter and no leaderboard entry exists. The abort path only increments `guest:abort:<sha256(ip)>` and frees the live slots.
-- A guest socket drives an allow-list (`GUEST_EVENTS`): the game events plus `join_game`, `end_game`, `leave_game` and `disconnect`; `player_ready`, `select_color`, `update_modifiers` and any future event are dropped without a disconnect.
+- A guest socket drives an allow-list (`GUEST_EVENTS`): the game events plus `join_game`, `end_game`, `leave_game` and `disconnect`; `player_ready`, `update_modifiers` and any future event are dropped without a disconnect.
 - `join_game` binds the socket to the room and colour named by the token (`tokenGameId`, `tokenColor`); the client's arguments are fallbacks only.
 - A socket holds a room and seat binding only while its join is accepted: a refusal or a takeover clears `socket.data.gameId` and `playerColor` (`detachSocket()`), so its later `disconnect` cannot disturb a live seat.
 - The backend mints a token only when the caller's seat is not `exited` in the engine state and the engine has not started the game; the `match:*` hash is never trusted on its own.

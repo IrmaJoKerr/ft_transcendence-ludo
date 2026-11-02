@@ -57,3 +57,11 @@ export const EVENT_FRIENDSHIP_CHANGED = 'friendship:changed';
 // than on a client event) also removes the subscribe-before-first-paint race: the
 // listener exists for the whole life of the connection.
 export const friendsRoom = (userId: string): string => `friends:of:${userId}`;
+
+// The public lobby channel (queue item 3). Membership is the socket, so there is
+// no join and no part: `chat:send` is the one write, `chat:message` is one live
+// frame, and `chat:history` is the connect-time transcript, re-sent on every
+// (re)connect like the bell's unread list.
+export const EVENT_CHAT_SEND = 'chat:send';
+export const EVENT_CHAT_MESSAGE = 'chat:message';
+export const EVENT_CHAT_HISTORY = 'chat:history';

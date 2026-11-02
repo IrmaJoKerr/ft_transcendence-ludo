@@ -1,7 +1,13 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AUTH_REVOKED_PREFIX } from '../auth/auth.constants';
-import { FRIENDSHIP_CHANNEL_PREFIX, ROOMS_CHANGED_CHANNEL } from '../common/channels';
+import { parseChatRecord } from '../chat/chat.service';
+import {
+  CHAT_CHANNEL,
+  FRIENDSHIP_CHANNEL_PREFIX,
+  ROOMS_CHANGED_CHANNEL,
+  chatPubSubChannel,
+} from '../common/channels';
 import { parseFriendshipRecord } from '../friends/friendship-record';
 import { MatchQueryService, lobbyRoomsFor, myRoomsFor } from '../match/match.query.service';
 import { PRESENCE_COUNT_CHANNEL } from '../presence/presence.constants';
@@ -15,10 +21,11 @@ import { RealtimeGateway } from './realtime.gateway';
 const ROOMS_DEBOUNCE_MS = 500;
 const ROOMS_REPAIR_TICK_MS = 30_000;
 
-// The realtime module's own Redis subscriber. It carries four families: session
-// revocation (D4), the site-wide online count (Phase 1), rooms changes (Phase 2)
-// and friendship records (Phase 3). Notifications join it in Phase 4, which is
-// why it is a service of its own rather than a method on the gateway.
+// The realtime module's own Redis subscriber. It carries five families: session
+// revocation (D4), the site-wide online count (Phase 1), rooms changes (Phase 2),
+// friendship records (Phase 3) and the public chat channel (queue item 3).
+// Notifications join it in Phase 4, which is why it is a service of its own rather
+// than a method on the gateway.
 @Injectable()
 export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
   // A subscribed ioredis connection cannot run ordinary commands, so it is never
@@ -56,7 +63,11 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
         // rather than reaching a client as a shape the reducer cannot read.
         const record = parseFriendshipRecord(message);
         if (!record) return;
-        this.gateway.emitToFriends(channel.slice(FRIENDSHIP_CHANNEL_PREFIX.length), record);
+        const recipientId = channel.slice(FRIENDSHIP_CHANNEL_PREFIX.length);
+        // The chat filter's update path (queue item 3): the record's state is
+        // relative to this recipient, so a block of their own is what it carries.
+        this.gateway.noteBlockState(recipientId, record.state, record.friend.id);
+        this.gateway.emitToFriends(recipientId, record);
         return;
       }
       this.gateway.disconnectUser(channel.slice(AUTH_REVOKED_PREFIX.length));
@@ -77,11 +88,23 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
         if (Number.isFinite(count)) this.gateway.emitCountsOnline(count);
         return;
       }
-      if (channel === ROOMS_CHANGED_CHANNEL) this.scheduleRooms();
+      if (channel === ROOMS_CHANGED_CHANNEL) {
+        this.scheduleRooms();
+        return;
+      }
+      if (channel === chatPubSubChannel(CHAT_CHANNEL)) {
+        // The frame is fanned out to this instance's own sockets, which is exactly
+        // the right set: a plain channel, like the online count, with no room emit
+        // and no Redis adapter. The sender's block list is stripped by `emitChat`.
+        const record = parseChatRecord(message);
+        if (record) this.gateway.emitChat(record.message, record.senderBlocked);
+      }
     });
-    this.redis.subscribe(PRESENCE_COUNT_CHANNEL, ROOMS_CHANGED_CHANNEL).catch((error) => {
-      console.error('Failed to subscribe to the count/rooms channels:', error);
-    });
+    this.redis
+      .subscribe(PRESENCE_COUNT_CHANNEL, ROOMS_CHANGED_CHANNEL, chatPubSubChannel(CHAT_CHANNEL))
+      .catch((error) => {
+        console.error('Failed to subscribe to the count/rooms/chat channels:', error);
+      });
 
     // The repair tick. It has two jobs, both deliberate: repair a publish that was
     // lost (a crash between write and publish, a subscriber that was reconnecting)
@@ -126,10 +149,21 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // One extra read per flush: every blocked pair, folded per account, so each
+    // viewer's list can drop a room that holds somebody they blocked without a
+    // query of its own (queue item 3's lobby half). A failed read leaves the list
+    // unfiltered rather than blank: the join route still refuses the pair.
+    let blockedByViewer = new Map<string, Set<string>>();
+    try {
+      blockedByViewer = await this.match.blockedByViewer();
+    } catch (error) {
+      console.error('Failed to read blocked pairs:', error);
+    }
+
     const viewers = this.gateway.connectedUserIds();
     let repaired = 0;
     for (const userId of viewers) {
-      const list = lobbyRoomsFor(snapshot, userId);
+      const list = lobbyRoomsFor(snapshot, userId, blockedByViewer.get(userId));
       const mine = myRoomsFor(snapshot, userId);
       const signature = JSON.stringify([list, mine]);
       if (this.lastRooms.get(userId) === signature) continue;

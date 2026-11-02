@@ -50,7 +50,6 @@ input/output. Each event is documented in full below; see
 | `clash_input` | Either side of a live clash, during the press phase | `(key: string, count?: number)` | One QTE keypress. The LIVE letter of each side's schedule picks the side (defender keys are the left block, attacker keys the right; a room with the key-shift mutator moves that letter at each switch instant, so the opening letter stops counting there), then the seat binding proves the caller owns it: in PvP only the owner's scoring key lands, in hotseat one socket owns both seats and may mash both. `count` is the tablet tap weight, which the touch pad sends as 2: it is clamped to `CLASH_TAP_COUNT_MAX` (2) and the per-side 110 ms cap still gates the events, so a pad tap is a heavier press, never a faster stream. A press that fails any check is dropped silently | `clash_press` |
 | `clash_card_hold` | Either side of a live result card (the client that is showing it) | `(cardId: string, holdMs: number)` | The result-card release handshake. The client forecasts how long its OWN card will run; the engine converts it to a deadline on receipt, clamps it to `[CARD_HOLD_MIN_MS, CLASH_RESULT_FREEZE_MS]` and keeps the SMALLEST, so a receipt can only ever shorten the freeze and a missing one leaves the 4 s ceiling. Only a user who owns a seat in that card may report: a foreign `cardId` is dropped, a stranger is refused, and a receipt after the release does nothing. Hotseat is one user over both seats, so one receipt releases the card | `clash_card_released` |
 | `player_ready` | Seated player in the waiting lobby | `()` | Mark ready; when every active player is ready the game starts | `game_started` |
-| `select_color` | Seated player during color selection | `(color: 'red'/'green'/'yellow'/'blue')` | Move the player to the requested seat color; clears Ready on both colors involved | `color_selected` + `lobby_update` |
 | `update_modifiers` | Host, room still `WAITING` | `(rules: { clashEnabled, noSafeZones, freeExit, clashKeyShift })` | Normalize and persist the four room rules (mirrored into the match hash); the switch count is clamped to 0/1/2 and forced to 0 whenever clash mode is off. Rejected when the caller is not the host or the room has started | `modifiers_updated` |
 | `leave_game` | Player leaving a room (e.g. after a match) | `()` | Waiting room: seat parked `inactive` and reserved. Live game: seat parked `exited`, pieces cleared, turn advances | `player_exited` (+ `state_update` live) |
 | `end_game` | Host presses "End Game" | `()` | PvE/hotseat: abort the whole game. PvP: prune this player, abort the room if fewer than 2 humans remain | `game_expired` or `player_aborted` |
@@ -170,7 +169,7 @@ deleting a record stops the *next* handshake, not an open one.
 
 A guest socket is a full seat for its room, but it drives an allow-list
 (`GUEST_EVENTS` in `socket/auth.ts`): the game events, `join_game`,
-`end_game`/`leave_game` and `disconnect`. `player_ready`, `select_color` and
+`end_game`/`leave_game` and `disconnect`. `player_ready` and
 `update_modifiers` are dropped and logged, never a disconnect. The abort path also
 settles the backend's budgets from this process: `INCR guest:abort:<sha256(ip)>`
 (weighted at the next mint) and the live-room decrements, then the token is revoked.
@@ -417,25 +416,6 @@ socket.emit('player_ready');
 ```
 
 **Response:** `game_started` once every active seat is ready, and `lobby_update` on each ready toggle.
-
-
----
----
-
-
-### `select_color`
-
-Select a color for the player (used during lobby/color selection phase).
-
-```js
-socket.emit('select_color', color);
-```
-
-| Param | Type | Notes |
-|---|---|---|
-| `color` | string | e.g. `"red"` |
-
-**Response:** `color_selected` plus `lobby_update`.
 
 
 ---

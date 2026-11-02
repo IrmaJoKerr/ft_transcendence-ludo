@@ -87,6 +87,26 @@ export type Notification = {
   createdAt: string;
 };
 
+// One line of the public lobby channel (queue item 3). `id` is the channel's own
+// sequence number in string form: the transcript's React key and its dedupe, so a
+// reconnect's history and the last live frame cannot paint the same line twice.
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderUsername: string;
+  text: string;
+  at: string;
+  ch: string;
+};
+
+// Why a line did not go. The panel has one reserved status line and localizes each
+// of these, so a refusal is never silent.
+export type ChatErrorCode = 'CHAT_EMPTY' | 'CHAT_TOO_LONG' | 'CHAT_COOLDOWN' | 'CHAT_UNAVAILABLE';
+
+// `chat:send`'s answer: the one place this socket reports a refusal.
+export type ChatAck = { ok: true } | { ok: false; error: ChatErrorCode };
+
 export type SessionServerEvents = {
   // Emitted once a socket is registered, which is when it counts as online.
   'presence:hello': () => void;
@@ -105,11 +125,20 @@ export type SessionServerEvents = {
   // The connect snapshot: the account's unread list, re-sent on every (re)connect.
   // It is the bell's only read path.
   'notifications:unread': (list: Notification[]) => void;
+  // One live line on the public channel. Membership is the socket, so there is no
+  // join event: every signed-in tab is in the channel for the life of the
+  // connection.
+  'chat:message': (message: ChatMessage) => void;
+  // The transcript, oldest first, re-sent on every (re)connect.
+  'chat:history': (messages: ChatMessage[]) => void;
 };
 
 export type SessionClientEvents = {
-  // The only client -> server event (D3): a per-connection "in a match" bit.
+  // A per-connection "in a match" bit (D3). Re-asserted on every connect.
   'presence:playing': (event: { playing: boolean }) => void;
+  // One line to the public channel. The ack says whether it went, and if not why,
+  // so the panel never has to guess after a silent drop.
+  'chat:send': (event: { text: string }, ack: (reply: ChatAck) => void) => void;
 };
 
 export type SessionSocket = Socket<SessionServerEvents, SessionClientEvents>;
