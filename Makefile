@@ -106,16 +106,30 @@ logs:
 # Dropping the generated `src/__shared__` copies is part of a clean: they are build
 # output, never source, so a clean must not leave one behind for the next run to pick up.
 # `shared` (a dependency of `build` and `dev`) writes them again from `common/src`.
+#
+# Order matters, and this target learned it the hard way: the frontend publisher
+# runs `npm run build` inside a bind mount of ./frontend as root, and its `prebuild`
+# sync wrote src/__shared__ as root — so `rm -rf` failed with "Permission denied" on
+# the host user, and a watcher still running would have recreated the directory right
+# after any successful delete. Teardown therefore comes first, the delete second, and
+# the delete still has a root fallback for copies left behind by a build from before
+# this ordering existed (or by an image older than publish.sh's hand-back). Images go
+# last so the fallback container's base image is still around to be reused.
+SHARED_COPIES = frontend/src/__shared__ backend/src/__shared__ backend/app/ludo-engine/src/__shared__
+
 clean:
 	@echo "🗑️  Cleaning all Docker data..."
-	@rm -rf frontend/src/__shared__ backend/src/__shared__ backend/app/ludo-engine/src/__shared__
-	@echo "🧹  Removed the generated src/__shared__ copies"
 	@docker stop $$(docker ps -qa) 2>/dev/null; \
 	docker rm $$(docker ps -qa) 2>/dev/null; \
-	docker rmi -f $$(docker images -qa) 2>/dev/null; \
 	docker volume rm $$(docker volume ls -q) 2>/dev/null; \
-	docker network rm $$(docker network ls -q) 2>/dev/null; \
-	echo "✅  Done."
+	docker network rm $$(docker network ls -q) 2>/dev/null; true
+	@rm -rf $(SHARED_COPIES) 2>/dev/null || \
+	{ echo "🔒  Copies owned by a container's root; deleting them from inside one..."; \
+	  docker run --rm -v "$(CURDIR)":/w -w /w busybox \
+	    rm -rf $(SHARED_COPIES); }
+	@echo "🧹  Removed the generated src/__shared__ copies"
+	@docker rmi -f $$(docker images -qa) 2>/dev/null; true
+	@echo "✅  Done."
 
 prune:
 	@docker system prune -af --volumes

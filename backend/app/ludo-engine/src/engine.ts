@@ -504,7 +504,7 @@ export class LudoEngine {
   // Skip on a held turn: every offered move is token-priced, so the seat spends a
   // token or forfeits the turn and keeps it. A pass, not a re-roll: the dice are
   // spent and the turn advances.
-  async skipArmedBust(gameId: string): Promise<void> {
+  async skipArmedWallBreak(gameId: string): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
       if (state?.status !== 'active') {

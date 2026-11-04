@@ -37,10 +37,10 @@ export function isBotSeat(state: GameState | null | undefined, color: PlayerColo
 // worth CAPTURE_CREDIT times its clash odds. A 2+ defender wall falls below the
 // best positional move, so the bot declines it. The bot doc has the worked values.
 const CAPTURE_CREDIT = 7000;
-// Value of a Wall Breaker token kept in hand. A bust scores its capture credit
-// minus this shadow, so the bot spends the token only when the attack still
-// clears that value.
-const BUST_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
+// Value of a Wall Breaker token kept in hand. A wall break scores its capture
+// credit minus this shadow, so the bot spends the token only when the attack
+// still clears that value.
+const WALL_BREAK_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
 // A jail exit on a 6 keeps the old tempo priority: with every other bonus it
 // scores 1670, above the best positional move and below the cheapest capture the
 // bot takes.
@@ -64,7 +64,7 @@ export class LudoBot {
 
   // Rank captures on the same scale and include their clash odds, so a chain the
   // bot expects to lose ranks below a safe move. Skip scores 0; a null result
-  // means the bot declined a token-priced bust.
+  // means the bot declined a token-priced wall break.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
 
@@ -87,10 +87,10 @@ export class LudoBot {
     // is worth 219, while plain progress alone pays up to 570).
     if (move.isCapture) {
       const credit = CAPTURE_CREDIT * this.captureOdds(state, move);
-      // A Wall Breaker bust is a capture that also spends a token, so it pays
-      // the token's shadow price: a bust whose odds do not cover it drops below
-      // Skip (0) and the bot declines.
-      return move.spendsWallBreakerToken ? credit - BUST_TOKEN_SHADOW : credit;
+      // A token-priced wall break is a capture that also spends a token, so it
+      // pays the token's shadow price: a break whose odds do not cover it drops
+      // below Skip (0) and the bot declines.
+      return move.spendsWallBreakerToken ? credit - WALL_BREAK_TOKEN_SHADOW : credit;
     }
 
     let score = 0;
@@ -170,7 +170,7 @@ export class LudoBot {
 
     // The bot arms whenever it holds a token: an unarmed seat is blocked by a wall,
     // so it would never see the wall landings its pricing exists for. Arming costs
-    // nothing; selectBestMove still declines a bust whose odds miss the shadow price.
+    // nothing; selectBestMove still declines a wall break whose odds miss the shadow price.
     const botSeat = state.players.find((p) => p.color === this.color);
     if (
       state.clashMode === true &&
@@ -189,11 +189,11 @@ export class LudoBot {
       if (afterRoll?.currentTurn !== this.color) return false;
 
       // Select the best move by heuristic. Null means the bot declines an armed
-      // Wall Breaker bust whose odds miss the token's shadow price: it passes the
-      // turn instead of stalling, and the token stays in hand.
+      // wall break whose odds miss the token's shadow price: it passes the turn
+      // instead of stalling, and the token stays in hand.
       const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue);
       if (!bestMove) {
-        await this.engine.skipArmedBust(this.gameId);
+        await this.engine.skipArmedWallBreak(this.gameId);
         return true;
       }
 

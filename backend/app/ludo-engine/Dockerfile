@@ -7,6 +7,10 @@ COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm install
 
 COPY tsconfig.json ./
+# The tree's `prebuild` hook runs `scripts/sync-shared.mjs`, which finds the copy
+# already made from the named context below and leaves it alone. Without the script
+# in the image that hook is a MODULE_NOT_FOUND before `tsc` ever runs.
+COPY scripts/ ./scripts/
 COPY src/ ./src/
 # `common/src` from compose's named `shared` context: the tree's `prebuild` finds the
 # copy already in place and skips its own sync (the engine's rootDir is ./src, so this

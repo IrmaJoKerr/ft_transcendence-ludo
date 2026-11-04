@@ -11,6 +11,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Not `npm run dev` directly: dev.sh runs the shared-constant sync itself and
+# hands the copy back to the host user, which a bare script invocation cannot do
+# (see its header). Invoked via `sh` for the same reason publish.sh is.
+COPY dev.sh ./
+RUN chmod +x dev.sh
+
 EXPOSE 8080
 
-CMD ["npm", "run", "dev"]
+CMD ["sh", "dev.sh"]

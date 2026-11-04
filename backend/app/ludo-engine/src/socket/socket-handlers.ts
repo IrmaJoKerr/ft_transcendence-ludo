@@ -102,7 +102,7 @@ export class SocketHandlers {
   // 'skip_wall_breaker' event: decline the armed Wall Breaker exit holding the turn. The
   // engine owns the rule (the move must be on the table, never on a 6), so this only
   // repeats the turn and ownership pre-check, then passes. Errors go to that socket.
-  handleSkipBust(socket: GameSocket): void {
+  handleSkipWallBreak(socket: GameSocket): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
     if (!gameId || !color) {
@@ -116,7 +116,7 @@ export class SocketHandlers {
         if (state?.status === 'active') {
           if (state.currentTurn !== color) return;
         }
-        await this.engine.skipArmedBust(gameId);
+        await this.engine.skipArmedWallBreak(gameId);
       } catch (error) {
         // A refused Skip is dropped silently: the intent is a pass, the token is never
         // at risk, and the client sends one only where the engine accepts it, so a

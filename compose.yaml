@@ -112,6 +112,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # Same image as `backend`, so it needs the same named context: without it
+      # BuildKit reads `shared` as an image name and the build dies on
+      # `pull access denied` before it ever reaches the COPY.
+      additional_contexts:
+        shared: ./common
     container_name: studio
     restart: unless-stopped
     # Skip docker-entrypoint.sh: it re-runs `prisma db push`, which races

@@ -585,7 +585,7 @@ export class SocketServer {
 
       // The Skip button on a held turn: decline the armed Wall Breaker exit.
       socket.on('skip_wall_breaker', () => {
-        this.handlers.handleSkipBust(socket);
+        this.handlers.handleSkipWallBreak(socket);
       });
 
       // The Wall Breaker arm switch, clash mode only: arm to be allowed to land

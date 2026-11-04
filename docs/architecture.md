@@ -72,9 +72,12 @@ therefore generated into each tree:
   gitignored build output and never edited. It runs on `prebuild`/`predev`, and `make shared` runs all
   three (both `make build` and `make dev` depend on it).
 - the images take the files straight from `/common`: compose names it as an extra build context
-  (`additional_contexts: shared: ./common`) and each Dockerfile does one
+  (`additional_contexts: shared: ./common`) on **every** service that builds one of those two trees —
+  `backend`, `studio` (same Dockerfile as `backend`) and `ludo-engine` — and each Dockerfile does one
   `COPY --from=shared /src ./src/__shared__` before its build, so the tree's own `prebuild` finds the
-  copy already in place.
+  copy already in place. The engine's image also copies `scripts/`, because its Dockerfile takes
+  selective paths (`src/`, `tsconfig.json`) rather than the whole tree and the hook runs
+  `sync-shared.mjs` from there.
 - the two frontend services mount `./common:/common:ro`, because their `/app` tree arrives as a bind
   mount rather than from the image.
 - `node scripts/sync-shared.mjs --check` compares the copies and fails on drift; the
@@ -121,7 +124,7 @@ attaches to the `transcendence_network` bridge and reaches the others by service
 | `studio` | `…-studio` (reuses the backend image) | `npx prisma studio --port 5555 --browser none` — **Prisma DB browser** over the `db` service (skips the backend entrypoint to avoid a `prisma db push` race condition) | `127.0.0.1:5555 → 5555` | db (healthy) |
 | `ludo-engine` | `…-ludo-engine` (node:22-alpine) | `node dist/index.js` — **Socket.IO game engine + inline bot AI** on 3001 (clients reach it same-origin via nginx; the host port exists for local `npm run dev`) | `127.0.0.1:3001 → 3001` | redis (healthy) |
 | `frontend` | `…-frontend` (node:22-alpine) | `publish.sh` — builds the **React SPA**, publishes it into the `spa_dist` volume, then watches the bind-mounted `./frontend/src` (`/app/src` in the container) and `package.json` and republishes on change (long-running build job) | — | — |
-| `frontend-dev` *(profile: dev)* | `…-frontend-dev` (node:22-alpine, `Dockerfile.dev`) | `npm run dev` — **Vite dev server with HMR**, serves source from the bind mount | `8080 → 8080` | backend, ludo-engine |
+| `frontend-dev` *(profile: dev)* | `…-frontend-dev` (node:22-alpine, `Dockerfile.dev`) | `dev.sh` — syncs the shared copy, then **Vite dev server with HMR** over the bind mount | `8080 → 8080` | backend, ludo-engine |
 | `nginx` | `…-nginx` (debian + nginx-extras) | `nginx.sh` waits for the backend health check, then `exec nginx -g "daemon off;"` — **TLS reverse proxy**: serves the SPA and proxies `/api/*` + `/socket.io/*` (engine) + `/ws-socket.io/*` (session socket). Two listeners share one server body (`conf/app.inc`): `:443` for direct clients, `:444` for the ngrok tunnel (loopback-published, resolves the real client IP) | `8443 → 443`, `127.0.0.1:8444 → 444` | frontend (healthy), backend, ludo-engine |
 
 ### Volumes
@@ -169,6 +172,19 @@ The frontend is **not** a server. It is a **long-running build-and-watch job**
    `frontend/src` (unrelated to `backend/src`) — and republishes on every
    change. The container never exits.
 4. `nginx` mounts `spa_dist` read-only at `/usr/share/nginx/html`.
+
+Because `/app` is a bind mount and this container runs as root, every file the
+`prebuild` sync writes into `/app/src/__shared__` would otherwise come out owned by
+root **on the host** — and then the host user can neither delete that directory
+(`make clean`, which also can't outrun a still-running watcher, so it tears the
+containers down first) nor rewrite it (`make shared` starts with `rmSync` of the
+target). `hand_back_copies` in `publish.sh` therefore chowns each fresh copy to
+whoever owns `/app` — the host user by construction, so no uid is passed in and a
+machine whose uid isn't 1000 is fine. `frontend-dev` does the same in `dev.sh`,
+which is why that service runs a script rather than `npm run dev` directly: it syncs,
+hands the copy back, then starts Vite with the `predev` hook suppressed so the second
+sync cannot undo the ownership. Both are best-effort — a refused `chown` (an
+id-mapped mount, say) logs nothing and never fails a build.
 
 `nginx` gates on `depends_on: frontend: condition: service_healthy` — the health
 check is `test -f /export/index.html` (retries 20 over ~30s) — so it cannot start
@@ -719,6 +735,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   ├── index.html
 │   ├── .npmrc / .oxlintrc.json    # npm registry config / oxlint rules
 │   ├── publish.sh                # Build, publish, watch src/ (long-running)
+│   ├── dev.sh                    # Sync, hand the copy back, then Vite (dev profile)
 │   ├── public/                   # Static assets copied as-is: logo.png, google.png, github.png, forty_two.png, synthwave-cityscape.jpeg
 │   │
 │   └── src/

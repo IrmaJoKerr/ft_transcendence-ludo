@@ -582,9 +582,9 @@ export const ms = {
     wallBreakerActionTitle: 'Gunakan satu token: keluar ini menentang tembok yang dipijak gulingan',
     wallBreakerActionArmedTitle:
       'Diarmkan: ketik keluar penjara untuk menentang tembok, atau tekan lagi untuk batal',
-    skipBustBtn: 'LANGKAU PECAH TEMBOK',
-    skipBustTitle: 'Langkau pemecahan tembok: simpan token dan langkau giliran',
-    skipBustDisabledTitle: 'Tiada apa untuk dilangkau: tiada serangan tembok menahan giliran',
+    skipWallBreakBtn: 'LANGKAU PECAH TEMBOK',
+    skipWallBreakTitle: 'Langkau pemecahan tembok: simpan token dan langkau giliran',
+    skipWallBreakDisabledTitle: 'Tiada apa untuk dilangkau: tiada serangan tembok menahan giliran',
     wallBreakerSkipped: '{{name}} melangkau: Pemecah Tembok disimpan untuk kemudian',
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
@@ -942,7 +942,7 @@ export const ms = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. KELUAR BEBAS',
-    rulesTab9: '10. PEMECAH',
+    rulesTab9: '10. PEMECAH TEMBOK',
     rulesPage6Header: '// MOD CLASH',
     rulesPage6Title: '⚔️ Bertahan dengan menekan laju',
     rulesPage6Body:

@@ -381,7 +381,7 @@ export function Board({
   // A Wall Breaker exit is not a plain tap target: arming it is the player's
   // explicit choice in Game.tsx, so until then the piece is not tappable or badged.
   // The engine offers at most one exit per piece per roll.
-  const bustPieceIds = new Set(
+  const wallBreakPieceIds = new Set(
     (legalMoves ?? []).filter((m) => m.spendsWallBreakerToken).map((m) => m.pieceId),
   );
   const legalPieceIds = new Set(
@@ -389,7 +389,7 @@ export function Board({
   );
   // Clash chain preview: an attack on a stack of defenders costs one QTE round per
   // defender, so the legal piece wears a ×R badge. Plain moves and single defenders
-  // show nothing; a Wall Breaker bust shows the size of the wall it lands on.
+  // show nothing; a wall break shows the size of the wall it lands on.
   const chainCounts = new Map<string, number>();
   for (const m of legalMoves ?? []) {
     if ((m.captureCount ?? 0) >= 2) chainCounts.set(m.pieceId, m.captureCount as number);
@@ -397,7 +397,7 @@ export function Board({
   // Wall Breaker exits in the pool: their piece is still in the base but is
   // playable, so it gets the 🔓 price tag only while armed; that is what makes
   // the badge mean "this tap spends the token".
-  const armedPieceIds = breakerArmed ? bustPieceIds : new Set<string>();
+  const armedPieceIds = breakerArmed ? wallBreakPieceIds : new Set<string>();
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );
@@ -486,7 +486,7 @@ export function Board({
       isLegal: legalPieceIds.has(piece.id),
       chain: chainCounts.get(piece.id) ?? 0,
       // Armed wall landings are token-priced, so the piece wears the price tag.
-      priced: bustPieceIds.has(piece.id),
+      priced: wallBreakPieceIds.has(piece.id),
     });
     byCell.set(key, list);
   }

@@ -434,10 +434,10 @@ armed_exit(pieceId)                                 // MoveValidator.armedExit
   │   └── A lone defender, or a pair of different colours, is no wall: the ordinary
   │       exit rules above cover those squares
   ├── Require the landing to be attackable (`wallIsAttackable`), read here because a protected
-  │   star never blocks either, so `blockadeBlocksPath` alone would let the bust land on a
+  │   star never blocks either, so `blockadeBlocksPath` alone would let the wall break land on a
   │   wall it cannot fight
   ├── Require a clear path behind the landing (`blockadeBlocksPath` from step 1): a second
-  │   wall on the way blocks the bust exactly as it blocks any other move
+  │   wall on the way blocks the wall break exactly as it blocks any other move
   └── LegalMove { from: 0, to: the roll, isCapture: true, captureCount: the wall's depth,
       spendsWallBreakerToken: true } — no battle list: the one square is the whole fight
 ```
@@ -449,8 +449,8 @@ priced whether or not the seat is armed, so a toggle costs one `state_update` an
 `movePiece` is what refuses a priced move when the seat is unarmed or holds no token. Arming an empty
 hand is refused, the flag is deleted from EVERY seat when the turn advances, and a spend that empties
 the hand clears it too (a capture re-rolls, so an ARMED badge over zero tokens must be impossible).
-The engine HOLDS the turn while a bust is on the table (a bust is a legal move, so `rollDice`'s
-no-move pass never fires for it), and `skipArmedBust` (`skip_wall_breaker` on the wire) is the other way out:
+The engine HOLDS the turn while a wall break is on the table (a wall break is a legal move, so `rollDice`'s
+no-move pass never fires for it), and `skipArmedWallBreak` (`skip_wall_breaker` on the wire) is the other way out:
 a PASS that spends the dice, advances the turn and leaves the token in hand. Skip is single-purpose:
 it is refused unless EVERY pending move is priced (an ordinary move on the table means the roll is
 played, not skipped), there is no 6 carve-out (a 6 offers no priced move, so the gate already covers
@@ -463,11 +463,10 @@ attacker keeps the token spent. The income comes from the same clash branch that
 `clashWallBattlesWon`: a chain won against EXACTLY ONE defender pays one token back, clamped to the cap. A
 won wall pays nothing, so a wall never feeds the thing that breaks walls.
 
-**Crediting `clashWallBattlesWon`** (renamed from `barrierBreaks`, which named the wrong noun: the
-tally counts battles won on a wall, not walls destroyed). Each move is stamped with
+**Crediting `clashWallBattlesWon`**, the battles won on a wall rather than the walls destroyed. Each move is stamped with
 `pendingMove.wallBattles` = 1 when its landing square stood 2 or more defenders, else 0, and the
 clash engine adds that to the attacker's `stats.clashWallBattlesWon` only when the whole chain is won. So the tally counts WALLS, not rounds: a
-landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a lone defender is 0,
+landing on a 2-stack is 1, an armed wall break on a wall (whatever its size) is 1, a lone defender is 0,
 and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
 keeps a state written before the field existed reading as 0.
 

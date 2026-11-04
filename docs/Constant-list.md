@@ -42,8 +42,8 @@ is a mirror, named in the row and collected again in §18.
 `common/src` is the one place a value lives when **more than one build counts it**. Each build is its
 own TypeScript root and its own compose context, so none can import a sibling folder: the copy is
 generated into `src/__shared__` by `scripts/sync-shared.mjs` (on `prebuild`/`predev`, and by
-`COPY --from=shared` in the backend and engine images). The copies are gitignored build output and are
-never edited; `node scripts/sync-shared.mjs --check` fails on drift.
+`COPY --from=shared` in the backend, studio and engine images). The copies are gitignored build output
+and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 
 | File | Holds |
 |---|---|
@@ -243,7 +243,7 @@ balance knob the SPA also draws (one glyph slot per possible token), so it is de
 it changes only with a board redesign, which moves both drawings, so it stays mirrored (§18).
 
 The Wall Breaker token buys one landing on a wall the roll reaches **exactly** — never a
-crossing — and a bust that is declined leaves the token in hand.
+crossing — and a wall break that is declined leaves the token in hand.
 
 
 ### **4. Bot valuation**
@@ -254,7 +254,7 @@ turn is comparable.
 | Constant | Value | What it decides |
 |---|---|---|
 | `CAPTURE_CREDIT` | 7000 | a capture scores this × its clash odds; no positional bonus is added on top |
-| `BUST_TOKEN_SHADOW` | 1400 (0.2 × `CAPTURE_CREDIT`) | the token a Wall Breaker bust spends; a bust below the shadow is declined |
+| `WALL_BREAK_TOKEN_SHADOW` | 1400 (0.2 × `CAPTURE_CREDIT`) | the token a wall break spends; a break whose odds fall short of the shadow is declined |
 | `JAIL_EXIT_BONUS` | 1000 | extra on a 6 that leaves the base, so that exit outranks every positional move except a home entry |
 | Home entry (inline) | +1000 | landing in the home lane |
 | Safe-zone landing (inline) | +500 | only when entering a safe square from the track |

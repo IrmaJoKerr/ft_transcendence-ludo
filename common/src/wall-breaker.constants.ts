@@ -13,7 +13,7 @@
 export const STARTING_WALL_BREAKER_TOKENS = 1;
 
 /** The hand's ceiling. The seed is one and a clash won against one defender pays one
- *  back, so a seat banks at most three attempts; a won barrier never pays, so a wall
+ *  back, so a seat banks at most three attempts; a won wall never pays, so a wall
  *  cannot feed the token that breaks walls. The SPA draws this many glyph slots, so an
  *  empty hand reads as empty rather than as a row that vanished. */
 export const WALL_BREAKER_TOKEN_CAP = 3;

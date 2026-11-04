@@ -2711,7 +2711,7 @@ socket.emit('arm_wall_breaker', true);
 
 #### `skip_wall_breaker`
 
-**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSkipBust`)
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSkipWallBreak`)
 
 Decline the held Wall Breaker turn: a PASS, not a re-roll. The dice are spent, the turn advances, and the token stays in hand.
 

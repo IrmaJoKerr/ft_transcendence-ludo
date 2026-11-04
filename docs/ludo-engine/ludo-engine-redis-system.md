@@ -485,7 +485,7 @@ loadGameState(gameId)
   │   ├── Found → deserialize JSON to GameState
   │   │   └── withWallBreakerDefaults(state)
   │   │       ├── player.wallBreakerTokens === undefined → 0
-  │   │       ├── stats.barrierBreaks (legacy) → stats.clashWallBattlesWon, then deleted
+  │   │       ├── stats.clashWallBattlesWon === undefined → 0
   │   │       └── diceRolls / sixes / piecesLost / clashWallsAttacked / clashWallsDefended → 0
   │   └── Not found → return null
   └── Done
@@ -494,7 +494,7 @@ loadGameState(gameId)
 `withWallBreakerDefaults` is the ONE door the state comes back through: a live room survives a redeploy in
 Redis, so a `GameState` without the Wall Breaker fields can be loaded mid-game, and it is normalised
 there. Every NUMERIC field feeds
-arithmetic (`wallBreakerTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
+arithmetic (`wallBreakerTokens - 1` on an armed wall break, `+ 1` per clash won against a single defender up
 to `WALL_BREAKER_TOKEN_CAP`, `stats.clashWallBattlesWon += 1` when a wall chain is won, and the
 match-row counters the engine tallies per seat), and `undefined - 1` is
 `NaN`: one NaN seat would stay broken for the rest of the
@@ -517,7 +517,7 @@ rollDice            → roll | thirdSixForfeit        (engine.ts)
 applyMoveOutcome    → capturedPiece, failcapturePiece, wallBrokenBonusRoll,
                       wallAttackFailed, bonusRollAgain   (turn.ts, both the plain move
                       and the resolved clash pass through it)
-skipArmedBust       → wallBreakerSkipped                    (engine.ts)
+skipArmedWallBreak  → wallBreakerSkipped                    (engine.ts)
 handleEndGame       → playerAborted                  (socket/post-game.ts)
 ```
 

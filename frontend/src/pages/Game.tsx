@@ -445,7 +445,7 @@ export function Game() {
   // Wall Breaker: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
   // (`PlayerMeta.wallBreakerArmed`), and the engine blocks an unarmed seat at a wall.
-  const bustMoves = useMemo(
+  const wallBreakMoves = useMemo(
     () => view.legalMoves.filter((m) => m.spendsWallBreakerToken),
     [view.legalMoves],
   );
@@ -454,7 +454,7 @@ export function Game() {
   // Arming needs a token in hand: the engine refuses an arm without one, and the
   // column disables the button. The engine also refuses an arm out of turn.
   const canArmBreaker = view.clashMode === true && (armSeat?.wallBreakerTokens ?? 0) > 0;
-  const toggleBustArm = () => {
+  const toggleWallBreakArm = () => {
     if (!canArmBreaker) return;
     retroAudio.playUiBeep(breakerArmed ? 420 : 880, 0.06, 'square');
     socketRef.current?.emit('arm_wall_breaker', !breakerArmed);
@@ -1174,7 +1174,7 @@ export function Game() {
   // Skip: the deliberate way out of a turn the armed exit is holding. The token
   // stays in hand, the dice are spent and the turn passes. The engine refuses a
   // Skip when no armed exit is on the table, so this only sends the intent.
-  const skipBust = () => {
+  const skipWallBreak = () => {
     // Inert unless the roll can only reach a wall. The guards repeat the button's test
     // against the freshest view, so a curious click or a stray call emits nothing and
     // never produces a refusal.
@@ -1481,19 +1481,19 @@ export function Game() {
   // The Wall Breaker control: offered only while this device owns the turn and the
   // seat holds a token. Never on a 6, because that roll already leaves prison on the
   // room's rules, so no armed variant exists.
-  const canOfferBust =
+  const canOfferWallBreak =
     view.status === 'active' &&
     !isPausedForReconnect &&
     isMyTurn &&
     !view.clash &&
-    bustMoves.length > 0 &&
+    wallBreakMoves.length > 0 &&
     (view.players.find((p) => p.color === view.currentTurn)?.wallBreakerTokens ?? 0) > 0 &&
     view.diceValue !== 6;
   // Skip exists for one situation: every legal move is token-priced, so the turn is
   // stuck unless the player spends a token. With an ordinary move available the
   // button stays inert. It is always visible in a clash room and greyed when false.
-  const allMovesPriced = view.legalMoves.length > 0 && bustMoves.length === view.legalMoves.length;
-  const canSkipBust =
+  const allMovesPriced = view.legalMoves.length > 0 && wallBreakMoves.length === view.legalMoves.length;
+  const canSkipWallBreak =
     view.status === 'active' && !isPausedForReconnect && isMyTurn && !view.clash && allMovesPriced;
   const turnLabel =
     view.status === 'waiting'
@@ -2266,7 +2266,7 @@ export function Game() {
                               type="button"
                               disabled={!canArm}
                               aria-pressed={armed}
-                              onClick={toggleBustArm}
+                              onClick={toggleWallBreakArm}
                               title={
                                 canArm
                                   ? armed
@@ -2787,11 +2787,11 @@ export function Game() {
                         commits it, so the control has two steps. Arm it here, then
                         tap the prison exit on the board; Skip declines and keeps
                         the token. Both render only while the roll actually offers
-                        such a bust, which is what makes them mean something. */}
-                    {canOfferBust && (
+                        such a break, which is what makes them mean something. */}
+                    {canOfferWallBreak && (
                       <button
                         className={RETRO_BTN}
-                        onClick={toggleBustArm}
+                        onClick={toggleWallBreakArm}
                         title={
                           breakerArmed
                             ? t('game.wallBreakerActionArmedTitle')
@@ -2989,13 +2989,13 @@ export function Game() {
               {view.clashMode === true && !isGameEnded && view.status !== 'waiting' && (
                 <span
                   style={{ display: 'block', width: '100%' }}
-                  title={canSkipBust ? t('game.skipBustTitle') : t('game.skipBustDisabledTitle')}
+                  title={canSkipWallBreak ? t('game.skipWallBreakTitle') : t('game.skipWallBreakDisabledTitle')}
                 >
                   <CyberButton
-                    label={t('game.skipBustBtn')}
+                    label={t('game.skipWallBreakBtn')}
                     variant="yellow"
-                    disabled={!canSkipBust}
-                    onClick={skipBust}
+                    disabled={!canSkipWallBreak}
+                    onClick={skipWallBreak}
                     style={{ width: '100%', justifyContent: 'center' }}
                   />
                 </span>

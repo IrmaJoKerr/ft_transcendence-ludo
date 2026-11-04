@@ -43,6 +43,20 @@ stage_public() {
   done
 }
 
+# The tree arrives as a bind mount and this container is root, so everything the
+# `prebuild` sync writes into /app/src/__shared__ lands owned by root on the host.
+# The host user can then neither delete that directory (`make clean`) nor rewrite
+# it (`make shared`, whose first act is `rmSync` of the target): the guard is to
+# hand each freshly written copy back to whoever owns the mount point, which is
+# the host user by construction, so no uid has to be passed in and nothing breaks
+# on a machine whose uid isn't 1000. Best-effort: a build must not fail over it.
+hand_back_copies() {
+  [ -d /app/src/__shared__ ] || return 0
+  owner=$(stat -c '%u:%g' /app 2>/dev/null) || return 0
+  [ -n "$owner" ] || return 0
+  chown -R "$owner" /app/src/__shared__ 2>/dev/null || return 0
+}
+
 publish() {
   with_retry stage_public
   # `publish` runs as the tested command of an `if`/`||` in every caller
@@ -54,9 +68,11 @@ publish() {
   # and leaving nginx with an empty document root (directory-listing-
   # forbidden / index.html redirect-loop errors) until the next good build.
   if ! npm run build; then
+    hand_back_copies
     echo "❌ [$(date '+%H:%M:%S')] Build failed: keeping the last published build in place."
     return 1
   fi
+  hand_back_copies
   rm -rf /export/*
   cp -a "$BUILD_OUT_DIR/." /export/
   echo "📦 [$(date '+%H:%M:%S')] SPA published to spa_dist"

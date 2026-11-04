@@ -53,15 +53,9 @@ const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
 function withWallBreakerDefaults(state: GameState): GameState {
   for (const player of state.players) {
     if (player.wallBreakerTokens === undefined) player.wallBreakerTokens = 0;
-    // The Wall Breaker tally was renamed (barrierBreaks → clashWallBattlesWon): a
-    // state written under the old name keeps the count it earned instead of
-    // restarting a live game's tally at zero.
-    const stats = player.stats as PlayerMeta['stats'] & { barrierBreaks?: number };
-    if (stats.clashWallBattlesWon === undefined) {
-      stats.clashWallBattlesWon = stats.barrierBreaks ?? 0;
-      delete stats.barrierBreaks;
-    }
+    const stats = player.stats;
     // Counters that arrived with the match-history row.
+    if (stats.clashWallBattlesWon === undefined) stats.clashWallBattlesWon = 0;
     if (stats.diceRolls === undefined) stats.diceRolls = 0;
     if (stats.sixes === undefined) stats.sixes = 0;
     if (stats.piecesLost === undefined) stats.piecesLost = 0;

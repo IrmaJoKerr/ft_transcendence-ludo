@@ -588,9 +588,9 @@ export const fr = {
       'Dépenser un jeton : cette sortie affronte le mur sur lequel le lancer retombe',
     wallBreakerActionArmedTitle:
       'Armé : touchez la sortie de prison pour affronter le mur, ou appuyez à nouveau pour annuler',
-    skipBustBtn: 'PASSER LE BRIS DE MUR',
-    skipBustTitle: 'Passer le bris de mur : garder le jeton et passer le tour',
-    skipBustDisabledTitle: "Rien à refuser : aucune attaque de mur ne retient le tour",
+    skipWallBreakBtn: 'PASSER LE BRIS DE MUR',
+    skipWallBreakTitle: 'Passer le bris de mur : garder le jeton et passer le tour',
+    skipWallBreakDisabledTitle: "Rien à refuser : aucune attaque de mur ne retient le tour",
     wallBreakerSkipped: '{{name}} passe : le Brise-Mur est gardé pour plus tard',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',

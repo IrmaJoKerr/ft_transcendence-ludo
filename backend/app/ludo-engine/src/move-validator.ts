@@ -198,12 +198,12 @@ export class MoveValidator {
     const mover = state.players.find((p) => p.color === color);
     if ((mover?.wallBreakerTokens ?? 0) <= 0) return null;
 
-    // The bust lands ON the wall it fights: a lone defender (or a mixed pair) is
+    // The wall break lands ON the wall it fights: a lone defender (or a mixed pair) is
     // no wall, and the ordinary exit rules above already cover it.
     if (!this.isWall(this.squareDefenders(state, color, to))) return null;
     // A protected star is never attacked. This must be read here, not left to the
     // path check: a star never blocks, so `blockadeBlocksPath` would pass it and
-    // the bust would land on a wall it cannot fight.
+    // the wall break would land on a wall it cannot fight.
     if (!wallIsAttackable(state, pieceId, to)) return null;
     // Everything behind the landing, under the same rule every other move reads:
     // this is what forbids a second wall on the way and what makes the roll's

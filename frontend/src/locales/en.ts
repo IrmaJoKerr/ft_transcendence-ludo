@@ -583,10 +583,10 @@ export const en = {
     wallBreakerActionTitle: 'Spend one token: this exit fights the wall the roll lands on',
     wallBreakerActionArmedTitle:
       'Armed: tap the prison exit to fight the wall, or press again to cancel',
-    // Skip: the other way out of the turn an armed bust is holding.
-    skipBustBtn: 'SKIP BREAKING WALL',
-    skipBustTitle: 'Skip breaking the wall: keep the token and pass the turn',
-    skipBustDisabledTitle: 'Nothing to decline: no wall attack is holding the turn',
+    // Skip: the other way out of the turn an armed wall break is holding.
+    skipWallBreakBtn: 'SKIP BREAKING WALL',
+    skipWallBreakTitle: 'Skip breaking the wall: keep the token and pass the turn',
+    skipWallBreakDisabledTitle: 'Nothing to decline: no wall attack is holding the turn',
     // Recon log line when a held turn is passed by Skip.
     wallBreakerSkipped: '{{name}} skips: the Wall Breaker is saved for later',
     reconLogsTitle: '// RECON LOGS',
@@ -951,7 +951,7 @@ export const en = {
     rulesTab6: '7. CLASH',
     rulesTab7: '8. HARDCORE',
     rulesTab8: '9. FREE EXIT',
-    rulesTab9: '10. BREAKER',
+    rulesTab9: '10. WALL BREAKER',
     rulesPage6Header: '// CLASH MODE',
     rulesPage6Title: '⚔️ Defend by mashing',
     rulesPage6Body:
