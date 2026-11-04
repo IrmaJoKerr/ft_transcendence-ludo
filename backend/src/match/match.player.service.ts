@@ -150,9 +150,12 @@ export class MatchPlayerService {
     };
   }
 
-  // A block refuses the next seating, both ways round: the blocker is told
-  // FRIEND_BLOCKED, the blocked party gets the list's neutral refusal, because a
-  // block is never announced. Rejoin and my-rooms stay open.
+  // A block refuses the next seating, both ways round: the blocker is told which of
+  // their own blocks did it (`MATCH_SEAT_BLOCKED`, and it names nothing they do not
+  // already know), the blocked party gets the list's neutral refusal, because a block is
+  // never announced. Rejoin and my-rooms stay open: a seat already taken is a different
+  // room than a seat being claimed, and a block placed inside a match never ejects
+  // anybody (the waiting room included; the host's remedy is ABORT).
   private async assertNoBlockedSeat(slotIds: string[], userId: string): Promise<void> {
     if (slotIds.length === 0) return;
     const rows = await this.prisma.db.friendship.findMany({
@@ -165,7 +168,7 @@ export class MatchPlayerService {
       const callerBlocked = (callerIsUser1 ? row.user1Status : row.user2Status) === 'blocked';
       throw new ForbiddenException(
         callerBlocked
-          ? { code: 'FRIEND_BLOCKED', message: 'Cannot join - user is blocked' }
+          ? { code: 'MATCH_SEAT_BLOCKED', message: 'You blocked a player in this room' }
           : { code: 'MATCH_ROOM_UNAVAILABLE', message: 'Room is not available' },
       );
     }

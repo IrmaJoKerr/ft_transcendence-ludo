@@ -21,7 +21,9 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 1. **Friends list** — accepted friends with avatar, username, rating, and live presence status.
 2. **Friend requests** — requests you have received and not yet answered, each with accept and decline actions; you can also send a request by username.
 3. **Blocked list** — users you have blocked, each with an unblock action. The two lists are separate tabs: Friends and Blocked.
-4. **Game invite** — invite a friend to a PvP (player versus player) game with `POST /api/friends/:friendId/invite`, which returns the match credentials. The invite creates the room *and* seats the friend, so it is refused with `403 MATCH_ALREADY_SEATED` while the caller or the friend already holds a seat in a live game (see [backend-match-module.md](../backend/backend-match-module.md) → Strict State Lock (`active-game.ts`)).
+4. **One challenge route** — `POST /api/friends/:friendId/invite`, which answers with the room: `{ hostColor }` creates it and returns the caller's credentials (the friends screen always took this shape), `{ gameId }` stages the friend into a room the caller already sits in. The route never seats the friend (they claim a corner when they accept), so a friend who is already seated elsewhere is refused at accept, not here. A second press while a challenge to that friend is still out is `409 CHALLENGE_ALREADY_SENT`.
+5. **The grey state is the server's**, not a client TTL: `useChallenges` reads `GET /api/friends/challenges/sent` (on mount, and again on window focus) and adds the echo of its own presses. A greyed CHALLENGE stays pressable; the press asks, and the 409 prints `errors.CHALLENGE_ALREADY_SENT` in the page's band.
+6. **BLOCK and REMOVE confirm** through `ConfirmActionModal` (the same gate the lobby's name card blocks through), because neither can be undone from this screen: `friends.block*` and `friends.remove*` carry the two questions.
 
 > **Note:** The Friends page reads its data from the backend API (Application Programming Interface) once, for first paint. Every later change arrives as a `friendship:changed` record on the session socket, so no list is polled.
 
@@ -34,8 +36,10 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 
 | File | Role |
 |------|------|
-| `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, invite, actions |
+| `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the two confirms |
 | `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
+| `src/hooks/useChallenges.ts` | The one challenge: the server's sent list, the press, and the 409, with no client window |
+| `src/components/ConfirmActionModal.tsx` | The shared confirm for BLOCK and REMOVE (and the lobby's name card) |
 | `src/friendshipFeed.ts` | Pure merge functions (friends / requests / blocked) — the record always wins over the snapshot |
 | `src/components/UserAvatar.tsx` | Player avatars |
 
@@ -151,11 +155,13 @@ which seats both and holds the ledger in `blockedPairs`, is the one place the cu
 Add friend → GET /api/user/{username} → POST /api/friends/request/{userId}
 Accept → POST /api/friends/accept/{requestId}
 Decline → POST /api/friends/decline/{requestId}
-Remove → DELETE /api/friends/remove/{friendId}
-Block  → POST /api/friends/block/{friendId}
+Remove → DELETE /api/friends/remove/{friendId}   (after a ConfirmActionModal)
+Block  → POST /api/friends/block/{friendId}      (after a ConfirmActionModal)
 Unblock→ POST /api/friends/unblock/{userId}
-Invite → POST /api/friends/{friendId}/invite → setActiveMatch(res) → navigate('/game?gameId={gameId}')
-  └── Refused (403 MATCH_ALREADY_SEATED) while either side already holds a seat in a live game
+Challenge (greyed by) → GET /api/friends/challenges/sent
+Challenge (press)     → POST /api/friends/{friendId}/invite { hostColor } → setActiveMatch(room) → navigate('/game?gameId={gameId}')
+  ├── 409 CHALLENGE_ALREADY_SENT → errors.CHALLENGE_ALREADY_SENT in the band, and the row greys itself
+  └── 403 MATCH_ALREADY_SEATED → errors.MATCH_ALREADY_SEATED (the create shape refuses while a seat is held)
 ```
 
 
@@ -167,8 +173,10 @@ Invite → POST /api/friends/{friendId}/invite → setActiveMatch(res) → navig
 
 | Dependency | Purpose |
 |-----------|---------|
-| `api.ts` | `postApi` and `fetch` request helpers |
-| `store.tsx` | `useApp` for user, setActiveMatch (invite flow) |
+| `api.ts` | `postApi`, `fetchWithCsrf` and `translateErrorCode` request helpers |
+| `hooks/useChallenges.ts` | The challenge route and the server's sent list (the grey state) |
+| `components/ConfirmActionModal.tsx` | The confirm both destructive row presses open |
+| `store.tsx` | `useApp` for user, setActiveMatch (the challenge's creating shape) |
 | `router.tsx` | `navigate` |
 | `i18n.ts` | `useTranslation` (`friends.*` keys) |
 

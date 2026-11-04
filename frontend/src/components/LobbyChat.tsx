@@ -7,10 +7,11 @@ import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
 import { ChatCardComposer, ChatCardFeed, ChatCardHead } from './ChatCard';
-import { CyberModal } from './CyberModal';
+import { ConfirmActionModal } from './ConfirmActionModal';
 import { CHAT_MAX_CHARS, chatLength } from './chatCardTypes';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
 import type { FriendRequestRow, FriendRow } from '../friendshipFeed';
+import { useChallenges } from '../hooks/useChallenges';
 import { RETRO_BTN } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
@@ -23,9 +24,10 @@ import { retroAudio } from '../utils/audio';
 // confirmation has no room equivalent) and hands it to the composer as `band`, so
 // both channels count one `n / 300` from `chatLength`. The name card here is the
 // public channel's only set of actions — ADD FRIEND (a request the other side
-// answers), ACCEPT, and BLOCK (unilateral, so it confirms through `CyberModal` the
-// same way the room's does) — and the feed drops the lines of whoever this reader
-// has blocked, which the channel's own empty state promises.
+// answers), ACCEPT, and BLOCK (unilateral, so it confirms through
+// `ConfirmActionModal` the same way the friends screen's row does) — and the feed
+// drops the lines of whoever this reader has blocked, which the channel's own empty
+// state promises.
 const SCREEN_PREVIEW_LINES = 3;
 
 /** Every line the band can show, in one list, so its height is reserved for the
@@ -649,6 +651,10 @@ function ChatNameCard({
 }) {
   const { t } = useTranslation();
   const { activeMatch } = useApp();
+  // The one challenge route, and the server's own list behind the grey state: this
+  // card closes on a press, so the list is what a reopened card reads after a reload.
+  const { isSent, challenge: sendChallenge } = useChallenges();
+  const challenged = isSent(card.id);
   const [busy, setBusy] = useState(false);
   // The block confirm. It is the card's own state rather than the page's, because
   // the card is what opened it.
@@ -721,16 +727,26 @@ function ChatNameCard({
       t('friends.genericError'),
     );
 
-  const challenge = (gameId: string) =>
+  const challenge = () =>
+    activeMatch &&
     run(
-      () => postApi(`/api/game/${gameId}/invite`, { friendId: card.id }),
+      async () => {
+        const outcome = await sendChallenge(
+          { id: card.id, name: card.name },
+          { gameId: activeMatch.gameId },
+        );
+        // `run` reports through the catch, so a refusal is thrown as the sentence the
+        // band should carry rather than returned to a caller that has no band.
+        if (!outcome.ok) throw new Error(outcome.message || t('friends.genericError'));
+      },
       () => report('info', t('chat.status.challengeSent')),
       t('friends.genericError'),
     );
 
   // Blocking is the one unilateral action here: the other pilot is not asked, the
   // friendship (and any pending request) goes with it, and this card cannot undo it.
-  // Hence the confirm, and hence the same `CyberModal` the room's card uses.
+  // Hence the confirm, and hence the same `ConfirmActionModal` the friends screen's
+  // BLOCK uses.
   const block = () =>
     run(
       () => postApi(`/api/friends/block/${card.id}`, {}),
@@ -817,9 +833,9 @@ function ChatNameCard({
               <button
                 type="button"
                 className={RETRO_BTN}
-                style={actionStyle}
+                style={{ ...actionStyle, opacity: challenged ? 0.6 : 1 }}
                 disabled={busy}
-                onClick={() => void challenge(activeMatch.gameId)}
+                onClick={() => void challenge()}
               >
                 {t('chat.card.challenge')}
               </button>
@@ -877,32 +893,22 @@ function ChatNameCard({
         </button>
       </div>
 
-      {/* The confirm, portaled above everything this card stands on. `CyberModal`'s
-          overlay is z-10002, under the name card's 10005 and the transcript card's
-          10004, so the wrapper lifts the whole overlay rather than the modal lifting
-          itself; it is `pointer-events-none` because only the overlay takes presses,
-          and it takes them itself once open. */}
-      {createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10006, pointerEvents: 'none' }}>
-          <CyberModal
-            isOpen={confirmBlock}
-            title={t('chat.block.title')}
-            message={t('chat.block.confirm', { name: card.name })}
-            subMessage={t('chat.block.subMessage')}
-            onCancel={() => setConfirmBlock(false)}
-            onProceed={() => {
-              setConfirmBlock(false);
-              void block();
-            }}
-            cancelLabel={t('chat.cancel')}
-            proceedLabel={t('chat.block.proceed')}
-            cancelShortcut="ESC"
-            proceedShortcut="↵"
-            isDanger
-          />
-        </div>,
-        document.body,
-      )}
+      {/* The confirm. `ConfirmActionModal` is the app's one gate: it lifts the whole
+          overlay above this card (10005) and the transcript's (10004), which `CyberModal`
+          alone cannot do from here. */}
+      <ConfirmActionModal
+        isOpen={confirmBlock}
+        title={t('chat.block.title')}
+        message={t('chat.block.confirm', { name: card.name })}
+        subMessage={t('chat.block.subMessage')}
+        cancelLabel={t('chat.cancel')}
+        proceedLabel={t('chat.block.proceed')}
+        onCancel={() => setConfirmBlock(false)}
+        onProceed={() => {
+          setConfirmBlock(false);
+          void block();
+        }}
+      />
     </div>
   );
 }

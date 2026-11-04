@@ -5,6 +5,7 @@ export const en = {
     bot: 'Bot',
     player: 'Player',
     back: 'BACK',
+    cancel: 'CANCEL',
     close: 'Close',
     language: 'Language',
     couldNotReachServer: 'Could not reach the server',
@@ -51,6 +52,7 @@ export const en = {
     AVATAR_FILE_REQUIRED: 'Avatar file is required',
     FRIEND_INVITE_SELF: 'Cannot invite yourself',
     NOT_FRIENDS_WITH_USER: 'You are not friends with this user',
+    CHALLENGE_ALREADY_SENT: 'A challenge to this player is already pending',
     FRIEND_REQUEST_SELF: 'Cannot send friend request to yourself',
     FRIEND_ALREADY: 'Already friends',
     FRIEND_REQUEST_PENDING: 'Friend request already pending',
@@ -73,6 +75,7 @@ export const en = {
     MATCH_DUPLICATE_COLOR: 'Each seat must have its own colour',
     MATCH_COLOR_TAKEN: 'That colour was just taken: pick another',
     MATCH_ROOM_UNAVAILABLE: 'That room is no longer available',
+    MATCH_SEAT_BLOCKED: 'You blocked a player in this room: unblock them to join',
     MATCH_BOT_COLORS: 'botColors must match botCount',
     MATCH_PLAYER_COUNT_2_4: 'Player count must be 2 or 4',
     MATCH_OWN_INVITE: 'You cannot join your own invite',
@@ -464,6 +467,13 @@ export const en = {
     blockSubMessage: 'Neither of you will see the other in chat again. This cannot be undone here.',
     blockProceed: 'BLOCK',
     blocked: 'Link severed.',
+    // The friends screen's REMOVE confirm. It is the milder of the two row presses, so
+    // it says what goes with the friendship rather than what is hidden afterwards.
+    removeTitle: 'REMOVE COMRADE?',
+    removeConfirm: 'Remove {{name}} from your squad?',
+    removeSubMessage:
+      'The friendship goes with it, and the only way back is a new request they have to accept.',
+    removeProceed: 'REMOVE',
     system: {
       left: '{{name}} has left the match',
       started: 'The match has started',

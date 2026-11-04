@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { fetchWithCsrf, postApi, translateErrorCode } from '../api';
+import { fetchWithCsrf, translateErrorCode } from '../api';
 import { ColorPaletteModal } from '../components/ColorPaletteModal';
+import { ConfirmActionModal } from '../components/ConfirmActionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
-import type { PlayerColor } from '../game/types';
 import { navigate } from '../router';
 import { useApp } from '../store';
+import { useChallenges, challengeCredentials } from '../hooks/useChallenges';
 import { useFriendships } from '../hooks/useFriendships';
 import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
@@ -73,6 +74,16 @@ export function Friends() {
   // The friend being challenged, while the inviter picks the corner they will host
   // in. The room does not exist until a colour is picked, so the pick comes first.
   const [paletteFriendId, setPaletteFriendId] = useState<string | null>(null);
+  // The one challenge route and the server's own list behind the grey state: an invite
+  // this account already has out reads grey here after a reload, with no client window.
+  const { isSent, challenge } = useChallenges();
+  // The row waiting on a confirm. BLOCK and REMOVE are the two presses on this screen
+  // that cannot be undone from it, so neither fires on the first press.
+  const [confirmRow, setConfirmRow] = useState<{
+    kind: 'block' | 'remove';
+    id: string;
+    name: string;
+  } | null>(null);
 
   const fetchData = () => {
     refresh();
@@ -146,22 +157,22 @@ export function Friends() {
     setInvitingId(friendId);
     setMsg(null);
     retroAudio.playUiBeep(780, 0.06);
-    try {
-      const res = await postApi<{
-        gameId: string;
-        token: string;
-        engineUrl: string;
-        color: PlayerColor;
-        inviteCode?: string;
-        mode: 'pvp' | 'pve' | 'hotseat';
-        playerCount: number;
-      }>('/api/friends/' + friendId + '/invite', { hostColor });
-      setActiveMatch(res);
-      navigate(`/game?gameId=${res.gameId}`);
-    } catch (e) {
-      setMsg({ text: e instanceof Error ? e.message : t('friends.genericError'), type: 'error' });
+    const friend = friends.find((row) => row.id === friendId);
+    const name = friend?.displayName ?? friend?.username ?? friendId;
+    // No room exists yet, so this is the creating shape: the caller names their corner
+    // and the route answers with the credentials that seat them in the new room.
+    const outcome = await challenge({ id: friendId, name }, { hostColor });
+    const room = outcome.ok ? challengeCredentials(outcome.room) : null;
+    if (!room) {
+      setMsg({
+        text: (outcome.ok ? '' : outcome.message) || t('friends.genericError'),
+        type: 'error',
+      });
       setInvitingId(null);
+      return;
     }
+    setActiveMatch(room);
+    navigate(`/game?gameId=${room.gameId}`);
   };
 
   const handleRemove = async (friendId: string) => {
@@ -699,7 +710,7 @@ export function Friends() {
                                     color: '#ffffff',
                                     borderColor: '#ff007f',
                                     boxShadow: '0 0 10px rgba(255, 0, 127, 0.4)',
-                                    opacity: invitingId === f.id ? 0.6 : 1,
+                                    opacity: invitingId === f.id || isSent(f.id) ? 0.6 : 1,
                                     borderRadius: 4,
                                   }}
                                   title={t('friends.challengeTooltip')}
@@ -713,7 +724,12 @@ export function Friends() {
                                   className={RETRO_BTN}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    void handleRemove(f.id);
+                                    retroAudio.playUiBeep(320, 0.08);
+                                    setConfirmRow({
+                                      kind: 'remove',
+                                      id: f.id,
+                                      name: f.displayName ?? f.username,
+                                    });
                                   }}
                                   style={{
                                     padding: '5px 10px',
@@ -734,7 +750,12 @@ export function Friends() {
                                   className={RETRO_BTN}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    void handleBlock(f.id);
+                                    retroAudio.playUiBeep(320, 0.08);
+                                    setConfirmRow({
+                                      kind: 'block',
+                                      id: f.id,
+                                      name: f.displayName ?? f.username,
+                                    });
                                   }}
                                   style={{
                                     padding: '5px 10px',
@@ -1186,6 +1207,33 @@ export function Friends() {
             void handleInvite(friendId, color);
           }}
           onCancel={() => setPaletteFriendId(null)}
+        />
+      )}
+
+      {/* One gate for the two presses on a row that cannot be undone from here: the
+          same `ConfirmActionModal` the lobby's name card blocks through, so the
+          question, the keyboard shortcuts and the danger styling are one component. */}
+      {confirmRow && (
+        <ConfirmActionModal
+          isOpen
+          title={t(confirmRow.kind === 'block' ? 'friends.blockTitle' : 'friends.removeTitle')}
+          message={t(
+            confirmRow.kind === 'block' ? 'friends.blockConfirm' : 'friends.removeConfirm',
+            { name: confirmRow.name },
+          )}
+          subMessage={t(
+            confirmRow.kind === 'block' ? 'friends.blockSubMessage' : 'friends.removeSubMessage',
+          )}
+          proceedLabel={t(
+            confirmRow.kind === 'block' ? 'friends.blockProceed' : 'friends.removeProceed',
+          )}
+          cancelLabel={t('common.cancel')}
+          onCancel={() => setConfirmRow(null)}
+          onProceed={() => {
+            const action = confirmRow;
+            setConfirmRow(null);
+            void (action.kind === 'block' ? handleBlock(action.id) : handleRemove(action.id));
+          }}
         />
       )}
     </>

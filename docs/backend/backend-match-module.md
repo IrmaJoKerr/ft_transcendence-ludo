@@ -8,6 +8,7 @@
 - [API Endpoints](#api-endpoints) — Matchmaking endpoints and in-game actions
 - [Engine GameState Readers](#engine-gamestate-readers-seat-finalizationts) — Reads of the engine's own live state
 - [The one-seat lock](#the-one-seat-lock-active-gamets) — One seat per player, waiting room included, enforced on every create/join path
+- [Blocked pairs at the door](#blocked-pairs-at-the-door) — A room holding a blocked pair is not a row, and its seats cannot be claimed; a block placed inside a room never ejects anybody
 - [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for match flows
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Lobby invalidation](#lobby-invalidation-roomschanged--roomslist--roomsmine) — `rooms:changed`, the one snapshot and the per-viewer diff that replaced the polls
@@ -46,7 +47,7 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | `match.query.service.ts` | Browse queries: open rooms, my rooms, and `seatResult()` (the caller's own row for a match they can no longer join) |
 | `match.postgame.service.ts` | `POST /api/game/end` (the completion pass: scoring, ratings, the clash tallies, achievements) and `POST /api/game/:id/abandon` (one abandoned row, no scoring) |
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
-| `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, `POST /api/game/:id/invite`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
+| `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
 | `match.module.ts` | NestJS module — registers all services, PrismaService |
 
@@ -89,15 +90,6 @@ default corner and no in-room swap.
 
 `botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity, and the hash's `player{n}_isBot = 'true'` is what marks it as a bot. An empty or missing entry leaves the seat showing its plain id.
 
-### InviteFriendDto
-
-```typescript
-{
-  friendId: string;  // REQUIRED, UUID — validated by class-validator. The route
-                     // then requires a both-directions-accepted, unblocked pair.
-}
-```
-
 ### MatchResponse
 
 ```typescript
@@ -132,7 +124,6 @@ default corner and no in-room swap.
 | `POST` | `/api/game/:id/exit` | JWT | Acknowledge leaving post-game |
 | `POST` | `/api/game/:id/abort` | JWT | Cancel unstarted game (host only, `WAITING` only) |
 | `POST` | `/api/game/:id/rejoin` | JWT | Rejoin a room after refresh |
-| `POST` | `/api/game/:id/invite` | JWT | Invite a friend into a WAITING PvP room |
 | `GET` | `/api/games/rooms` | JWT | List the PvP rooms the caller may enter (open lobby rooms + their own reclaimable seats in started games) |
 | `GET` | `/api/games/mine` | JWT | List rooms the user is seated in |
 | `POST` | `/api/game/end` | engine key (`X-Engine-Key`) | Engine callback — the completion pass: rows for the seats that have none (scoring/achievements); persists `clashDefends` / `clashAttacksWon` per participant. Refuses a room that is still live (`MATCH_END_STILL_ACTIVE`) or never started (`MATCH_END_NEVER_STARTED`) |
@@ -140,12 +131,12 @@ default corner and no in-room swap.
 | `POST` | `/api/game/:id/started` | engine key (`X-Engine-Key`) | Engine callback — mark game started |
 | `GET` | `/api/game/:id/result` | JWT | The caller's own row for this match (`{ state, row }`): the read a client makes when it can no longer join |
 
-> **Invite body validation:** `POST /api/game/:id/invite` takes an
-> `InviteFriendDto` (`{ friendId }`). `friendId` is validated as a required UUID
-> by the global `ValidationPipe`, so an empty or malformed body is rejected at the
-> boundary instead of silently skipping the friendship check. The handler then
-> requires one friendship pair row where both directions are `accepted` and
-> neither is `blocked`, reusing the shared `friendship-pair.ts` predicates.
+> **There is no invite route in this module.** Inviting a friend into a room is
+> `POST /api/friends/:friendId/invite` with `{ gameId }`, served by the friends module:
+> this module owns the room, so it owns `assertInvitableRoom` (404 `MATCH_GAME_NOT_FOUND`,
+> 403 `MATCH_PVP_ONLY_INVITE` / `MATCH_ALREADY_STARTED` / `MATCH_NOT_PLAYER`) and
+> `isWaitingRoom`, which the friends module calls before it writes anything. One route
+> means the friendship gate, the invite record and the notification exist once.
 
 > **One seat at a time:** every create and every join path refuses a caller who
 > already holds a seat in a waiting room or a live game with `403 MATCH_ALREADY_SEATED`;
@@ -205,7 +196,7 @@ One seat per player, waiting room included. `findSeatedMatch(redis, userId, exce
 | Call site | Effect when a live game exists |
 |-----------|--------------------------------|
 | `MatchCreatorService.createMatchLocked()` — `POST /api/match/create`, `/api/match/pve`, `/api/match/pvp/invite` | `403 MATCH_ALREADY_SEATED`, checked after the idempotent PvP reuse lookup: re-opening your own lobby room hands that seat back, while a seat in any other room refuses the create |
-| `MatchPlayerService.joinMatch()` — `POST /api/match/join/:code`, `POST /api/game/:id/invite` (seats the invited friend), `POST /api/friends/:friendId/invite` (seats the challenged friend) | `403 MATCH_ALREADY_SEATED`, unless the seat is in the room being joined (that path is a rejoin) |
+| `MatchPlayerService.joinMatch()` — `POST /api/match/join/:code`, and the challenge's accept, which joins by code | `403 MATCH_ALREADY_SEATED`, unless the seat is in the room being joined (that path is a rejoin) |
 | `MatchPlayerService.rejoin()` — `POST /api/game/:id/rejoin` | `403 MATCH_ALREADY_SEATED` for a **different** room; the room being rejoined never counts (`exceptGameId`), so reclaiming your own seat still works. Checked after the closed-room gate above (`404` for `ABORTED`/`ENDED`) |
 | `AuthService.logout()` — `POST /api/auth/logout` | not a refusal: the revoked token already names the user, so the same answer decides which room to publish `match:abandon` for, and the engine ends that seat (see [Sign-out ends the match](#sign-out-ends-the-match)) |
 
@@ -225,6 +216,35 @@ is `ACTIVE` or whose engine state has started, because that is the room a sign-o
 end through `match:abandon`.
 
 The check is backend-authoritative because the backend owns the `match:*` state. The frontend mirrors it as a hint only: `LudoLobby` greys out host/join (with a tooltip) while `/api/games/mine` reports a room, and `Lobby`'s launch button does the same from a one-shot `/api/games/mine` read. A notification never clears the way: accepting an invite only carries the room code to the lobby, which refuses the claim while a seat is held, so the player releases their own seat with Abort instead of a bell deciding that a game is over. A refused create/join surfaces as the localized `errors.MATCH_ALREADY_SEATED` message wherever the request was made.
+
+### Blocked pairs at the door
+
+A block is about **seating**, never about the room a player already sits in. The two rules
+that follow from that are implemented in `MatchQueryService.lobbyRoomsFor()` and
+`MatchPlayerService.assertNoBlockedSeat()`:
+
+| Stage | Rule |
+|-------|------|
+| The open list (`GET /api/games/rooms`) | A room is not a row for a viewer when **any** seat in it belongs to a blocked pair with that viewer, in either direction. The filter is server-side (`blockedByViewer()` folds every `blocked` row into one map per flush); the browser's row carries no seat ids, so it could not apply it. |
+| Claiming a seat (`POST /api/match/join/:code` → `joinMatch`) | The seats already taken are tested against the caller with one `pairKey`-set read. The blocker gets `403 MATCH_SEAT_BLOCKED` ("You blocked a player in this room"), which names nothing they do not already know; the blocked party gets the neutral `403 MATCH_ROOM_UNAVAILABLE`, the same answer a room that filled up gives. |
+| Everything that already holds a seat | Unaffected. `joinMatch` hands an existing seat back through `rejoin` before it looks at the room's occupants, and `POST /api/game/:id/rejoin` plus `GET /api/games/mine` never ask the block question at all. |
+
+Two consequences are deliberate:
+
+- **It is a door, not an eviction.** A block placed while both accounts sit in one room (waiting
+  or playing) never removes anybody: the match plays out, with the room's chat cut both ways by the
+  engine's `blockedPairs`. A host who does not want to play that match has `POST /api/game/:id/abort`
+  (WAITING and host only), and the new room they create refuses the blocked player at the door, which
+  is the whole remedy. Making BLOCK a kick would need a seat release, a colour reclaim and a "you
+  were removed" surface, and it would turn a private decision into an announcement.
+- **Seat-based, not host-based.** A third party's room can seat both sides, so the pair is tested
+  against every occupied seat rather than against the host's account. The host case is just the one
+  where it is most visible.
+
+The chat-side half of the same decision lives in the friends module (`publishBlocksChanged` on block
+and unblock); the invite side needs no gate: a blocked pair is not a friendship, so no friends row,
+CHALLENGE button or INVITE COMMS column can even offer it, and `POST /api/friends/:friendId/invite`
+refuses a blocked pair with `403 FRIEND_BLOCKED` before it touches a room.
 
 ### Sign-out ends the match
 
@@ -427,10 +447,6 @@ POST /api/game/:id/abort
   ├── Mark the room ABORTED, then publish the room change
   └── `match_cancelled` to every other seat the hash does *not* flag
       `player<N>_isBot` (a bot seat has no bell to ring) → return { gameId }
-
-POST /api/game/:id/invite
-  └── Seat the invited friend through joinMatch, so the strict state lock
-      applies to them too → return their seat to the host
 
 POST /api/game/:id/rejoin
   ├── A live game in ANOTHER room → 403 MATCH_ALREADY_SEATED (this room excluded)

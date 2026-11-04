@@ -5,8 +5,8 @@
 - [Overview](#overview) — Friend request lifecycle and relationship management
 - [Files](#files) — Every source file in the module and its role
 - [Key Types / Interfaces](#key-types--interfaces) — Friendship status enum and response shapes
-- [API Endpoints](#api-endpoints) — All 12 routes with method, path, auth, and description
-- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, the read-path block gate, the full pair state machine, and the live `friendship:changed` publisher
+- [API Endpoints](#api-endpoints) — All 13 routes with method, path, auth, and description
+- [Core Logic / Flow](#core-logic--flow) — Mermaid sequence diagrams for send, accept, decline, list, requests, remove, and block, the read-path block gate, the full pair state machine, the live `friendship:changed` publisher, and the one challenge route
 - [Logic Paths Summary](#logic-paths-summary) — Decision trees for each operation
 - [Dependencies](#dependencies) — Internal services this module relies on
 
@@ -48,7 +48,7 @@ helpers in `friendship-pair.ts`.
 
 | File | Role |
 |------|------|
-| `friends.controller.ts` | HTTP routes: send, accept, decline, remove, list, requests, block/unblock, blocked list, and game invites (invite, pending, dismiss) |
+| `friends.controller.ts` | HTTP routes: send, accept, decline, remove, list, requests, block/unblock, blocked list, and the one game challenge (invite, the sent list, pending, dismiss) |
 | `friends.service.ts` | Business logic: directional pair transitions, requests, blocking, invites |
 | `friendship-pair.ts` | Pure helpers (`pairKey`, `effectiveStatus`, `isFriendPair`, `isBlockedPair`) shared with match + presence — no NestJS/Prisma imports, so no circular DI |
 | `friendship-record.ts` | Pure helpers for the live record: `viewerState` (the five viewer-relative states), `stateSince`, and the broadcaster's payload guard. No NestJS/Prisma imports |
@@ -169,11 +169,21 @@ enum FriendshipStatus {
 | `GET` | `/api/friends/blocked` | JWT | List users I have blocked |
 | `POST` | `/api/friends/block/:userId` | JWT | Block a user |
 | `POST` | `/api/friends/unblock/:userId` | JWT | Unblock a user |
-| `POST` | `/api/friends/:friendId/invite` | JWT | Invite a friend to a PvP game (creates a room + seats them) |
+| `POST` | `/api/friends/:friendId/invite` | JWT | Challenge a friend, in one call with two shapes: `{ hostColor }` creates the caller's room and answers its credentials, `{ gameId }` stages the friend into the waiting room the caller already sits in |
+| `GET` | `/api/friends/challenges/sent` | JWT | The challenges this caller has out (`SentChallenge[]`), which is what every CHALLENGE button greys itself from |
 | `GET` | `/api/friends/invites/pending` | JWT | Get my pending game invite |
 | `POST` | `/api/friends/invites/dismiss` | JWT | Dismiss a pending game invite |
 
-> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + `notification` frame), and friend lists show live presence status via `PresenceService.getStatuses()`. Game invites create a room and send a `game_invite` notification.
+> **One invite route.** `POST /api/friends/:friendId/invite` takes `ChallengeFriendDto`:
+> both fields optional, `gameId` when the caller already sits in a waiting room and
+> `hostColor` when one has to be created for them. A present-but-empty value is refused
+> at the boundary rather than read as absent, so a mistyped `gameId` cannot quietly mint
+> a second room. Every CHALLENGE in the app (the friends screen's row, the lobby's name
+> card, the waiting room's INVITE COMMS column) is this one path, and the friendship
+> gate, the `game_invite` notification, the invitee's `invite:` record and the inviter's
+> `challenge:` record are its single set of writes.
+
+> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + `notification` frame), and friend lists show live presence status via `PresenceService.getStatuses()`. A challenge creates a room and sends a `game_invite` notification; the challenge record is not pushed, because only the sender reads it, and what spends it is the room (a friend who joined, a room that ended) or its own five-minute stamp at the next read of `GET /api/friends/challenges/sent`.
 
 
 ### Timeouts
@@ -188,6 +198,7 @@ next read.
 | Decline cooldown | 1 h | `DECLINE_COOLDOWN_MS` (`friendship-pair.ts`) | A `declined` direction reads as `none`, so the declined sender may re-request; before it elapses a retry returns `400 FRIEND_REQUEST_COOLDOWN` |
 | Unblock cooldown | none | — | Unblocking is immediate — contact can restart with a fresh request, no waiting period |
 | Pending game-invite record | 5 min | Redis `invite:<userId>`, set `EX 300` by the invite creator | `GET /api/friends/invites/pending` stops returning the invite and Redis drops the key |
+| Sent-challenge record | 5 min | Redis hash `challenge:<inviterId>` (`EX 360` on the key, one stamp per entry) | `GET /api/friends/challenges/sent` skips the entry, so the friend may be challenged again; a room that is no longer `WAITING` spends it earlier |
 
 > The two friendship timeouts are per-direction and independent: each side's
 > `pending`/`declined` expires off its own `user1StatusAt` / `user2StatusAt` timestamp.
@@ -446,8 +457,9 @@ stateDiagram-v2
 > | A invites B to a game | the pair is not currently friends | `403 NOT_FRIENDS_WITH_USER` |
 > | A invites B to a game | either side is `blocked` | `403 FRIEND_BLOCKED` |
 > | A invites themself | — | `400 FRIEND_INVITE_SELF` |
+> | A invites B to a game | a challenge to B is already out (5 min, or its room is still waiting) | `409 CHALLENGE_ALREADY_SENT` |
 > | A invites B to a game | A already holds a seat in a live game | `403 MATCH_ALREADY_SEATED` (room create refused) |
-> | A invites B to a game | B already holds a seat in a live game | `403 MATCH_ALREADY_SEATED` (seating B refused, invite not stored) |
+> | A invites B into a room | the room is not the caller's, or is not `WAITING` / `PVP` | `403 MATCH_NOT_PLAYER` / `403 MATCH_ALREADY_STARTED` / `403 MATCH_PVP_ONLY_INVITE` (from `assertInvitableRoom`) |
 
 
 ---
@@ -533,6 +545,50 @@ open does not re-push, so it lingers until the next focus/refocus.
 payload would have to be filtered per viewer, which is exactly the viewer-dependence the room model
 avoids. Only the owner's own list is live.
 
+### 10. Challenge a friend (`POST /api/friends/:friendId/invite`)
+
+One route for every CHALLENGE in the app, with two shapes in one optional body:
+
+```mermaid
+sequenceDiagram
+    participant Sender
+    participant Server as FriendsService
+    participant Match as MatchService
+    participant Redis
+    participant B as The friend
+
+    Sender->>Server: POST /api/friends/{friendId}/invite { hostColor | gameId }
+    Server->>Server: self? pair friends? either side blocked?
+    alt a challenge to this friend is still out
+        Server-->>Sender: 409 CHALLENGE_ALREADY_SENT
+    end
+    alt body carries gameId
+        Server->>Match: assertInvitableRoom(gameId, sender)
+        Match-->>Server: { gameId, inviteCode, playerCount }
+    else body carries hostColor
+        Server->>Match: createInvite(sender, undefined, hostColor)
+        Match-->>Server: credentials (token, engineUrl, colour, mode, playerCount)
+    end
+    Server->>B: notification game_invite
+    Server->>Redis: SET invite:{friendId} (5 min)
+    Server->>Redis: HSET challenge:{sender} {friendId} -> { gameId, sentAt }
+    Server-->>Sender: the room (credentials on the creating shape)
+```
+
+**One challenge per friend at a time.** Before either shape runs, the sender's own
+`challenge:<senderId>` hash is read through the same reader the sent list uses, so a second press
+is `409 CHALLENGE_ALREADY_SENT` instead of a second room nobody is sitting in. The record is spent
+by three things and never by the client: its own five-minute stamp, a friend who joined (the room
+is no longer `WAITING`, checked with `MatchService.isWaitingRoom`), and a room that ended. The
+reader is `GET /api/friends/challenges/sent`, which is what every CHALLENGE button greys itself
+from after a reload: no SPA constant mirrors the window, so the grey state cannot outlive the
+server's own answer.
+
+**The invitee is not seated.** A seat owns a colour, so the friend claims one from the palette when
+they accept; the invite carries the room only. A friend who is already seated elsewhere is therefore
+refused where a seat is actually taken, by `joinMatch` at accept time (`403 MATCH_ALREADY_SEATED`),
+not by the send.
+
 
 ---
 
@@ -556,6 +612,14 @@ The engine side is `socket/block-subscriber.ts`: it scans the live rooms, keeps 
 both accounts are seated in one, and writes `{ a, b, atSeq }` into that room's state (an unblock
 removes it). Pre-block lines are never deleted, so the player who blocked keeps the record of what
 happened; a block placed mid-game is never announced and never ejects anybody.
+
+The other two surfaces a block closes are about the door rather than the room, and both are in the
+match module: a room that seats either side is not a row in the other's open list
+(`lobbyRoomsFor`, server-side), and its seats cannot be claimed (`assertNoBlockedSeat` answers the
+blocker `403 MATCH_SEAT_BLOCKED` and the blocked party the neutral `403 MATCH_ROOM_UNAVAILABLE`).
+A seat already held is never touched, so the waiting-room case is the same as the mid-game one:
+the match plays out and the host's remedy is ABORT. See
+[backend-match-module.md](backend-match-module.md) → Blocked pairs at the door.
 
 ### Send Friend Request Path
 ```
@@ -641,12 +705,12 @@ POST /api/friends/unblock/{userId} (JWT required)
 |-----------|---------|
 | `PrismaService` | Database access (Friendship, User models) |
 | `PresenceService` | Live status in friend lists |
-| `MatchService` | Create/join rooms for game invites |
+| `MatchService` | Create a room for a challenge (`createInvite`), assert one the caller already sits in (`assertInvitableRoom`), and read whether a challenged room is still `WAITING` (`isWaitingRoom`) |
 | `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` notifications |
 | `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `FRIEND_BLOCKED`); reads never trust the client router |
 | `AvatarMetaService` | `avatarV` for the friends / requests / blocked lists (one pipelined read per list) |
 | `FriendshipEventsService` | The `friendship:changed` publisher called after every membership mutation |
 
 | `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence |
-| `Redis` (ioredis) | Pending game-invite records (`invite:<userId>`) |
+| `Redis` (ioredis) | Pending game-invite records (`invite:<userId>`) and the sent-challenge hash (`challenge:<inviterId>`) that `GET /api/friends/challenges/sent` reads and the 409 is decided on |
 | `JwtAuthGuard` | Protects all friend endpoints |

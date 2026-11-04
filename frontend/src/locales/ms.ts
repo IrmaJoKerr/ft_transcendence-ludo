@@ -5,6 +5,7 @@ export const ms = {
     bot: 'Bot',
     player: 'Pemain',
     back: 'KEMBALI',
+    cancel: 'BATAL',
     close: 'Tutup',
     language: 'Bahasa',
     couldNotReachServer: 'Tidak dapat menghubungi pelayan',
@@ -51,6 +52,7 @@ export const ms = {
     AVATAR_FILE_REQUIRED: 'Fail avatar diperlukan',
     FRIEND_INVITE_SELF: 'Tidak boleh menjemput diri sendiri',
     NOT_FRIENDS_WITH_USER: 'Anda bukan kawan pengguna ini',
+    CHALLENGE_ALREADY_SENT: 'Cabaran kepada pemain ini masih menunggu',
     FRIEND_REQUEST_SELF: 'Tidak boleh menghantar permintaan kawan kepada diri sendiri',
     FRIEND_ALREADY: 'Sudah berkawan',
     FRIEND_REQUEST_PENDING: 'Permintaan kawan sudah menunggu',
@@ -73,6 +75,7 @@ export const ms = {
     MATCH_DUPLICATE_COLOR: 'Setiap tempat duduk mesti mempunyai warna sendiri',
     MATCH_COLOR_TAKEN: 'Warna itu baru diambil: pilih yang lain',
     MATCH_ROOM_UNAVAILABLE: 'Bilik itu tidak lagi tersedia',
+    MATCH_SEAT_BLOCKED: 'Kamu menyekat seorang pemain dalam bilik ini: nyahsekat untuk menyertai',
     MATCH_BOT_COLORS: 'botColors mesti sepadan dengan botCount',
     MATCH_PLAYER_COUNT_2_4: 'Bilangan pemain mesti 2 atau 4',
     MATCH_OWN_INVITE: 'Anda tidak boleh menyertai jemputan sendiri',
@@ -465,6 +468,13 @@ export const ms = {
     blockSubMessage: 'Kamu berdua tidak akan melihat satu sama lain dalam sembang. Ia tidak boleh dibatalkan di sini.',
     blockProceed: 'SEKAT',
     blocked: 'Pautan diputuskan.',
+    // Pengesahan BUANG, yang lebih lembut antara dua tekan pada baris ini: ia menyebut
+    // apa yang hilang bersama persahabatan, bukan apa yang disembunyikan selepasnya.
+    removeTitle: 'BUANG RAKAN?',
+    removeConfirm: 'Buang {{name}} daripada skuad kamu?',
+    removeSubMessage:
+      'Persahabatan turut hilang, dan satu-satunya jalan kembali ialah permintaan baharu yang perlu dia terima.',
+    removeProceed: 'BUANG',
     system: {
       left: '{{name}} telah meninggalkan perlawanan',
       started: 'Perlawanan telah bermula',

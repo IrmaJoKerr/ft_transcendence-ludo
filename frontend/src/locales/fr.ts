@@ -5,6 +5,7 @@ export const fr = {
     bot: 'Bot',
     player: 'Joueur',
     back: 'RETOUR',
+    cancel: 'ANNULER',
     close: 'Fermer',
     language: 'Langue',
     couldNotReachServer: 'Impossible de joindre le serveur',
@@ -52,6 +53,7 @@ export const fr = {
     AVATAR_FILE_REQUIRED: 'Le fichier d\'avatar est requis',
     FRIEND_INVITE_SELF: 'Vous ne pouvez pas vous inviter vous-même',
     NOT_FRIENDS_WITH_USER: 'Vous n\'êtes pas ami avec cet utilisateur',
+    CHALLENGE_ALREADY_SENT: 'Un défi à ce joueur est déjà en attente',
     FRIEND_REQUEST_SELF: 'Vous ne pouvez pas vous envoyer une demande d\'ami',
     FRIEND_ALREADY: 'Déjà amis',
     FRIEND_REQUEST_PENDING: 'Demande d\'ami déjà en attente',
@@ -74,6 +76,7 @@ export const fr = {
     MATCH_DUPLICATE_COLOR: 'Chaque siège doit avoir sa propre couleur',
     MATCH_COLOR_TAKEN: "Cette couleur vient d'être prise : choisissez-en une autre",
     MATCH_ROOM_UNAVAILABLE: 'Cette salle n’est plus disponible',
+    MATCH_SEAT_BLOCKED: 'Vous avez bloqué un joueur dans cette salle : débloquez-le pour la rejoindre',
     MATCH_BOT_COLORS: 'botColors doit correspondre à botCount',
     MATCH_PLAYER_COUNT_2_4: 'Le nombre de joueurs doit être 2 ou 4',
     MATCH_OWN_INVITE: 'Vous ne pouvez pas rejoindre votre propre invitation',
@@ -470,6 +473,13 @@ export const fr = {
       'Vous ne vous verrez plus dans le chat. Cette action est irréversible ici.',
     blockProceed: 'BLOQUER',
     blocked: 'Lien rompu.',
+    // Le confirm de RETIRER, la plus douce des deux pressions de la ligne : il dit ce
+    // qui part avec l'amitié, pas ce qui disparaît ensuite.
+    removeTitle: 'RETIRER LE CAMARADE ?',
+    removeConfirm: 'Retirer {{name}} de votre escouade ?',
+    removeSubMessage:
+      'L\'amitié s\'en va avec, et le seul retour est une nouvelle demande qu\'il devra accepter.',
+    removeProceed: 'RETIRER',
     system: {
       left: '{{name}} a quitté le match',
       started: 'Le match a commencé',

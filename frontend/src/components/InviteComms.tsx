@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { postApi, translateErrorCode } from '../api';
+import { useChallenges } from '../hooks/useChallenges';
 import { useFriendships } from '../hooks/useFriendships';
 import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, GAME_WINDOW_HEADER_EXTRA, WINDOW_BODY } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
@@ -16,6 +16,10 @@ import { retroAudio } from '../utils/audio';
 // A friend who is mid-match in another room still reads `online` here, and pressing
 // invite is answered by the band in one press: accepted, because hiding them would
 // need the live `playing` edge for a case that resolves itself (R1).
+//
+// The press is the app's one challenge route with the room's own id (`useChallenges`),
+// so an invite already out reads grey from the server's list rather than from a
+// remembered press, and it survives a reload.
 export function InviteComms({
   gameId,
   seatUserIds,
@@ -29,8 +33,7 @@ export function InviteComms({
 }) {
   const { t } = useTranslation();
   const { friends } = useFriendships();
-  const [invited, setInvited] = useState<string[]>([]);
-  const [busy, setBusy] = useState<string | null>(null);
+  const { isSent, busy, challenge } = useChallenges();
   const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
 
   // A full room has no occupation to offer, so the column is gone rather than empty.
@@ -40,25 +43,17 @@ export function InviteComms({
     (friend) => friend.status === 'online' && !seatUserIds.includes(friend.id),
   );
 
-  const invite = async (friendId: string) => {
-    setBusy(friendId);
+  const invite = async (friendId: string, name: string) => {
     setMessage(null);
     retroAudio.playUiBeep(780, 0.06);
-    try {
-      await postApi(`/api/game/${gameId}/invite`, { friendId });
-      setInvited((prev) => [...prev, friendId]);
-      setMessage({ tone: 'info', text: t('gameChat.inviteSent') });
-    } catch (error) {
-      // A refusal is a code the whole app localizes the same way; an unmapped one
-      // falls back to the column's own generic line.
-      const code = (error as { code?: string } | null)?.code;
-      setMessage({
-        tone: 'error',
-        text: (code ? translateErrorCode(code) : null) ?? t('friends.genericError'),
-      });
-    } finally {
-      setBusy(null);
+    const outcome = await challenge({ id: friendId, name }, { gameId });
+    if (!outcome.ok) {
+      // The refusal is already a sentence (`errors.<CODE>`, or the generic request
+      // failure), so the column prints it rather than reading the status itself.
+      setMessage({ tone: 'error', text: outcome.message || t('friends.genericError') });
+      return;
     }
+    setMessage({ tone: 'info', text: t('gameChat.inviteSent') });
   };
 
   return (
@@ -75,15 +70,16 @@ export function InviteComms({
           </span>
         ) : (
           listed.slice(0, 6).map((friend) => {
-            const sent = invited.includes(friend.id);
+            const sent = isSent(friend.id);
+            const name = friend.displayName ?? friend.username;
             return (
               <button
                 key={friend.id}
                 type="button"
                 className={RETRO_BTN}
-                disabled={busy === friend.id || sent}
-                onClick={() => void invite(friend.id)}
-                title={friend.displayName ?? friend.username}
+                disabled={busy === friend.id}
+                onClick={() => void invite(friend.id, name)}
+                title={name}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -103,7 +99,7 @@ export function InviteComms({
                     textAlign: 'left',
                   }}
                 >
-                  {friend.displayName ?? friend.username}
+                  {name}
                 </span>
                 <span style={{ flex: 'none', color: 'var(--accent-cyan)' }}>
                   {sent ? t('gameChat.inviteSentShort') : t('gameChat.inviteAction')}

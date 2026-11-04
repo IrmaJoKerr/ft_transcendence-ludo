@@ -193,12 +193,11 @@ An error response has one of two shapes:
    - [`POST /api/match/create`](#post-apimatchcreate) — Create any game (PvP / PvE / hotseat) with full options
    - [`POST /api/match/guest`](#post-apimatchguest) — Start an anonymous PvE room (bots and rules only, no account, nothing saved)
 
-7. **[Game Actions — Room](#7-game-actions--room)** — Ready, exit, abort, rejoin, invite
+7. **[Game Actions — Room](#7-game-actions--room)** — Ready, exit, abort, rejoin
    - [`POST /api/game/:id/ready`](#post-apigameidready) — Mark yourself ready in a room so the game can start
    - [`POST /api/game/:id/exit`](#post-apigameidexit) — Leave the post-game lobby
    - [`POST /api/game/:id/abort`](#post-apigameidabort) — Cancel a game that hasn't started yet
    - [`POST /api/game/:id/rejoin`](#post-apigameidrejoin) — Reconnect to a room you're seated in (e.g. after a page refresh)
-   - [`POST /api/game/:id/invite`](#post-apigameidinvite) — Invite a friend into your waiting PvP room
 
 8. **[Game Actions — Browse](#8-game-actions--browse)** — List games/rooms, find your rooms
    - [`GET /api/games/rooms`](#get-apigamesrooms) — Browse open (joinable) PvP rooms
@@ -233,8 +232,9 @@ An error response has one of two shapes:
    - [`GET /api/friends/blocked`](#get-apifriendsblocked) — List users you have blocked
    - [`POST /api/friends/unblock/:userId`](#post-apifriendsunblockuserid) — Unblock a user
 
-15. **[Friends — Game Invites](#15-friends--game-invites)** — Invite friends to games, pending/dismiss
-   - [`POST /api/friends/:friendId/invite`](#post-apifriendsfriendidinvite) — Invite a friend to a PvP game
+15. **[Friends — Game Invites](#15-friends--game-invites)** — Challenge a friend, read the sent list, pending/dismiss
+   - [`POST /api/friends/:friendId/invite`](#post-apifriendsfriendidinvite) — Challenge a friend, in one call with two shapes
+   - [`GET /api/friends/challenges/sent`](#get-apifriendschallengessent) — The challenges you have out, which is what the CHALLENGE buttons grey themselves from
    - [`GET /api/friends/invites/pending`](#get-apifriendsinvitespending) — Check whether you have a pending game invite
    - [`POST /api/friends/invites/dismiss`](#post-apifriendsinvitesdismiss) — Dismiss your pending game invite
 
@@ -1487,40 +1487,6 @@ Cancel an unstarted game: host only, and only while the room is still `WAITING`.
 ---
 
 
-#### `POST /api/game/:id/invite`
-
-**Source:** `backend/src/match/match.controller.ts` — MatchModule
-
-Invite a friend into a WAITING PvP room.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Path:** `:id` = gameId  
-**Body:**
-
-```json
-{ "friendId": "user-id" }
-
-```
-
-**Response:**
-
-```json
-{
-  "gameId": "uuid"
-}
-```
-
-**Errors:** 400 validation if `friendId` is missing or not a UUID; 404 `MATCH_GAME_NOT_FOUND` if the
-room is gone; 403 `MATCH_PVP_ONLY_INVITE` for a non-PvP room; 403 `MATCH_ALREADY_STARTED` once the
-room has left WAITING; 403 `MATCH_NOT_PLAYER` if the caller holds no seat; 403 `FRIEND_BLOCKED` when a
-block exists between the caller and the target; 403 `NOT_FRIENDS_WITH_USER` when the target is not a
-friend; 403 `MATCH_ROOM_FULL` if no seat is left for the friend.
-
-
----
----
-
-
 ### 8. Game Actions — Browse
 
 
@@ -2284,12 +2250,25 @@ Unblock a user.
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Invite a friend to a PvP game. Creates a match room and seats the friend; pushes a `game_invite` notification.
+Challenge a friend, in one call with two shapes. With `{ hostColor }` the caller's room is created and the
+caller is seated first, so the answer carries their credentials; with `{ gameId }` the friend is staged into
+the waiting room the caller already sits in, and the answer is that room. Both shapes push a `game_invite`
+notification, write the invitee's pending invite and the caller's sent-challenge record. The friend is never
+seated: they claim a corner when they accept.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:friendId` = friend's user ID  
-**Body:** None  
-**Response:**
+**Body:** both fields optional, and a present-but-empty value is refused rather than read as absent.
+
+```json
+{ "hostColor": "red" }
+```
+
+```json
+{ "gameId": "game-id" }
+```
+
+**Response (creating shape):**
 
 ```json
 {
@@ -2297,15 +2276,58 @@ Invite a friend to a PvP game. Creates a match room and seats the friend; pushes
   "token": "<jwt>",
   "engineUrl": "wss://localhost:8443",
   "color": "red",
-  "inviteCode": "ABCD12"
+  "inviteCode": "ABCD12",
+  "mode": "pvp",
+  "playerCount": 4
 }
+```
 
+**Response (staging shape):**
+
+```json
+{
+  "gameId": "game-id",
+  "inviteCode": "ABCD12",
+  "playerCount": 4
+}
+```
+
+**Errors:** 400 `FRIEND_INVITE_SELF`; 403 `NOT_FRIENDS_WITH_USER`; 403 `FRIEND_BLOCKED`; 409
+`CHALLENGE_ALREADY_SENT` while a challenge to that friend is still out (five minutes, or until its room
+stops waiting); 403 `MATCH_ALREADY_SEATED` when the caller already holds a seat (creating shape); 404
+`MATCH_GAME_NOT_FOUND`, 403 `MATCH_PVP_ONLY_INVITE` / `MATCH_ALREADY_STARTED` / `MATCH_NOT_PLAYER` from the
+room's own check (staging shape).
+
+
+---
+---
+
+
+#### `GET /api/friends/challenges/sent`
+
+**Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
+
+The challenges this caller has out, newest record per friend. Each entry is skipped when its stamp is past
+`CHALLENGE_TTL_MS` or when its room is no longer waiting, which is what lets a re-challenge after a join
+through. The SPA greys every CHALLENGE button from this list, so no client constant mirrors the window.
+
+**Headers:** 🔒 (requires `token` cookie)  
+**Response:**
+
+```json
+[
+  {
+    "userId": "friend-user-id",
+    "gameId": "game-id",
+    "inviteCode": "ABCD12",
+    "sentAt": 1762300000000
+  }
+]
 ```
 
 
 ---
 ---
-
 
 #### `GET /api/friends/invites/pending`
 
