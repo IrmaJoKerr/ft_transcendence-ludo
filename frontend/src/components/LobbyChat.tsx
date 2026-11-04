@@ -6,8 +6,11 @@ import { postApi, translateErrorCode } from '../api';
 import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
-import { ChatCardFeed, ChatCardHead } from './ChatCard';
-import type { ChatCardLine } from './chatCardTypes';
+import { ChatCardComposer, ChatCardFeed, ChatCardHead } from './ChatCard';
+import { CyberModal } from './CyberModal';
+import { CHAT_MAX_CHARS, chatLength } from './chatCardTypes';
+import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
+import type { FriendRequestRow, FriendRow } from '../friendshipFeed';
 import { RETRO_BTN } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
@@ -15,14 +18,15 @@ import { retroAudio } from '../utils/audio';
 // the screen: it previews the newest lines and opens the card, which carries the
 // whole transcript and the composer. Every string is a locale key now, and the
 // composer has one reserved status line under the input, so "message too long" and
-// "NO SPAMMING" never move the card.
+// "NO SPAMMING" never move the card. Since M3 the head, the feed and the composer are
+// `ChatCard.tsx`'s: this file keeps the dock's own band (a friend action's
+// confirmation has no room equivalent) and hands it to the composer as `band`, so
+// both channels count one `n / 300` from `chatLength`. The name card here is the
+// public channel's only set of actions — ADD FRIEND (a request the other side
+// answers), ACCEPT, and BLOCK (unilateral, so it confirms through `CyberModal` the
+// same way the room's does) — and the feed drops the lines of whoever this reader
+// has blocked, which the channel's own empty state promises.
 const SCREEN_PREVIEW_LINES = 3;
-/** The composer's cap, mirroring the backend's `CHAT_MAX_CHARS`. */
-const CHAT_MAX_CHARS = 300;
-
-/** What the band under the composer can say. The text is already resolved, so a
- *  chat refusal and a friend action's localized error share one line. */
-type ChatStatus = { tone: 'error' | 'info'; text: string };
 
 /** Every line the band can show, in one list, so its height is reserved for the
  *  longest of them in every language (the `PassActionPill` trick below). */
@@ -34,6 +38,7 @@ const STATUS_KEYS = [
   'status.friendSent',
   'status.friendAdded',
   'status.challengeSent',
+  'status.blocked',
 ] as const;
 
 /** The friend actions' refusals, which arrive as server codes rather than chat
@@ -49,9 +54,11 @@ const FRIEND_ERROR_CODES = [
 const NAME_SAMPLE = 'W'.repeat(24);
 
 /** The name card's box. It is portaled to the body, so it is not clipped by the
- *  dock's 360 px column; the height is an upper bound for the clamp, not a size. */
+ *  dock's 360 px column; the height is an upper bound for the clamp, not a size, and
+ *  it counts the tallest stack the card can build: title, the friend state, BLOCK
+ *  under its rule, and CLOSE. */
 const NAME_CARD_WIDTH = 220;
-const NAME_CARD_HEIGHT = 190;
+const NAME_CARD_HEIGHT = 244;
 const NAME_CARD_MARGIN = 12;
 
 /** The pilot whose name was pressed, and where the card was placed for it. */
@@ -89,7 +96,27 @@ interface CardBox {
 
 export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   const { t } = useTranslation();
-  const { chatLog, sendChat, sessionConnected } = useApp();
+  const { chatLog, sendChat, sessionConnected, user } = useApp();
+
+  // The friendship snapshot lives here rather than in the name card: the card needs
+  // it (friend, request sent, request received) and the feed needs the block list, so
+  // one read serves both and opening a card no longer refetches it.
+  const { friends, requests, blocked, loading, refresh } = useFriendships();
+
+  // A block hides that pilot's lines from this reader — the rule the channel's own
+  // empty state already promised. A room gets it server-side, per seat
+  // (`filterChatForSeat` + the block ledger); here the ledger is already in hand, so
+  // the filter is local, and unblocking brings the lines back with no refetch. The
+  // other direction cannot be honoured: a block is not disclosed, so the blocked side
+  // has no list to filter against (the room, which seats both, does cut it both ways).
+  const blockedIds = useMemo(() => new Set(blocked.map((row) => row.id)), [blocked]);
+  const lines = useMemo(
+    () =>
+      blockedIds.size === 0
+        ? chatLog
+        : chatLog.filter((line) => !blockedIds.has(line.senderId)),
+    [chatLog, blockedIds],
+  );
 
   // Whether the switch has ever been thrown. Until it has, the screen is drawn at
   // rest, so entering a page does not replay the power-on; after that the class
@@ -99,7 +126,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   // The composer's draft and the band's one line. Both belong to the card, not to
   // the connection: closing the card drops neither, and a refusal keeps the text.
   const [draft, setDraft] = useState('');
-  const [status, setStatus] = useState<ChatStatus | null>(null);
+  const [status, setStatus] = useState<ChatCardStatus | null>(null);
 
   // The expanded card. It is anchored to the plate and grows upward out of the
   // dock, page visible around it: dimming the room list would make it a modal,
@@ -128,7 +155,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
         reportError('CHAT_EMPTY');
         return;
       }
-      if (text.length > CHAT_MAX_CHARS) {
+      if (chatLength(text) > CHAT_MAX_CHARS) {
         reportError('CHAT_TOO_LONG');
         return;
       }
@@ -152,21 +179,24 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   // carries an ISO string, so it is parsed here once instead of inside the card.
   const cardLines = useMemo<ChatCardLine[]>(
     () =>
-      chatLog.map((line) => ({
+      lines.map((line) => ({
         id: line.id,
         senderId: line.senderId,
         senderName: line.senderName,
         text: line.text,
         at: Date.parse(line.at) || 0,
       })),
-    [chatLog],
+    [lines],
   );
   const openNameCard = useCallback((line: ChatCardLine, anchor: DOMRect) => {
+    // Your own name opens nothing: every action on the card is about the other pilot,
+    // so the only thing a self-card could offer is a guaranteed `400`.
+    if (user && line.senderId === user.id) return;
     const width = NAME_CARD_WIDTH;
     const left = Math.max(NAME_CARD_MARGIN, Math.min(anchor.left, window.innerWidth - width - NAME_CARD_MARGIN));
     const top = Math.min(anchor.bottom + 6, window.innerHeight - NAME_CARD_HEIGHT - NAME_CARD_MARGIN);
     setNameCard({ id: line.senderId, name: line.senderName, left, top });
-  }, []);
+  }, [user]);
 
   // Measured from the plate's own rectangle rather than from CSS: where the plate
   // sits depends on the nav track, the notifications and the window height, and
@@ -393,10 +423,10 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
               pointerEvents: 'none',
             }}
           >
-            {chatLog.length === 0 ? (
+            {lines.length === 0 ? (
               <ScreenEmpty />
             ) : (
-              chatLog.slice(-SCREEN_PREVIEW_LINES).map((line) => (
+              lines.slice(-SCREEN_PREVIEW_LINES).map((line) => (
                 <p
                   key={line.id}
                   style={{
@@ -476,6 +506,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
               status={status}
               connected={sessionConnected}
               onStatus={setStatus}
+              band={<ChatStatusBand status={status} />}
             />
           </div>,
           document.body,
@@ -487,8 +518,12 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
         createPortal(
           <ChatNameCard
             card={nameCard}
+            friends={friends}
+            requests={requests}
+            loading={loading}
             onClose={() => setNameCard(null)}
             onStatus={setStatus}
+            onBlocked={refresh}
           />,
           document.body,
         )}
@@ -528,90 +563,12 @@ function ScreenEmpty() {
   );
 }
 
-/** The composer: one input, one send, and the band under it. The band comes first
- *  in the DOM order of this block only for the reader: visually it is below the
- *  form, and it is always mounted, so a refusal never resizes the card. */
-function ChatCardComposer({
-  draft,
-  onDraft,
-  onSubmit,
-  status,
-  onStatus,
-  connected,
-}: {
-  draft: string;
-  onDraft: (value: string) => void;
-  onSubmit: (event: FormEvent) => void;
-  status: ChatStatus | null;
-  onStatus: (status: ChatStatus | null) => void;
-  connected: boolean;
-}) {
-  const { t } = useTranslation();
-  const over = draft.trim().length > CHAT_MAX_CHARS;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-      <form onSubmit={onSubmit} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input
-          type="text"
-          value={draft}
-          onChange={(event) => {
-            onDraft(event.target.value);
-            // A refusal clears as soon as the sender starts fixing it; a server
-            // error must not sit under the box while a new line is being typed.
-            if (status?.tone === 'error') onStatus(null);
-          }}
-          disabled={!connected}
-          placeholder={connected ? t('chat.placeholder') : t('chat.offline')}
-          aria-label={t('chat.inputLabel')}
-          aria-invalid={over}
-          // One character over the cap, so the band can say why rather than the
-          // input silently refusing the keystroke.
-          maxLength={CHAT_MAX_CHARS + 1}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: 32,
-            boxSizing: 'border-box',
-            padding: '0 10px',
-            borderRadius: 6,
-            background: 'rgba(0, 0, 0, 0.5)',
-            color: 'var(--text-main)',
-            border: `1px solid ${over ? 'rgba(255, 82, 120, 0.6)' : 'var(--border-color)'}`,
-            outline: 'none',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.74rem',
-            opacity: connected ? 1 : 0.7,
-          }}
-        />
-        <button
-          type="submit"
-          disabled={!connected}
-          className={RETRO_BTN}
-          style={{
-            height: 32,
-            padding: '0 12px',
-            fontSize: '0.66rem',
-            fontFamily: 'var(--font-display)',
-            fontWeight: 900,
-            color: 'var(--accent-cyan)',
-            opacity: connected ? 1 : 0.55,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {t('chat.send')}
-        </button>
-      </form>
-      <ChatStatusBand status={status} />
-    </div>
-  );
-}
-
 /** The reserved line under the composer. Every string the band can show is mounted
  *  in one grid cell, hidden, so the cell is as tall as the longest of them in the
  *  current language (`PassActionPill`'s trick): a chat refusal, a friend action's
  *  error and a "friend invite sent to X" confirmation all appear and clear without
  *  moving the composer or the transcript by a pixel. */
-function ChatStatusBand({ status }: { status: ChatStatus | null }) {
+function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
   const { t } = useTranslation();
 
   // The sizing rows. The chat strings are keyed; a friend refusal is a localized
@@ -673,26 +630,43 @@ function ChatStatusBand({ status }: { status: ChatStatus | null }) {
  *  band is reserved for. */
 function ChatNameCard({
   card,
+  friends,
+  requests,
+  loading,
   onClose,
   onStatus,
+  onBlocked,
 }: {
   card: NameCard;
+  friends: FriendRow[];
+  requests: { sent: FriendRequestRow[]; received: FriendRequestRow[] };
+  loading: boolean;
   onClose: () => void;
-  onStatus: (status: ChatStatus | null) => void;
+  onStatus: (status: ChatCardStatus | null) => void;
+  /** Re-read the friendship snapshot: a block is a mutation, and the feed's filter
+   *  is built from that snapshot. */
+  onBlocked: () => void;
 }) {
   const { t } = useTranslation();
   const { activeMatch } = useApp();
-  const { friends, requests, loading } = useFriendships();
   const [busy, setBusy] = useState(false);
+  // The block confirm. It is the card's own state rather than the page's, because
+  // the card is what opened it.
+  const [confirmBlock, setConfirmBlock] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Escape and an outside press close it, the same pair of gestures the transcript
   // card uses. `pointerdown` so a drag that ends outside does not count as a press.
+  // Both stand down while the confirm is up: the modal owns Escape and answers a
+  // press anywhere (`CyberModal` cancels on an overlay click), so acting on the same
+  // gestures here would dismiss the card behind the confirm as well.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (confirmBlock) return;
       if (event.key === 'Escape') onClose();
     };
     const onPress = (event: PointerEvent) => {
+      if (confirmBlock) return;
       const target = event.target as Node | null;
       if (target && cardRef.current?.contains(target)) return;
       onClose();
@@ -703,7 +677,7 @@ function ChatNameCard({
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPress);
     };
-  }, [onClose]);
+  }, [onClose, confirmBlock]);
 
   const friend = friends.find((entry) => entry.id === card.id);
   const sent = requests.sent.find((entry) => entry.userId === card.id);
@@ -751,6 +725,22 @@ function ChatNameCard({
     run(
       () => postApi(`/api/game/${gameId}/invite`, { friendId: card.id }),
       () => report('info', t('chat.status.challengeSent')),
+      t('friends.genericError'),
+    );
+
+  // Blocking is the one unilateral action here: the other pilot is not asked, the
+  // friendship (and any pending request) goes with it, and this card cannot undo it.
+  // Hence the confirm, and hence the same `CyberModal` the room's card uses.
+  const block = () =>
+    run(
+      () => postApi(`/api/friends/block/${card.id}`, {}),
+      () => {
+        // The feed's filter is built from the snapshot, and the block's live record
+        // lands on the next frame from the socket: re-reading here means the lines
+        // are gone even if that frame is lost.
+        onBlocked();
+        report('info', t('chat.status.blocked', { name: card.name }));
+      },
       t('friends.genericError'),
     );
 
@@ -858,6 +848,25 @@ function ChatNameCard({
             {t('chat.card.addFriend')}
           </button>
         )}
+        {/* BLOCK sits under a rule and last but one: a stray double press on the
+            action above must not land on the one button that cannot be undone. */}
+        <span
+          aria-hidden="true"
+          style={{ height: 1, margin: '2px 0', background: 'rgba(184, 166, 228, 0.22)' }}
+        />
+        <button
+          type="button"
+          className={RETRO_BTN}
+          style={{ ...actionStyle, color: 'var(--accent-pink, #ff007f)' }}
+          disabled={busy}
+          aria-haspopup="dialog"
+          onClick={() => {
+            retroAudio.playUiBeep(320, 0.08);
+            setConfirmBlock(true);
+          }}
+        >
+          {t('chat.card.block')}
+        </button>
         <button
           type="button"
           className={RETRO_BTN}
@@ -867,6 +876,33 @@ function ChatNameCard({
           {t('chat.close')}
         </button>
       </div>
+
+      {/* The confirm, portaled above everything this card stands on. `CyberModal`'s
+          overlay is z-10002, under the name card's 10005 and the transcript card's
+          10004, so the wrapper lifts the whole overlay rather than the modal lifting
+          itself; it is `pointer-events-none` because only the overlay takes presses,
+          and it takes them itself once open. */}
+      {createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10006, pointerEvents: 'none' }}>
+          <CyberModal
+            isOpen={confirmBlock}
+            title={t('chat.block.title')}
+            message={t('chat.block.confirm', { name: card.name })}
+            subMessage={t('chat.block.subMessage')}
+            onCancel={() => setConfirmBlock(false)}
+            onProceed={() => {
+              setConfirmBlock(false);
+              void block();
+            }}
+            cancelLabel={t('chat.cancel')}
+            proceedLabel={t('chat.block.proceed')}
+            cancelShortcut="ESC"
+            proceedShortcut="↵"
+            isDanger
+          />
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

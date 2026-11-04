@@ -132,6 +132,14 @@ why presence churn costs no record.
 and then call `refresh()` — belt and braces, since the server has already published the record that
 the acting tab receives over the socket.
 
+**A block is also a chat filter, and only the side that placed it can apply one.** The public channel
+has no per-seat cut of its own (it is one `chat:history` frame and one fan-out to every signed-in
+socket), so `LobbyChat` filters the ring it paints against `useFriendships().blocked`: the blocker
+stops seeing the blocked pilot's lines at once, and unblocking brings them back without a refetch. The
+blocked side keeps seeing the blocker's lines, because a block is never disclosed to them — a room,
+which seats both and holds the ledger in `blockedPairs`, is the one place the cut runs both ways
+(`filterChatForSeat`).
+
 
 ---
 ---

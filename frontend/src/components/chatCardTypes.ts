@@ -8,6 +8,17 @@ import type { ReactNode } from 'react';
  *  `CHAT_MAX_CHARS`: UTF-16 units, exactly what the server counts. */
 export const CHAT_MAX_CHARS = 300;
 
+/** How long a line is, in the one unit both servers count: UTF-16 code units, so an
+ *  ordinary character is 1 and anything above the BMP — every emoji — is 2, which is
+ *  what it also costs on the wire. Trimmed first, because both servers trim before
+ *  they measure (`room-chat.ts` `raw.trim()`, the lobby's `send` the same), so the
+ *  counter never charges for the spaces a send will drop. One function for both
+ *  composers and both pre-send guards, so the room's `n / 300`, the lobby's, and the
+ *  two refusals cannot drift apart. */
+export function chatLength(text: string): number {
+  return text.trim().length;
+}
+
 /** One line, as both hosts hold it. The lobby's `at` is an ISO string on the wire; a
  *  host normalizes it to ms here so the card has one clock. */
 export type ChatCardLine = {

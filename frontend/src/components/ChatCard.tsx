@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, GAME_WINDOW_HEADER_EXTRA } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
-import { CHAT_MAX_CHARS, systemLineText } from './chatCardTypes';
+import { CHAT_MAX_CHARS, chatLength, systemLineText } from './chatCardTypes';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
 
 // The chat card, in one place (M3/R8). The lobby dock and the board's left column
@@ -284,7 +284,10 @@ function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string })
 }
 
 /** The composer: one input, one send, a counter, and the band under it. The band is
- *  always mounted, so a refusal never resizes the card. */
+ *  always mounted, so a refusal never resizes the card. Both channels render this one
+ *  component; what differs between them is a host's business, so the band is a slot
+ *  (the lobby reserves its height from a hidden list of every string it can hold) and
+ *  the room's is the default single line here. */
 export function ChatCardComposer({
   draft,
   onDraft,
@@ -293,6 +296,7 @@ export function ChatCardComposer({
   onStatus,
   connected,
   inert,
+  band,
   placeholderKey = 'chat.placeholder',
   inputLabelKey = 'chat.inputLabel',
   offlineKey = 'chat.offline',
@@ -305,13 +309,17 @@ export function ChatCardComposer({
   onStatus: (status: ChatCardStatus | null) => void;
   connected: boolean;
   inert?: boolean;
+  /** The host's own band, if it has more to say than one line (the lobby's friend
+   *  actions do). Rendered instead of the default `status.text` line. */
+  band?: ReactNode;
   placeholderKey?: string;
   inputLabelKey?: string;
   offlineKey?: string;
   sendKey?: string;
 }) {
   const { t } = useTranslation();
-  const over = draft.trim().length > CHAT_MAX_CHARS;
+  const count = chatLength(draft);
+  const over = count > CHAT_MAX_CHARS;
   const disabled = !connected || inert === true;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
@@ -356,7 +364,7 @@ export function ChatCardComposer({
             whiteSpace: 'nowrap',
           }}
         >
-          {draft.trim().length} / {CHAT_MAX_CHARS}
+          {count} / {CHAT_MAX_CHARS}
         </span>
         <button
           type="submit"
@@ -376,21 +384,23 @@ export function ChatCardComposer({
           {t(sendKey)}
         </button>
       </form>
-      <span
-        aria-live="polite"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.6rem',
-          letterSpacing: '0.4px',
-          lineHeight: 1.4,
-          // One reserved line: the band is always mounted, so nothing moves when it
-          // has something to say.
-          minHeight: '1.4em',
-          color: status?.tone === 'error' ? '#ff5278' : 'var(--accent-cyan)',
-        }}
-      >
-        {status?.text ?? '\u00a0'}
-      </span>
+      {band ?? (
+        <span
+          aria-live="polite"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.6rem',
+            letterSpacing: '0.4px',
+            lineHeight: 1.4,
+            // One reserved line: the band is always mounted, so nothing moves when it
+            // has something to say.
+            minHeight: '1.4em',
+            color: status?.tone === 'error' ? '#ff5278' : 'var(--accent-cyan)',
+          }}
+        >
+          {status?.text ?? '\u00a0'}
+        </span>
+      )}
     </div>
   );
 }
@@ -499,7 +509,7 @@ export function ChatCard({
         setStatus({ tone: 'error', text: t('chat.error.CHAT_EMPTY') });
         return;
       }
-      if (text.length > CHAT_MAX_CHARS) {
+      if (chatLength(text) > CHAT_MAX_CHARS) {
         setStatus({ tone: 'error', text: t('chat.error.CHAT_TOO_LONG', { max: CHAT_MAX_CHARS }) });
         return;
       }

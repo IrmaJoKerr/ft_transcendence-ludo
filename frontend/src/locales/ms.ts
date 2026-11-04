@@ -404,9 +404,10 @@ export const ms = {
     show: 'Tunjuk saluran lobi',
     hide: 'Sembunyi saluran lobi',
     close: 'TUTUP',
+    cancel: 'BATAL',
     emptyTitle: 'TIADA TRANSMISI LAGI',
     emptyDesc:
-      'Mesej sampai kepada setiap juruterbang yang log masuk. Juruterbang yang menyekat satu sama lain tidak nampak satu sama lain di sini.',
+      'Mesej sampai kepada setiap juruterbang yang log masuk. Juruterbang yang kamu sekat tidak muncul di sini.',
     emptyPlate: 'HANTAR KE SALURAN AWAM',
     placeholder: 'HANTAR MESEJ',
     inputLabel: 'Mesej ke saluran lobi',
@@ -422,6 +423,7 @@ export const ms = {
       friendSent: 'Jemputan rakan dihantar kepada {{name}}',
       friendAdded: 'Rakan ditambah: {{name}}',
       challengeSent: 'Cabaran dihantar.',
+      blocked: 'Pautan diputuskan: {{name}} disekat.',
     },
     card: {
       addFriend: 'TAMBAH RAKAN',
@@ -429,6 +431,17 @@ export const ms = {
       accept: 'TERIMA PERMINTAAN',
       friends: 'RAKAN',
       challenge: 'CABAR',
+      block: 'SEKAT',
+    },
+    // Pengesahan sekatan lobi. Yang di bilik (`gameChat.block*`) berkata kedua-dua
+    // juruterbang berhenti melihat satu sama lain di bilik itu; yang ini juga menamatkan
+    // persahabatan dan menyatakannya.
+    block: {
+      title: 'PUTUSKAN PAUTAN?',
+      confirm: 'Sekat {{name}}?',
+      subMessage:
+        'Ini menamatkan persahabatan, membatalkan permintaan yang menunggu, dan menyembunyikan mesej mereka dari saluran ini. Ia tidak boleh dibatalkan dari kad ini: NYAHSEKAT ada di skrin rakan.',
+      proceed: 'SEKAT',
     },
   },
   // Saluran bilik (M3). Penolakan menggunakan semula `chat.error.*`, empat kod yang sama

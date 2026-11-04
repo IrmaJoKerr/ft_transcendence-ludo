@@ -12,6 +12,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { FRIENDS_THROTTLE } from '../common/throttles';
 import { FriendsService } from './friends.service';
+import { ChallengeFriendDto } from './dto/challenge-friend.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller()
@@ -87,10 +88,20 @@ export class FriendsController {
   inviteToGame(
     @Request() req: { user: { id: string } },
     @Param('friendId') friendId: string,
-    // The inviter's own corner: the room is created for them, so they pick first.
-    @Body('hostColor') hostColor: string,
+    // One body, two shapes (both optional): `gameId` names the waiting room the
+    // caller already sits in, and `hostColor` is the corner the caller takes when
+    // the room has to be created for them.
+    @Body() dto: ChallengeFriendDto,
   ) {
-    return this.friends.inviteToGame(req.user.id, friendId, hostColor);
+    return this.friends.inviteToGame(req.user.id, friendId, dto.hostColor, dto.gameId);
+  }
+
+  // The challenges this caller has out: what every CHALLENGE button greys itself
+  // from, so an invite already sent does not read as a fresh one after a reload.
+  @UseGuards(JwtAuthGuard)
+  @Get('api/friends/challenges/sent')
+  getSentChallenges(@Request() req: { user: { id: string } }) {
+    return this.friends.getSentChallenges(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)

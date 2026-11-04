@@ -407,9 +407,10 @@ export const fr = {
     show: 'Afficher le canal du lobby',
     hide: 'Masquer le canal du lobby',
     close: 'FERMER',
+    cancel: 'ANNULER',
     emptyTitle: 'AUCUNE TRANSMISSION',
     emptyDesc:
-      'Les messages atteignent tous les pilotes connectés. Les pilotes qui se sont bloqués ne se voient pas ici.',
+      'Les messages atteignent tous les pilotes connectés. Les pilotes que vous avez bloqués n’apparaissent pas ici.',
     emptyPlate: 'ÉMETTRE SUR LE CANAL PUBLIC',
     placeholder: 'ÉMETTRE UN MESSAGE',
     inputLabel: 'Message pour le canal du lobby',
@@ -425,6 +426,7 @@ export const fr = {
       friendSent: 'Invitation d’ami envoyée à {{name}}',
       friendAdded: 'Ami ajouté : {{name}}',
       challengeSent: 'Défi envoyé.',
+      blocked: 'Lien rompu : {{name}} est bloqué.',
     },
     card: {
       addFriend: 'AJOUTER UN AMI',
@@ -432,6 +434,17 @@ export const fr = {
       accept: 'ACCEPTER LA DEMANDE',
       friends: 'AMIS',
       challenge: 'DÉFIER',
+      block: 'BLOQUER',
+    },
+    // La confirmation de blocage du lobby. Celle de la salle (`gameChat.block*`) dit que
+    // les deux pilotes cessent de se voir dans cette salle ; celle-ci met aussi fin à
+    // l’amitié et le dit.
+    block: {
+      title: 'ROMPRE LE LIEN ?',
+      confirm: 'Bloquer {{name}} ?',
+      subMessage:
+        'Cela met fin à l’amitié, annule une demande en attente et masque ses messages sur ce canal. Cela ne peut pas être annulé depuis cette carte : DÉBLOQUER se trouve sur l’écran des amis.',
+      proceed: 'BLOQUER',
     },
   },
   // Le canal de la salle (M3). Les refus réutilisent `chat.error.*`, les quatre mêmes

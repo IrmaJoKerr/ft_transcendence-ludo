@@ -404,9 +404,10 @@ export const en = {
     show: 'Show the lobby channel',
     hide: 'Hide the lobby channel',
     close: 'CLOSE',
+    cancel: 'CANCEL',
     emptyTitle: 'NO TRANSMISSIONS YET',
     emptyDesc:
-      'Messages reach every signed-in pilot. Pilots who have blocked each other cannot see each other here.',
+      'Messages reach every signed-in pilot. Pilots you have blocked do not appear here.',
     emptyPlate: 'TRANSMIT TO THE PUBLIC CHANNEL',
     placeholder: 'TRANSMIT A MESSAGE',
     inputLabel: 'Message the lobby channel',
@@ -422,6 +423,7 @@ export const en = {
       friendSent: 'Friend invite sent to {{name}}',
       friendAdded: 'Friend added: {{name}}',
       challengeSent: 'Challenge sent.',
+      blocked: 'Link severed: {{name}} is blocked.',
     },
     card: {
       addFriend: 'ADD FRIEND',
@@ -429,6 +431,16 @@ export const en = {
       accept: 'ACCEPT REQUEST',
       friends: 'FRIENDS',
       challenge: 'CHALLENGE',
+      block: 'BLOCK',
+    },
+    // The lobby's block confirm. The room's (`gameChat.block*`) says the pair stop
+    // seeing each other in that room; this one also ends the friendship and says so.
+    block: {
+      title: 'SEVER LINK?',
+      confirm: 'Block {{name}}?',
+      subMessage:
+        'This ends the friendship, cancels a pending request, and hides their messages from this channel. It cannot be undone from this card: UNBLOCK lives on the friends screen.',
+      proceed: 'BLOCK',
     },
   },
   // The room's channel (M3). The panel copy; the refusals reuse `chat.error.*`, which

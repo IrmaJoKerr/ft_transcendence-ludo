@@ -107,10 +107,11 @@ function storedTheme(): ThemeType {
 // docs).
 const ACCESS_TOKEN_REFRESH_MS = 14 * 60 * 1000;
 
-/** The transcript's length: the same 50 rows the backend keeps in its Redis list.
- *  The ring lives here rather than in the dock's panel, so switching the channel
- *  off, or being on `/game` where no panel renders, drops no line. */
-const CHAT_LOG_LIMIT = 50;
+/** The transcript's length: the same 500 rows the backend keeps in its Redis list
+ *  (`CHAT_HISTORY`). The ring lives here rather than in the dock's panel, so switching
+ *  the channel off, or being on `/game` where no panel renders, drops no line. The
+ *  dock's plate previews the newest 3 of them; the card paints the whole ring. */
+const CHAT_LOG_LIMIT = 500;
 /** settingOn/toggleSetting key for "show the rules popup when a match starts": read by Lobby's Rules button and Game.tsx. */
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
 /** Defaults for the settings toggles, keyed "<group>-<row>". */

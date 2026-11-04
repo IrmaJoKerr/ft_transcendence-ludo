@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
@@ -20,6 +21,7 @@ import {
   isBlockedPair,
   effectiveStatus,
   DECLINE_COOLDOWN_MS,
+  CHALLENGE_TTL_MS,
   type FriendshipStatus,
   type PairLike,
 } from './friendship-pair';
@@ -35,11 +37,21 @@ type FriendRequestView = {
   createdAt: Date;
 };
 
+// One challenge the caller has out: the friend, the room it points at, and when it
+// was sent. `sentAt` is what the reader expires it on.
+export type SentChallenge = {
+  userId: string;
+  gameId: string;
+  inviteCode?: string;
+  sentAt: number;
+};
+
 @Injectable()
 // Friend system: friend requests/accept/decline, friend list with online
 // status, blocking, and game invitations. Called by friends.controller.ts.
 export class FriendsService {
-  // Redis client (used for pending-invite records, invite:<userId> keys).
+  // Redis client (used for pending-invite records, invite:<userId> keys, and the
+  // challenge:<userId> hashes that say which friends a user has already challenged).
   private redis: Redis;
 
   constructor(
@@ -61,9 +73,14 @@ export class FriendsService {
     });
   }
 
-  // Create a match room, stage the invite for the friend and notify them.
-  // POST /api/friends/:friendId/invite
-  async inviteToGame(userId: string, friendId: string, hostColor: string) {
+  // Challenge a friend, in one call with two shapes. With a `gameId` the friend is
+  // staged into the room the caller already sits in; without one a room is created
+  // for them and the caller is handed its credentials. Both shapes write the same
+  // three records (the `game_invite` notification, the invitee's pending invite,
+  // and the inviter's `challenge:` entry), so every CHALLENGE button in the app —
+  // the friends page, the lobby's name card, the waiting room's column — is this
+  // path. POST /api/friends/:friendId/invite
+  async inviteToGame(userId: string, friendId: string, hostColor?: string, gameId?: string) {
     if (userId === friendId)
       throw new BadRequestException({
         code: 'FRIEND_INVITE_SELF',
@@ -82,35 +99,127 @@ export class FriendsService {
         message: 'You are not friends with this user',
       });
 
-    const match = await this.matchService.createInvite(userId, undefined, hostColor);
+    // One challenge per friend at a time. Without this the create shape would mint
+    // a second room on every press, and the friend would hold an invite to a room
+    // nobody is sitting in.
+    const pending = await this.sentChallenges(userId);
+    if (pending.some((row) => row.userId === friendId))
+      throw new ConflictException({
+        code: 'CHALLENGE_ALREADY_SENT',
+        message: 'A challenge to this player is already pending',
+      });
+
+    // The room: the caller's own waiting room, or a new one. The match service owns
+    // both questions — a room's seat/PvP/WAITING preconditions live with the room,
+    // and a create takes the host's corner because the host is seated first.
+    const room = gameId
+      ? await this.matchService.assertInvitableRoom(gameId, userId)
+      : await this.matchService.createInvite(userId, undefined, hostColor);
+
     const inviter = await this.prisma.db.user.findUnique({
       where: { id: userId },
       select: { username: true, displayName: true },
     });
+    const fromUsername = inviter?.username ?? 'A friend';
 
     // The friend is NOT seated here: a seat owns a colour, so they claim one from
     // the palette when they accept. The invite carries the room only.
     await this.notificationService.notify(friendId, 'game_invite', {
-      gameId: match.gameId,
-      inviteCode: match.inviteCode,
-      fromUsername: inviter?.username ?? 'A friend',
+      gameId: room.gameId,
+      inviteCode: room.inviteCode,
+      fromUsername,
+      playerCount: room.playerCount,
     });
 
-    // Return the host's own match credentials so the caller can join its own
-    // room immediately : the host must be seated before the friend can accept,
-    // otherwise the friend's accept could create/join the room alone.
-    return {
-      gameId: match.gameId,
-      token: match.token,
-      engineUrl: match.engineUrl,
-      color: match.color,
-      inviteCode: match.inviteCode,
-    };
+    // The invitee's own record (GET /api/friends/invites/pending, and the bell that
+    // re-reads it after a reload) and the inviter's challenge record are the two
+    // halves of one send, so they are written together and expire together.
+    await this.redis.set(
+      `invite:${friendId}`,
+      JSON.stringify({
+        gameId: room.gameId,
+        inviteCode: room.inviteCode,
+        fromUsername,
+        createdAt: Date.now(),
+      }),
+      'EX',
+      Math.ceil(CHALLENGE_TTL_MS / 1000),
+    );
+    await this.recordChallenge(userId, friendId, room.gameId, room.inviteCode);
+
+    // A created room also hands the inviter their own credentials, so the caller can
+    // join its own room immediately: the host must be seated before the friend can
+    // accept, otherwise the friend's accept could create/join the room alone.
+    return room;
   }
 
+  // The challenges this caller has out, newest record per friend. Each entry is
+  // skipped when its stamp is past CHALLENGE_TTL_MS or when its room is no longer
+  // waiting — a friend who already joined, or a room that ended, spends the record
+  // early, which is what lets a re-challenge after a join through.
+  private async sentChallenges(userId: string): Promise<SentChallenge[]> {
+    const raw = await this.redis.hgetall(`challenge:${userId}`);
+    const now = Date.now();
+    const rows: SentChallenge[] = [];
+    for (const [friendId, json] of Object.entries(raw)) {
+      let parsed: { gameId?: string; inviteCode?: string; sentAt?: number };
+      try {
+        parsed = JSON.parse(json) as typeof parsed;
+      } catch {
+        continue;
+      }
+      if (!parsed.sentAt || !parsed.gameId) continue;
+      if (now - parsed.sentAt > CHALLENGE_TTL_MS) continue;
+      if (!(await this.matchService.isWaitingRoom(parsed.gameId))) continue;
+      rows.push({
+        userId: friendId,
+        gameId: parsed.gameId,
+        inviteCode: parsed.inviteCode,
+        sentAt: parsed.sentAt,
+      });
+    }
+    return rows;
+  }
+
+  // GET /api/friends/challenges/sent: what every CHALLENGE button seeds its
+  // "already sent" state from, so the greying survives a reload or a second screen.
+  async getSentChallenges(userId: string): Promise<SentChallenge[]> {
+    return this.sentChallenges(userId);
+  }
+
+  private async recordChallenge(
+    userId: string,
+    friendId: string,
+    gameId: string,
+    inviteCode?: string,
+  ) {
+    const key = `challenge:${userId}`;
+    await this.redis.hset(
+      key,
+      friendId,
+      JSON.stringify({ gameId, inviteCode, sentAt: Date.now() }),
+    );
+    // One hash per inviter, so the key's own life is the last entry's: a press
+    // refreshes it, and the per-entry stamp above is the real expiry.
+    await this.redis.expire(key, Math.ceil(CHALLENGE_TTL_MS / 1000) + 60);
+  }
+
+  // The invitee's side of a challenge: the staged record, plus the one fact that
+  // cannot be stored — whether the room still waits. `expired` is computed on read
+  // because a stored flag would need a writer on every way a room can start or end,
+  // and the record itself stays until its TTL so the invitee reads EXPIRED rather
+  // than nothing at all.
   async getPendingInvite(userId: string) {
     const raw = await this.redis.get(`invite:${userId}`);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    let parsed: { gameId?: string } & Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw) as typeof parsed;
+    } catch {
+      return null;
+    }
+    const open = typeof parsed.gameId === 'string' && (await this.matchService.isWaitingRoom(parsed.gameId));
+    return { ...parsed, expired: !open };
   }
 
   async dismissInvite(userId: string) {

@@ -71,8 +71,11 @@ export class MatchService {
   async rejoin(gameId: string, userId: string) {
     return this.player.rejoin(gameId, userId);
   }
-  async inviteFriendToGame(gameId: string, userId: string, friendId: string) {
-    return this.player.inviteFriendToGame(gameId, userId, friendId);
+  async assertInvitableRoom(gameId: string, userId: string) {
+    return this.player.assertInvitableRoom(gameId, userId);
+  }
+  async isWaitingRoom(gameId: string) {
+    return this.player.isWaitingRoom(gameId);
   }
 
   // Mark Started (called by ludo-engine once a PvP game actually starts)

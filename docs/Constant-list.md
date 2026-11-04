@@ -149,8 +149,13 @@ already past when the callback fires; the stored `reconnectDeadline` still uses 
 | `GAME_CHAT_FALLBACK_LINES` | 400 | lines the fallback re-post keeps when `/api/game/end` refuses the body (413) |
 | `GAME_CHAT_TTL_S` | 86400 | the two chat keys' life, the same window `game:<id>` keeps |
 
-The lobby's composer uses the same `CHAT_MAX_CHARS` (300), so the two channels refuse the same line
-at the same length.
+The lobby's composer imports the same `CHAT_MAX_CHARS` and the same `chatLength` helper (trim first,
+then count UTF-16 units), so the two channels refuse the same line at the same length and paint the
+same `n / 300`. Its transcript is `CHAT_HISTORY` = 500 rows in `backend/src/chat/chat.constants.ts`
+(`LPUSH` + `LTRIM` per line, mirrored client-side by `CHAT_LOG_LIMIT`), against the room's
+`GAME_CHAT_MAX_LINES` = 1000 — the lobby's list is the public front page, the room's is the match's
+log. The dock's plate and the in-game compact slot are feeds only: they paint the newest
+`SCREEN_PREVIEW_LINES` / `PREVIEW_LINES`, nothing is trimmed there.
 
 
 ### **2. Clash rules**

@@ -14,7 +14,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { MATCH_THROTTLE } from '../common/throttles';
 import { MatchService, type GameEndPayload, type SeatAbandonPayload } from './match.service';
-import { InviteFriendDto } from './dto/invite-friend.dto';
 import { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { verifySecret } from '../secrets';
@@ -166,17 +165,9 @@ export class MatchController {
     return this.match.listMyRooms(req.user.id);
   }
 
-  // Invite a friend into this WAITING PvP room
-  @UseGuards(JwtAuthGuard)
-  @Throttle(MATCH_THROTTLE.inviteFriend)
-  @Post('api/game/:id/invite')
-  inviteFriend(
-    @Request() req: { user: { id: string } },
-    @Param('id') gameId: string,
-    @Body() dto: InviteFriendDto,
-  ) {
-    return this.match.inviteFriendToGame(gameId, req.user.id, dto.friendId);
-  }
+  // Inviting a friend into this room is POST /api/friends/:friendId/invite with a
+  // `gameId`: one challenge path for the friends page, the lobby's name card and
+  // this room's column, so the friendship gate and the invite record exist once.
 
   @UseGuards(JwtAuthGuard)
   @Throttle(MATCH_THROTTLE.rejoin)

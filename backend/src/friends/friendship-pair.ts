@@ -11,6 +11,13 @@ export type FriendshipStatus = 'none' | 'pending' | 'accepted' | 'declined' | 'b
 export const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 export const DECLINE_COOLDOWN_MS = 60 * 60 * 1000;
 
+// How long a challenge (the invite one friend sends another to a room) counts as
+// pending. It matches the staged invite record's own life in
+// MatchPlayerService.assertInvitableRoom: a waiting room that nobody joins is
+// gone in five minutes, so a challenge cannot outlive the thing it points at.
+// The window is what makes a second press a report instead of a second room.
+export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
 // The fields the predicates below need from a Friendship row.
 export interface PairLike {
   user1Id: string;

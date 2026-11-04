@@ -11,7 +11,7 @@ import { NotificationService } from '../notification/notification.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
 import { publishRoomsChanged } from '../common/channels';
-import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
+import { pairKey } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { findSeatedMatch, ENDED_MATCH_STATUSES } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
@@ -243,10 +243,14 @@ export class MatchPlayerService {
     };
   }
 
-  // Invite a friend into an existing WAITING PvP room. The seat is deliberately not
-  // created here: a seat owns a colour, so the friend claims one from the palette
-  // when they accept (POST api/match/join/:code). This stages the room for them.
-  async inviteFriendToGame(gameId: string, hostId: string, friendId: string) {
+  // Can this room take a friend right now? The room's own preconditions and nothing
+  // else: the friendship gate, the invite record and the notification all belong to
+  // FriendsService.inviteToGame, which is this method's only caller — one gate for
+  // every CHALLENGE button in the app instead of one per entry point.
+  //
+  // The seat is deliberately not created here: a seat owns a colour, so the friend
+  // claims one from the palette when they accept (POST api/match/join/:code).
+  async assertInvitableRoom(gameId: string, hostId: string) {
     const data = await this.redis.hgetall(`match:${gameId}`);
     if (!data.id)
       throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
@@ -272,40 +276,18 @@ export class MatchPlayerService {
         message: 'You are not a player in this game',
       });
 
-    const pair = await this.prisma.db.friendship.findUnique({
-      where: { pairKey: pairKey(hostId, friendId) },
-    });
-    if (pair && isBlockedPair(pair))
-      throw new ForbiddenException({
-        code: 'FRIEND_BLOCKED',
-        message: 'Cannot invite - user is blocked',
-      });
-    if (!pair || !isFriendPair(pair))
-      throw new ForbiddenException({
-        code: 'NOT_FRIENDS_WITH_USER',
-        message: 'You are not friends with this user',
-      });
-
-    const fromUsername = (await this.resolveUsername(hostId)) ?? 'A friend';
-    const inviteCode = data.inviteCode || undefined;
-
-    await this.redis.set(
-      `invite:${friendId}`,
-      JSON.stringify({ gameId, inviteCode, fromUsername, createdAt: Date.now() }),
-      'EX',
-      300,
-    );
-
-    // The invite carries the room, not a seat: the friend picks their corner when
-    // they accept, so no token and no colour travel here.
-    await this.notificationService.notify(friendId, 'game_invite', {
+    return {
       gameId,
-      inviteCode,
-      fromUsername,
+      inviteCode: data.inviteCode || undefined,
       playerCount: parseInt(data.playerCount || '4', 10),
-    });
+    };
+  }
 
-    return { gameId };
+  // Is this room still open to be joined? Read by the challenge record: a challenge
+  // whose room has started (the friend joined, or the host began) or ended is spent,
+  // so the sender may challenge that friend again.
+  async isWaitingRoom(gameId: string): Promise<boolean> {
+    return (await this.redis.hget(`match:${gameId}`, 'status')) === 'WAITING';
   }
 
   // Toggle the ready flag for a player in a WAITING match.

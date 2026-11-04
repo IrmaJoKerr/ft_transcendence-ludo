@@ -19,9 +19,6 @@ const VALIDATION_CODES: Record<string, string> = {
   // `email` is the property name in both RegisterDto and UpdateProfileDto, so
   // this one line localizes @IsEmail() failures for signup and profile edits.
   'email.isEmail': 'VALIDATION_EMAIL_FORMAT',
-  // Game invite (POST /api/game/:id/invite): InviteFriendDto.friendId must be a
-  // real user id, and the client picks it from its own friend list.
-  'friendId.isUuid': 'VALIDATION_FRIEND_ID_FORMAT',
 };
 
 // Which failing constraint to prefer when a field breaks more than one rule
