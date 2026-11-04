@@ -2,11 +2,9 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { apiFetch } from '../api';
 import type { Notification } from '../hooks/useNotifications';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
-import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 import { railButtonStyle, railHoverHandlers } from './railButton';
@@ -232,7 +230,6 @@ export function NotificationBell({
   const setOpen = setBellOpen;
   const ref = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { activeMatch, setActiveMatch } = useApp();
 
   const list = Array.isArray(notifications) ? notifications : [];
   const count = typeof unreadCount === 'number' ? unreadCount : list.filter((n) => !n.read).length;
@@ -292,14 +289,10 @@ export function NotificationBell({
   };
 
   // Same contract as the toast's accept: abort, then hand the code to the lobby.
-  const acceptInvite = async (p: Record<string, unknown>) => {
-    const currentGameId = activeMatch?.gameId;
-    if (currentGameId && currentGameId !== p.gameId) {
-      await apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
-        // Non-fatal: the navigation below still happens.
-      });
-      setActiveMatch(null);
-    }
+  // A notification only reports an event; it never ends a game. Accepting an invite
+  // carries the code to the lobby, where the seat is claimed. A seat already held
+  // elsewhere is the player's to abort there, which is what the lobby's lock says.
+  const acceptInvite = (p: Record<string, unknown>) => {
     const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
   };
@@ -319,9 +312,7 @@ export function NotificationBell({
     if (n.type === 'game_invite') {
       // The invite carries the room, not a seat: accepting lands in the lobby with
       // the code filled in, where the invitee claims one of the room's free corners.
-      // A live game is dropped first (awaited, so the lobby's own "active game" check
-      // agrees), or the backend would answer MATCH_ACTIVE_GAME at the claim.
-      void acceptInvite(p);
+      acceptInvite(p);
       setOpen(false);
     } else if (n.type === 'friend_request' || n.type === 'friend_accepted') {
       navigate('/friends');

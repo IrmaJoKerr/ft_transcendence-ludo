@@ -1383,7 +1383,7 @@ Start an anonymous PvE game. This is the public door behind the login screen's *
 **Notes:**
 - The mode is forced to `pve` and the human seat is always `blue`. `mode`, `playerCount`, `seatColors` and `gameId` are not accepted fields.
 - `token` is an opaque `g_` token, not a JWT: the engine resolves it from Redis (`guesttok:<sha256>`) and it opens no backend route. It lives for 1 h and is revoked when the room is aborted.
-- The seat id is `guest-<sha256(token)>`, unique per mint, so a shared campus address never receives another guest's `MATCH_ACTIVE_GAME` refusal.
+- The seat id is `guest-<sha256(token)>`, unique per mint, so a shared campus address never receives another guest's `MATCH_ALREADY_SEATED` refusal.
 - Nothing is saved: no `MatchHistory` row, no `PlayerStats` counter, achievement or leaderboard row. The response has no `inviteCode`, and the room accepts no join.
 - Limits, settlement and the frontend flow are documented in [guest-mode.md](guest-mode.md).
 
@@ -1458,7 +1458,7 @@ Acknowledge leaving the game (after game has ended).
 
 **Source:** `backend/src/match/match.controller.ts` — MatchModule
 
-Cancel an unstarted game (while still in WAITING state).
+Cancel an unstarted game: host only, and only while the room is still `WAITING`.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:id` = gameId  
@@ -1472,7 +1472,7 @@ Cancel an unstarted game (while still in WAITING state).
 
 ```
 
-**Errors:** 404 if game not found, 403 if user is not a player.
+**Errors:** 404 if the game is not found; 403 `MATCH_NOT_PLAYER` if the caller holds no seat; 403 `MATCH_HOST_ONLY` if the caller is not the host (the room's life is the host's to end); 403 `MATCH_ALREADY_STARTED` once the room is no longer `WAITING` — a started game is left seat by seat through the board's End Game, never cancelled from here.
 
 
 ---

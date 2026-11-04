@@ -1,8 +1,28 @@
 import type { GameState, PlayerColor, GameEvent, DepartureReason } from './types';
 import type { RedisGameStore } from './redis';
-import { DISCONNECT_GRACE_MS, SINGLE_SOCKET_DISCONNECT_GRACE_MS } from './timing';
+import {
+  DISCONNECT_GRACE_MS,
+  SINGLE_SOCKET_DISCONNECT_GRACE_MS,
+  WAITING_SEAT_GRACE_MS,
+} from './timing';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// PvE and hotseat drive every seat from one device, so the room has no second
+// participant to wait for and no quorum to lose.
+function isSingleSocketGame(gameType: string | undefined): boolean {
+  return gameType === 'PVE' || gameType === 'HOTSEAT';
+}
+
+// How long an away seat may stay away, decided by the room it is in: one hour for
+// a single-socket room (the browser tab is the game), 45 s for a live PvP seat,
+// and five minutes for a waiting-room seat. The waiting room is deliberately more
+// relaxed (R12/R17): returning to the lobby never costs the seat, so the window is
+// there to notice a player who is not coming back, not to punish a quick look away.
+function reconnectWindowMs(state: GameState, gameType: string | undefined): number {
+  if (isSingleSocketGame(gameType)) return SINGLE_SOCKET_DISCONNECT_GRACE_MS;
+  return state.status === 'waiting' ? WAITING_SEAT_GRACE_MS : DISCONNECT_GRACE_MS;
+}
 
 // The first active seat in colour order: the rule the start gate and the turn
 // advance share. currentTurn must always point at a seated colour (an inactive
@@ -95,14 +115,16 @@ export function advanceTurnInState(state: GameState): void {
   }
 }
 
-// Handle a player disconnect: mark them 'disconnected' with a grace window
-// (PvP 45s, bot-mode 1h) instead of an instant exit; reconnect clears it.
-export async function handlePlayerDisconnect(
+// Arm a seat's reconnect window: mark it 'disconnected' with a deadline instead of
+// exiting it, and hand the deadline to whichever caller owns the timer. This is
+// the only place a window begins, and it never departs anybody: the expiry is
+// expireReconnectGrace's job, which is why this name says what it does.
+export async function startReconnectGrace(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
   gameId: string,
   color: PlayerColor,
-  notifyAbort?: (gameId: string) => void,
+  onExpire: () => void,
 ): Promise<void> {
   const state = await store.loadGameState(gameId);
   if (!state) return;
@@ -117,16 +139,13 @@ export async function handlePlayerDisconnect(
   const player = state.players.find((p) => p.color === color);
   if (player?.status !== 'active' || player.isFinished) return;
 
-  // Single-instance games (PvE, hotseat) use the long reconnect window; PvP
-  // uses the short one.
+  // The window is the room's, not the mode's alone: a waiting-room seat gets five
+  // minutes, a live PvP seat 45 s, a single-socket seat an hour.
   const matchData = await store.getMatchData(gameId);
-  const isSingleSocketMode = matchData?.gameType === 'PVE' || matchData?.gameType === 'HOTSEAT';
-  const graceMs = isSingleSocketMode
-    ? SINGLE_SOCKET_DISCONNECT_GRACE_MS
-    : DISCONNECT_GRACE_MS + 1000;
+  const windowMs = reconnectWindowMs(state, matchData?.gameType);
+  const singleSocket = isSingleSocketGame(matchData?.gameType);
 
-  const deadline =
-    Date.now() + (isSingleSocketMode ? SINGLE_SOCKET_DISCONNECT_GRACE_MS : DISCONNECT_GRACE_MS);
+  const deadline = Date.now() + windowMs;
   state.disconnectedPlayers.push({
     color,
     disconnectedAt: Date.now(),
@@ -139,8 +158,9 @@ export async function handlePlayerDisconnect(
   player.isConnected = false;
 
   // Pause only when the dropped player holds the turn: the game waits there
-  // for a reconnect or a prune. PvE and hotseat never pause.
-  if (!isSingleSocketMode && state.currentTurn === color && state.status === 'active') {
+  // for a reconnect or a prune. PvE and hotseat never pause, and neither does a
+  // waiting room, where there is no turn to hold.
+  if (!singleSocket && state.currentTurn === color && state.status === 'active') {
     state.paused = true;
     state.pauseTurnOwner = color;
     state.pausedReason = 'disconnect_grace';
@@ -159,43 +179,74 @@ export async function handlePlayerDisconnect(
   }
 
   // Expiry is a reconnect deadline, not a forfeit. The window lives in Redis,
-  // so the server sweep can replay this call after a restart.
-  setTimeout(() => {
-    void expireDisconnectedPlayer(store, emit, gameId, color, notifyAbort);
-  }, graceMs);
+  // so the server sweep can replay this call after a restart. The timer is armed
+  // one second past the deadline, so an expiry that fires early re-reads and waits
+  // rather than pruning a seat a client was still reconnecting to.
+  setTimeout(onExpire, windowMs + 1000);
 }
 
-// Expire a grace window: prune the seat, or abort the room when too few humans
-// remain. Safe to call repeatedly; it no-ops unless the deadline has passed.
-export async function expireDisconnectedPlayer(
+// Settle an expired reconnect window: a waiting-room participant's seat is
+// released, a waiting-room host's room is closed, and a live-game seat departs
+// through the funnel. Safe to call repeatedly; it no-ops unless the deadline has
+// passed.
+export async function expireReconnectGrace(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
   gameId: string,
   color: PlayerColor,
   notifyAbort?: (gameId: string) => void,
-): Promise<void> {
+): Promise<{ closed: boolean }> {
   const state = await store.loadGameState(gameId);
-  if (!state) return;
+  if (!state) return { closed: false };
 
   const disc = state.disconnectedPlayers.find((d) => d.color === color);
-  if (!disc) return; // Already reconnected or already pruned
-  if (Date.now() < disc.reconnectDeadline) return; // Window still open
+  if (!disc) return { closed: false }; // Already reconnected or already pruned
+  if (Date.now() < disc.reconnectDeadline) return { closed: false }; // Window still open
 
   const matchData = await store.getMatchData(gameId);
-  const isSingleSocketMode = matchData?.gameType === 'PVE' || matchData?.gameType === 'HOTSEAT';
 
-  // Single-instance modes tear the whole room down; PvP relies on the quorum
-  // check inside finalizeDeparture.
-  await finalizeDeparture(store, emit, gameId, color, 'timeout', notifyAbort);
-  if (isSingleSocketMode) {
-    await teardownRoom(store, emit, gameId, notifyAbort);
+  // A single-socket room belongs to one device: with that device gone there is
+  // nothing left to play, whatever the room's status was.
+  if (isSingleSocketGame(matchData?.gameType)) {
+    await closeRoom(store, emit, gameId, notifyAbort);
+    return { closed: true };
   }
+
+  if (state.status === 'waiting') {
+    const player = state.players.find((p) => p.color === color);
+    // An absent host can never start the room: the start gate needs every active
+    // seat ready, and only the host's own socket can mark their seat ready. So the
+    // host's five minutes close the room, participants present or not (R17). The
+    // hash's seat row is the authority for which corner the host sits in.
+    const slot = COLORS.indexOf(color) + 1;
+    const hostSeat =
+      !!matchData?.hostId &&
+      (matchData[`player${slot}_id`] === matchData.hostId || player?.userId === matchData.hostId);
+    if (hostSeat) {
+      await closeRoom(store, emit, gameId, notifyAbort);
+      return { closed: true };
+    }
+
+    // A participant's five minutes release the seat, exactly as an abort would,
+    // and clearMatchSeat stamps a fresh idle clock, so a now-lonely host gets its
+    // own full window instead of inheriting the old one.
+    if (!player) return { closed: false };
+    player.status = 'inactive';
+    player.isConnected = false;
+    state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
+    await store.saveGameState(gameId, state);
+    emit({ type: 'player_exited', gameId, color });
+    await store.clearMatchSeat(gameId, color);
+    return { closed: false };
+  }
+
+  return departSeat(store, emit, gameId, color, 'timeout', notifyAbort);
 }
 
 // Reconnect inside the grace window. Returns false when the window outlived
-// the seat, so the caller must reject the join. A reported displayName
-// refreshes the shown name.
-export async function handlePlayerReconnect(
+// the seat, so the caller must reject the join and tell the client the seat is
+// gone. A reported displayName refreshes the shown name.
+export async function restoreSeatOnReconnect(
   store: RedisGameStore,
   gameId: string,
   color: PlayerColor,
@@ -277,43 +328,60 @@ export async function handlePlayerReady(
   }
 }
 
-// Unified exit-path helper functions
-
-// The one place a seat leaves a game. The reason selects the per-case body:
-// a waiting-room leave is reversible, the other reasons mark the seat exited.
-export async function finalizeDeparture(
+// The one way a seat leaves a room. The reason selects the per-reason body, and
+// the funnel owns the terminal decision: a single-socket room always closes, and
+// a PvP room closes when its last second human is confirmed gone. Callers never
+// re-derive that, so there is one answer to "is the room still alive".
+export async function departSeat(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
   gameId: string,
   color: PlayerColor,
   reason: DepartureReason,
   notifyAbort?: (gameId: string) => void,
-): Promise<void> {
+): Promise<{ closed: boolean }> {
   const state = await store.loadGameState(gameId);
-  if (!state) return;
+  if (!state) return { closed: false };
 
   // Idempotency guard: a seat already terminal is a no-op.
   const player = state.players.find((p) => p.color === color);
-  if (!player || player.status === 'exited' || player.status === 'inactive') return;
+  if (!player || player.status === 'exited' || player.status === 'inactive') {
+    return { closed: false };
+  }
+
+  const matchData = await store.getMatchData(gameId);
+  const singleSocket = isSingleSocketGame(matchData?.gameType);
+
+  // A waiting room has no turn to leave. An Abort frees the corner outright (R18:
+  // the click is also the permission to play elsewhere, so it must leave nothing
+  // behind), the host's own Abort closes the room instead (row 2), and every other
+  // reason there is a reconnect window handled by startReconnectGrace.
+  if (state.status === 'waiting' && !singleSocket) {
+    if (reason !== 'end_game') return { closed: false };
+    // The hash's seat row is the authority for who sits in the corner: a host seat is
+    // the one whose id is `hostId`, wherever in the state's player list it appears.
+    const slot = COLORS.indexOf(color) + 1;
+    const hostSeat =
+      !!matchData?.hostId &&
+      (matchData[`player${slot}_id`] === matchData.hostId || player.userId === matchData.hostId);
+    if (hostSeat) {
+      await closeRoom(store, emit, gameId, notifyAbort);
+      return { closed: true };
+    }
+    player.status = 'inactive';
+    player.isConnected = false;
+    state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
+    await store.saveGameState(gameId, state);
+    emit({ type: 'player_exited', gameId, color });
+    // The hash is what the lobby's join palette, the seat count and the rejoin
+    // door read, so the seat is deleted, never reserved: a reserved corner was
+    // never offered again (redis.ts clearMatchSeat).
+    await store.clearMatchSeat(gameId, color);
+    return { closed: false };
+  }
 
   // Clear any grace entry for this colour.
   state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
-
-  // Per-reason body.
-  if (reason === 'waiting_leave') {
-    // Waiting room: reversible leave. Set inactive, keep pieces untouched,
-    // keep isFinished untouched (a stale finished flag would make the player look
-    // already done at game start). Reserve the seat so rejoin returns the same colour.
-    if (state.status === 'waiting') {
-      player.status = 'inactive';
-      player.isConnected = false;
-      await store.saveGameState(gameId, state);
-      await store.reserveMatchSeat(gameId, color);
-      emit({ type: 'player_exited', gameId, color });
-      return;
-    }
-    // Fall through to live-game handling if the room started while they were leaving.
-  }
 
   // Live-game departure (timeout, leave, end_game): park pieces, mark exited.
   for (const piece of state.pieces.filter((p) => p.color === color)) {
@@ -359,27 +427,38 @@ export async function finalizeDeparture(
     emit({ type: 'state_update', gameId, state });
   }
 
-  // Evaluate quorum; if lost, tear the room down.
-  if (!hasQuorum(state)) {
-    await teardownRoom(store, emit, gameId, notifyAbort);
+  // The terminal decision, taken here and nowhere else: a single-socket room has
+  // nothing left to play, and a PvP room closes when its last second human is gone.
+  if (singleSocket || !hasQuorum(state)) {
+    await closeRoom(store, emit, gameId, notifyAbort);
+    return { closed: true };
   }
+  return { closed: false };
 }
 
-// The one place a room is torn down: emit game_expired, abort the match, delete
-// the game state, and run the in-memory cleanup callback.
-export async function teardownRoom(
+// The one place a room is closed: write the marker the result route reads, tell
+// the room, then drop the engine state and the in-memory context. The marker goes
+// first so a client that reloads on `game_expired` can already find the record.
+export async function closeRoom(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
   gameId: string,
   notify?: (gameId: string) => void,
 ): Promise<void> {
-  emit({ type: 'game_expired', gameId });
   await store.abortMatch(gameId);
+  emit({ type: 'game_expired', gameId });
   await store.deleteGame(gameId);
   notify?.(gameId);
 }
 
-// A room can continue only with at least two active human seats.
+// A room can continue only with at least two human seats that have not been
+// confirmed gone. A seat inside its reconnect window still counts (R23): only
+// `exited` and `inactive` are terminal, so the check can never read a grace
+// window as an empty chair. That makes this the single definition of "live seats"
+// for the whole engine.
 export function hasQuorum(state: GameState): boolean {
-  return state.players.filter((p) => p.status === 'active' && !p.isBot).length >= 2;
+  return (
+    state.players.filter((p) => p.status !== 'exited' && p.status !== 'inactive' && !p.isBot)
+      .length >= 2
+  );
 }

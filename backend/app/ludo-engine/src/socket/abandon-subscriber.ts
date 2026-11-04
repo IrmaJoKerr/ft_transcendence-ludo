@@ -7,8 +7,8 @@ import { SLOT_COLORS } from './join-manager';
 // The backend publishes `match:abandon { gameId, userId }` when an account signs
 // out while seated in a live game (D7). The backend cannot perform the departure
 // itself: parking the seat, advancing the turn and emitting `player_exited` is
-// finalizeDeparture, and in a 3-4 player room the seat must go while the room lives
-// on. So this subscriber hands the room to the engine, which finalizes it under the
+// departSeat, and in a 3-4 player room the seat must go while the room lives on. So
+// this subscriber hands the room to the engine, which departs the seat under the
 // game lock its grace replay already takes.
 //
 // The channel name is duplicated from backend/src/common/channels.ts: the engine is
@@ -89,7 +89,7 @@ export class MatchAbandonSubscriber {
 
       // 'leave' is the reason the shipped leave_game handler passes for an active
       // room, so a sign-out and a manual leave cannot drift apart.
-      await this.engine.finalizeSeatDeparture(gameId, color, 'leave', this.notifyAbort);
+      await this.engine.departSeat(gameId, color, 'leave', this.notifyAbort);
     } catch (error) {
       console.error(`Failed to finalize the abandoned seat in ${gameId}:`, error);
     }

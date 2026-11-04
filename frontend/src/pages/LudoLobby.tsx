@@ -209,7 +209,7 @@ export function LudoLobby() {
 
   // Strict state lock, mirrored from the backend: /api/games/mine lists every room
   // this player is seated in, and the backend refuses create or join with
-  // MATCH_ACTIVE_GAME. Polling can lag a refresh; the backend is the gate.
+  // MATCH_ALREADY_SEATED. Polling can lag a refresh; the backend is the gate.
   const lockedByActiveGame = hasActiveGame;
   const hostLocked = hostBusy || lockedByActiveGame;
 

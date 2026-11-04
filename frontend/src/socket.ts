@@ -89,8 +89,13 @@ export type ServerEvents = {
   // already expired: the seat is gone for good, so that client must leave.
   seat_expired: (e: { gameId: string; color: PlayerColor }) => void;
   lobby_update: (e: {
+    hostId?: string;
+    closesAt?: number;
     players: Array<{ username: string; color: PlayerColor; ready: boolean }>;
   }) => void;
+  // The room's own closing deadline, published while a waiting room is below
+  // quorum (its idle window). null clears it: the room filled up, started or closed.
+  room_closing: (e: { gameId: string; closesAt: number | null }) => void;
   game_timeout: () => void;
   game_expired: () => void;
   state_update: (payload: GameState) => void;
@@ -124,6 +129,15 @@ export type ClientEvents = {
   end_game: () => void;
 };
 
+// The reconnect budget, sized against the seat, not the transport (R22). A live PvP
+// seat keeps a 45 s reconnect window, so the socket has to still be trying when it
+// closes: capping the backoff at 3 s gives 2, 5, 8 ... 44, 47 s across 16 attempts,
+// so the last one is live when `seat_expired` lands. Finite on purpose, since there
+// is nothing left to reconnect to once the seat is decided.
+export const RECONNECTION_ATTEMPTS = 16;
+export const RECONNECTION_DELAY_MS = 2000;
+export const RECONNECTION_DELAY_MAX_MS = 3000;
+
 // Always connects to the page's own origin: nginx (or, in dev, the Vite
 // proxy) forwards /socket.io/ to the engine, so the browser never needs to
 // know its real hostname/port. See nginx/conf/nginx.conf and vite.config.ts.
@@ -131,6 +145,11 @@ export function connectSocket(token: string): Socket<ServerEvents, ClientEvents>
   return io(window.location.origin, {
     auth: { token },
     transports: ['websocket'],
-    reconnectionAttempts: 5,
+    reconnectionAttempts: RECONNECTION_ATTEMPTS,
+    reconnectionDelay: RECONNECTION_DELAY_MS,
+    reconnectionDelayMax: RECONNECTION_DELAY_MAX_MS,
+    // Fixed delays on purpose: the default ±50% jitter would scatter the attempt
+    // that has to land inside the seat's window.
+    randomizationFactor: 0,
   });
 }

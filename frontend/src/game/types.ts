@@ -5,7 +5,7 @@ export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
 // Mirror of the engine's DepartureReason: why a seat left. The seat keeps the
 // reason so a reloaded client can still label it.
-export type DepartureReason = 'timeout' | 'leave' | 'end_game' | 'waiting_leave';
+export type DepartureReason = 'timeout' | 'leave' | 'end_game';
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
 export type PieceId = string;
 // Clash QTE phases: announce flash, 3-2-1 countdown, then the press race.

@@ -78,7 +78,6 @@ class RedisGameStore {
   async setIdleSince(gameId: string, now: number): Promise<number>                                     // Stamp idle time (room < 2 seated) with HSETNX, so an existing window is never restarted; returns the effective stamp the caller arms its timer from
   async clearIdleSince(gameId: string): Promise<void>                                                  // Clear the idle stamp (room ≥ 2 seated)
   async clearMatchSeat(gameId: string, color: PlayerColor): Promise<void>                              // Free a non-host seat (delete its row and account record)
-  async reserveMatchSeat(gameId: string, color: PlayerColor): Promise<void>                            // Reserve a non-host seat (set player{N}_left)
   async setSeatUser(gameId: string, color: PlayerColor, userId: string): Promise<void>                 // Record which account took a seat
   async clearSeatUser(gameId: string, color: PlayerColor): Promise<void>                               // Drop a seat account record
   seatUserFrom(matchData: Record<string, string> | null, color: PlayerColor): string | undefined       // Read a seat account from a match hash
@@ -145,7 +144,7 @@ session creates exactly two keys:
 | Key | Type | What it holds |
 |-----|------|---------------|
 | `game:{gameId}` | Hash | **One** field `state` = the whole game state as one JSON blob (the one true copy) |
-| `match:{gameId}` | Hash | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_left`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot) |
+| `match:{gameId}` | Hash | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_isBot`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot) |
 
 Readiness is stored inside the game `state` blob (`state.readyPlayers`), not in the match hash.
 
@@ -421,7 +420,7 @@ model already *is* the occupancy map: **16 nodes with a `step` field answer
 | Pattern | Type | TTL | Description |
 |---------|------|-----|-------------|
 | `game:{gameId}` | Hash | 86400s (24h) | One field `state` = serialized GameState JSON |
-| `match:{gameId}` | Hash | 3600s (aborted) | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_left`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot). **Co-owned** — mutated by both the engine (via `RedisGameStore` helpers) and Nest (via `match/*.service.ts`). The backend reads `game:{gameId}` state through `isSeatFinalized()` only to check seat liveness; it never writes to `game:*`. |
+| `match:{gameId}` | Hash | 3600s (aborted) | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_isBot`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot). **Co-owned** — mutated by both the engine (via `RedisGameStore` helpers) and Nest (via `match/*.service.ts`). The backend reads `game:{gameId}` state through `isSeatFinalized()` only to check seat liveness; it never writes to `game:*`. |
 | `guesttok:{sha256(token)}` | Hash | 3600s (1h) | Guest handshake registry, written by the backend: `gameId`, `color`, `mode`, `ip`. The engine reads it at handshake and deletes it on abort settlement; the record is the authority for the room and the seat. |
 | `guest:abort:{sha256(ip)}`, `guest:live:{sha256(ip)}`, `guest:rooms:live` | Counter | 21600s, 3600s self-heal | Guest-mode budgets, **co-owned** with the backend. The engine increments the abort counter and frees both live slots when a guest aborts or finishes. See [guest-mode.md](../guest-mode.md). |
 

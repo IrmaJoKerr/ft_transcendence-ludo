@@ -13,10 +13,11 @@ import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
 import { advanceTurnInState } from './player-handler';
 import {
-  handlePlayerDisconnect,
-  handlePlayerReconnect,
+  startReconnectGrace,
+  restoreSeatOnReconnect,
   handlePlayerReady,
-  finalizeDeparture,
+  expireReconnectGrace,
+  departSeat,
 } from './player-handler';
 import type { LobbyManager } from './lobby';
 import type { ClashManager } from './clash';
@@ -24,6 +25,7 @@ import { orderDefenderIds } from './clash';
 import { ClashEngine } from './clash-engine';
 import { pushLog } from './game-log';
 import { createRng, randInt, seedFrom } from './rng';
+import { IDLE_LOBBY_TIMEOUT_MS } from './timing';
 import type { Rng } from './rng';
 
 // Room rules from the wire, turned into domain truth: only a literal `true` turns
@@ -63,6 +65,9 @@ export class LudoEngine {
   private store: RedisGameStore;
   private eventHandler?: (event: GameEvent) => void;
   private lobbyManager?: LobbyManager;
+  // The room's idle clock (socket/idle-lobby.ts). Set by the socket layer; a
+  // departure calls it so a freed seat restarts the lone-host window.
+  private idleRefresher?: (gameId: string) => void;
   // Serializes one game's operations so roll/move/etc. never run on top of
   // each other (a bot acting at the same time as a human would otherwise
   // both load the same state and one move gets lost).
@@ -93,6 +98,13 @@ export class LudoEngine {
 
   setLobbyManager(lobbyManager: LobbyManager): void {
     this.lobbyManager = lobbyManager;
+  }
+
+  // The room's idle clock is armed by the socket layer's watcher; a departure can
+  // start or restart it (a released seat leaves the host alone), so the engine asks
+  // the watcher to re-evaluate instead of duplicating the timing here.
+  setIdleRefresher(refresher: (gameId: string) => void): void {
+    this.idleRefresher = refresher;
   }
 
   // Register a callback for game lifecycle events. The engine detects them here,
@@ -590,35 +602,72 @@ export class LudoEngine {
     await this.clashEngine.resolveClashOutcome(gameId, winner);
   }
 
-  // Player lifecycle handlers (delegated to player-handler.ts)
-  async handlePlayerDisconnect(
+  // Player lifecycle handlers (delegated to player-handler.ts). The window's timer
+  // lives here so it can re-enter under the game lock: a timer that called the module
+  // directly would be the one departure path able to interleave with a turn.
+  async startReconnectGrace(
     gameId: string,
     color: PlayerColor,
     notifyAbort?: (gameId: string) => void,
   ): Promise<void> {
     return this.withGameLock(gameId, () =>
-      handlePlayerDisconnect(
-        this.store,
-        (e) => {
-          this.emit(e);
-        },
-        gameId,
-        color,
-        notifyAbort,
-      ),
+      startReconnectGrace(this.store, (e) => {
+        this.emit(e);
+      }, gameId, color, () => {
+        void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
+          console.error(
+            `Failed to settle the reconnect window of ${color} in ${gameId}:`,
+            error instanceof Error ? error.message : error,
+          );
+        });
+      }),
     );
+  }
+
+  // Settle one expired window (the wake pass replays this after a restart).
+  async expireReconnectGrace(
+    gameId: string,
+    color: PlayerColor,
+    notifyAbort?: (gameId: string) => void,
+  ): Promise<{ closed: boolean }> {
+    const result = await this.withGameLock(gameId, () =>
+      expireReconnectGrace(this.store, (e) => {
+        this.emit(e);
+      }, gameId, color, notifyAbort),
+    );
+    await this.settleRoom(gameId);
+    return result;
+  }
+
+  // Re-arm a window that is still open: its deadline survived a restart in the game
+  // state, but the process timer did not. The expiry re-reads the stamp, so an early
+  // fire is a no-op rather than a prune.
+  rearmReconnectGrace(
+    gameId: string,
+    color: PlayerColor,
+    delayMs: number,
+    notifyAbort?: (gameId: string) => void,
+  ): void {
+    setTimeout(() => {
+      void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
+        console.error(
+          `Failed to resume the reconnect window of ${color} in ${gameId}:`,
+          error instanceof Error ? error.message : error,
+        );
+      });
+    }, Math.max(0, delayMs));
   }
 
   // Returns true only when the seat was genuinely restored (see
   // player-handler.ts) : false means the grace window outlived the seat, so the
   // caller must reject the join rather than revive a seat with no pieces.
-  async handlePlayerReconnect(
+  async restoreSeatOnReconnect(
     gameId: string,
     color: PlayerColor,
     displayName?: string,
   ): Promise<boolean> {
     const revived = await this.withGameLock(gameId, () =>
-      handlePlayerReconnect(this.store, gameId, color, displayName),
+      restoreSeatOnReconnect(this.store, gameId, color, displayName),
     );
     // A chain resumes on the seat that dropped: the reconnect starts the round the
     // pause interrupted. Called after the lock above releases, since startNextRound
@@ -643,28 +692,32 @@ export class LudoEngine {
     await this.emitLobbyUpdate(gameId);
   }
 
-  // The socket layer's one way into finalizeDeparture under the game lock: a grace
-  // window replay passes 'timeout', a sign-out's `match:abandon` passes 'leave'.
-  // Both land here so a departure cannot interleave with a join, a turn or a
-  // concurrent departure for the same game.
-  async finalizeSeatDeparture(
+  // The one way into the departure funnel under the game lock: a grace window
+  // replay passes 'timeout', a sign-out's `match:abandon` passes 'leave', and an
+  // Abort or End Game passes 'end_game'. Every departure lands here, so one cannot
+  // interleave with a join, a turn or a concurrent departure for the same game.
+  async departSeat(
     gameId: string,
     color: PlayerColor,
     reason: DepartureReason,
     notifyAbort?: (gameId: string) => void,
-  ): Promise<void> {
-    return this.withGameLock(gameId, () =>
-      finalizeDeparture(
-        this.store,
-        (e) => {
-          this.emit(e);
-        },
-        gameId,
-        color,
-        reason,
-        notifyAbort,
-      ),
+  ): Promise<{ closed: boolean }> {
+    const result = await this.withGameLock(gameId, () =>
+      departSeat(this.store, (e) => {
+        this.emit(e);
+      }, gameId, color, reason, notifyAbort),
     );
+    await this.settleRoom(gameId);
+    return result;
+  }
+
+  // What every departure leaves behind: a waiting room's roster is a derived view
+  // of the seats, and a released seat has to start the lone-host clock, so the room
+  // is re-read once here instead of by each caller.
+  private async settleRoom(gameId: string): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    if (state?.status === 'waiting') await this.emitLobbyUpdate(gameId);
+    if (state) this.idleRefresher?.(gameId);
   }
 
   // Host-only live update of the room rules. Normalized here, at the boundary where a
@@ -697,10 +750,16 @@ export class LudoEngine {
 
   // Broadcast the waiting-room roster so every client's lobby stays in sync
   // after ready-toggles, color swaps, or joins. socket-handlers.ts calls
-  // this after join_game.
+  // this after join_game. `hostId` rides along because the room's host is a fact
+  // about the room, not about a seat: the board points its Abort at the host route
+  // with it, and the rules panel is host-only for the same reason. `closesAt` rides
+  // along for the same kind of reason: a client that joins or reloads mid-window
+  // needs the deadline the room already holds, not the next change to it.
   async emitLobbyUpdate(gameId: string): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state) return;
+    const match = await this.store.getMatchData(gameId);
+    const idleSince = match?.idleSince ? parseInt(match.idleSince, 10) : undefined;
     const players = state.players
       .filter((p) => p.status !== 'inactive')
       .map((p) => ({
@@ -711,6 +770,12 @@ export class LudoEngine {
         color: p.color,
         ready: state.readyPlayers.includes(p.color),
       }));
-    this.emit({ type: 'lobby_update', gameId, players });
+    this.emit({
+      type: 'lobby_update',
+      gameId,
+      hostId: match?.hostId,
+      closesAt: idleSince === undefined ? undefined : idleSince + IDLE_LOBBY_TIMEOUT_MS,
+      players,
+    });
   }
 }

@@ -14,7 +14,7 @@ import { PostGameManager } from './post-game';
 import type { GameSocket } from './auth';
 import { GUEST_EVENTS, GUEST_TOKEN_PREFIX, verifyToken } from './auth';
 import { LobbyManager } from '../lobby';
-import { teardownRoom } from '../player-handler';
+import { closeRoom } from '../player-handler';
 import type { PlayerColor } from '../types';
 import { parseAllowedOrigins } from './allowed-origins';
 import { EventRateLimiter } from './event-rate-limiter';
@@ -72,7 +72,7 @@ export class SocketServer {
   private publisher: EventPublisher;
   private broadcaster: RedisBroadcaster;
   // Sign-out departures: the backend publishes `match:abandon`, this applies
-  // finalizeDeparture in this process (the room state lives here, not there).
+  // departSeat in this process (the room state lives here, not there).
   private abandon: MatchAbandonSubscriber;
   private resultSubmitter: ResultSubmitter;
   private handlers: SocketHandlers;
@@ -100,10 +100,23 @@ export class SocketServer {
       this.cleanupGame(gameId);
     });
     // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
-    // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan.
-    this.idleLobby = new IdleLobbyWatcher(this.store, this.rooms, IDLE_LOBBY_TIMEOUT_MS, (gameId) =>
-      this.expireIdleLobby(gameId),
+    // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan. The deadline it
+    // holds is also what the waiting room's banner counts down: the room publishes it,
+    // so the client reads the room's number instead of recomputing one (R14/R20).
+    this.idleLobby = new IdleLobbyWatcher(
+      this.store,
+      this.rooms,
+      IDLE_LOBBY_TIMEOUT_MS,
+      (gameId) => this.expireIdleLobby(gameId),
+      (gameId, closesAt) => {
+        void this.store.publish(gameId, JSON.stringify({ type: 'room_closing', gameId, closesAt }));
+      },
     );
+    // A departure can free a seat, which leaves the host alone: the engine asks the
+    // watcher to re-evaluate instead of duplicating the idle rule.
+    this.engine.setIdleRefresher((gameId) => {
+      void this.idleLobby.refresh(gameId);
+    });
     this.resultSubmitter = new ResultSubmitter(this.engine, this.store, this.rooms);
     this.botScheduler = new BotTurnScheduler(this.store, this.engine, getOrCreateBot);
     this.postGame = new PostGameManager(
@@ -126,7 +139,7 @@ export class SocketServer {
         this.botScheduler.schedule(gameId, BOT_THINK_MS);
       },
       (gameId) => {
-        // teardownRoom already broadcast game_expired; this clears the engine's
+        // closeRoom already broadcast game_expired; this clears the engine's
         // in-memory state (room bindings, bots, locks).
         this.cleanupGame(gameId);
       },
@@ -277,12 +290,13 @@ export class SocketServer {
   private cleanupGame(gameId: string): void {
     this.rooms.delete(gameId);
     this.botScheduler.clear(gameId);
+    this.idleLobby.forget(gameId);
   }
 
-  // Abort an idle lobby: teardownRoom emits game_expired, aborts the match and
+  // Abort an idle lobby: closeRoom emits game_expired, aborts the match and
   // deletes the game state; its notify callback drops the in-memory context.
   private async expireIdleLobby(gameId: string): Promise<void> {
-    await teardownRoom(
+    await closeRoom(
       this.store,
       (event) => {
         this.engine.emitEvent(event);
@@ -351,9 +365,19 @@ export class SocketServer {
     this.rooms.ensure(gameId).rebuild(state);
 
     for (const disc of state.disconnectedPlayers) {
-      if (Date.now() < disc.reconnectDeadline) continue;
+      const remaining = disc.reconnectDeadline - Date.now();
+      if (remaining > 0) {
+        // The deadline is durable, the process timer is not: resume the remainder
+        // instead of leaving the seat away with nothing left to settle it.
+        this.engine.rearmReconnectGrace(gameId, disc.color, remaining, (id) => {
+          this.cleanupGame(id);
+        });
+        continue;
+      }
       // Re-checks the deadline itself, so racing an in-flight grace timer is safe.
-      await this.engine.finalizeSeatDeparture(gameId, disc.color, 'timeout', (id) => {
+      // The expiry owns the waiting-room fork too: a released seat, or a closed room
+      // when the absent seat was the host's.
+      await this.engine.expireReconnectGrace(gameId, disc.color, (id) => {
         this.cleanupGame(id);
       });
     }

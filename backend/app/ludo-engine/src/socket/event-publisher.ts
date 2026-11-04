@@ -211,7 +211,7 @@ export class EventPublisher {
         break;
 
       // Room teardown (quorum lost, single-instance disconnect expiry, idle
-      // lobby). Emitted by teardownRoom so every surviving client leaves the
+      // lobby). Emitted by closeRoom so every surviving client leaves the
       // closed room cleanly.
       case 'game_expired':
         void this.store.publish(

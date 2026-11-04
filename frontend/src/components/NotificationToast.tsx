@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '../hooks/useNotifications';
-import { useApp } from '../store';
 import { navigate } from '../router';
 import { apiFetch } from '../api';
 import { retroAudio } from '../utils/audio';
@@ -198,7 +197,6 @@ function Toast({
   index: number;
 }) {
   const { t } = useTranslation();
-  const { activeMatch, setActiveMatch } = useApp();
   const [visible, setVisible] = useState(false);
 
   // Play audio alert and slide in on mount.
@@ -236,25 +234,16 @@ function Toast({
   };
 
   // Accept a game invite
-  const acceptInvite = async () => {
+  const acceptInvite = () => {
     try {
       retroAudio.playUiBeep(880, 0.08);
     } catch {
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
-    // Strict state lock, mirrored from the backend: one live game at a time. The
-    // invite carries the room, not a seat, so accepting lands in the lobby with the
-    // code filled in and the corner claimed there; a live game is dropped before
-    // that claim, or the backend would answer MATCH_ACTIVE_GAME. The abort is
-    // awaited (not fire-and-forget) so the lobby's own "active game" read agrees.
-    const currentGameId = activeMatch?.gameId;
-    if (currentGameId && currentGameId !== p.gameId) {
-      await apiFetch(`/api/game/${currentGameId}/abort`, { method: 'POST' }).catch(() => {
-        // Non-fatal: the navigation below still happens.
-      });
-      setActiveMatch(null);
-    }
+    // The invite carries the room, not a seat: accepting lands in the lobby with the
+    // code filled in and the corner claimed there. A seat held elsewhere is left
+    // alone: the lobby's lock refuses the claim and the player aborts it themselves.
     onDismiss(notification.id);
     const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');

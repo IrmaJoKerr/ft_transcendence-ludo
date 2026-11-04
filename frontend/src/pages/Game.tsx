@@ -315,6 +315,24 @@ export function Game() {
   const prevTurnRef = useRef<PlayerColor | null>(null);
   const isGameEnded = lastResult != null || view.status === 'finished';
 
+  // The room's own closing clock (R14/R20): the engine publishes `closesAt` while a
+  // waiting PvP room sits below quorum, and this only counts down to that number. Bots
+  // never get impatient and a started game's clock is the seat's reconnect window, so
+  // no other room has one.
+  const [roomClock, setRoomClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (view.closesAt == null) return;
+    setRoomClock(Date.now());
+    const id = setInterval(() => setRoomClock(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [view.closesAt]);
+  const roomClosesInS =
+    view.closesAt == null ? null : Math.max(0, Math.ceil((view.closesAt - roomClock) / 1000));
+  const roomClosesLabel =
+    roomClosesInS == null
+      ? null
+      : `${Math.floor(roomClosesInS / 60)}:${String(roomClosesInS % 60).padStart(2, '0')}`;
+
   // Box-by-box move animation: while set, Board renders this piece at `step`
   // instead of its real (already-updated) logical position. See the piece_moved
   // handler below, which steps through the server's `path`.
@@ -529,6 +547,18 @@ export function Game() {
       resetRoll();
     });
 
+    // The other half of the reconnect budget (socket.ts): a frozen or backgrounded
+    // tab stops counting attempts, so being looked at again is the trigger, and the
+    // seat's own window decides whether that brings the player back.
+    const revive = () => {
+      if (!socket.connected) socket.connect();
+    };
+    const reviveOnVisible = () => {
+      if (document.visibilityState === 'visible') revive();
+    };
+    window.addEventListener('focus', revive);
+    document.addEventListener('visibilitychange', reviveOnVisible);
+
     socket.on('game_joined', (state) => {
       dispatch({ type: 'game_joined', ...(state as object) });
       // The snapshot is the reconciliation point: a reload, a rejoin, a second tab or an
@@ -727,6 +757,7 @@ export function Game() {
     socket.on('player_disconnected', handleEngineEvent);
     socket.on('player_reconnected', handleEngineEvent);
     socket.on('lobby_update', handleEngineEvent);
+    socket.on('room_closing', handleEngineEvent);
     // Clash QTE frames: every phase is derived from the server-borne deadlines,
     // so the reducer merges each frame as it arrives.
     socket.on('clash_start', handleEngineEvent);
@@ -804,6 +835,8 @@ export function Game() {
     });
 
     return () => {
+      window.removeEventListener('focus', revive);
+      document.removeEventListener('visibilitychange', reviveOnVisible);
       socket.disconnect();
       socketRef.current = null;
       if (animTimerRef.current) clearInterval(animTimerRef.current);
@@ -1077,6 +1110,30 @@ export function Game() {
 
   const endGame = () => {
     retroAudio.playExplosionSound();
+    // Two ways to end a room, and the room decides which (rows 2-4 of the leave/abort
+    // matrix): the host closing a waiting room calls the host-only route, which tears
+    // the room down for everybody, and everyone else leaves their own seat through the
+    // engine. The route also guards both conditions server-side, so a stale client
+    // cannot turn a live game ABORTED from here.
+    const current = activeMatchRef.current;
+    const isHostClosingWaitingRoom =
+      viewRef.current.status === 'waiting' &&
+      !!current?.gameId &&
+      !!user?.id &&
+      viewRef.current.hostId === user.id;
+    if (isHostClosingWaitingRoom) {
+      // Nobody is left to read a result card: the room is gone, so the page follows it
+      // out the way the Return-to-lobby control does.
+      void postApi(`/api/game/${current.gameId}/abort`, {})
+        .catch(() => undefined)
+        .then(() => {
+          setLastResult(null);
+          setShowResultsModal(false);
+          setActiveMatch(null);
+          navigate('/gamelobby');
+        });
+      return;
+    }
     socketRef.current?.emit('end_game');
 
     let players: ResultPlayer[] = toResultPlayers(viewRef.current.players);
@@ -1414,6 +1471,49 @@ export function Game() {
                                 name: localizedColor(t, effectiveTurn).toUpperCase(),
                               }))}
               </div>
+
+              {/* The room's own countdown: the label sits above the counter and the
+                  number is read off the deadline the room published, so a client that
+                  reconnects mid-window shows the remainder instead of a fresh five
+                  minutes. Only a waiting PvP room below quorum has one. */}
+              {roomClosesLabel && (
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 740,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 2,
+                    marginTop: 6,
+                    fontFamily: 'var(--font-mono)',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.62rem',
+                      letterSpacing: '0.5px',
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {t('game.roomClosesLabel')}
+                  </span>
+                  <span
+                    role="timer"
+                    aria-live="off"
+                    style={{
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      color: 'var(--accent-yellow)',
+                      textShadow: '0 0 10px var(--accent-yellow)',
+                    }}
+                  >
+                    {roomClosesLabel}
+                  </span>
+                </div>
+              )}
 
               {/* Reserved engine-error banner: localized socket `error` text. */}
               <div

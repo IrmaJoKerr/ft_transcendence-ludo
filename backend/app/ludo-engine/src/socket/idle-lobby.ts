@@ -1,23 +1,33 @@
 import type { RedisGameStore } from '../redis';
 import type { RoomRegistry } from './room-context';
 
-// Seats the match hash counts as occupied right now. A seat is seated only while its
-// player is present: a reserved slot keeps its row so the owner can reclaim the
-// colour, but it must not hold the idle window open.
+// Seats the match hash counts as occupied right now: a seat is a row with an id in
+// it. A reserved slot no longer exists (R18: leaving a waiting room either keeps the
+// seat counted or frees it outright), so there is one answer to "how many are seated"
+// and the engine's quorum rule is the other half of the same answer.
 export function seatedCount(match: Record<string, string>): number {
-  return [1, 2, 3, 4].filter((n) => match[`player${n}_id`] && !match[`player${n}_left`]).length;
+  return [1, 2, 3, 4].filter((n) => match[`player${n}_id`]).length;
 }
 
 // IdleLobbyWatcher owns one rule: a WAITING room with fewer than two seated players
 // is aborted after `timeoutMs` idle. The deadline is durable (`idleSince` in the
 // match hash), so a refill cancels it, a departure arms it, and a restart replays it.
+// It also publishes that deadline: the client's countdown is a read of the room's own
+// number, never a second calculation (R14/R20).
 export class IdleLobbyWatcher {
+  // What each room was last told, so a repeated refresh (every join calls one) does
+  // not re-send an unchanged deadline. A rebuilt room starts empty and re-announces.
+  private announced = new Map<string, number | null>();
+
   constructor(
     private store: RedisGameStore,
     private rooms: RoomRegistry,
     private timeoutMs: number,
-    // How a due room dies: teardownRoom + the server's in-memory cleanup.
+    // How a due room dies: closeRoom + the server's in-memory cleanup.
     private expireRoom: (gameId: string) => Promise<void>,
+    // How the room hears its own deadline: null clears the banner (the room filled
+    // up, started, or is gone).
+    private announce: (gameId: string, closesAt: number | null) => void = () => undefined,
   ) {}
 
   // Re-evaluate one room. Idempotent and cheap (one HGETALL): called on every
@@ -31,6 +41,7 @@ export class IdleLobbyWatcher {
     if (match?.status !== 'WAITING') {
       this.rooms.get(gameId)?.cancelIdle();
       if (match) await this.store.clearIdleSince(gameId);
+      this.announceClosing(gameId, null);
       return;
     }
 
@@ -38,6 +49,7 @@ export class IdleLobbyWatcher {
       // Two or more seated players: the idle window is inactive.
       this.rooms.get(gameId)?.cancelIdle();
       await this.store.clearIdleSince(gameId);
+      this.announceClosing(gameId, null);
       return;
     }
 
@@ -45,7 +57,23 @@ export class IdleLobbyWatcher {
     // so a crash in between is replayed at the next wake). hsetnx keeps an
     // existing stamp, so the window never restarts on a repeated refresh.
     const idleSince = await this.store.setIdleSince(gameId, Date.now());
+    this.announceClosing(gameId, idleSince + this.timeoutMs);
     this.scheduleExpiry(gameId, idleSince);
+  }
+
+  // Publish the deadline once per change. The value is the room's own stamp plus the
+  // window it is being measured against, which is why the client never has to know
+  // IDLE_LOBBY_TIMEOUT_MS.
+  private announceClosing(gameId: string, closesAt: number | null): void {
+    if (this.announced.get(gameId) === closesAt) return;
+    this.announced.set(gameId, closesAt);
+    this.announce(gameId, closesAt);
+  }
+
+  // The room is gone: forget the deadline it was last told, so a rebuilt room with
+  // the same id announces its own.
+  forget(gameId: string): void {
+    this.announced.delete(gameId);
   }
 
   // Wake pass: settle every match that exists, including rooms the engine has no

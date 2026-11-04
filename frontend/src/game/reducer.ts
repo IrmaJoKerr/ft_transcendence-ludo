@@ -64,6 +64,13 @@ export type GameViewState = {
   freeExit: boolean;
   /** Engine timestamp until which the clash result card freezes input. */
   resultCardUntil?: number;
+  /**
+   * When the room closes itself (engine ms), published by the room while a waiting
+   * room is below quorum. Undefined means no clock is running.
+   */
+  closesAt?: number;
+  /** The account that hosts the room (from the roster frame), not a seat colour. */
+  hostId?: string;
 };
 
 export function initialView(myColor: PlayerColor): GameViewState {
@@ -193,8 +200,19 @@ export function applyEvent(
         ...state,
         players,
         readyPlayers: payload.filter((p) => p.ready).map((p) => p.color),
+        hostId: typeof event.hostId === 'string' ? event.hostId : state.hostId,
+        // The roster frame carries the room's current deadline, so a joiner or a
+        // reload shows the remainder of the window that is already running.
+        closesAt: typeof event.closesAt === 'number' ? event.closesAt : state.closesAt,
       };
     }
+    case 'room_closing':
+      // The room published its own deadline: the banner counts down to this number and
+      // never computes one of its own. A null clears it (the room filled up or started).
+      return {
+        ...state,
+        closesAt: typeof event.closesAt === 'number' ? event.closesAt : undefined,
+      };
     case 'modifiers_updated':
       // One object both ways (no positional booleans). The engine broadcasts what
       // it actually persisted, so this is a mirror, never an optimistic guess.

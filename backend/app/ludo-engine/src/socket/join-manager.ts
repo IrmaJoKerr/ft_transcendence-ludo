@@ -153,7 +153,7 @@ export class JoinManager {
           this.evictSeatSiblings(socket, effectiveGameId, effectiveColor);
 
           if (isReconnectingPlayer) {
-            const revived = await this.engine.handlePlayerReconnect(
+            const revived = await this.engine.restoreSeatOnReconnect(
               effectiveGameId,
               effectiveColor,
               displayName,

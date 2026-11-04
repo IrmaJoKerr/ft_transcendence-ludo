@@ -4,7 +4,6 @@ import type { LudoBot } from '../bot';
 import type { GameSocket } from './auth';
 import { JoinManager } from './join-manager';
 import type { RoomRegistry } from './room-context';
-import { finalizeDeparture } from '../player-handler';
 import { keyFor } from '../clash';
 import type { PlayerColor, PieceId } from '../types';
 
@@ -262,25 +261,14 @@ export class SocketHandlers {
         if (state.status === 'finished') {
           void socket.leave(gameId);
         } else if (state.status === 'waiting') {
-          // Waiting room: reversible leave via the unified chokepoint. The seat
-          // is reserved (not freed) so rejoin returns the same colour.
-          await finalizeDeparture(
-            this.store,
-            this.engine.emitEvent.bind(this.engine),
-            gameId,
-            color,
-            'waiting_leave',
-          );
+          // Waiting room: returning to the lobby never costs the seat (R12), so this
+          // is a reconnect window, not a departure: the seat stays counted for five
+          // minutes and a rejoin resumes it in place.
+          await this.engine.startReconnectGrace(gameId, color, this.notifyAbort);
           void socket.leave(gameId);
         } else if (state.status === 'active') {
-          // Live game: per-player exit via the unified chokepoint.
-          await finalizeDeparture(
-            this.store,
-            this.engine.emitEvent.bind(this.engine),
-            gameId,
-            color,
-            'leave',
-          );
+          // Live game: per-player exit through the departure funnel.
+          await this.engine.departSeat(gameId, color, 'leave', this.notifyAbort);
           void socket.leave(gameId);
         }
       } catch (error) {
@@ -289,8 +277,8 @@ export class SocketHandlers {
     })();
   }
 
-  // Socket disconnect: start (or ignore, if already running) the reconnect
-  // grace period for the player's seat.
+  // Socket disconnect: start (or ignore, if already running) the seat's reconnect
+  // window. It arms a countdown and departs nobody.
   handleDisconnect(socket: GameSocket): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -298,10 +286,10 @@ export class SocketHandlers {
 
     void (async () => {
       try {
-        await this.engine.handlePlayerDisconnect(gameId, color, this.notifyAbort);
+        await this.engine.startReconnectGrace(gameId, color, this.notifyAbort);
         // Settle a mid-clash disconnect at once (higher meter wins, ties go to the
         // attacker) instead of freezing the QTE for the grace window. This runs after
-        // handlePlayerDisconnect released the lock; the resolve takes it again.
+        // startReconnectGrace released the lock; the resolve takes it again.
         await this.engine.resolveClashOnDisconnect(gameId);
       } catch (error) {
         console.error('Disconnect handler error:', error);

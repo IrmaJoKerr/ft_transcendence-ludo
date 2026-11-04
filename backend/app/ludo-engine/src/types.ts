@@ -1,13 +1,12 @@
 export type PlayerColor = 'red' | 'green' | 'yellow' | 'blue';
 export type PlayerStatus = 'active' | 'exited' | 'inactive' | 'disconnected';
-// Why a seat left. `waiting_leave` is reversible and keeps the seat; the other
-// reasons mark it exited. It lives beside the seat because finalizeDeparture
-// persists it there.
+// Why a seat left. Every reason here marks the seat exited: a waiting-room leave is
+// a reconnect window, not a departure, so it never reaches this list. It lives
+// beside the seat because departSeat persists it there.
 export type DepartureReason =
   | 'timeout' // grace window expired
   | 'leave' // left a live game (socket leave_game, a tab-close prune, or a sign-out)
-  | 'end_game' // End Game button: frees the seat
-  | 'waiting_leave'; // left a waiting room: reversible, keeps the seat
+  | 'end_game'; // End Game / Abort clicked: frees the seat
 export type TurnPhase = 'WAITING_FOR_ROLL' | 'WAITING_FOR_MOVE';
 // Clash QTE phases: flash, 3-2-1 countdown, then the press race.
 export type ClashPhase = 'announce' | 'countdown' | 'pressing';
@@ -77,10 +76,10 @@ export interface PlayerMeta {
   lastRoll?: number | null;
   isFinished: boolean; // all four pieces home
   finishedAt?: string; // ISO time of finishing
-  // Why this seat left, written by finalizeDeparture on the live-game paths. The
+  // Why this seat left, written by departSeat on the live-game paths. The
   // client labels the seat from it ("Aborted" for a leave); a reloaded client reads
-  // it back from the state. Absent while the seat is still in the game, and on the
-  // reversible waiting-room leave.
+  // it back from the state. Absent while the seat is still in the game, and on a
+  // waiting-room leave, which is a reconnect window and never a departure.
   departedReason?: DepartureReason;
   stats: {
     // per-game tallies for postgame scoring
@@ -349,6 +348,12 @@ export type GameEvent =
   | {
       type: 'lobby_update';
       gameId: string;
+      // The room's host account. A room fact, not a seat's: the board points its
+      // Abort at the host-only route with it.
+      hostId?: string;
+      // The room's own closing deadline while it sits below quorum, so a client that
+      // joins or reloads mid-window renders the remainder instead of nothing.
+      closesAt?: number;
       players: {
         userId: string;
         username: string;

@@ -147,22 +147,24 @@ opening mover and every later one come from one rule. Disconnecting during anoth
 not freeze anything — play continues, and the wait only lands when the turn reaches the departed seat.
 
 **The explicit pause flag is PvP-only.** When a PvP player drops during their *own* turn
-(`handlePlayerDisconnect`), the game also sets `state.paused` / `state.pauseTurnOwner` so clients can
+(`startReconnectGrace`), the game also sets `state.paused` / `state.pauseTurnOwner` so clients can
 render a "waiting to reconnect" banner immediately. PvE and hotseat never pause: they are
 single-instance games with one human and no remote opponent, so the only two states are *running*
-and *aborted* — their disconnect still arms the long (1h) single-instance window, and expiry tears
-the room down. The pause is cleared in three places: `handlePlayerReconnect` (seat restored, same turn
-resumes with its pending dice/moves), `finalizeDeparture` (seat pruned, turn advances to the next
-playable seat), and the re-arm check in `join-manager` (defensive, owner-only). While paused,
-`rollDice`, `movePiece`, and bot turns are all rejected, so nobody can act on a frozen board.
+and *aborted* — their disconnect still arms the long (1h) single-instance window, and expiry closes
+the room. The pause is cleared in three places: `restoreSeatOnReconnect` (seat restored, same turn
+resumes with its pending dice/moves), `departSeat` (seat pruned, turn advances to the next playable
+seat), and the re-arm check in `join-manager` (defensive, owner-only). While paused, `rollDice`,
+`movePiece`, and bot turns are all rejected, so nobody can act on a frozen board.
 
-A player who leaves a **waiting room** keeps their seat. It is parked as `inactive`, which the lobby
-roster (`emitLobbyUpdate`) and the client's pilot list both filter out, and its Redis seat row is
-flagged as reserved rather than deleted, so `joinMatch` sends the player back to the same colour.
-Aborting frees the seat outright instead. Either way the room's idle-abort timer is restarted, and
-the host's seat is never touched. Because the seat is restored to `active` on rejoin, `isFinished`
-is deliberately left untouched on this path: a stale "finished" flag would make the player look
-already done at game start.
+A player who leaves a **waiting room** keeps their seat counted for five minutes. The seat is marked
+`disconnected`, its Redis row stays exactly as it is (there is no reservation flag any more), and the
+lobby roster keeps showing it, so a rejoin (`restoreSeatOnReconnect`) resumes the same colour. The
+five-minute window is the only way a waiting-room seat is taken away without a click: the participant's
+expiry releases the seat exactly as an Abort does, and the host's closes the room. An explicit Abort
+frees the seat outright. Either way the room's idle clock restarts, and the host's seat is never
+cleared. Because the seat is restored to `active` on rejoin, `isFinished` is deliberately left
+untouched on this path: a stale "finished" flag would make the player look already done at game
+start.
 
 A player who leaves a **live game** is parked as `exited` with `isFinished` set, because the
 post-game result logic prunes on that status.
@@ -180,15 +182,19 @@ phase`) nor move a piece. `rollDice` also resets these
 on its own paths, but doing it in `advanceTurnInState` makes the invariant hold for every caller.
 
 **Quorum.** `hasQuorum(state)` is the single predicate that decides whether a room can continue: it
-requires at least two seats that are both `active` and not bots. Bots never count, so a PvE room is
-not kept alive by its bot seats. When a departure drops the room below that count, `teardownRoom`
-runs: it emits `game_expired`, marks the match `ABORTED`, deletes the engine game state, and calls
-the in-memory cleanup callback (which drops the room's `RoomContext` from the `RoomRegistry`, and its
-pending bot turn, in one disposal path).
+counts at least two seats that are neither `exited` nor `inactive` and are not bots. A seat inside its
+reconnect window still counts, so only a *confirmed* departure can ever lower the count, and a
+departure can no longer close a room two other players are still mid-grace in. Bots never count, so a
+PvE room is not kept alive by its bot seats. When a departure drops the room below that count,
+`closeRoom` runs: it marks the match `ABORTED` (the marker the backend's result route reads), emits
+`game_expired`, deletes the engine game state, and calls the in-memory cleanup callback (which drops
+the room's `RoomContext` from the `RoomRegistry`, and its pending bot turn, in one disposal path).
+`departSeat` takes that decision itself — `singleSocketMode || !hasQuorum` — so no caller re-derives
+it, and it returns `{ closed }` so a caller that also writes a record knows whether the room survived.
 
-**Source files.** `firstActiveColor`, `advanceTurnInState`, `handlePlayerDisconnect`,
-`handlePlayerReconnect`, `expireDisconnectedPlayer`, `finalizeDeparture`, `teardownRoom`, and
-`hasQuorum` all live in `backend/app/ludo-engine/src/player-handler.ts`.
+**Source files.** `firstActiveColor`, `advanceTurnInState`, `startReconnectGrace`,
+`expireReconnectGrace`, `restoreSeatOnReconnect`, `departSeat`, `closeRoom`, and `hasQuorum` all live
+in `backend/app/ludo-engine/src/player-handler.ts`.
 
 ### GameState
 
@@ -509,11 +515,12 @@ Module-level constants in the engine's support files — edit at the top of each
 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
-| `DISCONNECT_GRACE_MS` | `player-handler.ts` | 45 s | PvP reconnect window before a disconnected player is pruned |
-| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `player-handler.ts` | 1 h | Single-instance (PvE/hotseat) reconnect window before the game auto-aborts |
+| `DISCONNECT_GRACE_MS` | `timing.ts` | 45 s | Live PvP reconnect window before a disconnected player is pruned |
+| `WAITING_SEAT_GRACE_MS` | `timing.ts` | 5 min | Waiting-room window: a participant's expiry releases the seat, the host's closes the room |
+| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `timing.ts` | 1 h | Single-instance (PvE/hotseat) reconnect window before the game auto-aborts |
 
-> `player-handler.ts` adds a hardcoded `+1000` ms buffer to the PvP grace
-> period so the prune timer fires just after the reconnect deadline.
+> `startReconnectGrace` arms its timer one second past the deadline, so an early fire re-reads the
+> deadline and waits instead of pruning a seat a client is still reconnecting to.
 
 
 ---

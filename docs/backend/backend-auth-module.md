@@ -546,7 +546,7 @@ sequenceDiagram
     Server->>Server: findLiveMatch(redis, userId)
     opt the account still holds a seat in a live room
         Server->>Engine: publish match:abandon { gameId, userId }
-        Engine->>Engine: finalizeDeparture(..., 'leave') under the game lock
+        Engine->>Engine: departSeat(..., 'leave') under the game lock
         Engine-->>Site: player_exited + state_update, or game_expired when the room ends
     end
     Server-->>Site: Done

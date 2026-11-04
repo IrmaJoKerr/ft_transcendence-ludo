@@ -64,4 +64,10 @@ export const CLASH_EVENT_WINDOW_MS = 5 * 1000; // the press bucket's own window
 export const IDLE_LOBBY_TIMEOUT_MS = 5 * 60 * 1000; // empty PvP lobby
 export const POST_GAME_TIMEOUT_MS = 60 * 1000; // finished room teardown
 export const DISCONNECT_GRACE_MS = 45000; // PvP reconnect window
+// A waiting-room seat gets a longer window on purpose (R12/R17): no game is being
+// played, returning to the lobby never costs the seat, and the clock is there to
+// notice a player who is not coming back. The host's window closes the room itself,
+// because only the host can mark their seat ready, so a room with an absent host can
+// never start.
+export const WAITING_SEAT_GRACE_MS = 5 * 60 * 1000; // WAITING-room away window
 export const SINGLE_SOCKET_DISCONNECT_GRACE_MS = 60 * 60 * 1000; // bot-mode reconnect window

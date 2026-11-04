@@ -333,8 +333,9 @@ export class RedisGameStore {
   }
 
   // FREE a non-host seat on abort: delete the slot from the match hash so the room
-  // can hand it to someone else. The host seat is never cleared, wherever it sits:
-  // the host is `hostId`, and their colour's slot is not always slot 1.
+  // can hand it to someone else. The host seat is never cleared here: the host is
+  // `hostId`, and their colour's slot is not always slot 1, and the host's own
+  // waiting-room Abort closes the room instead of freeing a corner in it.
   async clearMatchSeat(gameId: string, color: PlayerColor): Promise<void> {
     const data = await this.getMatchData(gameId);
     if (!data) return;
@@ -345,27 +346,14 @@ export class RedisGameStore {
       this.matchKey(gameId),
       `player${slotIndex + 1}_id`,
       `player${slotIndex + 1}_color`,
-      `player${slotIndex + 1}_left`,
       // The seat's kind goes with its identity: a slot that is reused must not
       // inherit "this is a bot" from the occupant it had before.
       `player${slotIndex + 1}_isBot`,
       this.seatUserField(color),
     );
     await this.notifyRoomsChanged();
-    await this.setIdleSince(gameId, Date.now());
-  }
-
-  // RESERVE a non-host seat when a player leaves without aborting: keep the id and
-  // colour so a rejoin returns to the same seat, and set `player<N>_left` so the
-  // seat is not counted as seated.
-  async reserveMatchSeat(gameId: string, color: PlayerColor): Promise<void> {
-    const data = await this.getMatchData(gameId);
-    if (!data) return;
-    const slotIndex = COLORS.indexOf(color);
-    if (slotIndex === -1) return; // unknown colour
-    if (data[`player${slotIndex + 1}_id`] === data.hostId) return; // host keeps a live seat
-    await this.client.hset(this.matchKey(gameId), `player${slotIndex + 1}_left`, '1');
-    await this.notifyRoomsChanged();
+    // A freed seat can leave the room below quorum, so the idle clock starts (or
+    // restarts) from this release rather than from an earlier episode.
     await this.setIdleSince(gameId, Date.now());
   }
 

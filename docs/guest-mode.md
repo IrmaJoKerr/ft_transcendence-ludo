@@ -54,7 +54,7 @@ The room itself is created by the same `createMatchLocked()` path as a signed-in
 the account-shaped steps skipped: no username or display-name lookup (a `guest-` id has no row),
 no create lock and no live-match scan (the id is unique per mint, so the scan can never match).
 The seat id is `guest-<sha256(token)>`, unique per mint. A per-address id was rejected: it would
-hand the second student on a shared campus NAT the first student's `MATCH_ACTIVE_GAME` refusal.
+hand the second student on a shared campus NAT the first student's `MATCH_ALREADY_SEATED` refusal.
 
 
 ---

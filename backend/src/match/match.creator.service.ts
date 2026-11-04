@@ -12,7 +12,7 @@ import { BOT_PREFIX } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
-import { findLiveMatch } from './active-game';
+import { findSeatedMatch } from './active-game';
 import { GUEST_TOKEN_TTL_S, GuestLimitService, guestIpHash } from './guest-limit.service';
 import { guestTokenKey, guestUserId, mintGuestToken } from './guest-token.util';
 import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
@@ -204,23 +204,23 @@ export class MatchCreatorService {
     // lets the engine release the concurrency slot when the game ends.
     opts: { guestToken?: string; guestIpHash?: string } = {},
   ) {
-    // Strict lock: a caller already in a live game must not open a second room,
-    // whatever the mode. Checked before the PvP reuse below. Guests skip it: their
-    // per-mint id can never match, and the scan would be wasted work.
-    if (!opts.guestToken && (await findLiveMatch(this.redis, userId))) {
-      throw new ForbiddenException({
-        code: 'MATCH_ACTIVE_GAME',
-        message:
-          'You already have an active game. Leave it before creating or joining a new match.',
-      });
-    }
-
-    // Idempotent create: a PvP create by a player who already has a seat in one
-    // of their own PvP lobby rooms returns that seat instead of opening a second
-    // room. Rooms whose game has already started are never reused.
+    // Idempotent create first: a PvP create by a player who already has a seat in one
+    // of their own PvP lobby rooms returns that seat instead of opening a second room.
+    // Rooms whose game has already started are never reused.
     if (mode === 'pvp') {
       const reusable = await this.findReusableRoom(userId);
       if (reusable) return this.handoffExistingRoom(reusable, userId);
+    }
+
+    // One seat at a time: any other room the caller is seated in, waiting or live,
+    // refuses a second one. Guests skip it: their per-mint id can never match, and
+    // the scan would be wasted work.
+    if (!opts.guestToken && (await findSeatedMatch(this.redis, userId))) {
+      throw new ForbiddenException({
+        code: 'MATCH_ALREADY_SEATED',
+        message:
+          'You are already seated in a game. Return to it, or click Abort to leave it before creating or joining another.',
+      });
     }
 
     const gameId = crypto.randomUUID();
@@ -431,11 +431,6 @@ export class MatchCreatorService {
       userId,
     );
     const color = data[`player${slotIndex + 1}_color`] || SLOT_COLORS[slotIndex];
-    // Reclaiming the seat clears the reservation flag a "returned to lobby" leave
-    // set, so the room counts this player again.
-    await this.redis.hdel(`match:${gameId}`, `player${slotIndex + 1}_left`);
-    await publishRoomsChanged(this.redis);
-
     const mode = (data.gameType || 'PVP').toLowerCase();
     const username = await this.resolveUsername(userId);
     const displayName = await this.resolveDisplayName(userId);

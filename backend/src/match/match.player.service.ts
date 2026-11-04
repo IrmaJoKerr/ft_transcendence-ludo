@@ -13,7 +13,7 @@ import Redis from 'ioredis';
 import { publishRoomsChanged } from '../common/channels';
 import { pairKey, isFriendPair, isBlockedPair } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
-import { findLiveMatch, ENDED_MATCH_STATUSES } from './active-game';
+import { findSeatedMatch, ENDED_MATCH_STATUSES } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
 import { readRoomRules } from './room-rules';
 import { signEngineToken } from './engine-token.util';
@@ -55,13 +55,13 @@ export class MatchPlayerService {
     );
     if (seatedSlot !== -1) return this.rejoin(gameId, userId);
 
-    // Strict lock: a caller with a live match must not open a second room, even
-    // one they used to play in.
-    if (await findLiveMatch(this.redis, userId)) {
+    // One seat at a time: a waiting lobby locks like a live game, so joining
+    // elsewhere means leaving the seat you hold first.
+    if (await findSeatedMatch(this.redis, userId)) {
       throw new ForbiddenException({
-        code: 'MATCH_ACTIVE_GAME',
+        code: 'MATCH_ALREADY_SEATED',
         message:
-          'You already have an active game. Leave it before creating or joining a new match.',
+          'You are already seated in a game. Return to it, or click Abort to leave it before creating or joining another.',
       });
     }
 
@@ -185,13 +185,14 @@ export class MatchPlayerService {
       throw new NotFoundException({ code: 'MATCH_GAME_NOT_FOUND', message: 'Game not found' });
     }
 
-    // Strict lock: you may not join a second room while your current match is
-    // still live (rejoining your own live room is fine).
-    if (await findLiveMatch(this.redis, userId, gameId)) {
+    // One seat at a time: a waiting lobby locks exactly like a live game, so
+    // playing elsewhere means releasing this seat first (rejoining this room is not
+    // a second seat, which is what exceptGameId says).
+    if (await findSeatedMatch(this.redis, userId, gameId)) {
       throw new ForbiddenException({
-        code: 'MATCH_ACTIVE_GAME',
+        code: 'MATCH_ALREADY_SEATED',
         message:
-          'You already have an active game. Leave it before creating or joining a new match.',
+          'You are already seated in a game. Return to it, or click Abort to leave it before creating or joining another.',
       });
     }
 
@@ -214,11 +215,6 @@ export class MatchPlayerService {
         message: 'Your seat in this game is gone and cannot be reclaimed',
       });
     }
-
-    // Reclaiming the seat clears the reservation flag a "returned to lobby" leave
-    // set, so the room counts this player again and the idle-abort stops applying.
-    await this.redis.hdel(`match:${gameId}`, `player${slotIndex + 1}_left`);
-    await publishRoomsChanged(this.redis);
 
     const color = data[`player${slotIndex + 1}_color`] || SLOT_COLORS[slotIndex];
     const username = await this.resolveUsername(userId);
@@ -391,8 +387,10 @@ export class MatchPlayerService {
     return { gameId };
   }
 
-  // Cancel (abort) a match, setting its status to ABORTED. Quitting stays
-  // unscored: End Game records no result.
+  // Cancel (abort) a match, setting its status to ABORTED. Host only, and only
+  // while the room is still waiting: aborting a live game is a seat departure (the
+  // board's `end_game`), never a room-wide status flip from an HTTP call. Quitting
+  // stays unscored: End Game records no result.
   async cancelGame(gameId: string, userId: string) {
     const data = await this.redis.hgetall(`match:${gameId}`);
     if (!data.id)
@@ -407,6 +405,21 @@ export class MatchPlayerService {
       throw new ForbiddenException({
         code: 'MATCH_NOT_PLAYER',
         message: 'You are not a player in this game',
+      });
+
+    // The room's rules and its life belong to its host (row 2 of the leave/abort
+    // matrix): a participant leaves by vacating their own seat.
+    if (data.hostId !== userId)
+      throw new ForbiddenException({
+        code: 'MATCH_HOST_ONLY',
+        message: 'Only the host can close the room',
+      });
+
+    // A started game is not a room to cancel: it is a game to leave, seat by seat.
+    if (data.status !== 'WAITING')
+      throw new ForbiddenException({
+        code: 'MATCH_ALREADY_STARTED',
+        message: 'Game already started',
       });
 
     await this.redis.hset(`match:${gameId}`, 'status', 'ABORTED');

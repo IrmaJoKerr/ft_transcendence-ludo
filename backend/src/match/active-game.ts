@@ -24,6 +24,33 @@ export interface LiveMatch {
   gameId: string;
 }
 
+// The room this user holds a seat in right now, whatever its status: a waiting
+// lobby counts as much as a live game, because the rule is one seat at a time. Only
+// ABORTED/ENDED rooms are finished and never count, even while their hash lingers for
+// the rest of its TTL. `exceptGameId` exempts one room: reclaiming your own seat is
+// not "a second game".
+export async function findSeatedMatch(
+  redis: Redis,
+  userId: string,
+  exceptGameId?: string,
+): Promise<LiveMatch | null> {
+  let cursor = '0';
+  do {
+    const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', 'match:*', 'COUNT', 100);
+    cursor = nextCursor;
+    for (const key of keys) {
+      if (exceptGameId && key === `match:${exceptGameId}`) continue;
+      const data = await redis.hgetall(key);
+      if (!matchSeatIds(data).includes(userId)) continue;
+      if (ENDED_MATCH_STATUSES.includes(data.status)) continue;
+      // The hash's own id is authoritative; the key suffix covers a hash written
+      // without one.
+      return { gameId: data.id === '' ? key.slice('match:'.length) : data.id };
+    }
+  } while (cursor !== '0');
+  return null;
+}
+
 // The live (in-progress) game this user holds a seat in right now, or null. Pass
 // `exceptGameId` to exempt one room: rejoining your own live room must still
 // work, so that room never counts as "a second game".
@@ -43,7 +70,7 @@ export async function findLiveMatch(
       if (ENDED_MATCH_STATUSES.includes(data.status)) continue;
       // The hash's own id is authoritative; the key suffix covers a hash written
       // without one.
-      const gameId = data.id ?? key.slice('match:'.length);
+      const gameId = data.id === '' ? key.slice('match:'.length) : data.id;
       if (data.status === 'ACTIVE') return { gameId };
       // The hash can lag behind the engine, so the engine state decides too.
       if (await isEngineGameStarted(redis, gameId)) return { gameId };

@@ -89,18 +89,22 @@ sequenceDiagram
     end
 ```
 
-### 2. Seat reserve and free
+### 2. Seat keep and free
 
-Leaving a waiting room does not delete the seat. The seat keeps its id and colour,
-so the player returns to the same colour on rejoin; the slot is only flagged as
-left.
+Leaving a waiting room does not delete the seat. Nothing in the hash changes: the
+seat stays counted for five minutes, so the room is still full and the player
+returns to the same colour on rejoin. Only an explicit Abort frees a corner.
 
 | Event | Redis `match:{gameId}` | Engine GameState | Client roster |
 |-------|------------------------|------------------|---------------|
-| Player leaves a waiting room | `reserveMatchSeat()` sets `player<N>_left`; the id and colour stay | seat parked as `inactive` | seat hidden |
-| Player leaves a live game via End Game | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_left`, `player<N>_isBot` and `seatUser_<color>` | seat parked as `exited` | seat shows as gone |
+| Participant opens Abort in a waiting room | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_isBot` and `seatUser_<color>` | seat parked as `inactive` | seat hidden |
+| Host opens Abort in a waiting room | the room is closed (`status` `ABORTED`, 1 h TTL) | room closed | room closed |
+| Player returns to lobby / drops in a waiting room | nothing changes: the seat row stays | `disconnected` for the five-minute waiting window | seat stays, marked away |
+| A participant's waiting window expires | `clearMatchSeat()` frees the corner | seat parked as `inactive` | seat hidden |
+| The host's waiting window expires | the room is closed, whoever else is seated | room closed | room closed |
+| Player leaves a live game via End Game | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_isBot` and `seatUser_<color>` | seat parked as `exited` | seat shows as gone |
 | Player drops a live game (page closed, or "RETURN TO LOBBY") | the seat row is left untouched, so the id and colour stay reserved | `disconnected` for the 45 s grace window, then `exited` with every piece parked at `step = -1` | seat greyed out, then gone |
-| Backend abort (`POST /api/game/:id/abort`) | the match is marked `ABORTED`; individual seats are not cleared | — | room drops out of the listings |
+| Backend abort (`POST /api/game/:id/abort`, host only, `WAITING` only) | the match is marked `ABORTED`; individual seats are not cleared | — | room drops out of the listings |
 | Player rejoins | the backend's `joinMatch` userId lookup finds the reserved slot and returns the same colour | seat back to `active` | seat returns |
 | Idle-abort timer fires | the room is gone | — | room closed |
 
@@ -108,12 +112,13 @@ A rejoin only works inside the grace window: once the seat is `exited` the backe
 
 The backend also hides a room from the moment its game starts: `GET /api/games/rooms` and `GET /api/games/mine` read the engine state (`isEngineGameStarted`) and only advertise a started room back to a player who still holds a reclaimable seat in it (the `mySeat` flag), so a departed player is neither offered a dead seat nor shown a room they can no longer enter.
 
-Both seat methods skip the host's seat (`player1_color`), and both stamp `idleSince` as they run
-(`setIdleSince`, HSETNX, so an existing window is never restarted). The `IdleLobbyWatcher` then arms
-the room's in-process timer for the rest of that window, and the stamp is what the startup wake pass
-replays after a restart. The `player<N>_left` flag is what keeps the seated count correct, so a
-reserved seat cannot hold a room open. See also
-[`ludo-engine-core-system.md`](ludo-engine-core-system.md) → Seat statuses.
+`clearMatchSeat` skips the host's seat (`hostId`, whichever corner that is) and stamps `idleSince`
+as it runs (`setIdleSince`, HSETNX, so an existing window is never restarted). The `IdleLobbyWatcher`
+then arms the room's in-process timer for the rest of that window, publishes the deadline as
+`room_closing { closesAt }`, and the stamp is what the startup wake pass replays after a restart. The
+seated count is the number of seat rows with an id in them, which is why a released seat is the only
+thing that can shrink it. See also [`ludo-engine-core-system.md`](ludo-engine-core-system.md) → Seat
+statuses.
 
 
 ---

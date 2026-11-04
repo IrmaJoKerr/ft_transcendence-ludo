@@ -4,7 +4,6 @@ import type { RedisGameStore } from '../redis';
 import type { EventPublisher } from './event-publisher';
 import type { GameSocket } from './auth';
 import type { RoomRegistry } from './room-context';
-import { finalizeDeparture, teardownRoom } from '../player-handler';
 import { pushLog } from '../game-log';
 
 // PostGameManager owns the end-of-game lifecycle: the post-game timeout that
@@ -30,9 +29,10 @@ export class PostGameManager {
     });
   }
 
-  // Definitive termination via the "End Game" button. PvE/hotseat: abort the
-  // whole instance. PvP: prune only this player; if fewer than 2 humans
-  // remain, the room is aborted and cleaned up. No result is posted.
+  // Definitive termination via the "End Game" button. The departure funnel owns
+  // the terminal decision: a single-socket room is closed, and a PvP room is closed
+  // when this seat was the last second human in it. So the only thing left here is
+  // the record: the log line and the frame for the clients still watching.
   async handleEndGame(socket: GameSocket): Promise<void> {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -42,30 +42,20 @@ export class PostGameManager {
     if (!state) return;
     const player = state.players.find((p) => p.color === color);
     const username = player?.username || color;
-    const match = await this.store.getMatchData(gameId);
-    const isSingleSocketMode = match?.gameType === 'PVE' || match?.gameType === 'HOTSEAT';
 
-    if (isSingleSocketMode) {
-      // Single-instance mode: tear down the whole room. teardownRoom
-      // broadcasts game_expired and runs the cleanup callback.
-      await teardownRoom(this.store, this.engine.emitEvent.bind(this.engine), gameId, this.cleanup);
-      return;
-    }
-
-    // PvP: prune only this player and free the seat. finalizeDeparture tears
-    // the room down if the prune leaves it below quorum.
-    await finalizeDeparture(
-      this.store,
-      this.engine.emitEvent.bind(this.engine),
+    const { closed } = await this.engine.departSeat(
       gameId,
       color,
       'end_game',
       this.cleanup,
     );
+    // A closed room already told everyone (`game_expired`) and deleted its state,
+    // so there is nothing left to write into a snapshot.
+    if (closed) return;
+
     // The departure is game state too, so its line is written into the snapshot (a
     // rejoining client rebuilds the panel from there) and carried by the frame for the
-    // clients already watching. A prune that dropped the room below quorum already
-    // deleted the state, so there is nothing left to write.
+    // clients already watching.
     const after = await this.store.loadGameState(gameId);
     const log = after ? [pushLog(after, { kind: 'playerAborted', color })] : undefined;
     if (after) await this.store.saveGameState(gameId, after);
