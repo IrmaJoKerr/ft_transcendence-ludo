@@ -45,9 +45,14 @@ security-review.md
 eval_notes.md
 test-harness.md
 discarded.md
+ludo-bug-review.md
 Transcendence_subject_5thAug.pdf
 
 # generated documentation
+
+#testing assets
+cannon spritesheet.png
+cannon spritesheet 2.png
 
 # dependencies
 /node_modules
