@@ -43,8 +43,8 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | `match.service.ts` | Facade — composes the four split services (`MatchCreatorService`, `MatchPlayerService`, `MatchQueryService`, `MatchPostgameService`) and re-exports the `GameEndPayload` type from `match.postgame.service.ts` (`ENGINE_WS_URL` is defined/exported by `match.creator.service.ts`) |
 | `match.creator.service.ts` | Match creation: PvP/PvE/hotseat, invite codes, room joining, bot seeding |
 | `match.player.service.ts` | In-game actions: join, rejoin, invite friend, ready, exit, cancel |
-| `match.query.service.ts` | Browse queries: open rooms, my rooms |
-| `match.postgame.service.ts` | `POST /api/game/end` processing (scoring, ratings, persists the clash tallies, achievements) |
+| `match.query.service.ts` | Browse queries: open rooms, my rooms, and `seatResult()` (the caller's own row for a match they can no longer join) |
+| `match.postgame.service.ts` | `POST /api/game/end` (the completion pass: scoring, ratings, the clash tallies, achievements) and `POST /api/game/:id/abandon` (one abandoned row, no scoring) |
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
 | `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, `POST /api/game/:id/invite`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
@@ -135,8 +135,10 @@ default corner and no in-room swap.
 | `POST` | `/api/game/:id/invite` | JWT | Invite a friend into a WAITING PvP room |
 | `GET` | `/api/games/rooms` | JWT | List the PvP rooms the caller may enter (open lobby rooms + their own reclaimable seats in started games) |
 | `GET` | `/api/games/mine` | JWT | List rooms the user is seated in |
-| `POST` | `/api/game/end` | engine key (`X-Engine-Key`) | Engine callback — process game end (scoring/achievements); persists `clashDefends` / `clashAttacksWon` per participant |
+| `POST` | `/api/game/end` | engine key (`X-Engine-Key`) | Engine callback — the completion pass: rows for the seats that have none (scoring/achievements); persists `clashDefends` / `clashAttacksWon` per participant. Refuses a room that is still live (`MATCH_END_STILL_ACTIVE`) or never started (`MATCH_END_NEVER_STARTED`) |
+| `POST` | `/api/game/:id/abandon` | engine key (`X-Engine-Key`) | Engine callback — one seat left a room before anybody won: one `ABANDONED` row for that seat, and nothing else (no rating, no stats, no hash deletion) |
 | `POST` | `/api/game/:id/started` | engine key (`X-Engine-Key`) | Engine callback — mark game started |
+| `GET` | `/api/game/:id/result` | JWT | The caller's own row for this match (`{ state, row }`): the read a client makes when it can no longer join |
 
 > **Invite body validation:** `POST /api/game/:id/invite` takes an
 > `InviteFriendDto` (`{ friendId }`). `friendId` is validated as a required UUID
@@ -541,6 +543,76 @@ question itself instead of trusting the payload:
 `Test-harnesses/bot-seats/postgame-seat-probe.ts` is the live proof: six rooms POSTed to this
 route with the engine key, including a PvP room whose only second seat is a bot (refused) and a
 seat flagged `isBot` that carries a real account's id (that account stays untouched).
+
+
+---
+
+## The abandoned row (`POST /api/game/:id/abandon`)
+
+A seat that leaves a room before anybody wins keeps a row. The engine calls this route from its
+one departure funnel: at the departure itself when the room stays above quorum, and once per
+human seat when a room is torn down below quorum (`closeRoom` in `player-handler.ts`).
+
+- **The guard reads the engine's own state.** The seat must be `exited` or `inactive` in
+  `game:<id>`'s `state`, or the room's hash must be `ABORTED`/`ENDED`. A seat that is still
+  playing is refused (`409 MATCH_ABANDON_SEAT_ACTIVE`) on purpose: a 3-of-4 abort must not write
+  a row for the players still on the board, whose rows arrive with the report that ends the room.
+  A room with no `startedAt` is refused too (`MATCH_ABANDON_NEVER_STARTED`): a waiting room is a
+  room, not a match, so a participant's Abort there frees a corner and leaves no record.
+- **What it writes is one row and nothing else.** `status: ABANDONED`, `rank` = the room's player
+  count (last, never a podium), `ratingDelta: 0`, the tallies the seat had at the departure (the
+  engine captures them before its pieces are parked, so `piecesInGoal` is true rather than 0), the
+  room's seat snapshot with the leaving seat flagged `abandoned`, and the usual 50-row trim in the
+  same transaction. It never touches `PlayerStats`, the rating, `leaderboard:global`, an
+  achievement, or `rooms:changed`, and it never deletes `match:${id}`: the room may be live for the
+  others.
+- **The bell says `match_abandoned`.** Not `match_finished`: being told you finished a match you
+  did not finish is worse than hearing nothing.
+- **A redelivery is free.** The early read answers with the row it already wrote, and
+  `@@unique([user_id, game_id])` settles the delivery that races it.
+
+The engine side is what makes this safe: the record is captured before the parking, kept on the
+seat (`exitRecord`), and its `submitted` flag is only set after a 2xx. A delivery that fails is
+retried by the wake pass and by the room's next reconnect, so a backend hiccup cannot lose a row.
+
+---
+
+## `/end` is a completion pass (R21)
+
+`POST /api/game/end` no longer means "here is the final result". It means "this room is over, fill
+in the seats that have no row".
+
+- **Two markers say the room is over.** The engine's own `game:<id>` state at `status: 'finished'`
+  (a winner was declared), or the `match:<id>` hash in `ENDED_MATCH_STATUSES` (the engine closed
+  the room itself). Neither means `409 MATCH_END_STILL_ACTIVE`, so a premature POST can no longer
+  delete the hash out from under a game that is still being played, or award a rating for a board
+  that is still moving.
+- **A missing state falls through.** A Redis restart mid-game is exactly the case whose result
+  must still land, so an unreadable `game:` key drops to the start stamp instead of refusing;
+  `MATCH_END_NEVER_STARTED` then covers the reaped waiting room.
+- **The idempotency guard is a *completed* row.** Any row would have answered "already processed"
+  for a game that only has an abandoned seat's row, and thrown away the real result for the seats
+  that stayed.
+- **Existing rows are read, not rewritten.** The seats that already hold a row are skipped, their
+  recorded ranks and statuses join the snapshot, and the PvP minimum counts rows plus reports. The
+  career row (`playerStats`, rating, leaderboard, streak) is gated on `status === 'completed'`, so
+  the no-stats rule is one condition in one place.
+
+## The result read (`GET /api/game/:id/result`)
+
+A dropped client cannot be handed a card: the frame that ends a match is addressed to the sockets
+still inside the room. So the database answers instead, for the caller's own seat:
+
+| `state` | Meaning | What the client does |
+| --- | --- | --- |
+| `finished` | The row is there (`{ state, row }`) | Renders the card from the row and never re-emits `join_game` |
+| `pending` | No row, but `match:${id}` is still live | Leaves the socket alone |
+| `unknown` | No row and no room | Keeps the card it already has |
+
+The client asks on three signals: a `/game` mount whose match is already terminal, a refused
+`join_game` (`MATCH_GAME_NOT_FOUND`), and `reconnect_failed` after the socket's 16 attempts. The
+row it gets back is the seat's own, with its counters and the room's seat snapshot; the transcript
+(`chat`) is never carried by this route.
 
 
 

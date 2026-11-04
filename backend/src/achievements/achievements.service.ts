@@ -31,8 +31,12 @@ export class AchievementsService {
   async evaluateAfterGame(gameId: string): Promise<void> {
     try {
       // The rows postgame has just written: one per seat, so each one is already
-      // that user's participation. No parent row to load, no join.
-      const rows = await this.prisma.db.matchHistory.findMany({ where: { game_id: gameId } });
+      // that user's participation. No parent row to load, no join. A seat that left
+      // the room early also holds a row for this game, and its tallies must never
+      // unlock a rule it did not earn, so only completed rows are read.
+      const rows = await this.prisma.db.matchHistory.findMany({
+        where: { game_id: gameId, status: 'COMPLETED' },
+      });
       for (const row of rows) {
         await this.evaluateForUser(row.user_id, row, true);
       }
@@ -79,7 +83,7 @@ export class AchievementsService {
       }
     } else {
       const rows = await this.prisma.db.matchHistory.findMany({
-        where: { user_id: userId },
+        where: { user_id: userId, status: 'COMPLETED' },
         orderBy: { playedAt: 'desc' },
       });
       for (const matchRow of rows) {
@@ -165,9 +169,10 @@ export class AchievementsService {
     const counts = await this.computeLifecycleCounts(effectiveUserId);
     // The newest retained match is what the per-game progress bars report, and it is
     // also the row the "closest to unlocking" numbers come from. Absent (no match
-    // yet) reads as 0 progress, never as an error.
+    // yet) reads as 0 progress, never as an error. Only a completed match counts: an
+    // abandoned row is a seat that left, and its tallies are not progress.
     const latestMatch = await this.prisma.db.matchHistory.findFirst({
-      where: { user_id: effectiveUserId },
+      where: { user_id: effectiveUserId, status: 'COMPLETED' },
       orderBy: { playedAt: 'desc' },
     });
 

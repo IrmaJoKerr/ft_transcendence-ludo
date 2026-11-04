@@ -7,6 +7,7 @@ import type {
   GameEvent,
   RoomRules,
   DepartureReason,
+  ExitRecord,
 } from './types';
 import type { RedisGameStore } from './redis';
 import { MoveValidator } from './move-validator';
@@ -68,6 +69,10 @@ export class LudoEngine {
   // The room's idle clock (socket/idle-lobby.ts). Set by the socket layer; a
   // departure calls it so a freed seat restarts the lone-host window.
   private idleRefresher?: (gameId: string) => void;
+  // Where a departure's record goes (socket/result-submitter.ts). Set by the socket
+  // layer for the same reason as the two above: the engine decides who left and what
+  // they had done, and only the socket layer holds a backend client.
+  private exitSubmitter?: (gameId: string, records: ExitRecord[]) => void | Promise<void>;
   // Serializes one game's operations so roll/move/etc. never run on top of
   // each other (a bot acting at the same time as a human would otherwise
   // both load the same state and one move gets lost).
@@ -105,6 +110,24 @@ export class LudoEngine {
   // the watcher to re-evaluate instead of duplicating the timing here.
   setIdleRefresher(refresher: (gameId: string) => void): void {
     this.idleRefresher = refresher;
+  }
+
+  // Register where a departure's record is delivered. Called once, by the socket
+  // layer, beside setIdleRefresher.
+  setExitSubmitter(submitter: (gameId: string, records: ExitRecord[]) => void | Promise<void>): void {
+    this.exitSubmitter = submitter;
+  }
+
+  // The delivery flag of one seat's record, written only after a 2xx. Deliberately not
+  // under the game lock: the one caller is the submitter, which may already run inside
+  // a departure's lock (a re-entrant wait would deadlock), and a lost update can only
+  // cause a duplicate POST, which the row's unique index refuses.
+  async markExitSubmitted(gameId: string, color: PlayerColor): Promise<void> {
+    const state = await this.store.loadGameState(gameId);
+    const seat = state?.players.find((p) => p.color === color);
+    if (!state || !seat?.exitRecord) return;
+    seat.exitRecord.submitted = true;
+    await this.store.saveGameState(gameId, state);
   }
 
   // Register a callback for game lifecycle events. The engine detects them here,
@@ -631,9 +654,18 @@ export class LudoEngine {
     notifyAbort?: (gameId: string) => void,
   ): Promise<{ closed: boolean }> {
     const result = await this.withGameLock(gameId, () =>
-      expireReconnectGrace(this.store, (e) => {
-        this.emit(e);
-      }, gameId, color, notifyAbort),
+      expireReconnectGrace(
+        this.store,
+        (e) => {
+          this.emit(e);
+        },
+        gameId,
+        color,
+        notifyAbort,
+        // A live game's expiry is a departure that keeps the room going: the row is
+        // posted from the record the seat now holds.
+        (id, records) => this.exitSubmitter?.(id, records),
+      ),
     );
     await this.settleRoom(gameId);
     return result;
@@ -703,9 +735,19 @@ export class LudoEngine {
     notifyAbort?: (gameId: string) => void,
   ): Promise<{ closed: boolean }> {
     const result = await this.withGameLock(gameId, () =>
-      departSeat(this.store, (e) => {
-        this.emit(e);
-      }, gameId, color, reason, notifyAbort),
+      departSeat(
+        this.store,
+        (e) => {
+          this.emit(e);
+        },
+        gameId,
+        color,
+        reason,
+        notifyAbort,
+        // A room that closed has already written every seat it held (R25), and this
+        // seat is one of them; only a room that survives posts here.
+        (id, records) => this.exitSubmitter?.(id, records),
+      ),
     );
     await this.settleRoom(gameId);
     return result;

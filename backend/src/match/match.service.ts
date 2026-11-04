@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { MatchCreatorService } from './match.creator.service';
 import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
-import { MatchPostgameService, type GameEndPayload } from './match.postgame.service';
+import { MatchPostgameService, type GameEndPayload, type SeatAbandonPayload } from './match.postgame.service';
 import type { RoomRules } from './room-rules';
 import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
-export type { GameEndPayload } from './match.postgame.service';
+export type { GameEndPayload, SeatAbandonPayload } from './match.postgame.service';
 
 @Injectable()
 // Facade over the four match sub-services (creator, player, query,
@@ -98,9 +98,19 @@ export class MatchService {
   async listMyRooms(userId: string) {
     return this.query.listMyRooms(userId);
   }
+  // The read a returning client makes when it can no longer join (M1): the caller's
+  // own row for a match, answered from the database.
+  async seatResult(gameId: string, userId: string) {
+    return this.query.seatResult(gameId, userId);
+  }
 
   // Post-game
   async processGameEnd(data: GameEndPayload) {
     return this.postgame.processGameEnd(data);
+  }
+  // One seat's abandonment row, written at the departure while the room keeps
+  // playing (and once per seat by a room that loses quorum).
+  async recordAbandonedSeat(gameId: string, seat: SeatAbandonPayload) {
+    return this.postgame.recordAbandonedSeat(gameId, seat);
   }
 }

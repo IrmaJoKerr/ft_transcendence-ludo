@@ -117,14 +117,15 @@ export type ResultPlayer = {
   color: PlayerColor  // Seat color
   username: string  // Seat label: display name or hotseat name; for a bot the raw "bot-<color> (<assistant>)" label, localized for display and used as the avatar seed
   isBot: boolean  // Whether it is a bot
-  piecesInGoal: number  // Pieces finished (0-4)
+  piecesInGoal?: number  // Pieces finished (0-4); absent when the room could not report it (a seat recorded at its own departure), and its card then prints the name alone
   userId?: string  // Immutable account id: absent for bots and hotseat's local seats, except the host's own row, which Game.tsx stamps with the store's /me id
   hasAvatarPhoto?: boolean  // Engine roster snapshot, or the store's /me flag on the host's hotseat row: a photo was known to exist
   avatarStyle?: string | null  // DiceBear style that seat chose
+  abandoned?: boolean  // The seat left before the match finished: no podium place and no rank badge
 }
 
 export type LastResult = {
-  winner: PlayerColor  // Winning color
+  winner: PlayerColor | null  // Winning color; null when nothing finished (an abandoned room names no champion)
   resultDetail: string  // How the game ended
   mode: 'pvp' | 'pve' | 'hotseat'  // Game mode
   playerCount: number  // How many players

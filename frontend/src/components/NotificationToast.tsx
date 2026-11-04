@@ -100,6 +100,15 @@ function getToastInfo(
         fromUser: from,
         actionMessage: t('notifications.actionMatchCancelled'),
       };
+    case 'match_abandoned':
+      return {
+        tag: t('notifications.matchAbandonedTag'),
+        badgeLabel: 'LEFT',
+        badgeColor: 'var(--accent-yellow, #ffe600)',
+        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        fromUser: null,
+        actionMessage: t('notifications.matchAbandonedText'),
+      };
     case 'friend_removed':
       return {
         tag: t('notifications.friendRemovedTag'),

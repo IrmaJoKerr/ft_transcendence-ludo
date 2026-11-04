@@ -113,6 +113,33 @@ export interface PlayerMeta {
   // per token-bought exit, one earned per clash won against exactly one defender
   // (see BARRIER_BUSTER_TOKEN_CAP). Absent reads as 0.
   barrierTokens?: number;
+  // The seat's departure, captured while the room's tallies still exist (parking its
+  // pieces zeroes them) and posted to the backend as this seat's own row. It stays on
+  // the seat so a delivery that failed is retried by the wake pass and by a reconnect;
+  // `submitted` is only ever set after a 2xx, because the record is a fact and the
+  // delivery is not.
+  exitRecord?: ExitRecord;
+}
+
+// What the backend needs to write one abandoned row. `rank` is the room's player
+// count: a seat that left placed last, never first.
+export interface ExitRecord {
+  userId: string;
+  color: PlayerColor;
+  rank: number;
+  capturedAt: number; // engine clock (ms) at the departure: the row's end
+  turns: number;
+  captures: number;
+  piecesInGoal: number;
+  piecesLost: number;
+  diceRolls: number;
+  sixes: number;
+  clashDefends: number;
+  clashAttacksWon: number;
+  clashWallBattlesWon: number;
+  clashWallsAttacked: number;
+  clashWallsDefended: number;
+  submitted?: boolean;
 }
 
 // One live clash QTE. Deadlines are absolute, so a restarted engine can re-arm

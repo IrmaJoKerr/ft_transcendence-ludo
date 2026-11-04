@@ -118,6 +118,12 @@ export class SocketServer {
       void this.idleLobby.refresh(gameId);
     });
     this.resultSubmitter = new ResultSubmitter(this.engine, this.store, this.rooms);
+    // A departure's record: the engine decides who left and what they had done, the
+    // submitter holds the backend client. A room that closes posts every seat it held
+    // (R25); a room that keeps playing posts the seat that left.
+    this.engine.setExitSubmitter((gameId, records) => {
+      void this.resultSubmitter.submitExits(gameId, records);
+    });
     this.botScheduler = new BotTurnScheduler(this.store, this.engine, getOrCreateBot);
     this.postGame = new PostGameManager(
       () => this.io,
@@ -294,7 +300,8 @@ export class SocketServer {
   }
 
   // Abort an idle lobby: closeRoom emits game_expired, aborts the match and
-  // deletes the game state; its notify callback drops the in-memory context.
+  // deletes the game state; its notify callback drops the in-memory context. A
+  // waiting room writes no match rows, so the record callback is a no-op here.
   private async expireIdleLobby(gameId: string): Promise<void> {
     await closeRoom(
       this.store,
@@ -305,6 +312,7 @@ export class SocketServer {
       (id) => {
         this.cleanupGame(id);
       },
+      (id, records) => this.resultSubmitter.submitExits(id, records),
     );
   }
 
@@ -399,6 +407,23 @@ export class SocketServer {
     // The finished room's 60 s expiry timer is in-process only, so re-arm it.
     if (current.status === 'finished') {
       this.postGame.onGameEnded(gameId);
+      // A finished room whose report never landed (a crash between the save and the
+      // POST, or a backend that refused it) is the one case nothing else retries: the
+      // event that started the delivery is long gone, and the state is what the retry
+      // validates against. R21's authoritative-state pass.
+      if (!current.resultSubmitted) void this.resultSubmitter.submitGameResult(gameId);
+    }
+
+    // A departure whose row never landed is retried here: the record is still on the
+    // seat, so a restart, a Redis reconnect or the room's next wake finishes the job.
+    const pendingExits = current.players
+      .map((player) => player.exitRecord)
+      .filter((record) => Boolean(record) && !record?.submitted);
+    if (pendingExits.length > 0) {
+      void this.resultSubmitter.submitExits(
+        gameId,
+        pendingExits.filter((record) => record !== undefined),
+      );
     }
 
     await this.idleLobby.refresh(gameId);

@@ -15,7 +15,7 @@
 
 ## Overview
 
-The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **6 models** and **3 enums**, one table per job: `User` for the account, `PlayerStats` for the career, `MatchHistory` for what happened, plus `Achievement`, `Account` and `Friendship`. Notifications are not a table: the bell lives in Redis (see [backend-notification-module.md](./backend-notification-module.md) and D12 in `todo.md`). The Prisma client is generated into `backend/generated` (gitignored).
+The database uses PostgreSQL 16 with Prisma ORM (Prisma 7, `@prisma/adapter-pg`). The schema defines **6 models** and **4 enums**, one table per job: `User` for the account, `PlayerStats` for the career, `MatchHistory` for what happened, plus `Achievement`, `Account` and `Friendship`. Notifications are not a table: the bell lives in Redis (see [backend-notification-module.md](./backend-notification-module.md) and D12 in `todo.md`). The Prisma client is generated into `backend/generated` (gitignored).
 
 > **Notable shift (2026-11-01):** the career left `User`. `rating`, the
 > win/loss record and every streak now live on **`PlayerStats`** (one row per
@@ -82,6 +82,19 @@ enum GameType {
 ```
 
 > There is no `UserStatus` enum — presence is a runtime Redis concern (see `backend-presence-module.md`), with `'online' | 'playing' | 'offline'` derived from the presence key TTL.
+
+### MatchStatus
+
+```prisma
+enum MatchStatus {
+  COMPLETED
+  ABANDONED
+}
+```
+
+> How a match row came to exist. `COMPLETED` is a game that finished with a winner;
+> `ABANDONED` is a seat that left a room before anybody won. Both are rows, and only a
+> completed one scores: the enum is what keeps "what happened" and "what I earned" apart.
 
 
 ---
@@ -223,8 +236,9 @@ the row carries its own counters and its own company line.
 | `gameType` | GameType | | PvP or PvE |
 | `gameModes` | JSON | | The room as played (`clashEnabled`, `noSafeZones`, `freeExit`, `clashKeyShift`, `playerCount`) |
 | `color` | PlayerColor | | Seat colour |
-| `rank` | Int | | Final placement |
-| `ratingDelta` | Int | | The **clamped** delta that was actually applied, kept forever |
+| `rank` | Int | | Final placement: `1` is the winner, and an abandoned seat holds the room's player count (last, never a podium) |
+| `status` | MatchStatus | Default: `COMPLETED` | `COMPLETED` or `ABANDONED`: the one user-facing state of the row |
+| `ratingDelta` | Int | | The **clamped** delta that was actually applied, kept forever. Always `0` on an abandoned row |
 | `totalTurns` | Int | Default: 0 | Turns this seat took |
 | `totalCaptures` | Int | Default: 0 | Pieces this seat knocked off |
 | `piecesInGoal` | Int | Default: 0 | Pieces this seat finished (0-4) |
@@ -234,7 +248,20 @@ the row carries its own counters and its own company line.
 | `clashAttacksWon` | Int | Default: 0 | Rounds won as attacker |
 | `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won |
 | `clashWallsAttacked` / `clashWallsDefended` | Int | Default: 0 | Landings on a wall / walls that held |
-| `participants` | JSON | | Snapshot of every seat, bots included, so the row renders with no join |
+| `participants` | JSON | | Snapshot of every seat, bots included, so the row renders with no join. Each seat carries `abandoned` (it left, and its row says so) and, when the report carried it, `piecesInGoal` |
+| `chat` | JSON? | Nullable | The seat's own transcript, already filtered to what that seat was shown. Written with the row at the end of a room (band 5); never read by the result route |
+| `chatTruncated` | Boolean | Default: false | The transcript outgrew the wire cap and its tail was dropped |
+
+**Two kinds of row, one table.** A `COMPLETED` row is a game that ended with a winner:
+rows, ratings, leaderboard entry and achievements in one transaction
+(`POST /api/game/end`). An `ABANDONED` row is a seat that left before anybody won,
+written at the departure by `POST /api/game/:id/abandon` — the room may still be
+playing for the others — and once per human seat by a room torn down below quorum.
+An abandoned row writes **no** `PlayerStats` counter, **no** rating, **no** leaderboard
+entry, **no** achievement progress and **no** `PlayerStats` upsert; the tallies it
+holds are the ones the seat had when it left (captured before its pieces were parked),
+and its `ratingDelta` is `0`. `status` is the one condition that says so
+(`match.postgame.service.ts`, and `playerStats` is gated on `status === 'completed'`).
 
 **Relations:** `user` (back-reference, `onDelete: Cascade`)
 
@@ -242,11 +269,12 @@ the row carries its own counters and its own company line.
 playedAt DESC)` (the history page), `game_id` ("who else was in my match", and the
 postgame/achievement lookups).
 
-**Retention: the newest 50 per user.** The trim runs inside the same postgame
-transaction as the insert, so a player's row count is bounded by one game's write.
-Nothing derives a lifetime number from these rows (that is `PlayerStats`), which is
-why trimming cannot lose a total — and why a retroactive `POST /api/achievements/check`
-can only see the last 50 games.
+**Retention: the newest 50 per user.** The trim runs inside the same transaction as
+the insert, on either kind of write (a completed report and an abandoned departure),
+so a player's row count is bounded by one game's write and the trim cannot tell the
+two apart. Nothing derives a lifetime number from these rows (that is `PlayerStats`),
+which is why trimming cannot lose a total — and why a retroactive
+`POST /api/achievements/check` can only see the last 50 games.
 
 
 ---
@@ -417,8 +445,9 @@ erDiagram
         GameType gameType "PvP / PvE"
         JSON gameModes "The room as played"
         PlayerColor color "Seat color"
-        int rank "1st, 2nd, ..."
-        int ratingDelta "The clamped delta applied"
+        int rank "1st, 2nd, ... (player count when abandoned)"
+        MatchStatus status "COMPLETED / ABANDONED"
+        int ratingDelta "The clamped delta applied (0 when abandoned)"
         int totalTurns "Turns this seat took"
         int totalCaptures "Pieces knocked off"
         int piecesInGoal "Pieces finished"
@@ -431,6 +460,8 @@ erDiagram
         int clashWallsAttacked "Landings on a wall"
         int clashWallsDefended "Walls that held"
         JSON participants "Every seat, bots included"
+        JSON chat "The seat's own transcript (band 5)"
+        boolean chatTruncated "Transcript tail dropped"
     }
     Friendship {
         string id PK "Unique ID"

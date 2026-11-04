@@ -53,21 +53,28 @@ type ResultPlayer = {  // One row of the invoice
   color: PlayerColor  // Seat color
   username: string  // Seat label: display name or hotseat name; for a bot the raw "bot-<color> (<assistant>)" label, localized for display and used as the avatar seed
   isBot: boolean  // Whether it is a bot
-  piecesInGoal: number  // Pieces finished (0-4)
+  piecesInGoal?: number  // Pieces finished (0-4); absent when the room could not report it, and the row then prints the name alone
   userId?: string  // Immutable account id: absent for bots and hotseat's local seats, except the host's own row, which Game.tsx stamps with the store's /me id
   hasAvatarPhoto?: boolean  // Engine roster snapshot, or the store's /me flag on the host's hotseat row: a photo was known to exist
   avatarStyle?: string | null  // DiceBear style that seat chose
+  abandoned?: boolean  // The seat left before the match finished: no podium place and no rank badge
 }
 
 type LastResult = {
-  winner: PlayerColor  // Winning color
+  winner: PlayerColor | null  // Winning color; null when nothing finished (an abandoned room names no champion)
   resultDetail: string  // How the game ended
   mode: 'pvp' | 'pve' | 'hotseat'  // Game mode
   playerCount: number  // How many players
   players: ResultPlayer[]  // List of players
   abandoned?: boolean   // abandoned/expired match → no winner/podium
-} | null
+} | null;
 ```
+
+**A seat that left takes no place.** `ResultPlayer.abandoned` marks it: the podium order sorts it
+after the finishers, `renderRankBadge` returns `null` for it (its place is 0), and `winner` is `null`
+when nothing finished, so an abandoned card names no champion. `piecesInGoal` is optional: a card
+built from a row can carry it only for the seats the report knew, and those rows print the name
+alone rather than "0/4".
 
 
 ---

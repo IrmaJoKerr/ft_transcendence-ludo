@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
 import Redis from 'ioredis';
 import { readRoomRules } from './room-rules';
+import { ENDED_MATCH_STATUSES } from './active-game';
 
 const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 // Seat statuses the engine treats as terminal: the player can never rejoin (the
@@ -289,5 +290,51 @@ export class MatchQueryService {
   // List WAITING or ACTIVE matches that the given user is seated in.
   async listMyRooms(userId: string): Promise<MyRoom[]> {
     return myRoomsFor(await this.snapshot(), userId);
+  }
+
+  // The caller's own result for a room they can no longer join (M1). A dropped client
+  // cannot be handed a card: its socket is gone when the room ends, so the database is
+  // the only authority for a match that finished while it was away. Three answers,
+  // and the client acts on each differently:
+  // - `finished`: the row is there. The client renders it and never re-emits join_game.
+  // - `pending`: no row, but the room is still live for the others. Leave the socket be.
+  // - `unknown`: no row and no room. Nothing to show beyond the card it already has.
+  async seatResult(gameId: string, userId: string) {
+    if (!gameId) return { state: 'unknown' as const, row: null };
+    const row = await this.prisma.db.matchHistory.findFirst({
+      where: { game_id: gameId, user_id: userId },
+    });
+    if (row) {
+      // What the card needs and nothing else: the caller's own row and the room's seat
+      // snapshot. The transcript (`chat`) is never carried here.
+      return {
+        state: 'finished' as const,
+        row: {
+          gameId: row.game_id,
+          playedAt: row.playedAt,
+          durationMs: row.durationMs,
+          gameType: row.gameType,
+          gameModes: row.gameModes,
+          color: row.color,
+          rank: row.rank,
+          status: row.status,
+          ratingDelta: row.ratingDelta,
+          totalTurns: row.totalTurns,
+          totalCaptures: row.totalCaptures,
+          piecesInGoal: row.piecesInGoal,
+          piecesLost: row.piecesLost,
+          diceRolls: row.diceRolls,
+          sixes: row.sixes,
+          participants: row.participants,
+        },
+      };
+    }
+    // No row yet: the room decides whether waiting makes sense. A closed room (the
+    // ABORTED marker, or an abandoned one) leaves nothing to wait for, and a hash that
+    // is gone entirely is a room the completion pass has already swept.
+    const matchData = await this.redis.hgetall(`match:${gameId}`);
+    const live =
+      Boolean(matchData.id) && !ENDED_MATCH_STATUSES.includes(matchData.status ?? '');
+    return { state: live ? ('pending' as const) : ('unknown' as const), row: null };
   }
 }

@@ -153,15 +153,22 @@ export type ResultPlayer = {
   color: PlayerColor;
   username: string;
   isBot: boolean;
-  piecesInGoal: number;
+  // Absent when the room could not report it: a seat recorded at its own departure
+  // has no piece count, and its card prints the name without one rather than "0/4".
+  piecesInGoal?: number;
   userId?: string;
   hasAvatarPhoto?: boolean;
   avatarStyle?: string | null;
+  // The seat left before the match finished. It renders as no result: excluded from
+  // the podium order and never given a rank badge.
+  abandoned?: boolean;
 };
 
 /** Snapshot of a finished match's outcome: set from Game.tsx's `game_ended` handler so Results.tsx can render real data instead of mock podium rows. */
 export type LastResult = {
-  winner: PlayerColor;
+  // Null when nothing finished: an abandoned room has no champion, and inventing one
+  // (the seat whose turn it was) put a dropped player on the podium.
+  winner: PlayerColor | null;
   resultDetail: string;
   mode: 'pvp' | 'pve' | 'hotseat';
   playerCount: number;

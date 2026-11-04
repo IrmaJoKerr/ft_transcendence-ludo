@@ -53,6 +53,12 @@ function getNotificationTypeBadge(type: string): {
         defaultTag: '[MATCH_ABORTED]',
         color: 'var(--accent-yellow, #ffe600)',
       };
+    case 'match_abandoned':
+      return {
+        tagKey: 'notifications.matchAbandonedTag',
+        defaultTag: '[MATCH_LEFT]',
+        color: 'var(--accent-yellow, #ffe600)',
+      };
     case 'friend_removed':
       return {
         tagKey: 'notifications.friendRemovedTag',
@@ -148,6 +154,8 @@ function renderNotificationBody(
       );
     case 'match_cancelled':
       return <span>{t('notifications.matchCancelledText', { username: from })}</span>;
+    case 'match_abandoned':
+      return <span>{t('notifications.matchAbandonedText')}</span>;
     case 'match_finished': {
       const rank = payload.rank;
       const winner = payload.winnerUsername ? String(payload.winnerUsername) : 'A rival';

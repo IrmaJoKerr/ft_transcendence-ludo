@@ -112,7 +112,7 @@ input/output. Each event is documented in full below; see
 | `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel. One case per event type: a type with no case is dropped silently, which is how the `turn_skipped` frame went missing until the live `wall-breaker` probe caught it (every frame the SPA consumes needs a published-frame assertion or a live probe) |
 | `socket/redis-broadcaster.ts` | `RedisBroadcaster` — forwards Redis `game:*` messages into the matching Socket.IO room |
 | `socket/abandon-subscriber.ts` | `MatchAbandonSubscriber` — subscribes to the backend's `match:abandon` channel and departs the signed-out seat through `engine.departSeat(..., 'leave')`, so a sign-out ends the live match from the engine that owns the room state |
-| `socket/result-submitter.ts` | POST /api/game/end callback to backend — submits the human seats that finished; skips a seat whose account cannot be recovered and logs the colour; posts nothing when no account resolves; reports the piece count read from the board rather than from a cached tally; carries the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them for the two clash achievements |
+| `socket/result-submitter.ts` | The backend's two result writers. `submitGameResult` posts the human seats that finished to `POST /api/game/end` (the completion pass), retrying inside the room's 60 s post-game window and setting `resultSubmitted` only after a 2xx; `submitExits` posts one `POST /api/game/:id/abandon` per seat that left and marks each record `submitted` only after its own 2xx. Both skip a seat whose account cannot be recovered and log the colour, report the piece count read from the board rather than from a cached tally, and carry the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them |
 
 
 ---
@@ -438,6 +438,16 @@ socket.emit('leave_game');
 
 Exits are applied by one function, `departSeat` in `backend/app/ludo-engine/src/player-handler.ts`, which also closes the room when the departure is terminal (`singleSocketMode || !hasQuorum`).
 
+**The record a seat leaves behind (band 4).** Before the parking, `departSeat` captures the seat's
+own record: its colour and account, the tallies it had, the pieces it had home (read off the board,
+because the parking zeroes them) and `rank` = the room's player count. The record lives on the seat
+as `exitRecord`, so a delivery that failed is retried by the wake pass and by the room's next
+reconnect instead of losing the row. Who posts it depends on the terminal decision: a room that
+stays above quorum posts the one seat through `POST /api/game/:id/abandon`, and a room that closes
+posts every human seat it holds, the surviving ones included, because a room torn down below quorum
+is a match nobody completed. Bots, hotseat seats (no account) and guest rooms write nothing. The
+`submitted` flag is only set after a 2xx: the record is a fact, the delivery is not.
+
 > `leave_game` in a **waiting** room is not a departure at all: it calls `startReconnectGrace`, so the click means "away five minutes", not "out". An explicit Abort (the board's `end_game`, or the host's `POST /api/game/:id/abort`) is what frees a corner.
 
 
@@ -469,7 +479,7 @@ Because `player_exited` carries only `{ color }`, a live exit also republishes t
 
 The pause is cleared when its owner reconnects (`restoreSeatOnReconnect`, which also resumes the same turn with its pending dice and moves), when the seat is pruned (`departSeat`, which then advances the turn), and by a defensive owner-only check in `join-manager` on `join_game`. Another player's reconnect must not clear a pause that belongs to a seat still inside its grace window.
 
-**`game_expired` is emitted from one place.** `closeRoom` marks the match `ABORTED`, emits `game_expired`, deletes the engine game state, and runs the cleanup callback. Callers do not emit it themselves, so a client never receives it twice, and the marker is written before the frame so a client that reloads on it can already find the closed room.
+**`game_expired` is emitted from one place.** `closeRoom` captures the record of every seat the room still holds (R25), marks the match `ABORTED`, posts those records, emits `game_expired`, deletes the engine game state, and runs the cleanup callback. Callers do not emit it themselves, so a client never receives it twice, and the marker is written before the frame so a client that reloads on it can already find the closed room.
 
 ### Sign-out departures (`match:abandon`)
 

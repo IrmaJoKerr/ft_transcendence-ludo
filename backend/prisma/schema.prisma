@@ -33,6 +33,14 @@ enum GameType {
   PVE
 }
 
+// How a match row came to exist: `COMPLETED` is a game that finished with a
+// winner, `ABANDONED` is a seat that left a room (or a room that was torn down)
+// before anybody won. Both kinds are rows; only a completed one scores.
+enum MatchStatus {
+  COMPLETED
+  ABANDONED
+}
+
 // ─── User ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -171,6 +179,12 @@ model MatchHistory {
   color     PlayerColor
   rank      Int
 
+  // The one state a row has. An abandoned row is written by the departure
+  // (`POST /api/game/:id/abandon`) or by the teardown of a room that lost quorum,
+  // and it never reaches PlayerStats, the rating, the leaderboard or an
+  // achievement: `rank` is the seat's player count (last) and `ratingDelta` is 0.
+  status MatchStatus @default(COMPLETED)
+
   ratingDelta Int // immutable, and the clamped delta actually applied
 
   totalTurns          Int @default(0)
@@ -188,6 +202,13 @@ model MatchHistory {
   // Snapshot of every seat in the room, bots included: the row renders with no
   // join, and it still reads the same after another player deletes their account.
   participants Json
+
+  // The seat's own transcript, already filtered to what they were shown (`chat`
+  // is written once, at the end of the room, and is never read by the result
+  // route). `chatTruncated` says the payload outgrew the wire cap and the tail
+  // was dropped. Both stay null/false until a room writes them.
+  chat          Json?
+  chatTruncated Boolean @default(false)
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 

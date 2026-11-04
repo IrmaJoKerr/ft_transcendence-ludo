@@ -72,6 +72,7 @@ export type NotificationType =
   | 'game_invite'
   | 'achievement'
   | 'match_finished'
+  | 'match_abandoned'
   | 'match_cancelled'
   | 'profile_updated'
   | 'display_name_changed'

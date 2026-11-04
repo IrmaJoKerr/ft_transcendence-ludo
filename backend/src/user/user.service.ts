@@ -255,6 +255,10 @@ export class UserService {
         gameModes: row.gameModes,
         color: row.color,
         rank: row.rank,
+        // COMPLETED or ABANDONED: the history row's third state. A win is
+        // `rank === 1` on a completed row; an abandoned row is neither a win nor a
+        // loss, and the client labels it from here.
+        status: row.status,
         ratingDelta: row.ratingDelta,
         totalTurns: row.totalTurns,
         totalCaptures: row.totalCaptures,

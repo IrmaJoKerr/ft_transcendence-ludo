@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { MATCH_THROTTLE } from '../common/throttles';
-import { MatchService, type GameEndPayload } from './match.service';
+import { MatchService, type GameEndPayload, type SeatAbandonPayload } from './match.service';
 import { InviteFriendDto } from './dto/invite-friend.dto';
 import { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -201,6 +201,32 @@ export class MatchController {
       throw new UnauthorizedException('Invalid engine key');
     }
     return this.match.markStarted(gameId);
+  }
+
+  // Seat Abandoned (called by ludo-engine when a seat leaves a live room, and once
+  // per human seat by a room that loses quorum). One row for that seat, and nothing
+  // else: the room may still be live for the others, so this never closes it.
+  @Post('api/game/:id/abandon')
+  gameAbandon(
+    @Headers('x-engine-key') key: string,
+    @Param('id') gameId: string,
+    @Body() body: SeatAbandonPayload,
+  ) {
+    if (!verifySecret('ENGINE_API_KEY', key)) {
+      throw new UnauthorizedException('Invalid engine key');
+    }
+    return this.match.recordAbandonedSeat(gameId, body);
+  }
+
+  // The caller's own result for this match, answered from the database: the signal a
+  // client makes when it can no longer join (a refused join_game, a reconnect that
+  // failed, a mount whose match is already terminal). It is the only way a seat that
+  // was away when the room ended learns the outcome.
+  @UseGuards(JwtAuthGuard)
+  @Throttle(MATCH_THROTTLE.result)
+  @Get('api/game/:id/result')
+  matchResult(@Request() req: { user: { id: string } }, @Param('id') gameId: string) {
+    return this.match.seatResult(gameId, req.user.id);
   }
 
   // Exit Game (player acknowledges leaving)

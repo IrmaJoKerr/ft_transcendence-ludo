@@ -107,8 +107,9 @@ page branches on `visibility` before reading any of them.
       playerCount?: number;
     } | null;
     color: string;  // Seat color
-    rank: number | null;  // Position in the ranking
-    ratingDelta: number;  // The clamped delta that was applied (never recomputed)
+    rank: number | null;  // Position in the ranking (the room's player count on an abandoned row)
+    status: 'COMPLETED' | 'ABANDONED';  // The row's third state: abandoned is neither a win nor a loss
+    ratingDelta: number;  // The clamped delta that was applied (never recomputed; 0 on an abandoned row)
     totalTurns: number;  // Turns this seat took
     totalCaptures: number;  // Pieces knocked off
     piecesInGoal: number;  // Pieces finished (0-4)
@@ -128,6 +129,8 @@ page branches on `visibility` before reading any of them.
       color: string;  // Seat color
       rank: number | null;  // Position in the ranking
       isBot: boolean;  // true for a bot seat
+      abandoned?: boolean;  // The seat left before the match finished
+      piecesInGoal?: number;  // Pieces home, when the report carried it
     }>;
   }>;
   pagination: {  // The page fields are nested, which is what the API returns

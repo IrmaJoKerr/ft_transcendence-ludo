@@ -56,6 +56,10 @@ export const MATCH_THROTTLE = {
   ready: { default: { limit: 60, ttl: MINUTE } },
   inviteFriend: { default: { limit: 20, ttl: MINUTE } },
   rejoin: { default: { limit: 60, ttl: MINUTE } },
+  // The result read a client makes when it can no longer join: a mount, a refused
+  // join and a failed reconnect, so a handful per page visit.
+  result: { default: { limit: 60, ttl: MINUTE } },
+
   exit: { default: { limit: 30, ttl: MINUTE } },
   abort: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;

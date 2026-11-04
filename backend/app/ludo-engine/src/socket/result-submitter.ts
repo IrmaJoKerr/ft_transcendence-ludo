@@ -1,5 +1,6 @@
 import type { LudoEngine } from '../engine';
 import type { RedisGameStore } from '../redis';
+import type { ExitRecord } from '../types';
 import { BACKEND_URL } from './auth';
 import type { RoomRegistry } from './room-context';
 import { MoveValidator } from '../move-validator';
@@ -13,6 +14,36 @@ function getEngineApiKey(): string {
   return key;
 }
 
+// How long a delivery waits between attempts. A finished room lives
+// POST_GAME_TIMEOUT_MS (60 s), so the completion report fits five attempts inside
+// it. A departure record has the whole life of the room that kept playing, and the
+// wake pass tries again on the next restart or reconnect, so three attempts are
+// enough for the live path.
+const END_RETRY_MS = [2000, 4000, 8000, 16000, 24000];
+const EXIT_RETRY_MS = [1000, 4000, 10000];
+
+// The wire body of one abandonment row: the backend's SeatAbandonPayload. Colours
+// travel uppercase, matching the PlayerColor enum.
+function abandonBody(record: ExitRecord) {
+  return {
+    userId: record.userId,
+    color: record.color.toUpperCase(),
+    rank: record.rank,
+    capturedAt: record.capturedAt,
+    totalTurns: record.turns,
+    piecesCaptured: record.captures,
+    piecesInGoal: record.piecesInGoal,
+    piecesLost: record.piecesLost,
+    diceRolls: record.diceRolls,
+    sixes: record.sixes,
+    clashDefends: record.clashDefends,
+    clashAttacksWon: record.clashAttacksWon,
+    clashWallBattlesWon: record.clashWallBattlesWon,
+    clashWallsAttacked: record.clashWallsAttacked,
+    clashWallsDefended: record.clashWallsDefended,
+  };
+}
+
 // ResultSubmitter: posts finished-game results to the backend.
 export class ResultSubmitter {
   constructor(
@@ -21,9 +52,10 @@ export class ResultSubmitter {
     private rooms: RoomRegistry,
   ) {}
 
-  // POST the finished game's results to the backend /api/game/end exactly
-  // once per game (idempotent via resultSubmitted). Skips hotseat entirely.
-  // Called by PostGameManager when a game_ended event arrives.
+  // POST the finished game's results to the backend /api/game/end, once per game
+  // (idempotent via resultSubmitted) and retrying inside the room's post-game window.
+  // Skips hotseat and guest entirely. Called when a game_ended event arrives, and
+  // again by the wake pass for a finished room whose delivery never landed.
   async submitGameResult(gameId: string): Promise<void> {
     try {
       const state = await this.engine.getGameState(gameId);
@@ -109,21 +141,80 @@ export class ResultSubmitter {
         return;
       }
 
-      const engineApiKey = getEngineApiKey();
-      const res = await fetch(`${BACKEND_URL}/api/game/end`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Engine-Key': engineApiKey,
-        },
-        body: JSON.stringify({ gameId, participants }),
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        console.error(`Game ${gameId}: /api/game/end rejected ${res.status}: ${body}`);
+      // The flag is written only after a 2xx (R4). Burning it before the POST loses
+      // the result for good when the backend answers 409 (the room is not over yet)
+      // or fails: the record is a fact, the delivery is not.
+      const ok = await this.postWithRetry(
+        `${BACKEND_URL}/api/game/end`,
+        { gameId, participants, status: 'completed' },
+        END_RETRY_MS,
+      );
+      if (!ok) {
+        console.error(`Game ${gameId}: /api/game/end never accepted the result; left unsubmitted`);
+        return;
+      }
+      // Re-read: the room's 60 s post-game window may have deleted the state while the
+      // attempts ran, and saving the pre-POST copy would resurrect it.
+      const after = await this.engine.getGameState(gameId);
+      if (after) {
+        after.resultSubmitted = true;
+        await this.store.saveGameState(gameId, after);
       }
     } catch (err) {
       console.error('Failed to submit game result:', err);
+    }
+  }
+
+  // POST one record per seat that left a room, and mark each one delivered only after
+  // its own 2xx. A room that closed passes every seat it held; a room that kept playing
+  // passes the seat that left. Whatever fails stays on the seat (`exitRecord`), so the
+  // wake pass tries again instead of losing the row.
+  async submitExits(gameId: string, records: ExitRecord[]): Promise<void> {
+    if (records.length === 0) return;
+    try {
+      for (const record of records) {
+        const ok = await this.postWithRetry(
+          `${BACKEND_URL}/api/game/${encodeURIComponent(gameId)}/abandon`,
+          abandonBody(record),
+          EXIT_RETRY_MS,
+        );
+        if (!ok) {
+          console.error(
+            `Game ${gameId}: seat ${record.color} was never recorded; it stays pending`,
+          );
+          continue;
+        }
+        await this.engine.markExitSubmitted(gameId, record.color);
+      }
+    } catch (err) {
+      console.error('Failed to submit a departure record:', err);
+    }
+  }
+
+  // A POST with a fixed backoff: 2xx is the only success, a 409 ("not yet") and a 5xx
+  // are retried, and any other 4xx is a body the backend will never accept. Returns
+  // whether the backend took it.
+  private async postWithRetry(url: string, body: unknown, delays: number[]): Promise<boolean> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Engine-Key': getEngineApiKey(),
+          },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) return true;
+        const text = await res.text().catch(() => '');
+        console.error(`${url} rejected ${res.status}: ${text}`);
+        if (res.status !== 409 && res.status < 500) return false;
+      } catch (err) {
+        console.error(`${url} failed:`, err instanceof Error ? err.message : err);
+      }
+      const wait = delays[attempt];
+      if (wait === undefined) return false;
+      await new Promise((resolve) => setTimeout(resolve, wait));
     }
   }
 

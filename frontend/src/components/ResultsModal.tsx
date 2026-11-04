@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserAvatar } from './UserAvatar';
-import { useApp, type LastResult } from '../store';
+import { useApp, type LastResult, type ResultPlayer } from '../store';
 import { retroAudio } from '../utils/audio';
 import { avatarSeed, localizedBotName } from '../utils/botName';
 import { COLOR_KEYS } from '../theme';
@@ -73,12 +73,24 @@ export function ResultsModal({
     };
   }, []);
 
-  const ranked = [...result.players].sort((a, b) => b.piecesInGoal - a.piecesInGoal);
+  // Abandoned seats keep their row (their name still reads) but never take a place:
+  // they sort after the seats that finished, and the badge rule below gives them none.
+  // A seat that kept its pieces-home count can otherwise out-rank the real winner of a
+  // room it had already left.
+  const ranked = [...result.players].sort((a, b) => {
+    if (Boolean(a.abandoned) !== Boolean(b.abandoned)) return a.abandoned ? 1 : -1;
+    return (b.piecesInGoal ?? 0) - (a.piecesInGoal ?? 0);
+  });
+  // The place each finisher holds: 1 is the winner, and a seat that left has none.
+  const places = new Map<ResultPlayer, number>();
+  for (const p of ranked) {
+    if (!p.abandoned) places.set(p, places.size + 1);
+  }
 
   // A match is only completed with a real champion if it wasn't abandoned and has a winner
   const hasRealWinner =
     !result.abandoned &&
-    (Boolean(result.winner) || result.players.some((p) => p.piecesInGoal >= 4));
+    (Boolean(result.winner) || result.players.some((p) => (p.piecesInGoal ?? 0) >= 4));
 
   // Find current player's color or fallback to first human/player. The id first:
   // `players[].username` is the engine's seat label (a display name or a lobby
@@ -92,7 +104,7 @@ export function ResultsModal({
   const won = hasRealWinner && result.winner === myColor;
   const winnerPlayer = result.players.find((p) => p.color === result.winner);
 
-  const winnerColorName = COLOR_KEYS[result.winner] ?? COLOR_KEYS.red;
+  const winnerColorName = (result.winner && COLOR_KEYS[result.winner]) || COLOR_KEYS.red;
   const winnerName = winnerPlayer
     ? winnerPlayer.color === myColor
       ? t('common.you')
@@ -118,9 +130,10 @@ export function ResultsModal({
     outcomeTitle = t('results.outcomeDefeat');
   }
 
-  // Render rank badge with correct 1st, 2nd, 3rd, 4th ordinal suffixes (only when not abandoned)
+  // Render rank badge with correct 1st, 2nd, 3rd, 4th ordinal suffixes (only when not
+  // abandoned, and never for a seat that left: its place is 0).
   const renderRankBadge = (rank: number, isWinner: boolean) => {
-    if (!hasRealWinner) return null;
+    if (!hasRealWinner || rank === 0) return null;
     if (isWinner) {
       return <span className={`${PAY_TAG_BASE} ${PAY_TAG_WIN}`}>{t('results.firstPlace')}</span>;
     }
@@ -201,8 +214,9 @@ export function ResultsModal({
 
                 {/* Player Roster Breakdown List */}
                 <ul className={PAYERS_LIST}>
-                  {ranked.map((p, index) => {
-                    const isWinner = index === 0 && hasRealWinner;
+                  {ranked.map((p) => {
+                    const place = places.get(p) ?? 0;
+                    const isWinner = place === 1 && hasRealWinner;
                     const isMe = p.color === myColor;
                     // Only when the id matched: the name and first-human fallbacks
                     // can land on another seat, which must not reuse our photo.
@@ -249,9 +263,10 @@ export function ResultsModal({
                               minWidth: 0,
                             }}
                           >
-                            {pName} ({p.piecesInGoal}/4)
+                            {pName}
+                            {typeof p.piecesInGoal === 'number' ? ` (${p.piecesInGoal}/4)` : ''}
                           </span>
-                          {renderRankBadge(index + 1, isWinner)}
+                          {renderRankBadge(place, isWinner)}
                         </p>
                       </li>
                     );

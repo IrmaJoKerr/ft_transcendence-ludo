@@ -279,8 +279,16 @@ survives a reload without a second request.
 
 Prisma-managed, schema at `backend/prisma/schema.prisma`.
 
-**Models:** `User` (the account: identity, avatar, language), `PlayerStats` (the career: rating, record, streaks, lifetime counters), `MatchHistory` (one row per seat per finished match), `Account` (OAuth provider links), `Achievement` (16 achievement flags), `Friendship`
-**Enums:** `FriendshipStatus`, `PlayerColor`, `GameType`
+**Models:** `User` (the account: identity, avatar, language), `PlayerStats` (the career: rating, record, streaks, lifetime counters), `MatchHistory` (one row per seat per match, completed or abandoned), `Account` (OAuth provider links), `Achievement` (16 achievement flags), `Friendship`
+**Enums:** `FriendshipStatus`, `PlayerColor`, `GameType`, `MatchStatus`
+
+**The abandoned state sits beside the table split, not in it.** `PlayerStats` is what a
+player earned, so only a completed match touches it. `MatchHistory` is what happened, so a
+seat that left a room before anybody won keeps a row too: `status: 'ABANDONED'`, `rank`
+= the room's player count, `ratingDelta: 0`, and the tallies it had at the departure.
+That is what lets a profile show the games a player never finished (and lets anyone
+reading that profile see the pattern) without a single point of rating moving.
+
 
 Schema is applied with `npx prisma db push` (**no** `--accept-data-loss`) from
 `backend/docker-entrypoint.sh` on every boot — the runtime deliberately uses **db

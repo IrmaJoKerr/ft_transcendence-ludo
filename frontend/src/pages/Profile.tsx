@@ -90,6 +90,9 @@ type MatchHistoryRow = {
   gameModes: RoomRules | null;
   color: string;
   rank: number | null;
+  // COMPLETED or ABANDONED (M5). A win is `rank === 1` on a completed row; an
+  // abandoned row is neither a win nor a loss, and shows as its own third state.
+  status: 'COMPLETED' | 'ABANDONED';
   ratingDelta: number;
   totalTurns: number;
   totalCaptures: number;
@@ -1695,6 +1698,27 @@ export function Profile() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                               {gamesData.games.map((g) => {
                                 const isWin = g.rank === 1;
+                                // The third state (M5): an abandoned row is neither a win
+                                // nor a loss. It was not completed, so it shows the tallies
+                                // it held and never a rating movement.
+                                const isAbandoned = g.status === 'ABANDONED';
+                                const tone = isAbandoned
+                                  ? {
+                                      bg: 'rgba(255, 230, 0, 0.06)',
+                                      border: 'rgba(255, 230, 0, 0.34)',
+                                      fg: '#ffe600',
+                                    }
+                                  : isWin
+                                    ? {
+                                        bg: 'rgba(0, 255, 136, 0.09)',
+                                        border: 'rgba(0, 255, 136, 0.42)',
+                                        fg: '#00ff88',
+                                      }
+                                    : {
+                                        bg: 'rgba(255, 0, 127, 0.07)',
+                                        border: 'rgba(255, 0, 127, 0.36)',
+                                        fg: '#ff007f',
+                                      };
                                 const playedAt = new Date(g.playedAt);
                                 // The chips come from the room the match recorded, not
                                 // from the lobby: a finished game's rules survive only
@@ -1733,10 +1757,8 @@ export function Profile() {
                                     style={{
                                       padding: '12px 18px',
                                       borderRadius: 7,
-                                      background: isWin
-                                        ? 'rgba(0, 255, 136, 0.09)'
-                                        : 'rgba(255, 0, 127, 0.07)',
-                                      border: `1.5px solid ${isWin ? 'rgba(0, 255, 136, 0.42)' : 'rgba(255, 0, 127, 0.36)'}`,
+                                      background: tone.bg,
+                                      border: `1.5px solid ${tone.border}`,
                                       fontFamily: 'var(--font-display)',
                                       transition: 'all 0.18s ease',
                                     }}
@@ -1765,17 +1787,17 @@ export function Profile() {
                                             fontWeight: 900,
                                             padding: '4px 12px',
                                             borderRadius: 4,
-                                            background: isWin
-                                              ? 'rgba(0, 255, 136, 0.22)'
-                                              : 'rgba(255, 0, 127, 0.22)',
-                                            color: isWin ? '#00ff88' : '#ff007f',
-                                            border: `1px solid ${isWin ? '#00ff88' : '#ff007f'}`,
+                                            background: `${tone.fg}38`,
+                                            color: tone.fg,
+                                            border: `1px solid ${tone.fg}`,
                                             letterSpacing: '0.5px',
                                           }}
                                         >
-                                          {isWin
-                                            ? t('profile.badgeWinText')
-                                            : t('profile.badgeLossText')}
+                                          {isAbandoned
+                                            ? t('profile.badgeAbandonedText')
+                                            : isWin
+                                              ? t('profile.badgeWinText')
+                                              : t('profile.badgeLossText')}
                                         </span>
                                         <span
                                           style={{
@@ -1808,25 +1830,41 @@ export function Profile() {
                                         ))}
                                       </div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <span
-                                          style={{
-                                            fontSize: '0.9rem',
-                                            fontWeight: 900,
-                                            lineHeight: 1,
-                                            color:
-                                              g.ratingDelta > 0
-                                                ? '#00ff88'
-                                                : g.ratingDelta < 0
-                                                  ? '#ff007f'
-                                                  : 'var(--text-muted)',
-                                            textShadow:
-                                              g.ratingDelta > 0
-                                                ? '0 0 8px rgba(0, 255, 136, 0.6)'
-                                                : 'none',
-                                          }}
-                                        >
-                                          {`${g.ratingDelta > 0 ? '+' : ''}${g.ratingDelta} ELO`}
-                                        </span>
+                                        {/* An abandoned row moved no rating, so it prints
+                                            the label instead of a swing. */}
+                                        {isAbandoned ? (
+                                          <span
+                                            style={{
+                                              fontSize: '0.8rem',
+                                              fontWeight: 900,
+                                              lineHeight: 1,
+                                              color: 'var(--text-muted)',
+                                              letterSpacing: '0.04em',
+                                            }}
+                                          >
+                                            {t('profile.noRatingChange')}
+                                          </span>
+                                        ) : (
+                                          <span
+                                            style={{
+                                              fontSize: '0.9rem',
+                                              fontWeight: 900,
+                                              lineHeight: 1,
+                                              color:
+                                                g.ratingDelta > 0
+                                                  ? '#00ff88'
+                                                  : g.ratingDelta < 0
+                                                    ? '#ff007f'
+                                                    : 'var(--text-muted)',
+                                              textShadow:
+                                                g.ratingDelta > 0
+                                                  ? '0 0 8px rgba(0, 255, 136, 0.6)'
+                                                  : 'none',
+                                            }}
+                                          >
+                                            {`${g.ratingDelta > 0 ? '+' : ''}${g.ratingDelta} ELO`}
+                                          </span>
+                                        )}
                                         <span
                                           style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
                                         >

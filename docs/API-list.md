@@ -205,8 +205,10 @@ An error response has one of two shapes:
    - [`GET /api/games/mine`](#get-apigamesmine) — List rooms you are seated in
 
 9. **[Game End (engine callback)](#9-game-end-engine-callback)** — Engine reports game start/end
-   - [`POST /api/game/end`](#post-apigameend) — (engine) Report a finished game; triggers scoring, ratings, achievements
+   - [`POST /api/game/end`](#post-apigameend) — (engine) The completion pass: rows for the seats that have none; triggers scoring, ratings, achievements
+   - [`POST /api/game/:id/abandon`](#post-apigameidabandon) — (engine) One seat left before the game ended; writes its `ABANDONED` row and nothing else
    - [`POST /api/game/:id/started`](#post-apigameidstarted) — (engine) Mark a game as started once the ready check passes
+   - [`GET /api/game/:id/result`](#get-apigameidresult) — Your own row for a match you can no longer join
 
 10. **[Leaderboard](#10-leaderboard)** — Global rankings
    - [`GET /api/leaderboard`](#get-apileaderboard) — View the global rankings (optionally highlight your own rank)
@@ -1660,7 +1662,7 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
 
 ```
 
-**Errors:** 400 if `gameId` is missing, `participants` is missing or empty, a PvP result carries fewer than 2 human entries, or no entry holds an account. The backend applies the same bot rule as the engine: a seat the room hash flags `player<N>_isBot` is dropped before anything is written, and the PvP minimum counts what is left, so a bot never stands in for the second player (`MATCH_END_PVP_MIN_PLAYERS`). A participant whose id has no `User` row is skipped too (`user_id` is a foreign key), and when that leaves nobody the request answers `MATCH_END_PLAYERS_REQUIRED` before the transaction, so no row is left behind. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points): the match rows themselves are the guard, and `@@unique([user_id, game_id])` settles the delivery that races the guard.
+**Errors:** 409 `MATCH_END_STILL_ACTIVE` if the engine has neither finished the game nor closed the room (this route may not end a live room), and 409 `MATCH_END_NEVER_STARTED` if the room was never started (a reaped waiting room). An unreadable `game:` state falls through to the start stamp instead of refusing, so a Redis restart mid-game still gets its result in. 400 if `gameId` is missing, `participants` is missing or empty, a PvP result carries fewer than 2 human entries, or no entry holds an account. The backend applies the same bot rule as the engine: a seat the room hash flags `player<N>_isBot` is dropped before anything is written, and the PvP minimum counts what is left, so a bot never stands in for the second player (`MATCH_END_PVP_MIN_PLAYERS`). A participant whose id has no `User` row is skipped too (`user_id` is a foreign key), and when that leaves nobody the request answers `MATCH_END_PLAYERS_REQUIRED` before the transaction, so no row is left behind. Re-sending the same `gameId` is safe (idempotent — returns `"Game already processed"` without double-awarding points): the guard is a **completed** row for the game, so a seat that already holds an `ABANDONED` row does not make the real result look delivered, and `@@unique([user_id, game_id])` settles the delivery that races the guard. A seat that already holds a row is skipped, its recorded rank and status join the participant snapshot, and the PvP minimum counts rows plus reports.
 
 **Side effects:**
 - Writes one `MatchHistory` row per participant that survives the bot flag and holds an account, with every counter, the room's rules (`gameModes`, including `playerCount`), the participant snapshot and the **clamped** `ratingDelta` that was applied
@@ -1670,6 +1672,100 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
 - Sends a `match_finished` notification to every scored participant
 - Updates the Redis `leaderboard:global` sorted set, one member per scored participant
 - Deletes `match:{gameId}` from Redis
+
+
+---
+---
+
+
+#### `POST /api/game/:id/abandon`
+
+**Source:** `backend/src/match/match.controller.ts` — MatchModule
+
+Called by ludo-engine when a seat leaves a room before anybody wins: once at the departure itself
+(the room stays above quorum and keeps playing), and once per human seat when a room is torn down
+below quorum. 🤖 Does not require JWT — authenticated via `x-engine-key` header. The counters are
+the tallies as they stood when the seat left, which the engine captures before its pieces are
+parked.
+
+**Headers:** `x-engine-key: <ENGINE_API_KEY>`  
+**Path:** `:id` = gameId  
+**Body:**
+
+```json
+{
+  "userId": "string (account id)",
+  "color": "'RED'|'GREEN'|'YELLOW'|'BLUE'",
+  "rank": 3,
+  "capturedAt": 1730716800000,
+  "totalTurns": 21,
+  "piecesCaptured": 1,
+  "piecesInGoal": 2,
+  "piecesLost": 3,
+  "diceRolls": 19,
+  "sixes": 4,
+  "clashDefends": 0,
+  "clashAttacksWon": 1,
+  "clashWallBattlesWon": 0,
+  "clashWallsAttacked": 1,
+  "clashWallsDefended": 0
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Seat recorded",
+  "gameId": "uuid"
+}
+```
+
+**Errors:** 409 `MATCH_ABANDON_SEAT_ACTIVE` if the seat is still playing and the room is still
+live: only a seat that left (or a room the engine has closed) may be recorded, so a 3-of-4 abort
+never writes a row for the players still on the board. 400 `MATCH_ABANDON_NEVER_STARTED` for a room
+that never started (a waiting-room abort frees a corner and leaves no record), 404
+`MATCH_GAME_NOT_FOUND` when the room hash is gone, and 400 `MATCH_ABANDON_NO_ACCOUNT` when no
+`User` row holds the seat. A redelivered departure answers `"Seat already recorded"`.
+
+**Side effects:**
+- Writes **one** `MatchHistory` row: `status: 'ABANDONED'`, `rank` = the room's player count,
+  `ratingDelta: 0`, the reported counters, the room's rules and the seat snapshot (the leaving seat
+  flagged `abandoned`)
+- Trims that seat's history to its newest 50 rows, in the same transaction
+- Sends a `match_abandoned` notification to that account
+- **Nothing else:** no `PlayerStats` write, no rating, no leaderboard entry, no achievement
+  progress, no `rooms:changed`, and `match:{gameId}` is never deleted (the room may still be live
+  for the others)
+
+
+---
+---
+
+
+#### `GET /api/game/:id/result`
+
+**Source:** `backend/src/match/match.controller.ts` — MatchModule
+
+The caller's own result for a match they can no longer join: the read a client makes when its
+`join_game` was refused, when its reconnects are spent, or when it mounts a page whose match is
+already over. Answered from the database, because the frame that ends a match is addressed to the
+sockets still inside the room.
+
+**Headers:** JWT cookie  
+**Path:** `:id` = gameId  
+**Response:** one of
+
+```json
+{ "state": "finished", "row": { "gameId": "uuid", "playedAt": "2026-11-04T10:00:00.000Z", "durationMs": 512000, "gameType": "PVP", "gameModes": { "playerCount": 3 }, "color": "RED", "rank": 2, "status": "ABANDONED", "ratingDelta": 0, "totalTurns": 21, "totalCaptures": 1, "piecesInGoal": 2, "piecesLost": 3, "diceRolls": 19, "sixes": 4, "participants": [ "…one entry per seat…" ] } }
+{ "state": "pending", "row": null }
+{ "state": "unknown", "row": null }
+```
+
+`finished` means the row is there; `pending` means there is no row yet but `match:{id}` is still
+live for the others; `unknown` means there is no row and no room. The transcript (`chat`) is never
+carried by this route. The client sets the match terminal on `finished`, so `join_game` is never
+re-emitted.
 
 
 ---

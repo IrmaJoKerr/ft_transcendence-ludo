@@ -26,7 +26,7 @@ import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
 import { postApi, translateErrorCode } from '../api';
-import { useApp, isOccupiedSeat, type ResultPlayer, type Seat } from '../store';
+import { useApp, isOccupiedSeat, type LastResult, type ResultPlayer, type Seat } from '../store';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
 import { CyberButton, CyberModal } from '../components/CyberModal';
@@ -118,6 +118,60 @@ function seatsAsResultPlayers(seats: Seat[], you: string): ResultPlayer[] {
     isBot: seat.type === 'bot',
     piecesInGoal: 0,
   }));
+}
+
+// One seat of a row's snapshot, as the backend keeps it
+// (backend/src/match/match.postgame.service.ts): the row renders with no join.
+type SnapshotSeat = {
+  username: string;
+  displayName: string;
+  color: string; // uppercase, matching PlayerColor
+  rank: number | null;
+  isBot: boolean;
+  abandoned?: boolean;
+  piecesInGoal?: number;
+};
+
+// The answer to GET /api/game/:id/result, for the caller's own seat. `pending` means
+// the room is still live for the others, `unknown` means there is nothing to wait for.
+type SeatResultAnswer = {
+  state: 'unknown' | 'pending' | 'finished';
+  row: {
+    gameId: string;
+    gameType: 'PVP' | 'PVE';
+    gameModes: { playerCount?: number } | null;
+    status: 'COMPLETED' | 'ABANDONED';
+    rank: number;
+    participants: SnapshotSeat[];
+  } | null;
+};
+
+/**
+ * The result card, rebuilt from the row the backend keeps. This is the only path that
+ * reaches a seat that was away when its room ended: the frame that ends a match is
+ * addressed to the sockets still inside the room, so a dropped client's answer has to
+ * come from the database. A room that did not finish names no champion, so `winner` is
+ * null rather than "whoever held the turn".
+ */
+function rowAsLastResult(row: NonNullable<SeatResultAnswer['row']>): NonNullable<LastResult> {
+  const seats = Array.isArray(row.participants) ? row.participants : [];
+  const champion = seats.find((seat) => seat.rank === 1 && !seat.abandoned);
+  return {
+    winner: champion ? (champion.color.toLowerCase() as PlayerColor) : null,
+    resultDetail: row.status === 'ABANDONED' ? 'abandoned' : 'four_pieces',
+    mode: row.gameType === 'PVE' ? 'pve' : 'pvp',
+    playerCount: row.gameModes?.playerCount ?? seats.length,
+    players: seats.map((seat) => ({
+      color: seat.color.toLowerCase() as PlayerColor,
+      username: seat.isBot ? seat.displayName || seat.username : seat.username,
+      isBot: seat.isBot,
+      // Only when the row knew it: a seat recorded at its own departure has none, and
+      // its card prints the name alone rather than "0/4".
+      ...(typeof seat.piecesInGoal === 'number' ? { piecesInGoal: seat.piecesInGoal } : {}),
+      abandoned: seat.abandoned === true,
+    })),
+    abandoned: row.status === 'ABANDONED',
+  };
 }
 
 // The recon panel's one write: a frame's entries arrive oldest-first and the panel
@@ -273,10 +327,17 @@ export function Game() {
           userId: isHostSeat ? me?.id : p.userId,
           hasAvatarPhoto: isHostSeat ? (me?.hasAvatarPhoto ?? false) : (p.hasAvatarPhoto ?? false),
           avatarStyle: isHostSeat ? (me?.avatarStyle ?? null) : (p.avatarStyle ?? null),
+          // A seat that left is not a finisher: the card keeps its name and gives it
+          // no rank badge, so a dropped player is never crowned over the real winner.
+          abandoned: p.status === 'exited',
         };
       });
   };
   const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
+  // Once the database says this match is decided, the page never asks for a seat again
+  // (M1): a refused join_game re-emits on every reconnect, and each one ends in the same
+  // banner over a board that cannot move.
+  const matchOverRef = useRef(false);
   const [view, dispatch] = useReducer(applyEvent, null, () =>
     initialView(activeMatch?.color ?? 'red'),
   );
@@ -494,6 +555,7 @@ export function Game() {
 
     const socket = connectSocket(activeMatch.token);
     socketRef.current = socket;
+    matchOverRef.current = false;
 
     // Refresh safety: a pre-upgrade cached activeMatch may lack `mode`. Re-derive
     // it from the match record so hotseat/PvE can't collapse into a PvP rejoin.
@@ -515,9 +577,35 @@ export function Game() {
         .catch(() => undefined);
     }
 
+    // The result read (M1): what this seat's match did, from the database. The client
+    // asks it on the three signals that mean "this room will not be joined" and acts on
+    // `finished` only: the match becomes terminal, so no join_game is ever re-emitted,
+    // and the card renders from the record instead of from whatever the board last held.
+    // A `pending` answer leaves the socket alone: the room is still live for the others.
+    const querySeatResult = async (gameId: string) => {
+      if (matchOverRef.current) return;
+      try {
+        const res = await fetch(`/api/game/${gameId}/result`, { credentials: 'include' });
+        if (!res.ok) return;
+        const answer = (await res.json()) as SeatResultAnswer;
+        if (answer.state !== 'finished' || !answer.row) return;
+        matchOverRef.current = true;
+        setLastResult(rowAsLastResult(answer.row));
+        setShowResultsModal(true);
+      } catch {
+        // Offline or a 5xx: the card the page already holds stays the answer.
+      }
+    };
+    // Signal one: a mount whose match is already terminal. The read is cheap and the
+    // room decides whether there is anything to show, so it runs on every mount rather
+    // than guessing from local state.
+    void querySeatResult(activeMatch.gameId);
+
     socket.on('connect', () => {
       const current = activeMatchRef.current;
       if (!current) return;
+      // A decided match is never re-joined: the read above already answered for it.
+      if (matchOverRef.current) return;
       const me = userRef.current;
       // Hotseat: one physical device controls every seat. The engine has no
       // separate accounts to join with, so this single socket must join_game for
@@ -794,7 +882,9 @@ export function Game() {
       }
 
       return {
-        winner: viewRef.current.winner ?? viewRef.current.currentTurn,
+        // No champion: a room that did not finish has none, and naming the seat that
+      // held the turn crowned the player who had left.
+      winner: viewRef.current.winner ?? null,
         resultDetail: 'abandoned',
         mode: matchNow?.mode ?? 'pvp',
         playerCount: matchNow?.playerCount ?? players.length,
@@ -820,6 +910,13 @@ export function Game() {
 
     socket.on('error', (msg: string) => {
       console.error('[engine]', msg);
+      // Signal two (M1): the join was refused because the room is gone. The engine can
+      // only say "not found"; the backend knows whether this seat has a result, so ask
+      // it rather than leaving a banner over a board that will never move.
+      if (msg === 'MATCH_GAME_NOT_FOUND') {
+        const current = activeMatchRef.current;
+        if (current) void querySeatResult(current.gameId);
+      }
       // Engine errors carry i18n codes (lobby.ts): show the localized text in the
       // reserved banner. Unmapped messages stay console-only.
       const localized = translateErrorCode(msg);
@@ -834,9 +931,19 @@ export function Game() {
       pendingMoveRef.current = false;
     });
 
+    // Signal three (M1): the reconnect budget (socket.ts) is spent, so no join is
+    // coming from this socket. The seat may still hold a row, and the read is the only
+    // way to find out.
+    const onReconnectFailed = () => {
+      const current = activeMatchRef.current;
+      if (current) void querySeatResult(current.gameId);
+    };
+    socket.io.on('reconnect_failed', onReconnectFailed);
+
     return () => {
       window.removeEventListener('focus', revive);
       document.removeEventListener('visibilitychange', reviveOnVisible);
+      socket.io.off('reconnect_failed', onReconnectFailed);
       socket.disconnect();
       socketRef.current = null;
       if (animTimerRef.current) clearInterval(animTimerRef.current);
@@ -1151,7 +1258,9 @@ export function Game() {
     }
 
     setLastResult({
-      winner: viewRef.current.winner ?? viewRef.current.currentTurn,
+      // No champion: a room that did not finish has none, and naming the seat that
+      // held the turn crowned the player who had left.
+      winner: viewRef.current.winner ?? null,
       resultDetail: 'abandoned',
       mode: activeMatch?.mode ?? 'pvp',
       playerCount: activeMatch?.playerCount ?? players.length,

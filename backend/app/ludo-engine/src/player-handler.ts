@@ -1,5 +1,6 @@
-import type { GameState, PlayerColor, GameEvent, DepartureReason } from './types';
+import type { GameState, PlayerColor, GameEvent, DepartureReason, ExitRecord } from './types';
 import type { RedisGameStore } from './redis';
+import { MoveValidator } from './move-validator';
 import {
   DISCONNECT_GRACE_MS,
   SINGLE_SOCKET_DISCONNECT_GRACE_MS,
@@ -12,6 +13,13 @@ const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 // participant to wait for and no quorum to lose.
 function isSingleSocketGame(gameType: string | undefined): boolean {
   return gameType === 'PVE' || gameType === 'HOTSEAT';
+}
+
+// Whether a room's seats leave a record at all. Hotseat is played on one screen and a
+// guest room is demo-and-forget, so neither writes a match row: the same rule the
+// finished-game submitter applies, applied at the departure that writes the row.
+function writesMatchRows(matchData: Record<string, string> | null | undefined): boolean {
+  return matchData?.gameType !== 'HOTSEAT' && matchData?.isGuest !== 'true';
 }
 
 // How long an away seat may stay away, decided by the room it is in: one hour for
@@ -31,6 +39,34 @@ function reconnectWindowMs(state: GameState, gameType: string | undefined): numb
 // were filled in.
 export function firstActiveColor(state: GameState): PlayerColor | undefined {
   return COLORS.find((c) => state.players.find((p) => p.color === c)?.status === 'active');
+}
+
+// The record of a seat leaving a game, captured **before** its pieces are parked:
+// after the parking the board counts zero and the row would claim the seat never
+// moved. `rank` is the room's player count, so a seat that left placed last; a bot
+// seat and a seat with no account write nothing, because neither can hold a row.
+export function captureExitRecord(state: GameState, color: PlayerColor): ExitRecord | undefined {
+  const player = state.players.find((p) => p.color === color);
+  if (!player || player.isBot || !player.userId) return undefined;
+  const stats = player.stats;
+  return {
+    userId: player.userId,
+    color,
+    rank: state.players.length,
+    capturedAt: Date.now(),
+    turns: stats.turns ?? 0,
+    captures: stats.captures ?? 0,
+    piecesInGoal: MoveValidator.countPiecesInGoal(state, color),
+    piecesLost: stats.piecesLost ?? 0,
+    diceRolls: stats.diceRolls ?? 0,
+    sixes: stats.sixes ?? 0,
+    clashDefends: stats.clashDefends ?? 0,
+    clashAttacksWon: stats.clashAttacksWon ?? 0,
+    clashWallBattlesWon: stats.clashWallBattlesWon ?? 0,
+    clashWallsAttacked: stats.clashWallsAttacked ?? 0,
+    clashWallsDefended: stats.clashWallsDefended ?? 0,
+    submitted: false,
+  };
 }
 
 // Move to the next seat that can play, walking `COLORS` in their canonical order
@@ -195,6 +231,7 @@ export async function expireReconnectGrace(
   gameId: string,
   color: PlayerColor,
   notifyAbort?: (gameId: string) => void,
+  submitExits?: (gameId: string, records: ExitRecord[]) => void | Promise<void>,
 ): Promise<{ closed: boolean }> {
   const state = await store.loadGameState(gameId);
   if (!state) return { closed: false };
@@ -208,7 +245,7 @@ export async function expireReconnectGrace(
   // A single-socket room belongs to one device: with that device gone there is
   // nothing left to play, whatever the room's status was.
   if (isSingleSocketGame(matchData?.gameType)) {
-    await closeRoom(store, emit, gameId, notifyAbort);
+    await closeRoom(store, emit, gameId, notifyAbort, submitExits);
     return { closed: true };
   }
 
@@ -223,7 +260,7 @@ export async function expireReconnectGrace(
       !!matchData?.hostId &&
       (matchData[`player${slot}_id`] === matchData.hostId || player?.userId === matchData.hostId);
     if (hostSeat) {
-      await closeRoom(store, emit, gameId, notifyAbort);
+      await closeRoom(store, emit, gameId, notifyAbort, submitExits);
       return { closed: true };
     }
 
@@ -240,7 +277,7 @@ export async function expireReconnectGrace(
     return { closed: false };
   }
 
-  return departSeat(store, emit, gameId, color, 'timeout', notifyAbort);
+  return departSeat(store, emit, gameId, color, 'timeout', notifyAbort, submitExits);
 }
 
 // Reconnect inside the grace window. Returns false when the window outlived
@@ -339,7 +376,8 @@ export async function departSeat(
   color: PlayerColor,
   reason: DepartureReason,
   notifyAbort?: (gameId: string) => void,
-): Promise<{ closed: boolean }> {
+  submitExits?: (gameId: string, records: ExitRecord[]) => void | Promise<void>,
+): Promise<{ closed: boolean; exitRecord?: ExitRecord }> {
   const state = await store.loadGameState(gameId);
   if (!state) return { closed: false };
 
@@ -382,6 +420,14 @@ export async function departSeat(
 
   // Clear any grace entry for this colour.
   state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
+
+  // The seat's record, captured while the board and the tallies still say what it had
+  // done. It stays on the seat as well, so a delivery that fails is retried by the wake
+  // pass instead of losing the row (a room that closes posts every seat it holds).
+  if (writesMatchRows(matchData)) {
+    player.exitRecord = player.exitRecord ?? captureExitRecord(state, color);
+  }
+  const exitRecord = player.exitRecord;
 
   // Live-game departure (timeout, leave, end_game): park pieces, mark exited.
   for (const piece of state.pieces.filter((p) => p.color === color)) {
@@ -429,26 +475,65 @@ export async function departSeat(
 
   // The terminal decision, taken here and nowhere else: a single-socket room has
   // nothing left to play, and a PvP room closes when its last second human is gone.
+  // A closing room writes its own records, for every seat it holds, so this seat is
+  // not posted twice.
   if (singleSocket || !hasQuorum(state)) {
-    await closeRoom(store, emit, gameId, notifyAbort);
+    await closeRoom(store, emit, gameId, notifyAbort, submitExits);
     return { closed: true };
   }
-  return { closed: false };
+  // The room kept playing, so this seat's row is this departure's own: posted now, and
+  // the record stays on the seat until a 2xx says it landed. Not awaited: the caller is
+  // holding the game lock, and a backend that keeps refusing must not stall the room.
+  if (exitRecord) void submitExits?.(gameId, [exitRecord]);
+  return { closed: false, exitRecord };
 }
 
-// The one place a room is closed: write the marker the result route reads, tell
-// the room, then drop the engine state and the in-memory context. The marker goes
-// first so a client that reloads on `game_expired` can already find the record.
+// The one place a room is closed: write the marker the result route reads, write the
+// record of every seat it holds, tell the room, then drop the engine state and the
+// in-memory context. The marker goes first so a client that reloads on `game_expired`
+// can already find the record, and the records follow it because they are the last
+// thing that needs the tallies the state is about to lose.
 export async function closeRoom(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
   gameId: string,
   notify?: (gameId: string) => void,
+  submitExits?: (gameId: string, records: ExitRecord[]) => void | Promise<void>,
 ): Promise<void> {
+  const records = await captureRoomExits(store, gameId);
   await store.abortMatch(gameId);
+  if (records.length > 0 && submitExits) {
+    try {
+      await submitExits(gameId, records);
+    } catch (error) {
+      console.error(
+        `Failed to record the seats of ${gameId}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
   emit({ type: 'game_expired', gameId });
   await store.deleteGame(gameId);
   notify?.(gameId);
+}
+
+// Every human seat of a room that is closing, each with its own record: the seat that
+// left already has one, and the seats still on the board get theirs here, because a
+// room torn down below quorum is a match nobody completed. Captured before the state
+// is deleted, which is the only moment the tallies still exist.
+async function captureRoomExits(store: RedisGameStore, gameId: string): Promise<ExitRecord[]> {
+  const state = await store.loadGameState(gameId);
+  if (!state || state.status !== 'active') return [];
+  if (!writesMatchRows(await store.getMatchData(gameId))) return [];
+  const records: ExitRecord[] = [];
+  for (const player of state.players) {
+    if (!player.exitRecord) player.exitRecord = captureExitRecord(state, player.color);
+    // A seat whose row already landed is not posted twice: the record is the fact,
+    // the flag is the delivery.
+    if (player.exitRecord && !player.exitRecord.submitted) records.push(player.exitRecord);
+  }
+  if (records.length > 0) await store.saveGameState(gameId, state);
+  return records;
 }
 
 // A room can continue only with at least two human seats that have not been
