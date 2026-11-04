@@ -1,26 +1,15 @@
 import type { ChatBlock, ChatLine, GameState, PlayerColor } from './types';
 
-// The room's chat channel (M3), in one module: its keys, its limits, the line
-// builders, and the per-seat filter that every reader shares (live emit, join
-// replay and the transcript a row stores). Every limit sits at the top of the file
-// on purpose — the panel counts against `GAME_CHAT_MAX_CHARS`, the store trims to
-// `GAME_CHAT_MAX_LINES`, and the fallback re-post cuts to
-// `GAME_CHAT_FALLBACK_LINES` — so raising one is a one-line change in one place.
+// The room's chat channel (M3), in one module: its keys, the line builders, and the
+// per-seat filter that every reader shares (live emit, join replay and the transcript a
+// row stores). Its limits are NOT here: they live in `common/src/chat.constants.ts` with
+// the lobby's, because one line's length and one transcript's depth are numbers both
+// builds count (`./__shared__/chat.constants` is the copy this tree compiles).
 //
 // The key shape mirrors `backend/src/common/channels.ts`: the channel name is
 // `game:<id>`, so its log is `chat:game:<id>:log` and its sequence
 // `chat:game:<id>:seq`. The engine never publishes chat on pub/sub: the room's own
 // socket set is the audience, so the fan-out is the emit that is already there.
-
-/** Lines the room keeps. Past this the oldest are trimmed: a transcript, not an archive. */
-export const GAME_CHAT_MAX_LINES = 1000;
-/** Characters one line may carry. Counted in UTF-16 units (`.length`), which is
- *  exactly what the composer counts, so the panel and the engine agree to the unit. */
-export const GAME_CHAT_MAX_CHARS = 300;
-/** Lines the fallback re-post keeps when a body is refused as too large. */
-export const GAME_CHAT_FALLBACK_LINES = 400;
-/** The transcript outlives a quiet room for a day, the same window the state keeps. */
-export const GAME_CHAT_TTL_S = 86400;
 
 /** The channel name: one per room, and the `ch` every line carries. */
 export function chatChannel(gameId: string): string {

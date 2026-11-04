@@ -3,6 +3,11 @@ import type { PlayerColor, PieceId } from './types';
 // All coordinate math and step-to-position translations for the shared
 // 52-square track, plus safe-zone and blockade helpers. Static-only;
 // used by move-validator.ts and bot.ts.
+//
+// These are board TOPOLOGY, not tunables: the safe squares, the 52-step loop and the
+// per-colour offset only change with a board redesign, which redraws
+// `frontend/src/game/boardGeometry.ts` in the same breath. So they stay mirrored here
+// rather than moving to `common/`, and the board geometry harness asserts the two agree.
 export class BoardMapper {
   // Safe zone track positions (shared by all players).
   private static readonly SAFE_TRACK_POSITIONS = [1, 9, 14, 22, 27, 35, 40, 48];

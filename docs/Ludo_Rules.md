@@ -147,7 +147,7 @@ rules deck:
   it.
 - **Free exit** opens the prison on any roll: the exit is an ordinary move that LANDS on the step rolled.
 - **The Wall Breaker** is the one way to fight a wall: one token per seat, and the roll must LAND the
-  piece exactly on the wall's square. The seat arms the switch first (`arm_barrier`), a wall anywhere
+  piece exactly on the wall's square. The seat arms the switch first (`arm_wall_breaker`), a wall anywhere
   before the landing square still blocks the move, and a clash won against a single defender pays one
   token back, up to three.
 

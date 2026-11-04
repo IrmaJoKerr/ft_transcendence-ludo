@@ -22,7 +22,7 @@ export type LogKind =
   | 'wallBrokenBonusRoll'
   | 'wallAttackFailed'
   | 'bonusRollAgain'
-  | 'bustSkipped'
+  | 'wallBreakerSkipped'
   | 'playerAborted';
 
 export interface LogEntry {
@@ -71,13 +71,13 @@ export interface PlayerMeta {
   // while the seat is still in the game.
   departedReason?: DepartureReason;
   // Wall Breaker tokens this seat still holds, dealt at game start
-  // (STARTING_BUSTER_TOKENS). Display only: the engine owns the counter and re-reads
+  // (STARTING_WALL_BREAKER_TOKENS). Display only: the engine owns the counter and re-reads
   // the field when a move spends one; the board never decides it.
-  barrierTokens?: number;
+  wallBreakerTokens?: number;
   // The Wall Breaker arm switch, mirrored from the engine (clash mode only):
   // armed means this seat may break a wall this turn (1 token per wall), disarmed
   // means a wall blocks the landing. Server-owned; the UI renders it.
-  barrierArmed?: boolean;
+  wallBreakerArmed?: boolean;
   // The face this seat's die last landed on (server-stamped). The roster's MiniDie
   // renders it, so a rejoined client shows the right face instead of guessing the
   // roller from currentTurn. Absent on a state written before the field existed.
@@ -94,10 +94,10 @@ export interface LegalMove {
   // (an attack on a wall costs R clash rounds), 0 for a plain move. The board's
   // ×R badge reads it, so the price of an attack is visible before the click.
   captureCount?: number;
-  // The Wall Breaker variant of a prison exit: one token, landing on the barrier
+  // The Wall Breaker variant of a prison exit: one token, landing on the wall
   // the roll reaches exactly. The player arms it explicitly, and a piece carries at
   // most one exit, so a click names the piece alone.
-  spendsBarrierToken?: boolean;
+  spendsWallBreakerToken?: boolean;
 }
 
 export interface MoveResult {

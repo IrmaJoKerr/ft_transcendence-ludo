@@ -203,7 +203,7 @@ read from here — nothing aggregates over history, which is a trimmed window.
 | `totalDiceRolls` / `totalSixes` | Int | Default: 0 | Lifetime rolls, and the 6s among them |
 | `clashDefends` | Int | Default: 0 | Repulses: clash rounds won as defender |
 | `clashAttacksWon` | Int | Default: 0 | Clash rounds won as attacker |
-| `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won on a landing that stood a barrier |
+| `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won on a landing that stood a wall |
 | `clashWallsAttacked` / `clashWallsDefended` | Int | Default: 0 | Landings on a wall / walls that held |
 | `lastRatingDelta` | Int | Default: 0 | The clamped swing the last match applied |
 | `updatedAt` | DateTime | Auto | Last change |

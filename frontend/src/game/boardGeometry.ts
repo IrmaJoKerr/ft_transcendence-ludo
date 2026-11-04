@@ -57,6 +57,13 @@ const HOME_LANES: Record<ColorKey, Cell[]> = {
 
 const TRACK_OFFSET: Record<ColorKey, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
 
+/** The eight protected squares, as track positions 1-52: the four start squares and the
+ *  four stars. Board topology, so it is mirrored from the engine's
+ *  `BoardMapper.SAFE_TRACK_POSITIONS` rather than shared through `common/`; the
+ *  room-rules harness asserts the two agree. Exported here so the board's renderer and
+ *  anything else that points at a star read ONE list inside this tree. */
+export const SAFE_TRACK_POSITIONS: readonly number[] = [1, 9, 14, 22, 27, 35, 40, 48];
+
 /** Map a piece's logical step (1-57) to a board cell, or null if not on the board (base/goal). */
 export function stepToCell(color: ColorKey, step: number): Cell | null {
   if (step >= 52 && step <= 56) return HOME_LANES[color][step - 52];

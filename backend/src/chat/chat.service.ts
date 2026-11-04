@@ -3,7 +3,7 @@ import Redis from 'ioredis';
 import { CHAT_CHANNEL, chatLogKey, chatPubSubChannel, chatSeqKey } from '../common/channels';
 import { PrismaService } from '../prisma.service';
 import { secret } from '../secrets';
-import { CHAT_HISTORY } from './chat.constants';
+import { CHAT_HISTORY } from '../__shared__/chat.constants';
 
 // One frame of the public channel. `id` is the channel's sequence in string form:
 // a total order, a stable React key and the dedupe that stops a reconnect's

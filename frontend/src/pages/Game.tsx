@@ -10,14 +10,16 @@ import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../ga
 import { ClashOverlay } from '../game/ClashOverlay';
 import { stepToCell } from '../game/boardGeometry';
 import {
+  CLASH_RESULT_MS,
+  DICE_ROLL_ANIM_MS,
+  MOVE_STEP_ANIM_MS,
+} from '../__shared__/timing.constants';
+import {
   CAPTURE_FX_AFTER_CARD_MS,
   CAPTURE_FX_CARD_OPACITY,
   CAPTURE_FX_MS,
   CARD_HOLD_MARGIN_MS,
-  CLASH_RESULT_MS,
   DICE_BRAKE_ARM_MS,
-  DICE_ROLL_ANIM_MS,
-  MOVE_STEP_ANIM_MS,
   PENDING_MOVE_GUARD_MS,
   RESULTS_MODAL_DELAY_MS,
   diceLandAt,
@@ -26,6 +28,7 @@ import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
 import { postApi, translateErrorCode } from '../api';
+import { WALL_BREAKER_TOKEN_CAP } from '../__shared__/wall-breaker.constants';
 import { useApp, isOccupiedSeat, type LastResult, type ResultPlayer, type Seat } from '../store';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
@@ -185,20 +188,19 @@ function withLog(prev: LogEntry[], entries?: LogEntry[]): LogEntry[] {
   return [...[...entries].reverse(), ...prev].slice(0, LOG_CAP);
 }
 
-// The Wall Breaker hand cap, mirrored from the engine
-// (types.ts BARRIER_BUSTER_TOKEN_CAP): the wall-break cell draws exactly this many
+// The Wall Breaker hand cap is a tunable the engine also counts, so it comes from
+// `common/src/wall-breaker.constants.ts`: the wall-break cell draws exactly this many
 // glyph slots, so an empty hand reads as empty rather than as a row that vanished.
-const BARRIER_BUSTER_TOKEN_CAP = 3;
 // The wall break tokens panel: its width and the gap in front of it. That span is how
 // much further the roster box overhangs its grid track in clash mode; a smaller
 // CARD_ROOM_OVERHANG is always added, so the cards come out the same width.
-const BUSTER_PANEL_W = 96;
-const BUSTER_PANEL_GAP = 10;
+const WALL_BREAKER_PANEL_W = 96;
+const WALL_BREAKER_PANEL_GAP = 10;
 const CARD_ROOM_OVERHANG = 46;
 // The wall-break token glyph. A padlock read as "locked"; dynamite (or a
 // sledgehammer) reads as "breaker", which is what the toggle actually does. One
 // constant, so switching glyphs is one edit.
-const BUSTER_GLYPH = '🧨';
+const WALL_BREAKER_GLYPH = '🧨';
 
 // Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the
 // tail, and a few hundred is enough scrollback without growing this page's state on
@@ -442,26 +444,26 @@ export function Game() {
   } | null>(null);
   // Wall Breaker: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
-  // (`PlayerMeta.barrierArmed`), and the engine blocks an unarmed seat at a wall.
+  // (`PlayerMeta.wallBreakerArmed`), and the engine blocks an unarmed seat at a wall.
   const bustMoves = useMemo(
-    () => view.legalMoves.filter((m) => m.spendsBarrierToken),
+    () => view.legalMoves.filter((m) => m.spendsWallBreakerToken),
     [view.legalMoves],
   );
   const armSeat = view.players.find((p) => p.color === view.currentTurn);
-  const bustArmed = armSeat?.barrierArmed === true;
+  const breakerArmed = armSeat?.wallBreakerArmed === true;
   // Arming needs a token in hand: the engine refuses an arm without one, and the
   // column disables the button. The engine also refuses an arm out of turn.
-  const canArmBust = view.clashMode === true && (armSeat?.barrierTokens ?? 0) > 0;
+  const canArmBreaker = view.clashMode === true && (armSeat?.wallBreakerTokens ?? 0) > 0;
   const toggleBustArm = () => {
-    if (!canArmBust) return;
-    retroAudio.playUiBeep(bustArmed ? 420 : 880, 0.06, 'square');
-    socketRef.current?.emit('arm_barrier', !bustArmed);
+    if (!canArmBreaker) return;
+    retroAudio.playUiBeep(breakerArmed ? 420 : 880, 0.06, 'square');
+    socketRef.current?.emit('arm_wall_breaker', !breakerArmed);
   };
   // The Wall Breaker column is an in-game control, so it starts with the opening roll:
   // in the waiting room there is no turn to take, the engine refuses an arm ("Game not
   // active"), and every hand still holds only the dealt starting token. Gating it here
   // also keeps the lobby identical whether the room has clash mode on or not.
-  const showBusterColumn = view.clashMode === true && view.status !== 'waiting';
+  const showWallBreakerColumn = view.clashMode === true && view.status !== 'waiting';
   // The waiting rail draws the room's own seats, in turn order: `view.players` is one
   // entry per seat (the engine seats exactly the colours the room was created with),
   // so sorting it by `SEAT_COLORS` shows the rotation and nothing else — no seat index
@@ -479,8 +481,8 @@ export function Game() {
   // How far the roster box reaches past its grid track: the panel's span in clash mode,
   // plus the same extra room for the display names in every room, so the cards are
   // equally wide either way.
-  const rosterOverhang = showBusterColumn
-    ? CARD_ROOM_OVERHANG + BUSTER_PANEL_W + BUSTER_PANEL_GAP
+  const rosterOverhang = showWallBreakerColumn
+    ? CARD_ROOM_OVERHANG + WALL_BREAKER_PANEL_W + WALL_BREAKER_PANEL_GAP
     : CARD_ROOM_OVERHANG;
   // Only the three-column desktop layout (the `lg` grid) has a panel overhanging its column,
   // so the board placement below is biased at that breakpoint and keeps the previously
@@ -1158,7 +1160,7 @@ export function Game() {
     // board hides it from the tap targets too, so this is the second gate on the
     // same rule and a stray tap can never spend a token.
     const mine = viewRef.current.legalMoves.filter((m) => m.pieceId === pieceId);
-    if (mine.length > 0 && mine.every((m) => m.spendsBarrierToken) && !bustArmed) return;
+    if (mine.length > 0 && mine.every((m) => m.spendsWallBreakerToken) && !breakerArmed) return;
     pendingMoveRef.current = true;
     retroAudio.playUiBeep(640, 0.05);
     socketRef.current?.emit('move_piece', pieceId);
@@ -1181,10 +1183,10 @@ export function Game() {
     if (isRolling || isRollingRef.current || isMovingPieceRef.current || pendingMoveRef.current)
       return;
     if (v.turnPhase !== 'WAITING_FOR_MOVE') return;
-    const priced = v.legalMoves.filter((m) => m.spendsBarrierToken);
+    const priced = v.legalMoves.filter((m) => m.spendsWallBreakerToken);
     if (priced.length === 0 || priced.length !== v.legalMoves.length) return;
     retroAudio.playUiBeep(520, 0.06);
-    socketRef.current?.emit('skip_bust');
+    socketRef.current?.emit('skip_wall_breaker');
   };
 
   const markReady = () => {
@@ -1485,7 +1487,7 @@ export function Game() {
     isMyTurn &&
     !view.clash &&
     bustMoves.length > 0 &&
-    (view.players.find((p) => p.color === view.currentTurn)?.barrierTokens ?? 0) > 0 &&
+    (view.players.find((p) => p.color === view.currentTurn)?.wallBreakerTokens ?? 0) > 0 &&
     view.diceValue !== 6;
   // Skip exists for one situation: every legal move is token-priced, so the turn is
   // stuck unless the player spends a token. With an ordinary move available the
@@ -1534,8 +1536,8 @@ export function Game() {
         return t('game.wallAttackFailed', { attacker: seatName(entry.color), victim });
       case 'bonusRollAgain':
         return t('game.bonusRollAgain');
-      case 'bustSkipped':
-        return t('game.bustSkipped', { name: seatName(entry.color) });
+      case 'wallBreakerSkipped':
+        return t('game.wallBreakerSkipped', { name: seatName(entry.color) });
       case 'playerAborted':
         return t('game.playerAborted', { name: seatName(entry.color) });
     }
@@ -1788,7 +1790,7 @@ export function Game() {
                       display: 'flex',
                       gap: 10,
                       alignItems: 'stretch',
-                      ...(showBusterColumn
+                      ...(showWallBreakerColumn
                         ? {
                             borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
                             paddingBottom: 6,
@@ -1824,11 +1826,11 @@ export function Game() {
                         {t('game.lastRolled').toUpperCase()}
                       </span>
                     </div>
-                    {showBusterColumn && (
+                    {showWallBreakerColumn && (
                       <div
-                        title={t('game.barrierColumnTitle')}
+                        title={t('game.wallBreakerColumnTitle')}
                         style={{
-                          width: BUSTER_PANEL_W,
+                          width: WALL_BREAKER_PANEL_W,
                           flex: 'none',
                           boxSizing: 'border-box',
                           paddingLeft: 10,
@@ -1842,7 +1844,7 @@ export function Game() {
                           color: 'var(--accent-yellow)',
                         }}
                       >
-                        {t('game.barrierColumnHeader')}
+                        {t('game.wallBreakerColumnHeader')}
                       </div>
                     )}
                   </div>
@@ -2225,11 +2227,11 @@ export function Game() {
                         pilot's card; only the seat this device owns and only while it
                         holds the turn can be armed, and the engine owns the flag. The
                         waiting room has no turn to arm on, so the column starts with
-                        the match (showBusterColumn). */}
-                    {showBusterColumn && (
+                        the match (showWallBreakerColumn). */}
+                    {showWallBreakerColumn && (
                       <div
                         style={{
-                          width: BUSTER_PANEL_W,
+                          width: WALL_BREAKER_PANEL_W,
                           flex: 'none',
                           boxSizing: 'border-box',
                           display: 'flex',
@@ -2251,8 +2253,8 @@ export function Game() {
                           if (!seat || seat.status === 'inactive') {
                             return <div key={ck} style={{ flex: 1 }} />;
                           }
-                          const tokens = seat.barrierTokens ?? 0;
-                          const armed = seat.barrierArmed === true;
+                          const tokens = seat.wallBreakerTokens ?? 0;
+                          const armed = seat.wallBreakerArmed === true;
                           const canArm =
                             ck === view.myColor &&
                             ck === view.currentTurn &&
@@ -2268,9 +2270,9 @@ export function Game() {
                               title={
                                 canArm
                                   ? armed
-                                    ? t('game.barrierArmedTitle')
-                                    : t('game.barrierArmTitle')
-                                  : t('game.barrierCannotArmTitle')
+                                    ? t('game.wallBreakerArmedTitle')
+                                    : t('game.wallBreakerArmTitle')
+                                  : t('game.wallBreakerCannotArmTitle')
                               }
                               style={{
                                 flex: 1,
@@ -2311,8 +2313,8 @@ export function Game() {
                                 }}
                               >
                                 {armed
-                                  ? t('game.barrierArmedCaption')
-                                  : t('game.barrierToggleHint')}
+                                  ? t('game.wallBreakerArmedCaption')
+                                  : t('game.wallBreakerToggleHint')}
                               </span>
                               <span
                                 style={{
@@ -2322,9 +2324,9 @@ export function Game() {
                                   lineHeight: 1,
                                 }}
                               >
-                                {Array.from({ length: BARRIER_BUSTER_TOKEN_CAP }, (_, slot) => (
+                                {Array.from({ length: WALL_BREAKER_TOKEN_CAP }, (_, slot) => (
                                   <span key={slot} style={{ opacity: slot < tokens ? 1 : 0.22 }}>
-                                    {BUSTER_GLYPH}
+                                    {WALL_BREAKER_GLYPH}
                                   </span>
                                 ))}
                               </span>
@@ -2425,7 +2427,7 @@ export function Game() {
                       animating={animatingPiece}
                       fx={captureFx}
                       noSafeZones={view.noSafeZones}
-                      bustArmed={bustArmed}
+                      breakerArmed={breakerArmed}
                     />
                   </div>
                 );
@@ -2791,9 +2793,9 @@ export function Game() {
                         className={RETRO_BTN}
                         onClick={toggleBustArm}
                         title={
-                          bustArmed
-                            ? t('game.barrierBusterArmedTitle')
-                            : t('game.barrierBusterTitle')
+                          breakerArmed
+                            ? t('game.wallBreakerActionArmedTitle')
+                            : t('game.wallBreakerActionTitle')
                         }
                         style={{
                           width: '100%',
@@ -2805,18 +2807,18 @@ export function Game() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           textAlign: 'center',
-                          background: bustArmed ? 'rgba(255, 230, 0, 0.22)' : 'var(--btn-bg)',
-                          borderColor: bustArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
-                          color: bustArmed ? 'var(--accent-yellow)' : '#ffffff',
-                          boxShadow: bustArmed ? '0 0 18px var(--accent-yellow)' : 'none',
-                          animation: bustArmed ? 'pulse-glow 1.5s infinite' : 'none',
+                          background: breakerArmed ? 'rgba(255, 230, 0, 0.22)' : 'var(--btn-bg)',
+                          borderColor: breakerArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
+                          color: breakerArmed ? 'var(--accent-yellow)' : '#ffffff',
+                          boxShadow: breakerArmed ? '0 0 18px var(--accent-yellow)' : 'none',
+                          animation: breakerArmed ? 'pulse-glow 1.5s infinite' : 'none',
                           cursor: 'pointer',
                           boxSizing: 'border-box',
                         }}
                       >
-                        {bustArmed
-                          ? `🔓 ${t('game.barrierBusterArmedBtn')}`
-                          : `🔓 ${t('game.barrierBusterBtn')}`}
+                        {breakerArmed
+                          ? `🔓 ${t('game.wallBreakerArmedBtn')}`
+                          : `🔓 ${t('game.wallBreakerBtn')}`}
                       </button>
                     )}
 

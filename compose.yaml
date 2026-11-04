@@ -56,6 +56,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # `common/` sits outside every image's context (each tree is its own), so it
+      # arrives as a named context and one `COPY --from=shared` puts it at
+      # `src/__shared__`, where the tree's `prebuild` finds it already there.
+      additional_contexts:
+        shared: ./common
     container_name: backend
     restart: unless-stopped
     env_file: .env
@@ -139,6 +144,9 @@ services:
     build:
       context: ./backend/app/ludo-engine
       dockerfile: Dockerfile
+      # Same named context as the backend's: see the comment there.
+      additional_contexts:
+        shared: ./common
     container_name: ludo-engine
     restart: unless-stopped
     networks:
@@ -188,6 +196,10 @@ services:
     volumes:
       - spa_dist:/export
       - ./frontend:/app
+      # `common/src` from the host, for the tree's own `prebuild` sync: the source
+      # arrives as a bind mount (not in the image), so the copy inside `src/__shared__`
+      # has to be regenerated from here on every build.
+      - ./common:/common:ro
       # Anonymous volume: keeps the image's node_modules from being shadowed
       # by the bind mount above, which has none on the host.
       - /app/node_modules
@@ -215,6 +227,9 @@ services:
       - "8080:8080"
     volumes:
       - ./frontend:/app
+      # See the `frontend` service's note: the HMR server reads source from this bind
+      # mount, so `src/__shared__` is synced from `/common` at every start.
+      - ./common:/common:ro
       # Anonymous volume: keeps the image's node_modules from being shadowed by
       # the bind mount above, which has none on the host.
       - /app/node_modules

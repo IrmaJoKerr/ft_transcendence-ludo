@@ -3,7 +3,7 @@ import { BoardMapper } from './board-mapper';
 import { orderDefenderIds } from './clash';
 
 // A protected star square: the shield is on and this step is one of the eight safe
-// tracks. Its barriers neither block nor can be attacked, which is the default and
+// tracks. Its walls neither block nor can be attacked, which is the default and
 // why a wall on a start square does not matter in such a room.
 function isProtectedStar(state: GameState, pieceId: PieceId, step: number): boolean {
   return state.noSafeZones !== true && BoardMapper.isSafeZoneStep(pieceId, step);
@@ -14,7 +14,7 @@ function isProtectedStar(state: GameState, pieceId: PieceId, step: number): bool
 // Strict reads keep a state written before the field existed at 0.
 function seatHoldsToken(state: GameState, pieceId: PieceId): boolean {
   const { color } = BoardMapper.parsePieceId(pieceId);
-  return (state.players?.find((p) => p.color === color)?.barrierTokens ?? 0) > 0;
+  return (state.players?.find((p) => p.color === color)?.wallBreakerTokens ?? 0) > 0;
 }
 
 // Breakable walls, per square: clash mode plus a token in hand opens a wall, and a star
@@ -63,7 +63,7 @@ export class MoveValidator {
               captureCount,
               // The exit lands where the roll lands, so a wall on that square is
               // attacked by the same rule and costs the same token.
-              spendsBarrierToken: this.landingPaysToken(state, color, to, captureCount),
+              spendsWallBreakerToken: this.landingPaysToken(state, color, to, captureCount),
             });
             // A piece with a plain exit needs no rescue: the armed variant below
             // would only repeat the same roll, so an exit is offered at most once
@@ -102,7 +102,7 @@ export class MoveValidator {
         isHomeEntry,
         captureCount,
         // A landing on a wall is the token's price, wherever the move came from.
-        spendsBarrierToken: this.landingPaysToken(state, color, to, captureCount),
+        spendsWallBreakerToken: this.landingPaysToken(state, color, to, captureCount),
       });
     }
 
@@ -160,10 +160,10 @@ export class MoveValidator {
     return orderDefenderIds(this.findPiecesAtPosition(state, moverColor, step));
   }
 
-  // True when the pieces on one square form a barrier: 2+ of the SAME opponent
-  // colour. A pair of different colours is not a barrier, it is a normal
+  // True when the pieces on one square form a wall: 2+ of the SAME opponent
+  // colour. A pair of different colours is not a wall, it is a normal
   // two-defender landing (the same reading `isBlockadeAtTrackPos` uses).
-  private static isBarrier(pieces: PieceId[]): boolean {
+  private static isWall(pieces: PieceId[]): boolean {
     const byColor = new Map<PlayerColor, number>();
     for (const id of pieces) {
       const color = BoardMapper.parsePieceId(id).color;
@@ -181,11 +181,11 @@ export class MoveValidator {
     step: number,
     captureCount: number,
   ): boolean {
-    return captureCount >= 2 && this.isBarrier(this.squareDefenders(state, color, step));
+    return captureCount >= 2 && this.isWall(this.squareDefenders(state, color, step));
   }
 
   // The armed exit: with clash mode and a token, a piece in prison may land on the
-  // barrier the roll reaches exactly. The token buys a landing, never a crossing, so
+  // wall the roll reaches exactly. The token buys a landing, never a crossing, so
   // the wall must stand `diceValue` squares out.
   private static armedExit(
     state: GameState,
@@ -196,17 +196,17 @@ export class MoveValidator {
     const to = diceValue;
     if (state.clashMode !== true || to < 1 || to > 51) return null;
     const mover = state.players.find((p) => p.color === color);
-    if ((mover?.barrierTokens ?? 0) <= 0) return null;
+    if ((mover?.wallBreakerTokens ?? 0) <= 0) return null;
 
     // The bust lands ON the wall it fights: a lone defender (or a mixed pair) is
-    // no barrier, and the ordinary exit rules above already cover it.
-    if (!this.isBarrier(this.squareDefenders(state, color, to))) return null;
+    // no wall, and the ordinary exit rules above already cover it.
+    if (!this.isWall(this.squareDefenders(state, color, to))) return null;
     // A protected star is never attacked. This must be read here, not left to the
     // path check: a star never blocks, so `blockadeBlocksPath` would pass it and
     // the bust would land on a wall it cannot fight.
     if (!wallIsAttackable(state, pieceId, to)) return null;
     // Everything behind the landing, under the same rule every other move reads:
-    // this is what forbids a second barrier on the way and what makes the roll's
+    // this is what forbids a second wall on the way and what makes the roll's
     // distance exact.
     if (this.blockadeBlocksPath(state, color, 0, to, pieceId)) return null;
 
@@ -216,9 +216,9 @@ export class MoveValidator {
       to,
       isCapture: true,
       isHomeEntry: false,
-      // The whole barrier: one clash round per defender.
+      // The whole wall: one clash round per defender.
       captureCount: this.captureCountAt(state, color, pieceId, to, true),
-      spendsBarrierToken: true,
+      spendsWallBreakerToken: true,
     };
   }
 

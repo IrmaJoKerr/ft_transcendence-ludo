@@ -170,7 +170,7 @@ export function advanceTurnInState(state: GameState): void {
   // The Wall Breaker arm switch is turn-scoped too: clash mode grants the
   // OPPORTUNITY to break a wall, and each turn the player decides again. A seat
   // that lost the turn cannot leave an arm behind for a later roll.
-  for (const p of state.players) delete p.barrierArmed;
+  for (const p of state.players) delete p.wallBreakerArmed;
   const nextPlayer = state.players.find((p) => p.color === state.currentTurn);
   if (nextPlayer) {
     // Reset the new player's turn-scoped flags so nothing leaks across turns:

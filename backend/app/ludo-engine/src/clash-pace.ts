@@ -12,8 +12,8 @@ import {
   CLASH_BOT_FAST_MS_BASE,
   CLASH_BOT_FAST_REACTION_MS,
   CLASH_BOT_JITTER_MS,
-  CLASH_PRESS_MS,
 } from './timing';
+import { CLASH_PRESS_MS } from './__shared__/timing.constants';
 import { randFloat, randInt } from './rng';
 import type { Rng } from './rng';
 

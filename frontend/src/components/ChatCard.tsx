@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, GAME_WINDOW_HEADER_EXTRA } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
-import { CHAT_MAX_CHARS, chatLength, systemLineText } from './chatCardTypes';
+import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
+import { systemLineText } from './chatCardTypes';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
 
 // The chat card, in one place (M3/R8). The lobby dock and the board's left column

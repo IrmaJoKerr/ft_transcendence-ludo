@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
 import { ChatCardComposer, ChatCardFeed, ChatCardHead } from './ChatCard';
 import { ConfirmActionModal } from './ConfirmActionModal';
-import { CHAT_MAX_CHARS, chatLength } from './chatCardTypes';
+import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
 import type { FriendRequestRow, FriendRow } from '../friendshipFeed';
 import { useChallenges } from '../hooks/useChallenges';

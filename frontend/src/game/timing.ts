@@ -1,20 +1,10 @@
-// The delays the client shows, in one place. The names shared with the engine must
-// match `backend/app/ludo-engine/src/timing.ts`; the timing contract harness asserts
-// it. The clash windows are presentation only, since the server sends deadlines.
-
-export const CLASH_ANNOUNCE_MS = 1500; // Card A splash ("CLASH!")
-export const CLASH_COUNTDOWN_MS = 3000; // GET READY, then 3-2-1
-export const CLASH_PRESS_MS = 5000; // keys and bars race
-
-// Card D is ADDED from its two beats instead of being one guessed number: the gesture
-// (game/ResultFx.tsx, which plays all five of its animations inside this budget) and
-// the headline, which needs to be read once nothing on the stage is moving any more.
-// The engine mirrors these two rather than the sum, because the sum is also its input
-// freeze and the chain's next-round timer: re-timing a gesture moves the card on both
-// sides at once, and no third place has to be edited to keep up.
-export const RESULT_FX_MS = 1300; // how long the gesture lasts (1.2 s was the floor)
-export const RESULT_HEADLINE_READ_MS = 1300; // the headline after the gesture stops
-export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // Card D: 2.6 s
+// The delays the client owns and no other build counts. The eight the engine also
+// counts (the three clash windows, the result card's two beats and the step and dice
+// animations) live in `common/src/timing.constants.ts` and reach this tree as
+// `../__shared__/timing.constants`, so there is nothing left to mirror. What stays here
+// is presentation only: the clash windows are still read as fallbacks, but the server
+// sends deadlines, so a wrong number here cannot move a game.
+import { DICE_ROLL_ANIM_MS } from '../__shared__/timing.constants';
 
 export const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
 export const CLASH_UI_TICK_MS = 250; // overlay re-render cadence
@@ -28,8 +18,6 @@ export const CLASH_SWITCH_WARN_HOLD_MS = 300; // and lingers this long after it
 export const CLASH_SWITCH_FLIP_MS = 110; // half a flip: edge-on exactly at the switch
 export const CLASH_SWITCH_PAD_STAGGER_MS = 40; // per-circle landing delay
 
-export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
-export const DICE_ROLL_ANIM_MS = 750; // dice spin before the path starts
 export const DICE_BRAKE_ARM_MS = 200; // a tap younger than this is a double tap, not a brake
 export const DICE_BRAKE_FLOOR_MS = 450; // shortest braked roll, so nothing teleports
 export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one

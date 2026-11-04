@@ -1,14 +1,13 @@
 import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
 import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState, ChatLine } from './types';
-import { STARTING_BUSTER_TOKENS } from './types';
+import { PIECES_PER_PLAYER } from './types';
+import { STARTING_WALL_BREAKER_TOKENS } from './__shared__/wall-breaker.constants';
 import {
   GAME_CHAT_MAX_LINES,
   GAME_CHAT_TTL_S,
-  chatLogKey,
-  chatSeqKey,
-  parseChatLine,
-} from './game-chat';
+} from './__shared__/chat.constants';
+import { chatLogKey, chatSeqKey, parseChatLine } from './game-chat';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -51,9 +50,9 @@ const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
 // One legacy-state default: a game state written before the key-shift mutator
 // existed has no count at all, and the engine must read it as the standard room
 // rather than an undefined that silently compares unequal to every schedule.
-function withBarrierDefaults(state: GameState): GameState {
+function withWallBreakerDefaults(state: GameState): GameState {
   for (const player of state.players) {
-    if (player.barrierTokens === undefined) player.barrierTokens = 0;
+    if (player.wallBreakerTokens === undefined) player.wallBreakerTokens = 0;
     // The Wall Breaker tally was renamed (barrierBreaks → clashWallBattlesWon): a
     // state written under the old name keeps the count it earned instead of
     // restarting a live game's tally at zero.
@@ -143,7 +142,7 @@ export class RedisGameStore {
   ): Promise<void> {
     const pieces: Piece[] = [];
     for (const color of COLORS) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < PIECES_PER_PLAYER; i++) {
         pieces.push({ id: `${color}-${i}`, color, step: 0, isInGoal: false, isInBase: true });
       }
     }
@@ -168,9 +167,9 @@ export class RedisGameStore {
       bonusRoll: false,
       isFinished: false,
       // One Wall Breaker token is dealt at game start: it buys the prison exit's
-      // landing on a barrier the roll reaches exactly. A clash won against a single
-      // defender pays one back, up to BARRIER_BUSTER_TOKEN_CAP (clash-engine.ts).
-      barrierTokens: STARTING_BUSTER_TOKENS,
+      // landing on a wall the roll reaches exactly. A clash won against a single
+      // defender pays one back, up to WALL_BREAKER_TOKEN_CAP (clash-engine.ts).
+      wallBreakerTokens: STARTING_WALL_BREAKER_TOKENS,
       stats: {
         turns: 0,
         captures: 0,
@@ -215,7 +214,7 @@ export class RedisGameStore {
   async loadGameState(gameId: string): Promise<GameState | null> {
     const data = await this.client.hget(this.gameKey(gameId), 'state');
     if (!data) return null;
-    return withBarrierDefaults(JSON.parse(data) as GameState);
+    return withWallBreakerDefaults(JSON.parse(data) as GameState);
   }
 
   // Save the entire GameState to Redis (single operation)

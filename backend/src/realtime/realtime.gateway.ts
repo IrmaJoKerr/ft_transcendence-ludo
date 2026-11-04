@@ -12,7 +12,7 @@ import {
 } from '@nestjs/websockets';
 import type { Namespace, Socket } from 'socket.io';
 import { ACCESS_COOKIE } from '../auth/auth.constants';
-import { CHAT_COOLDOWN_MS, CHAT_MAX_CHARS } from '../chat/chat.constants';
+import { CHAT_COOLDOWN_MS, CHAT_MAX_CHARS } from '../__shared__/chat.constants';
 import { ChatService, type ChatAck, type ChatMessage } from '../chat/chat.service';
 import { ChatSendDto } from '../chat/dto/chat-send.dto';
 import { originAllowed, publishedOrigins } from '../common/origin';

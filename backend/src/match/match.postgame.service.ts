@@ -25,7 +25,7 @@ export interface GameEndParticipant {
   sixes?: number;
   clashDefends?: number;
   clashAttacksWon?: number;
-  // Wall Breaker: clash chains won on a landing that stood a barrier.
+  // Wall Breaker: clash chains won on a landing that stood a wall.
   clashWallBattlesWon?: number;
   clashWallsAttacked?: number;
   clashWallsDefended?: number;

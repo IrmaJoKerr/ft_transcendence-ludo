@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "prebuild": "npm run sync:shared",
     "build": "tsc",
     "start": "node dist/index.js",
+    "predev": "npm run sync:shared",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {

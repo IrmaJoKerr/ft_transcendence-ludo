@@ -11,7 +11,7 @@ import {
 } from './clash';
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
-import { BARRIER_BUSTER_TOKEN_CAP } from './types';
+import { WALL_BREAKER_TOKEN_CAP } from './__shared__/wall-breaker.constants';
 import { createRng, seedFrom } from './rng';
 import type { Rng } from './rng';
 import { botPace, botPressTimes } from './clash-pace';
@@ -27,7 +27,8 @@ import type {
 } from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
-import { CLASH_PRESS_MS, CLASH_SWEEP_INTERVAL_MS } from './timing';
+import { CLASH_PRESS_MS } from './__shared__/timing.constants';
+import { CLASH_SWEEP_INTERVAL_MS } from './timing';
 
 // The chain ledger, read from a deferred capture as plain arrays so one round
 // resolves without changing the persisted shape. A capture written before the
@@ -555,17 +556,17 @@ export class ClashEngine {
           // The Wall Breaker credit (achTearDownThisWall): 1 when the landing square
           // stood 2 or more defenders, stamped at move time. Only a chain won end to end
           // reaches here. `?? 0` keeps an older seat record from turning the tally to NaN.
-          if (pc.barrierBattles) {
+          if (pc.wallBattles) {
             attackerMeta.stats.clashWallBattlesWon =
-              (attackerMeta.stats.clashWallBattlesWon ?? 0) + pc.barrierBattles;
+              (attackerMeta.stats.clashWallBattlesWon ?? 0) + pc.wallBattles;
           }
           // Token income: a clash won against exactly one defender pays one token
-          // back, up to the cap. A won barrier pays nothing. Same branch as the credit
+          // back, up to the cap. A won wall pays nothing. Same branch as the credit
           // above, so the money and the tally cannot drift apart.
           if (capturedIds.length === 1) {
-            attackerMeta.barrierTokens = Math.min(
-              BARRIER_BUSTER_TOKEN_CAP,
-              (attackerMeta.barrierTokens ?? 0) + 1,
+            attackerMeta.wallBreakerTokens = Math.min(
+              WALL_BREAKER_TOKEN_CAP,
+              (attackerMeta.wallBreakerTokens ?? 0) + 1,
             );
           }
         }

@@ -2,9 +2,8 @@ import type { Server } from 'socket.io';
 import type { RedisGameStore } from '../redis';
 import type { GameSocket } from './auth';
 import type { ChatLine } from '../types';
-import { GAME_CHAT_COOLDOWN_MS } from '../timing';
+import { CHAT_COOLDOWN_MS, CHAT_MAX_CHARS } from '../__shared__/chat.constants';
 import {
-  GAME_CHAT_MAX_CHARS,
   filterChatForSeat,
   normalizeBlocks,
   playerLine,
@@ -57,12 +56,12 @@ export class RoomChat {
     // `.length`, the same UTF-16 count the composer's `n / 300` uses, so the two
     // can never disagree about one emoji (E4/R8).
     if (text === '') return reply({ ok: false, error: 'CHAT_EMPTY' });
-    if (text.length > GAME_CHAT_MAX_CHARS) return reply({ ok: false, error: 'CHAT_TOO_LONG' });
+    if (text.length > CHAT_MAX_CHARS) return reply({ ok: false, error: 'CHAT_TOO_LONG' });
 
     const key = `${gameId}:${userId}`;
     const now = Date.now();
     const last = this.cooldowns.get(key) ?? 0;
-    if (now - last < GAME_CHAT_COOLDOWN_MS) return reply({ ok: false, error: 'CHAT_COOLDOWN' });
+    if (now - last < CHAT_COOLDOWN_MS) return reply({ ok: false, error: 'CHAT_COOLDOWN' });
 
     try {
       const seq = await this.store.nextChatSeq(gameId);

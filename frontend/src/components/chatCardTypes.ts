@@ -1,23 +1,13 @@
 import type { ReactNode } from 'react';
 
-// The chat card's wire-side types and its one copy of the character cap, in a module of
-// their own so `ChatCard.tsx` exports components only (fast refresh) and both hosts can
-// import the shape without pulling the card in.
-
-/** The composer's cap, mirroring the engine's `GAME_CHAT_MAX_CHARS` and the lobby's
- *  `CHAT_MAX_CHARS`: UTF-16 units, exactly what the server counts. */
-export const CHAT_MAX_CHARS = 300;
-
-/** How long a line is, in the one unit both servers count: UTF-16 code units, so an
- *  ordinary character is 1 and anything above the BMP — every emoji — is 2, which is
- *  what it also costs on the wire. Trimmed first, because both servers trim before
- *  they measure (`room-chat.ts` `raw.trim()`, the lobby's `send` the same), so the
- *  counter never charges for the spaces a send will drop. One function for both
- *  composers and both pre-send guards, so the room's `n / 300`, the lobby's, and the
- *  two refusals cannot drift apart. */
-export function chatLength(text: string): number {
-  return text.trim().length;
-}
+// The chat card's wire-side types, in a module of their own so `ChatCard.tsx` exports
+// components only (fast refresh) and both hosts can import the shape without pulling
+// the card in.
+//
+// The character cap and its counter are NOT here: `CHAT_MAX_CHARS` and `chatLength`
+// live in `common/src/chat.constants.ts`, because the two servers count the same units
+// and one copy has to serve both sides (`../__shared__/chat.constants` is the copy this
+// tree compiles).
 
 /** One line, as both hosts hold it. The lobby's `at` is an ISO string on the wire; a
  *  host normalizes it to ms here so the card has one clock. */

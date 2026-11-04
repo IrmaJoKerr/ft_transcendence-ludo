@@ -10,6 +10,8 @@ import {
   CLASH_COUNTDOWN_MS,
   CLASH_PRESS_MS,
   CLASH_RESULT_MS,
+} from '../__shared__/timing.constants';
+import {
   CLASH_FIGHT_FLASH_MS,
   CLASH_UI_TICK_MS,
   CLASH_SWITCH_WARN_MS,

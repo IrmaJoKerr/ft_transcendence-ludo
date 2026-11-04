@@ -60,7 +60,18 @@ env:
 	chmod 600 .env; \
 	echo "✅ .env ready: all required values present"
 
-build: env
+# Regenerates `src/__shared__` in all three trees from `common/src`: each build is its
+# own root and cannot import a sibling folder, so every tree carries a generated copy
+# (gitignored, never hand edited). The images get theirs from compose's named `shared`
+# context; this keeps the host copies current for `docker compose` runs, where the
+# frontend tree arrives as a bind mount. `npm run build`/`dev` in any tree does the same
+# for that tree alone through its `prebuild`/`predev` hook.
+shared:
+	@cd frontend && node scripts/sync-shared.mjs
+	@cd backend && node scripts/sync-shared.mjs
+	@cd backend/app/ludo-engine && node scripts/sync-shared.mjs
+
+build: env shared
 	@docker compose -f $(COMPOSE_FILE) build
 
 start:
@@ -84,7 +95,7 @@ down:
 # tearing anything down. The dev profile is off by default, hence --profile
 # here but not in all. Ctrl-C stops watching; the containers keep running
 # (use `make stop`/`make down`).
-dev: down env
+dev: down env shared
 	@echo "🔥 HMR dev server:    http://localhost:8080"
 	@echo "🔒 nginx (built SPA): https://localhost:8443"
 	@docker compose -f $(COMPOSE_FILE) --profile dev watch
@@ -92,8 +103,13 @@ dev: down env
 logs:
 	@docker compose -f $(COMPOSE_FILE) --profile dev logs -f
 
+# Dropping the generated `src/__shared__` copies is part of a clean: they are build
+# output, never source, so a clean must not leave one behind for the next run to pick up.
+# `shared` (a dependency of `build` and `dev`) writes them again from `common/src`.
 clean:
 	@echo "🗑️  Cleaning all Docker data..."
+	@rm -rf frontend/src/__shared__ backend/src/__shared__ backend/app/ludo-engine/src/__shared__
+	@echo "🧹  Removed the generated src/__shared__ copies"
 	@docker stop $$(docker ps -qa) 2>/dev/null; \
 	docker rm $$(docker ps -qa) 2>/dev/null; \
 	docker rmi -f $$(docker images -qa) 2>/dev/null; \
@@ -156,6 +172,6 @@ stop-tunnel:
 	@docker compose -f $(COMPOSE_FILE) --profile dev stop
 	@echo "Stopped."
 
-.PHONY: all build start env \
+.PHONY: all build start env shared \
         dev stop down logs clean fclean prune re \
         lan ngrok-auth tunnel tunnel-url tunnel_up dev-tunnel stop-tunnel

@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COL, type ColorKey } from '../theme';
-import { PIECE_GLYPH, TRACK_CELLS, stepToCell } from '../game/boardGeometry';
+import { PIECE_GLYPH, SAFE_TRACK_POSITIONS, TRACK_CELLS, stepToCell } from '../game/boardGeometry';
 import { CaptureBurst } from './CaptureBurst';
 
 const CELL_BG = '#050515';
@@ -61,7 +61,7 @@ function Yard({
   ck,
   basePieces,
   goalCount,
-  barrierTokens,
+  wallBreakerTokens,
   legalPieceIds,
   onPieceClick,
 }: {
@@ -71,7 +71,7 @@ function Yard({
   basePieces: Array<{ id: string; armed: boolean }>;
   goalCount: number;
   /** Wall Breaker tokens this seat still holds (0 = none, and no chip shows). */
-  barrierTokens: number;
+  wallBreakerTokens: number;
   legalPieceIds: Set<string>;
   onPieceClick?: (pieceId: string) => void;
 }) {
@@ -133,9 +133,9 @@ function Yard({
       {/* Wall Breaker pips: one per token still in hand. Rendered next to the bay
           label (not on a piece) because a token outlives a single piece and the
           seat's whole supply is what the player spends. */}
-      {barrierTokens > 0 && (
+      {wallBreakerTokens > 0 && (
         <div
-          title={t('board.barrierTokensTitle', { count: barrierTokens })}
+          title={t('board.wallBreakerTokensTitle', { count: wallBreakerTokens })}
           style={{
             width: '100%',
             display: 'flex',
@@ -144,7 +144,7 @@ function Yard({
             marginTop: 2,
           }}
         >
-          {Array.from({ length: barrierTokens }, (_, i) => (
+          {Array.from({ length: wallBreakerTokens }, (_, i) => (
             <span
               key={i}
               style={{
@@ -265,9 +265,9 @@ const STARTS: Partial<Record<string, ColorKey>> = {
   '13,6': 'blue',
 };
 
-// Pre-start safe cells matching the backend's SAFE_TRACK_POSITIONS.
+// Pre-start safe cells, built from the one safe list this tree keeps (the engine has its
+// own copy of the same eight; the room-rules harness asserts they agree).
 const SAFE_STAR_CELLS: Record<string, boolean> = (() => {
-  const SAFE_TRACK_POSITIONS = [1, 9, 14, 22, 27, 35, 40, 48];
   const m: Record<string, boolean> = {};
   for (const tp of SAFE_TRACK_POSITIONS) {
     const cell = TRACK_CELLS[tp - 1];
@@ -333,7 +333,7 @@ function laneColor(r: number, c: number): string | null {
 
 type BoardProps = {
   pieces?: Array<{ id: string; color: string; step: number; isInGoal: boolean; isInBase: boolean }>;
-  players?: Array<{ color: string; status: string; barrierTokens?: number }>;
+  players?: Array<{ color: string; status: string; wallBreakerTokens?: number }>;
   legalMoves?: Array<{
     pieceId: string;
     from: number;
@@ -343,7 +343,7 @@ type BoardProps = {
     /** Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds. */
     captureCount?: number;
     /** Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag. */
-    spendsBarrierToken?: boolean;
+    spendsWallBreakerToken?: boolean;
   }>;
   onPieceClick?: (pieceId: string) => void;
   /** While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation. */
@@ -363,7 +363,7 @@ type BoardProps = {
    * then is a token-priced exit a tap target (and badged), so tapping a piece can
    * never spend a token by accident. Client-local state, owned by Game.tsx.
    */
-  bustArmed?: boolean;
+  breakerArmed?: boolean;
 };
 
 /** The classic 15×15 cross board, rendered procedurally: no images. */
@@ -375,17 +375,17 @@ export function Board({
   animating,
   fx,
   noSafeZones = false,
-  bustArmed = false,
+  breakerArmed = false,
 }: BoardProps = {}) {
   const { t } = useTranslation();
   // A Wall Breaker exit is not a plain tap target: arming it is the player's
   // explicit choice in Game.tsx, so until then the piece is not tappable or badged.
   // The engine offers at most one exit per piece per roll.
   const bustPieceIds = new Set(
-    (legalMoves ?? []).filter((m) => m.spendsBarrierToken).map((m) => m.pieceId),
+    (legalMoves ?? []).filter((m) => m.spendsWallBreakerToken).map((m) => m.pieceId),
   );
   const legalPieceIds = new Set(
-    (legalMoves ?? []).filter((m) => !m.spendsBarrierToken || bustArmed).map((m) => m.pieceId),
+    (legalMoves ?? []).filter((m) => !m.spendsWallBreakerToken || breakerArmed).map((m) => m.pieceId),
   );
   // Clash chain preview: an attack on a stack of defenders costs one QTE round per
   // defender, so the legal piece wears a ×R badge. Plain moves and single defenders
@@ -397,13 +397,13 @@ export function Board({
   // Wall Breaker exits in the pool: their piece is still in the base but is
   // playable, so it gets the 🔓 price tag only while armed; that is what makes
   // the badge mean "this tap spends the token".
-  const armedPieceIds = bustArmed ? bustPieceIds : new Set<string>();
+  const armedPieceIds = breakerArmed ? bustPieceIds : new Set<string>();
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );
-  const barrierTokens = (ck: ColorKey) =>
+  const wallBreakerTokens = (ck: ColorKey) =>
     players.find((p) => p.color === ck && (p.status === 'active' || p.status === 'disconnected'))
-      ?.barrierTokens ?? 0;
+      ?.wallBreakerTokens ?? 0;
   const basePieces = (ck: ColorKey) =>
     activeColors.has(ck)
       ? pieces
@@ -491,10 +491,10 @@ export function Board({
     byCell.set(key, list);
   }
 
-  // The wall break token glyph, mirrored from Game.tsx (BUSTER_GLYPH). A ×R badge on a
+  // The wall break token glyph, mirrored from Game.tsx (WALL_BREAKER_GLYPH). A ×R badge on a
   // landing that SPENDS a token carries it, so the price of the tap is readable on the
   // piece itself; the base-piece tag already shows it for a prison exit.
-  const BUSTER_GLYPH = '🧨';
+  const WALL_BREAKER_GLYPH = '🧨';
 
   // Sub-cell offsets so up to 4 stacked pieces stay individually visible/clickable.
   const SUB_OFFSETS = [
@@ -609,7 +609,7 @@ export function Board({
                 textShadow: '0 0 6px var(--accent-yellow)',
               }}
             >
-              {p.priced ? `${BUSTER_GLYPH} ×${p.chain}` : `×${p.chain}`}
+              {p.priced ? `${WALL_BREAKER_GLYPH} ×${p.chain}` : `×${p.chain}`}
             </span>
           )}
         </div>,
@@ -640,7 +640,7 @@ export function Board({
           ck="red"
           basePieces={basePieces('red')}
           goalCount={goalCount('red')}
-          barrierTokens={barrierTokens('red')}
+          wallBreakerTokens={wallBreakerTokens('red')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -650,7 +650,7 @@ export function Board({
           ck="green"
           basePieces={basePieces('green')}
           goalCount={goalCount('green')}
-          barrierTokens={barrierTokens('green')}
+          wallBreakerTokens={wallBreakerTokens('green')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -660,7 +660,7 @@ export function Board({
           ck="yellow"
           basePieces={basePieces('yellow')}
           goalCount={goalCount('yellow')}
-          barrierTokens={barrierTokens('yellow')}
+          wallBreakerTokens={wallBreakerTokens('yellow')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -670,7 +670,7 @@ export function Board({
           ck="blue"
           basePieces={basePieces('blue')}
           goalCount={goalCount('blue')}
-          barrierTokens={barrierTokens('blue')}
+          wallBreakerTokens={wallBreakerTokens('blue')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />

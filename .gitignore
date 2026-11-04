@@ -93,6 +93,10 @@ cannon spritesheet 2.png
 *.tsbuildinfo
 next-env.d.ts
 
+# generated: `common/src` copied into each tree by `npm run sync:shared`
+# (the three builds cannot import a folder outside their own roots)
+**/src/__shared__/
+
 package-lock.json
 .markdownlint.json
 e2e/

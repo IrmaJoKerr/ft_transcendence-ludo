@@ -98,25 +98,25 @@ export interface PlayerMeta {
     piecesInGoal: number;      // Mirrors the seat's pieces at step 57
     clashDefends: number;      // Clash rounds fought as defender (achSteadyDefender)
     clashAttacksWon: number;   // Clash rounds won as attacker (achMercilessAttacker)
-    clashWallBattlesWon: number;   // Wall Breaker chains won on a landing that stood a barrier (achTearDownThisWall)
+    clashWallBattlesWon: number;   // Wall Breaker chains won on a landing that stood a wall (achTearDownThisWall)
     diceRolls: number;         // Faces this seat drew, forfeits included
     sixes: number;             // Of those, the 6s
     piecesLost: number;        // Pieces of THIS seat sent home, by any cause
     clashWallsAttacked: number;    // Landings that stood 2+ defenders
     clashWallsDefended: number;    // Wall landings where the wall held
   };
-  barrierTokens?: number;      // Wall Breaker tokens in hand (absent on a state written before the token = 0)
-  barrierArmed?: boolean;      // Wall Breaker arm switch for THIS turn (absent = disarmed, which is the safe default)
+  wallBreakerTokens?: number;      // Wall Breaker tokens in hand (absent on a state written before the token = 0)
+  wallBreakerArmed?: boolean;      // Wall Breaker arm switch for THIS turn (absent = disarmed, which is the safe default)
   lastRoll?: number | null;    // The face this seat's die last landed on, stamped by the true roller (absent = never rolled)
 }
 ```
 
 The Wall Breaker fields are safe-by-default on purpose. A live room survives a redeploy
 in Redis, so a `GameState` written before the token existed can still be loaded mid-game; the two
-NUMERIC fields feed arithmetic (`barrierTokens -= 1`, `clashWallBattlesWon += n`) where `undefined - 1` is
-`NaN`, and a `NaN` seat would stay broken for the rest of the match (the boolean `barrierArmed` has
+NUMERIC fields feed arithmetic (`wallBreakerTokens -= 1`, `clashWallBattlesWon += n`) where `undefined - 1` is
+`NaN`, and a `NaN` seat would stay broken for the rest of the match (the boolean `wallBreakerArmed` has
 no arithmetic and is read as `=== true`, so absent is simply off). `RedisGameStore` normalizes
-them once at the only door the state comes back through (`withBarrierDefaults`, in
+them once at the only door the state comes back through (`withWallBreakerDefaults`, in
 [`redis.ts`](./ludo-engine-redis-system.md)), and every per-site read keeps a `?? 0` as belt and
 braces. `0` is also the honest reading: a state without the fields deals no token and has broken no
 wall.
@@ -393,13 +393,13 @@ move_piece(pieceId)
   ├── Validate game active and turnPhase = WAITING_FOR_MOVE
   ├── Verify pieceId is in pendingLegalMoves (server snapshot from the roll)
   ├── Priced Wall Breaker move →
-  │   ├── Require the seat to be ARMED (arm_barrier) and to hold a token, else refuse
+  │   ├── Require the seat to be ARMED (arm_wall_breaker) and to hold a token, else refuse
   │   └── Spend the token here, on the ATTEMPT, inside the game lock and against the freshly
   │       loaded state: a replayed emit finds the move gone and spends nothing, a repulsed
   │       chain keeps the token spent, and an empty hand clears the arm switch
   ├── Clash mode AND the move is a capture →
   │   ├── Stage pendingCapture for the landing square (the whole stack, in piece-id order)
-  │   │   with barrierBattles stamped (1 when that square stood 2+ of one colour)
+  │   │   with wallBattles stamped (1 when that square stood 2+ of one colour)
   │   ├── Clear pendingLegalMoves + pendingDiceValue, then start the QTE
   │   └── Return result.captured = true with NO piece_moved: the chain applies the move once,
   │       on its last round (clash-engine doc)
@@ -417,8 +417,8 @@ move_piece(pieceId)
 
 ### Wall Breaker Path
 
-The Wall Breaker is the token-priced LANDING: `STARTING_BUSTER_TOKENS` per seat, dealt by `createGame`, that pays
-for a fight on a wall the roll reaches exactly. It never crosses a barrier and never waives the
+The Wall Breaker is the token-priced LANDING: `STARTING_WALL_BREAKER_TOKENS` per seat, dealt by `createGame`, that pays
+for a fight on a wall the roll reaches exactly. It never crosses a wall and never waives the
 exit-roll gate: the roll still has to reach the wall's square exactly. The route does not matter (an
 armed prison exit, an on-board landing and a free-exit landing all pay the same one token), so with
 the free exit on the plain exit REACHES the wall but still does not pay for it: the token is what
@@ -430,43 +430,43 @@ armed_exit(pieceId)                                 // MoveValidator.armedExit
   ├── Require `to` = the roll, on the main track (1..51)
   ├── Offered only when the plain exit is NOT legal for this roll (see getLegalMoves),
   │   so a piece never carries two exits to the same square
-  ├── Require the landing square itself to be a BARRIER (2+ of ONE opponent colour)
-  │   └── A lone defender, or a pair of different colours, is no barrier: the ordinary
+  ├── Require the landing square itself to be a WALL (2+ of ONE opponent colour)
+  │   └── A lone defender, or a pair of different colours, is no wall: the ordinary
   │       exit rules above cover those squares
   ├── Require the landing to be attackable (`wallIsAttackable`), read here because a protected
   │   star never blocks either, so `blockadeBlocksPath` alone would let the bust land on a
   │   wall it cannot fight
   ├── Require a clear path behind the landing (`blockadeBlocksPath` from step 1): a second
-  │   barrier on the way blocks the bust exactly as it blocks any other move
-  └── LegalMove { from: 0, to: the roll, isCapture: true, captureCount: the barrier's depth,
-      spendsBarrierToken: true } — no battle list: the one square is the whole fight
+  │   wall on the way blocks the bust exactly as it blocks any other move
+  └── LegalMove { from: 0, to: the roll, isCapture: true, captureCount: the wall's depth,
+      spendsWallBreakerToken: true } — no battle list: the one square is the whole fight
 ```
 
-**Arming and Skip.** The arm switch is engine-owned: `arm_barrier` calls `setBarrierArmed`, which
-stores `PlayerMeta.barrierArmed` for the current turn. Clash mode is the OPPORTUNITY to break a wall;
+**Arming and Skip.** The arm switch is engine-owned: `arm_wall_breaker` calls `setWallBreakerArmed`, which
+stores `PlayerMeta.wallBreakerArmed` for the current turn. Clash mode is the OPPORTUNITY to break a wall;
 the flag is the DECISION. The move LIST does not depend on it (option C): a wall landing is listed and
 priced whether or not the seat is armed, so a toggle costs one `state_update` and no recompute, and
 `movePiece` is what refuses a priced move when the seat is unarmed or holds no token. Arming an empty
 hand is refused, the flag is deleted from EVERY seat when the turn advances, and a spend that empties
 the hand clears it too (a capture re-rolls, so an ARMED badge over zero tokens must be impossible).
 The engine HOLDS the turn while a bust is on the table (a bust is a legal move, so `rollDice`'s
-no-move pass never fires for it), and `skipArmedBust` (`skip_bust` on the wire) is the other way out:
+no-move pass never fires for it), and `skipArmedBust` (`skip_wall_breaker` on the wire) is the other way out:
 a PASS that spends the dice, advances the turn and leaves the token in hand. Skip is single-purpose:
 it is refused unless EVERY pending move is priced (an ordinary move on the table means the roll is
 played, not skipped), there is no 6 carve-out (a 6 offers no priced move, so the gate already covers
 it), and the socket layer drops a refusal silently.
 
-**The economy.** Seed `STARTING_BUSTER_TOKENS` (1), cap `BARRIER_BUSTER_TOKEN_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
+**The economy.** Seed `STARTING_WALL_BREAKER_TOKENS` (1), cap `WALL_BREAKER_TOKEN_CAP` (3). The debit is the ATTEMPT: `movePiece` spends the token
 inside the game lock and against the state it has just re-read, before the clash gate, so a replayed
 emit finds the move snapshot cleared and cannot spend a second, while a chain that repulses the
 attacker keeps the token spent. The income comes from the same clash branch that credits
 `clashWallBattlesWon`: a chain won against EXACTLY ONE defender pays one token back, clamped to the cap. A
-won barrier pays nothing, so a wall never feeds the thing that breaks walls.
+won wall pays nothing, so a wall never feeds the thing that breaks walls.
 
 **Crediting `clashWallBattlesWon`** (renamed from `barrierBreaks`, which named the wrong noun: the
 tally counts battles won on a wall, not walls destroyed). Each move is stamped with
-`pendingMove.barrierBattles` = 1 when its landing square stood 2 or more defenders, else 0, and the
-clash engine adds that to the attacker's `stats.clashWallBattlesWon` only when the whole chain is won. So the tally counts BARRIERS, not rounds: a
+`pendingMove.wallBattles` = 1 when its landing square stood 2 or more defenders, else 0, and the
+clash engine adds that to the attacker's `stats.clashWallBattlesWon` only when the whole chain is won. So the tally counts WALLS, not rounds: a
 landing on a 2-stack is 1, an armed bust on a wall (whatever its size) is 1, a lone defender is 0,
 and a lost chain credits nothing. That count is what `achTearDownThisWall` sums per game; `?? 0`
 keeps a state written before the field existed reading as 0.

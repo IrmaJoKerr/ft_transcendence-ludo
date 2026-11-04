@@ -568,30 +568,30 @@ export const fr = {
     statusSelectPiece: '// CHOISISSEZ UNE PIÈCE À DÉPLACER',
     statusRivalTurn: '// TOUR DE {{name}}...',
     rollDiceBtn: 'LANCER LE DÉ',
-    barrierBusterBtn: 'BRISE-MUR',
-    barrierBusterArmedBtn: 'BRISE-MUR : ARMÉ',
+    wallBreakerBtn: 'BRISE-MUR',
+    wallBreakerArmedBtn: 'BRISE-MUR : ARMÉ',
     // La colonne des jetons de brise-mur à côté de la liste des pilotes (mode clash
     // uniquement) : l'en-tête la nomme et la case de chaque pilote montre ses jetons
     // en glyphes, touchables pour armer le siège au trait.
-    barrierColumnHeader: 'JETONS BRISE-MUR',
-    barrierToggleHint: 'Toucher pour utiliser',
-    barrierColumnTitle:
+    wallBreakerColumnHeader: 'JETONS BRISE-MUR',
+    wallBreakerToggleHint: 'Toucher pour utiliser',
+    wallBreakerColumnTitle:
       "Le mode clash permet de briser un mur (2 pièces ou plus d'une même couleur adverse). Basculez ici pour l'autoriser ce tour : chaque mur sur lequel vous atterrissez coûte un jeton.",
-    barrierArmTitle:
+    wallBreakerArmTitle:
       'Armer : ce tour, un mur ne vous bloque plus, et en briser un coûte un jeton.',
-    barrierArmedTitle:
+    wallBreakerArmedTitle:
       'Armé : atterrissez sur un mur pour le briser (1 jeton par mur, quelles que soient les règles de la salle). Appuyez à nouveau pour désarmer.',
-    barrierCannotArmTitle:
+    wallBreakerCannotArmTitle:
       "Impossible d'armer : aucun jeton en main, ou ce n'est pas le tour de ce siège.",
-    barrierArmedCaption: 'ARMÉ',
-    barrierBusterTitle:
+    wallBreakerArmedCaption: 'ARMÉ',
+    wallBreakerActionTitle:
       'Dépenser un jeton : cette sortie affronte le mur sur lequel le lancer retombe',
-    barrierBusterArmedTitle:
+    wallBreakerActionArmedTitle:
       'Armé : touchez la sortie de prison pour affronter le mur, ou appuyez à nouveau pour annuler',
     skipBustBtn: 'PASSER LE BRIS DE MUR',
     skipBustTitle: 'Passer le bris de mur : garder le jeton et passer le tour',
     skipBustDisabledTitle: "Rien à refuser : aucune attaque de mur ne retient le tour",
-    bustSkipped: '{{name}} passe : le Brise-Mur est gardé pour plus tard',
+    wallBreakerSkipped: '{{name}} passe : le Brise-Mur est gardé pour plus tard',
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
     // Règles de la salle : les trois options de l'hôte. `noSafeZones` est le
@@ -894,7 +894,7 @@ export const fr = {
     // Infobulles du Brise-Mur : les jetons restants du siège (les pastilles à
     // côté du label de la base) et l'étiquette 🔓 sur une pièce dont la seule
     // sortie légale est celle payée par un jeton.
-    barrierTokensTitle:
+    wallBreakerTokensTitle:
       'Brise-Mur ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
     armedBadgeTitle: 'Brise-Mur : cette sortie coûte un jeton',
   },

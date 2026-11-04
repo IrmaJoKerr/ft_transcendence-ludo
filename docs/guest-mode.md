@@ -173,7 +173,7 @@ sequenceDiagram
     SPA->>Engine: handshake { auth: { token: g_… } }
     Engine->>Redis: HGETALL guesttok:<sha256>
     Engine-->>SPA: game_joined (room and seat from the record)
-    SPA->>Engine: roll_dice, move_piece, skip_bust, arm_barrier, clash_input …
+    SPA->>Engine: roll_dice, move_piece, skip_wall_breaker, arm_wall_breaker, clash_input …
     Engine-->>SPA: dice_rolled, piece_moved, turn_skipped, game_ended …
 ```
 
@@ -237,8 +237,8 @@ A guest socket is a full seat for its room, but it drives an allow-list (`GUEST_
 | Allowed | Notes |
 | --- | --- |
 | `join_game` | The room and the seat come from the registry, so the client's arguments are ignored. |
-| `roll_dice`, `move_piece`, `skip_bust` | The three normal turn actions. |
-| `arm_barrier`, `clash_card_hold`, `clash_input` | The room-rule and clash mechanics, when the room enables them. |
+| `roll_dice`, `move_piece`, `skip_wall_breaker` | The three normal turn actions. |
+| `arm_wall_breaker`, `clash_card_hold`, `clash_input` | The room-rule and clash mechanics, when the room enables them. |
 | `leave_game` | Prices an abort immediately (the guest has nothing to reconnect to). |
 | `end_game` | Tears the room down first, then prices the abort and revokes the token. |
 | `disconnect` | The ordinary disconnect path. It does not settle the counters (see limitations). |

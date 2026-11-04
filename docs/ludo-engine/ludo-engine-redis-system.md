@@ -102,7 +102,7 @@ class RedisGameStore {
 | `chat:game:<id>:log` | list | `appendChat` (a player's line and every engine-written line) | The transcript is ~415 kB at its cap and the state snapshot is read on every frame; one key each means a chat eviction can only cost a transcript, never a game |
 | `chat:game:<id>:seq` | string (counter) | `nextChatSeq` (`INCR`) | The total order, the React key, the dedupe between a replay and a live frame, and the cut a block is stamped with — all four need one monotonic number per room |
 
-Both carry `GAME_CHAT_TTL_S` (86,400 s) refreshed on every write, so an idle room's transcript lapses with the
+Both carry `GAME_CHAT_TTL_S` (86,400 s, from `common/src/chat.constants.ts`) refreshed on every write, so an idle room's transcript lapses with the
 room that wrote it. Nothing is published on `game:<id>` for a player's line: the fan-out is the room's own
 socket set, filtered per seat (see `ludo-engine-socket-system.md`).
 
@@ -483,24 +483,24 @@ saveGameState(gameId, state)
 loadGameState(gameId)
   ├── HGET game:{gameId} state
   │   ├── Found → deserialize JSON to GameState
-  │   │   └── withBarrierDefaults(state)
-  │   │       ├── player.barrierTokens === undefined → 0
+  │   │   └── withWallBreakerDefaults(state)
+  │   │       ├── player.wallBreakerTokens === undefined → 0
   │   │       ├── stats.barrierBreaks (legacy) → stats.clashWallBattlesWon, then deleted
   │   │       └── diceRolls / sixes / piecesLost / clashWallsAttacked / clashWallsDefended → 0
   │   └── Not found → return null
   └── Done
 ```
 
-`withBarrierDefaults` is the ONE door the state comes back through: a live room survives a redeploy in
+`withWallBreakerDefaults` is the ONE door the state comes back through: a live room survives a redeploy in
 Redis, so a `GameState` without the Wall Breaker fields can be loaded mid-game, and it is normalised
 there. Every NUMERIC field feeds
-arithmetic (`barrierTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
-to `BARRIER_BUSTER_TOKEN_CAP`, `stats.clashWallBattlesWon += 1` when a barrier chain is won, and the
+arithmetic (`wallBreakerTokens - 1` on an armed bust, `+ 1` per clash won against a single defender up
+to `WALL_BREAKER_TOKEN_CAP`, `stats.clashWallBattlesWon += 1` when a wall chain is won, and the
 match-row counters the engine tallies per seat), and `undefined - 1` is
 `NaN`: one NaN seat would stay broken for the rest of the
 match, because every later turn reads the poisoned counter back out of Redis. Normalizing at the
 load site (rather than at each read) keeps the fix in one place; the per-site `?? 0` reads stay as
-belt and braces for a state that is handed around in memory. `barrierArmed` needs no normalizer: it is
+belt and braces for a state that is handed around in memory. `wallBreakerArmed` needs no normalizer: it is
 read as `=== true`, so an absent field is simply off. `0` is also the honest reading: a state without
 the fields deals no token and has broken no wall.
 
@@ -517,7 +517,7 @@ rollDice            → roll | thirdSixForfeit        (engine.ts)
 applyMoveOutcome    → capturedPiece, failcapturePiece, wallBrokenBonusRoll,
                       wallAttackFailed, bonusRollAgain   (turn.ts, both the plain move
                       and the resolved clash pass through it)
-skipArmedBust       → bustSkipped                    (engine.ts)
+skipArmedBust       → wallBreakerSkipped                    (engine.ts)
 handleEndGame       → playerAborted                  (socket/post-game.ts)
 ```
 

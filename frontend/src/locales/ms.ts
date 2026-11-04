@@ -563,29 +563,29 @@ export const ms = {
     statusSelectPiece: '// PILIH BUAH UNTUK DIGERAKKAN',
     statusRivalTurn: '// GILIRAN {{name}}...',
     rollDiceBtn: 'GULING DADU',
-    barrierBusterBtn: 'PEMECAH TEMBOK',
-    barrierBusterArmedBtn: 'PEMECAH TEMBOK: DIARMKAN',
+    wallBreakerBtn: 'PEMECAH TEMBOK',
+    wallBreakerArmedBtn: 'PEMECAH TEMBOK: DIARMKAN',
     // Lajur token pemecah tembok di sebelah senarai juruterbang (mod clash sahaja):
     // pengepala menamakannya dan sel setiap juruterbang memaparkan token kerusinya
     // sebagai glif, boleh diketuk untuk mengarmkan kerusi yang bergerak.
-    barrierColumnHeader: 'TOKEN PEMECAH TEMBOK',
-    barrierToggleHint: 'Ketik untuk guna',
-    barrierColumnTitle:
+    wallBreakerColumnHeader: 'TOKEN PEMECAH TEMBOK',
+    wallBreakerToggleHint: 'Ketik untuk guna',
+    wallBreakerColumnTitle:
       'Mod clash membenarkan tembok (2 buah atau lebih warna lawan yang sama) dipecahkan. Togol di sini untuk membenarkannya giliran ini: setiap tembok yang anda pijak menelan satu token.',
-    barrierArmTitle:
+    wallBreakerArmTitle:
       'Armkan: giliran ini tembok tidak lagi menyekat anda, dan memecahkannya menelan satu token.',
-    barrierArmedTitle:
+    wallBreakerArmedTitle:
       'Diarmkan: pijak tembok untuk memecahkannya (1 token setiap tembok, apa jua peraturan bilik). Tekan lagi untuk nyaharm.',
-    barrierCannotArmTitle:
+    wallBreakerCannotArmTitle:
       'Tidak boleh arm: tiada token di tangan, atau bukan giliran kerusi ini.',
-    barrierArmedCaption: 'DIARMKAN',
-    barrierBusterTitle: 'Gunakan satu token: keluar ini menentang tembok yang dipijak gulingan',
-    barrierBusterArmedTitle:
+    wallBreakerArmedCaption: 'DIARMKAN',
+    wallBreakerActionTitle: 'Gunakan satu token: keluar ini menentang tembok yang dipijak gulingan',
+    wallBreakerActionArmedTitle:
       'Diarmkan: ketik keluar penjara untuk menentang tembok, atau tekan lagi untuk batal',
     skipBustBtn: 'LANGKAU PECAH TEMBOK',
     skipBustTitle: 'Langkau pemecahan tembok: simpan token dan langkau giliran',
     skipBustDisabledTitle: 'Tiada apa untuk dilangkau: tiada serangan tembok menahan giliran',
-    bustSkipped: '{{name}} melangkau: Pemecah Tembok disimpan untuk kemudian',
+    wallBreakerSkipped: '{{name}} melangkau: Pemecah Tembok disimpan untuk kemudian',
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
     // Peraturan bilik: tiga suis hos. `noSafeZones` ialah bendera TERBALIK, dan
@@ -884,7 +884,7 @@ export const ms = {
     // Tip alat Pemecah Tembok: token yang masih dipegang kerusi ini (titik di
     // sebelah label pangkalan) dan tanda 🔓 pada buah yang satu-satunya langkah sah
     // ialah keluar berpembayaran token.
-    barrierTokensTitle:
+    wallBreakerTokensTitle:
       'Pemecah Tembok ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
     armedBadgeTitle: 'Pemecah Tembok: keluar ini menelan satu token',
   },

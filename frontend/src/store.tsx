@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import i18n from './i18n';
+import { CHAT_HISTORY } from './__shared__/chat.constants';
 import { BOT_POOL, SEAT_COLORS, type ColorKey } from './theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
 import { connectSessionSocket } from './sessionSocket';
@@ -107,11 +108,12 @@ function storedTheme(): ThemeType {
 // docs).
 const ACCESS_TOKEN_REFRESH_MS = 14 * 60 * 1000;
 
-/** The transcript's length: the same 500 rows the backend keeps in its Redis list
- *  (`CHAT_HISTORY`). The ring lives here rather than in the dock's panel, so switching
- *  the channel off, or being on `/game` where no panel renders, drops no line. The
- *  dock's plate previews the newest 3 of them; the card paints the whole ring. */
-const CHAT_LOG_LIMIT = 500;
+/** The transcript's length is `CHAT_HISTORY`, from `common/src/chat.constants.ts`: one
+ *  number for the backend's Redis list and this ring, so the two cannot disagree about
+ *  how far back a reader can scroll. The ring lives here rather than in the dock's
+ *  panel, so switching the channel off, or being on `/game` where no panel renders,
+ *  drops no line. The dock's plate previews the newest 3 of them; the card paints the
+ *  whole ring. */
 /** settingOn/toggleSetting key for "show the rules popup when a match starts": read by Lobby's Rules button and Game.tsx. */
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
 /** Defaults for the settings toggles, keyed "<group>-<row>". */
@@ -587,12 +589,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // The transcript. The connect-time history replaces the ring, a live line
     // appends to it, and the id merge keeps the overlap between the two from
     // painting the newest line twice.
-    socket.on('chat:history', (messages) => setChatLog(messages.slice(-CHAT_LOG_LIMIT)));
+    socket.on('chat:history', (messages) => setChatLog(messages.slice(-CHAT_HISTORY)));
     socket.on('chat:message', (message) => {
       setChatLog((prev) =>
         prev.some((line) => line.id === message.id)
           ? prev
-          : [...prev, message].slice(-CHAT_LOG_LIMIT),
+          : [...prev, message].slice(-CHAT_HISTORY),
       );
     });
 

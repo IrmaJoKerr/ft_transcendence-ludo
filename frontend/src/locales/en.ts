@@ -565,30 +565,30 @@ export const en = {
     rollDiceBtn: 'ROLL DICE',
     // Wall Breaker control: arm it, then tap the prison exit. The armed state is
     // a second label, so the commitment is readable before the tap spends a token.
-    barrierBusterBtn: 'WALL BREAKER',
-    barrierBusterArmedBtn: 'WALL BREAKER: ARMED',
+    wallBreakerBtn: 'WALL BREAKER',
+    wallBreakerArmedBtn: 'WALL BREAKER: ARMED',
     // The wall break tokens column beside the pilot roster (clash mode only): the
     // header names it and each pilot's cell below shows that seat's tokens as
     // glyphs, tappable to arm the seat that holds the turn.
-    barrierColumnHeader: 'WALL BREAK TOKENS',
-    barrierToggleHint: 'Toggle to use',
-    barrierColumnTitle:
+    wallBreakerColumnHeader: 'WALL BREAK TOKENS',
+    wallBreakerToggleHint: 'Toggle to use',
+    wallBreakerColumnTitle:
       'Clash mode lets a wall (2 or more pieces of one enemy colour) be broken. Toggle here to allow it this turn: every wall you land on costs one token.',
-    barrierArmTitle:
+    wallBreakerArmTitle:
       'Arm: this turn a wall no longer blocks you, and breaking one costs a token.',
-    barrierArmedTitle:
+    wallBreakerArmedTitle:
       'Armed: land on a wall to break it (1 token per wall, whatever the room rules). Press again to disarm.',
-    barrierCannotArmTitle: 'Cannot arm: no token in hand, or it is not this seat to move.',
-    barrierArmedCaption: 'ARMED',
-    barrierBusterTitle: 'Spend one token: this exit fights the wall the roll lands on',
-    barrierBusterArmedTitle:
+    wallBreakerCannotArmTitle: 'Cannot arm: no token in hand, or it is not this seat to move.',
+    wallBreakerArmedCaption: 'ARMED',
+    wallBreakerActionTitle: 'Spend one token: this exit fights the wall the roll lands on',
+    wallBreakerActionArmedTitle:
       'Armed: tap the prison exit to fight the wall, or press again to cancel',
     // Skip: the other way out of the turn an armed bust is holding.
     skipBustBtn: 'SKIP BREAKING WALL',
     skipBustTitle: 'Skip breaking the wall: keep the token and pass the turn',
     skipBustDisabledTitle: 'Nothing to decline: no wall attack is holding the turn',
     // Recon log line when a held turn is passed by Skip.
-    bustSkipped: '{{name}} skips: the Wall Breaker is saved for later',
+    wallBreakerSkipped: '{{name}} skips: the Wall Breaker is saved for later',
     reconLogsTitle: '// RECON LOGS',
     noReconLogged: 'NO TELEMETRY LOGGED',
     // Room rules: the host's three toggles. `noSafeZones` is the INVERTED flag,
@@ -891,7 +891,7 @@ export const en = {
     // Wall Breaker tooltips: the seat's remaining tokens (the pips next to the
     // bay label) and the 🔓 price tag on a piece whose only legal move is the
     // token-priced exit.
-    barrierTokensTitle:
+    wallBreakerTokensTitle:
       'Wall Breaker ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
     armedBadgeTitle: 'Wall Breaker: this exit costs one token',
   },
@@ -986,7 +986,7 @@ export const en = {
     rulesPage8Body:
       'A piece in prison normally needs a 6 to come out. With free exit on, any roll opens the door and the exit is part of the move itself: the piece walks out and stops on the step it rolled — a 5 puts it on step 5, a 6 on step 6.',
     // The free exit is an ordinary move from step 0: it fights only the square it lands
-    // on, and a barrier on the way blocks it. Breaking the landing barrier is the
+    // on, and a wall on the way blocks it. Breaking the landing wall is the
     // token's job, so the copy splits the two.
     rulesPage8Body2:
       'A 6 still earns its bonus roll. The exit is an ordinary move from the prison: the piece LANDS on the step it rolled, and it fights only that square. A wall before the landing square blocks the exit outright, and clash mode does not help there; a wall exactly ON the landing square is the one clash mode lets the piece fight, one clash per defender. A wall parked on a protected star is simply passed.',

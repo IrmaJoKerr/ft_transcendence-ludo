@@ -118,14 +118,14 @@ export type ClientEvents = {
   move_piece: (pieceId: string) => void;
   // Decline the armed Wall Breaker exit that is holding the turn: the token
   // stays in hand, the dice are spent and the turn passes.
-  skip_bust: () => void;
+  skip_wall_breaker: () => void;
   // One press of this player's clash key. The server proves ownership and
   // applies the press cap; a decoy (touch pad) press is discarded there.
   clash_input: (key: string, count?: number) => void;
   // The Wall Breaker arm switch (clash mode only). The engine owns the flag:
   // armed means this seat may break a wall this turn, and every wall landing
   // spends one token.
-  arm_barrier: (armed: boolean) => void;
+  arm_wall_breaker: (armed: boolean) => void;
   // The result-card release handshake: how long this client's own card will run
   // (its forecast, not a state change). `cardId` is the id the engine put on the
   // `clash_result` frame this receipt belongs to.

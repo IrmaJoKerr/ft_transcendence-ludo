@@ -59,6 +59,32 @@ Images are built from `Dockerfile`s in each service directory. `db` and `redis` 
 their official images with an init script that reads secrets before `exec`ing the
 real process (`backend/app/postgres_16_db/`, `backend/app/redis/`).
 
+### One declaration for the constants two builds count
+
+`common/src` holds the values more than one build counts: the chat family, the eight clash and turn
+delays, and the Wall Breaker hand. It is not a package and has no `package.json`, because each build
+keeps its own root — `backend/tsconfig.json` has no `rootDir`, the engine states `rootDir: ./src`, and
+`frontend/tsconfig.app.json` includes only `src` — so none of them can import a sibling folder, and
+two of the three break at container start rather than at build time if pushed to. The value is
+therefore generated into each tree:
+
+- `scripts/sync-shared.mjs` in each tree writes `common/src` into `src/__shared__`, which is
+  gitignored build output and never edited. It runs on `prebuild`/`predev`, and `make shared` runs all
+  three (both `make build` and `make dev` depend on it).
+- the images take the files straight from `/common`: compose names it as an extra build context
+  (`additional_contexts: shared: ./common`) and each Dockerfile does one
+  `COPY --from=shared /src ./src/__shared__` before its build, so the tree's own `prebuild` finds the
+  copy already in place.
+- the two frontend services mount `./common:/common:ro`, because their `/app` tree arrives as a bind
+  mount rather than from the image.
+- `node scripts/sync-shared.mjs --check` compares the copies and fails on drift; the
+  timing-contract harness runs the same comparison plus a check that no tree re-declared one.
+
+What does **not** go there: anything with a single reader, and anything structural (board topology,
+the Redis and socket names, the state types). Those stay mirrored, because they change only with a
+redesign that rewrites both sides anyway. The rule and the full list are in
+[Constant-list.md](Constant-list.md#the-shared-folder).
+
 > **Note:** The bot AI runs inside the `ludo-engine` process (`backend/app/ludo-engine/src/bot.ts`),
 > not in a container of its own. Bot seats need no token: the backend writes them into the `match:*`
 > hash as `bot-<color>`, and the engine auto-fills those slots from that hash once a human joins.
@@ -516,6 +542,12 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 ├── .gitignore                    # Ignored paths (node_modules, dist, generated, .env, lockfiles, planning docs)
 ├── LICENSE                       # GPL-3.0
 ├── README.md                     # Project overview, setup, module list, docs index
+│
+├── common/                       # The one declaration of the constants two builds count
+│   └── src/
+│       ├── chat.constants.ts     # 300 chars, 2 s cooldown, 500/1000 rows, 400-line fallback, 86400 s, chatLength()
+│       ├── timing.constants.ts   # the eight: clash windows, result card (2 + sum), step and dice animation
+│       └── wall-breaker.constants.ts # the token every seat is dealt, and the hand's ceiling
 │
 ├── backend/                      # NestJS REST API (port 3000)
 │   ├── Dockerfile

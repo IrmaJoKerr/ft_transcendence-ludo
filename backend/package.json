@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "predev": "npm run sync:shared",
     "dev": "nest start --watch",
+    "prebuild": "npm run sync:shared",
     "build": "nest build",
     "start": "node dist/main.js",
     "db:generate": "prisma generate",

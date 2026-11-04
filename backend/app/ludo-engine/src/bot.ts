@@ -90,7 +90,7 @@ export class LudoBot {
       // A Wall Breaker bust is a capture that also spends a token, so it pays
       // the token's shadow price: a bust whose odds do not cover it drops below
       // Skip (0) and the bot declines.
-      return move.spendsBarrierToken ? credit - BUST_TOKEN_SHADOW : credit;
+      return move.spendsWallBreakerToken ? credit - BUST_TOKEN_SHADOW : credit;
     }
 
     let score = 0;
@@ -174,10 +174,10 @@ export class LudoBot {
     const botSeat = state.players.find((p) => p.color === this.color);
     if (
       state.clashMode === true &&
-      (botSeat?.barrierTokens ?? 0) > 0 &&
-      botSeat?.barrierArmed !== true
+      (botSeat?.wallBreakerTokens ?? 0) > 0 &&
+      botSeat?.wallBreakerArmed !== true
     ) {
-      await this.engine.setBarrierArmed(this.gameId, this.color, true);
+      await this.engine.setWallBreakerArmed(this.gameId, this.color, true);
     }
 
     // Roll dice : engine validates currentTurn again

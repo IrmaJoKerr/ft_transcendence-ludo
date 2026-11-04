@@ -5,6 +5,9 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm install
 COPY . .
+# `common/src`, from compose's named `shared` context: the tree's `prebuild` finds the
+# copy already in place and skips its own sync, so the image needs no common/ path.
+COPY --from=shared /src ./src/__shared__
 ARG DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate
 RUN npm run build

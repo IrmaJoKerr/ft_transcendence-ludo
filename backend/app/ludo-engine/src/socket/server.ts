@@ -27,13 +27,13 @@ import {
   BOT_MOVE_STEP_MS,
   BOT_THINK_MS,
   CLASH_EVENT_WINDOW_MS,
-  DICE_ROLL_ANIM_MS,
   EVENT_WINDOW_MS,
   IDLE_LOBBY_TIMEOUT_MS,
   PING_INTERVAL_MS,
   PING_TIMEOUT_MS,
   POST_GAME_TIMEOUT_MS,
 } from '../timing';
+import { DICE_ROLL_ANIM_MS } from '../__shared__/timing.constants';
 
 // Every delay lives in ../timing; these are socket-wiring limits, exported for the
 // contract harness. MAX_EVENT_BYTES is the largest inbound event socket.io buffers
@@ -584,15 +584,15 @@ export class SocketServer {
       });
 
       // The Skip button on a held turn: decline the armed Wall Breaker exit.
-      socket.on('skip_bust', () => {
+      socket.on('skip_wall_breaker', () => {
         this.handlers.handleSkipBust(socket);
       });
 
       // The Wall Breaker arm switch, clash mode only: arm to be allowed to land
       // on (and break) a wall this turn, disarm to be blocked by one. The engine
       // owns the flag, so this is a request, not a local toggle.
-      socket.on('arm_barrier', (armed?: boolean) => {
-        this.handlers.handleArmBarrier(socket, armed === true);
+      socket.on('arm_wall_breaker', (armed?: boolean) => {
+        this.handlers.handleArmWallBreaker(socket, armed === true);
       });
 
       // The result-card release handshake: the client forecasts how long its own

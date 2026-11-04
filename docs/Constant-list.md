@@ -1,10 +1,12 @@
 # **Constant List**
 
 Every tunable that decides how the app behaves — its value, the file that owns it, and what it
-moves. Updated 29 Oct 2026
+moves. Updated 4 Nov 2026
 
-Each number appears once, under the file that exports it. Where the same value has to exist on both
-sides of the wire, the mirror is named in the row and collected again in §18.
+Each number appears once, under the file that exports it. A value **two builds count** is declared
+once in `common/src` and reaches each tree as a generated copy (see
+[the shared folder](#the-shared-folder)); everything else that has to exist on both sides of the wire
+is a mirror, named in the row and collected again in §18.
 
 
 ---
@@ -18,6 +20,7 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 | 🗄️ | Backend API — `backend/src` |
 | 🖥️ | Frontend SPA — `frontend/src` |
 | 🎨 | Stylesheet — `frontend/src/styles/retrowave.css` |
+| 📦 | Shared — declared once in `common/src`, copied into each tree at `src/__shared__` by `npm run sync:shared` |
 | 🔗 | Mirrored — the same value exists on the other side of the wire (see [§18](#18-mirrored-values)) |
 
 **How to read a row**
@@ -32,11 +35,43 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 - **Values are the ones in the tree on the date above.**
 
 
+<a id="the-shared-folder"></a>
+
+## **The shared folder**
+
+`common/src` is the one place a value lives when **more than one build counts it**. Each build is its
+own TypeScript root and its own compose context, so none can import a sibling folder: the copy is
+generated into `src/__shared__` by `scripts/sync-shared.mjs` (on `prebuild`/`predev`, and by
+`COPY --from=shared` in the backend and engine images). The copies are gitignored build output and are
+never edited; `node scripts/sync-shared.mjs --check` fails on drift.
+
+| File | Holds |
+|---|---|
+| `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
+| `common/src/timing.constants.ts` | the eight both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1300, `RESULT_HEADLINE_READ_MS` 1300, `CLASH_RESULT_MS` 2600 (added from the two), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
+
+**The test for the folder** is "would someone tune it, and does a second build read it?" Three answers:
+
+- **Shared (above).** Tuning one of these from the lobby or the board changes what both servers do on
+  the next build, with no second edit.
+- **Mirrored (§18).** Board topology (the 52-step track, the home lane, step 57, the eight safe
+  squares, the 15 × 15 grid, four pieces a seat), the Redis and socket names and key shapes,
+  `RoomRules` and its clamp, the error codes and the state types. None is a knob: they change only
+  with a redesign, and a redesign redraws both sides in the same breath. A harness keeps them equal.
+- **Local.** Everything with one reader: the engine's bot pacing and its lifecycle windows, the SPA's
+  presentation timings, and the room-only chat fallback sizes.
+
+
 ---
 ---
 
 
 ## **Table of Contents**
+
+### Shared
+
+0. **[The shared folder](#the-shared-folder)** — the one declaration each build copies: chat, the eight timings, the Wall Breaker hand, and the test for what belongs there
 
 ### Engine
 
@@ -79,23 +114,18 @@ sides of the wire, the mirror is named in the row and collected again in §18.
 
 ### **1. Engine timing**
 
-**Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns, in one
-place". The client mirrors the shared subset in §13 with the same names and values.
+**Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns and no other
+build counts". The eight both builds count (the three clash windows, the result card's three and the
+two animations) are in `common/src/timing.constants.ts` 📦, so they are absent from this table.
 
 **Clash QTE**
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `CLASH_ANNOUNCE_MS` | 1500 | "CLASH!" flash; keys still hidden |
-| `CLASH_COUNTDOWN_MS` | 3000 | GET READY, then 3-2-1; keys still hidden |
-| `CLASH_PRESS_MS` | 5000 | the press race window (the `duration` on the wire is this ÷ 1000) |
 | `CLASH_SWITCH_FIRST_MIN_MS` | 2000 | earliest first key switch, measured from the press window opening (`countdownDeadline`) |
 | `CLASH_SWITCH_FIRST_MAX_MS` | 2500 | latest first key switch |
 | `CLASH_SWITCH_GAP_MIN_MS` | 800 | shortest gap between two switches |
 | `CLASH_SWITCH_GAP_MAX_MS` | 1100 | longest gap; the worst case (2500 + 1100) still leaves 1.4 s of the press window after the last switch |
-| `RESULT_FX_MS` | 1300 | the result card's gesture, mirrored from the client (the engine never draws it, but the card's length is its freeze) |
-| `RESULT_HEADLINE_READ_MS` | 1300 | the beat the card's headline gets once the gesture stops |
-| `CLASH_RESULT_MS` | 2600 | the card, **added** from the two rows above rather than written down: the client shows it, the engine freezes input for it and arms the chain's next round on it |
 | `CLASH_RESULT_FREEZE_MS` | 4000 | input-freeze **ceiling**: a client card hold can only shorten it |
 | `CARD_HOLD_MIN_MS` | 250 | floor for a reported card hold: a client that asks for less is raised to this |
 | `CLASH_SWEEP_GRACE_MS` | 15000 | outer cleanup bound measured from the clash start |
@@ -107,13 +137,12 @@ place". The client mirrors the shared subset in §13 with the same names and val
 | `CLASH_BOT_FAST_REACTION_MS` | 120 | touch-typist pause before the first press (muscle memory, 100–150 band) |
 | `CLASH_BOT_CASUAL_REACTION_MS` | 500 | choice reaction pause before the first press (400–600 band) |
 
-**Turn animation** — the engine keeps the client's numbers because bot turns are paced so their move
-finishes animating before the next action fires.
+**Turn animation** — `BOT_MOVE_STEP_MS` is the engine's slack over the shared
+`MOVE_STEP_ANIM_MS` 📦, because bot turns are paced so their move finishes animating before the next
+action fires.
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `MOVE_STEP_ANIM_MS` | 180 | one board step of the client's path animation 🔗 |
-| `DICE_ROLL_ANIM_MS` | 750 | dice spin before the path starts 🔗 |
 | `BOT_MOVE_STEP_MS` | 220 | the engine's slack over `MOVE_STEP_ANIM_MS` when it schedules a bot turn |
 | `BOT_THINK_MS` | 500 | flat pause before a bot acts |
 
@@ -139,23 +168,22 @@ finishes animating before the next action fires.
 `player-handler.ts` arms the disconnect timer at `DISCONNECT_GRACE_MS + 1000` so the deadline is
 already past when the callback fires; the stored `reconnectDeadline` still uses the bare constant.
 
-**The room channel** — the caps and the fallback, all in `backend/app/ludo-engine/src/game-chat.ts`
-(one block, so raising one is a one-line change in one place).
+**The room channel** — the caps and the fallback, all in `common/src/chat.constants.ts` 📦, because
+the lobby and the room are the same conversation at two sizes and both servers count the same units.
 
 | Constant | Value | What it decides |
 |---|---|---|
 | `GAME_CHAT_MAX_LINES` | 1000 | lines the room keeps (`LPUSH` + `LTRIM`); the panel paints the tail, a stored row keeps the whole log |
-| `GAME_CHAT_MAX_CHARS` | 300 | characters one line may carry, counted in UTF-16 units — exactly what both composers show 🔗 |
 | `GAME_CHAT_FALLBACK_LINES` | 400 | lines the fallback re-post keeps when `/api/game/end` refuses the body (413) |
 | `GAME_CHAT_TTL_S` | 86400 | the two chat keys' life, the same window `game:<id>` keeps |
 
-The lobby's composer imports the same `CHAT_MAX_CHARS` and the same `chatLength` helper (trim first,
-then count UTF-16 units), so the two channels refuse the same line at the same length and paint the
-same `n / 300`. Its transcript is `CHAT_HISTORY` = 500 rows in `backend/src/chat/chat.constants.ts`
-(`LPUSH` + `LTRIM` per line, mirrored client-side by `CHAT_LOG_LIMIT`), against the room's
-`GAME_CHAT_MAX_LINES` = 1000 — the lobby's list is the public front page, the room's is the match's
-log. The dock's plate and the in-game compact slot are feeds only: they paint the newest
-`SCREEN_PREVIEW_LINES` / `PREVIEW_LINES`, nothing is trimmed there.
+`CHAT_MAX_CHARS` (300) and the `chatLength` helper (trim first, then count UTF-16 units) are shared
+with the lobby as well, so the two channels refuse the same line at the same length and paint the same
+`n / 300`. The lobby's transcript is `CHAT_HISTORY` = 500 rows 📦 (`LPUSH` + `LTRIM` per line; the SPA's
+store trims its ring to the same value), against the room's `GAME_CHAT_MAX_LINES` = 1000 — the lobby's
+list is the public front page, the room's is the match's log. The dock's plate and the in-game compact
+slot are feeds only: they paint the newest `SCREEN_PREVIEW_LINES` / `PREVIEW_LINES`, nothing is trimmed
+there.
 
 
 ### **2. Clash rules**
@@ -192,7 +220,7 @@ capped path they lose nothing.
 
 **Owners:** `backend/app/ludo-engine/src/board-mapper.ts` ⚙️ (safe squares, colour offsets),
 `move-validator.ts` ⚙️ (base exit, overshoot, blockades), `engine.ts` ⚙️ (six streak, goal, win) and
-`types.ts` ⚙️ (Wall Breaker hand). The client mirrors the track geometry in
+`types.ts` ⚙️ (the starting hand is shared, see below). The client mirrors the track geometry in
 `frontend/src/game/boardGeometry.ts` 🖥️ (§15).
 
 | Constant / rule | Value | What it decides |
@@ -207,11 +235,14 @@ capped path they lose nothing.
 | Six streak | 3 | a third consecutive 6 forfeits the turn (`consecutiveSixes >= 3`); every other 6 grants a bonus roll |
 | Blockade | 2+ same-colour pieces on one non-safe track square | opponents cannot cross or land on it; the owner is unaffected |
 | Win | 4 pieces at step 57 | `all(step === 57)` → `game_ended` with `resultDetail: 'four_pieces'` |
-| `STARTING_BUSTER_TOKENS` | 1 | Wall Breaker tokens every seat starts with 🔗 (client copy in §14) |
-| `BARRIER_BUSTER_TOKEN_CAP` | 3 | most tokens a seat can bank; a won clash against one defender pays one back, a won barrier never pays |
 | `LOG_CAP` | 30 | lines the engine keeps in `state.log` (and the client draws); the oldest are dropped on write |
 
-The Wall Breaker token buys one landing on a barrier the roll reaches **exactly** — never a
+The Wall Breaker hand — `STARTING_WALL_BREAKER_TOKENS` 1 and `WALL_BREAKER_TOKEN_CAP` 3 — is a
+balance knob the SPA also draws (one glyph slot per possible token), so it is declared in
+`common/src/wall-breaker.constants.ts` 📦 rather than here. Everything else in this table is topology:
+it changes only with a board redesign, which moves both drawings, so it stays mirrored (§18).
+
+The Wall Breaker token buys one landing on a wall the roll reaches **exactly** — never a
 crossing — and a bust that is declined leaves the token in hand.
 
 
@@ -449,7 +480,7 @@ counter below zero.
 | `MAX_SOCKETS_PER_USER` | 4 | sockets one account may hold: one per device, one stale during a refresh, one clash pipe, one slack |
 | `EVENT_LIMIT` | 20 | inbound events per socket per `EVENT_WINDOW_MS` (5 s, §1); a loop or flood closes the socket |
 | `CLASH_EVENT_LIMIT` | 125 | presses per socket per `CLASH_EVENT_WINDOW_MS` (5 s); a mash at `CLASH_PRESS_CAP_MS` is ~9/s per side, so this bucket exists to keep the shared one from closing a racing socket |
-| `GUEST_EVENTS` | 10 names | the entire event surface a guest socket may drive: `join_game`, `roll_dice`, `move_piece`, `skip_bust`, `arm_barrier`, `clash_card_hold`, `clash_input`, `leave_game`, `end_game`, `disconnect` |
+| `GUEST_EVENTS` | 10 names | the entire event surface a guest socket may drive: `join_game`, `roll_dice`, `move_piece`, `skip_wall_breaker`, `arm_wall_breaker`, `clash_card_hold`, `clash_input`, `leave_game`, `end_game`, `disconnect` |
 | `cardId` shape (inline) | 1–64 chars | `clash_card_hold` refuses anything else |
 
 **Backend — presence, notifications, avatars, listings** 🗄️
@@ -607,22 +638,12 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 
 ### **13. Client timing**
 
-**Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client shows, in one place". The four
-clash windows are **presentation only**: the server sends absolute deadlines and the overlay follows
-those, so these values decide the card animation, never the game state.
-
-**Shared with the engine** — same name, same value on both sides, so the two describe one moment.
-
-| Constant | Value | What it shows |
-|---|---|---|
-| `CLASH_ANNOUNCE_MS` 🔗 | 1500 | Card A: the "CLASH!" splash |
-| `CLASH_COUNTDOWN_MS` 🔗 | 3000 | GET READY, then 3-2-1 |
-| `CLASH_PRESS_MS` 🔗 | 5000 | the press race window, used for the card's CSS reveal and the "press for 5 seconds" copy; the live bar itself follows the server deadline |
-| `CLASH_RESULT_MS` 🔗 | 2600 | Card D: the result card, and the card hold the client reports (`RESULT_FX_MS + RESULT_HEADLINE_READ_MS`, added on both sides) |
-| `RESULT_FX_MS` 🔗 | 1300 | how long the card's gesture plays (`game/ResultFx.tsx` keeps every animation inside it) |
-| `RESULT_HEADLINE_READ_MS` 🔗 | 1300 | the headline's own time once the gesture has stopped |
-| `MOVE_STEP_ANIM_MS` 🔗 | 180 | one board step of the path animation |
-| `DICE_ROLL_ANIM_MS` 🔗 | 750 | dice spin before the path starts |
+**Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
+The eight both builds count (the three clash windows, the result card's three and the two animations)
+are in `common/src/timing.constants.ts` 📦; the SPA reads `../__shared__/timing.constants` and the
+engine reads its own copy, so there is no second declaration to keep in step. The clash windows stay
+**presentation only**: the server sends absolute deadlines and the overlay follows those, so they
+decide the card animation, never the game state.
 
 **Key-shift presentation** — client-only, because the engine sends the absolute switch instants and the
 overlay schedules its own timers against them. Nothing here decides the game; the server judges a press
@@ -735,9 +756,9 @@ the session socket, so the only client timers left are the client rows below.
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `BUSTER_PANEL_W` / `BUSTER_PANEL_GAP` | 96 / 10 | the Wall Breaker token panel's width and the gap in front of it |
+| `WALL_BREAKER_PANEL_W` / `WALL_BREAKER_PANEL_GAP` | 96 / 10 | the Wall Breaker token panel's width and the gap in front of it |
 | `CARD_ROOM_OVERHANG` | 46 | extra room for display names in every room; the roster's overhang is 46, or 46 + 96 + 10 = 152 in clash mode, so the cards are equally wide either way |
-| `BUSTER_GLYPH` | `🧨` | the token's glyph |
+| `WALL_BREAKER_GLYPH` | `🧨` | the token's glyph |
 | Board size | `min(650px, 66vh)` | the desktop board's ceiling, and it also yields `rosterOverhang` |
 | Layout breakpoint | `1024px` | below this the game stacks to one column |
 | Tactical grid | `250px / 1fr / 250px`, then 285, then 310 | side columns at the md/lg/xl/2xl breakpoints |
@@ -827,19 +848,19 @@ The results modal drives its own print cadence on top of these: steps at `0, 80,
 
 ### **18. Mirrored values**
 
-Every number or string that exists in more than one place, with the file that owns it and the file
-that mirrors it. A change is not complete until the mirror is edited too.
+Every number or string that exists in more than one place **and cannot move to `common/`**, with the
+file that owns it and the file that mirrors it. A change is not complete until the mirror is edited
+too. The values that *can* move (the chat family, the eight timings, the Wall Breaker hand) are no
+longer mirrors: they are declared once in `common/src` ([the shared folder](#the-shared-folder)) and
+copied at build time, so they have no row here.
 
 | Value | Owner | Mirror | Note |
 |---|---|---|---|
-| Clash windows 1500 / 3000 / 5000 / 2600 | ⚙️ `timing.ts` | 🖥️ `game/timing.ts` | same names on both sides; the card is added from `RESULT_FX_MS + RESULT_HEADLINE_READ_MS` |
-| `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 | ⚙️ `timing.ts` | 🖥️ `game/timing.ts` | the engine paces bot turns with the client's animation |
 | Key grids `u i o h j k b n m` / `q w e a s d z x c` | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` (touch decoys) | the sets are disjoint so a decoy cannot be the other side's key |
 | Tap weight 2 (`CLASH_TAP_COUNT_MAX`) | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` `TOUCH_TAP_COUNT` | the engine clamps: a heavier tap is cut to 2 |
 | `CLASH_TARGET` 42 → bar 168 px | ⚙️ `clash.ts` | 🖥️ `CLASH_BAR_WIDTH_PX` | 4 px per press |
 | Safe squares `1, 9, 14, 22, 27, 35, 40, 48` | ⚙️ `board-mapper.ts` | 🖥️ `Board.tsx` `SAFE_STAR_CELLS` | the eight stars |
 | Colour offsets 0 / 13 / 26 / 39 | ⚙️ `board-mapper.ts` | 🖥️ `boardGeometry.ts` `TRACK_OFFSET` | same modulo arithmetic |
-| `BARRIER_BUSTER_TOKEN_CAP` 3 | ⚙️ `types.ts` | 🖥️ `pages/Game.tsx` | the client draws exactly three glyph slots |
 | `LOG_CAP` 30 | ⚙️ `types.ts` | 🖥️ `game/types.ts` | the engine caps the stored log, the panel caps what it renders |
 | Password 12–72 + character classes | 🗄️ `dto/password.rules.ts` | 🖥️ `validatePassword.ts` | the server is authoritative |
 | Guest window 6 h + `guest:*` key shapes | 🗄️ `guest-limit.service.ts` | ⚙️ `redis.ts` (`GUEST_ABORT_WINDOW_S`, keys) | the engine writes counts, decides no limit |
@@ -856,22 +877,24 @@ that mirrors it. A change is not complete until the mirror is edited too.
 
 ### **19. Where a new constant goes**
 
-1. **A delay the engine also needs → `backend/app/ludo-engine/src/timing.ts`**, then add it to
-   `frontend/src/game/timing.ts` only if the client shows something with it. Never introduce a second
-   literal for the same moment.
+1. **A delay both builds count → `common/src/timing.constants.ts`** 📦, then `node
+   scripts/sync-shared.mjs` in each tree (or any `build`/`dev`, which run it). Never declare it in a
+   tree's own `timing.ts`: a second declaration is exactly what this folder exists to remove.
 2. **A delay only the client shows → `frontend/src/game/timing.ts`** (clash, dice, path, burst,
    guards). A component-local timer constant stays in the component only if nothing else can ever
    read it.
 3. **A rule the engine enforces → next to the rule** (`clash.ts` for the QTE, `board-mapper.ts` for
-   geometry, `types.ts` for the starting hand) and, if the client mirrors it, a row in §18.
+   geometry) and, if the client mirrors it, a row in §18. A rule the client also draws (the Wall
+   Breaker hand) belongs in `common/src/wall-breaker.constants.ts` 📦 instead, because tuning it means
+   tuning both.
 4. **A limit or lifetime the backend enforces → the owning service's knob block** (`AUTH` in
    `auth.constants.ts`, `GUEST_LIMITS` in `guest-limit.service.ts`) or the shared table
    (`common/throttles.ts`, `common/scoring.ts`). Do not scatter a limit across controllers.
 5. **A colour, token or size → `theme.ts` or `retrowave.css`**, and a row in §12 or §15. A raw hex in a
    component is a bug unless it is a one-off illustration (the board art, the burst's sparks).
 6. **A string the user reads → `locales/*.ts`**, never a hard-coded constant in a component.
-7. **When two files must agree, name the mirror in a comment** and add a §18 row, so the next reader
-   does not have to rediscover the pair.
+7. **When two files must agree and the value is not a knob, name the mirror in a comment** and add a
+   §18 row, so the next reader does not have to rediscover the pair.
 
 
 ---

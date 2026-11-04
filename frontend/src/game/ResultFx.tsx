@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { COL } from '../theme';
 import type { PlayerColor } from './types';
 import { PIECE_GLYPH } from './boardGeometry';
-import { RESULT_FX_MS } from './timing';
+import { RESULT_FX_MS } from '../__shared__/timing.constants';
 import { retroAudio } from '../utils/audio';
 
 /**

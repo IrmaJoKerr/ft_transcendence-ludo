@@ -4,7 +4,8 @@ import type { ChatBlock, ChatLine, ExitRecord } from '../types';
 import { BACKEND_URL } from './auth';
 import type { RoomRegistry } from './room-context';
 import { MoveValidator } from '../move-validator';
-import { GAME_CHAT_FALLBACK_LINES, chatForTransport, normalizeBlocks } from '../game-chat';
+import { GAME_CHAT_FALLBACK_LINES } from '../__shared__/chat.constants';
+import { chatForTransport, normalizeBlocks } from '../game-chat';
 
 // The backend compares this against its own ENGINE_API_KEY, so a fallback would
 // only ever be rejected and would hide a misconfigured container. The engine

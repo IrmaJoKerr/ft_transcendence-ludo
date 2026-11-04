@@ -255,7 +255,7 @@ itself is listed under *Friends* with the other block codes.
 ### WebSocket APIs — Ludo Engine
 
 19. **[Connection](#19-connection)** — Connect to the game engine with a match token
-20. **[Client → Server Events](#20-client--server-events-emit)** — What the client sends: join, roll/move, barriers, clash input, room rules, ready, end game
+20. **[Client → Server Events](#20-client--server-events-emit)** — What the client sends: join, roll/move, walls, clash input, room rules, ready, end game
 21. **[Server → Client Events](#21-server--client-events-on)** — What the client receives: state updates, dice/move results, game end
 22. **[End-to-End Flow](#22-end-to-end-flow)** — A complete walkthrough from login to a finished game
 
@@ -2607,7 +2607,7 @@ A guest has no account, so `POST /api/match/guest` returns an opaque `g_<32 rand
 
 ### 20. Client → Server Events (emit)
 
-A guest socket (`g_` token) may emit only the events in `GUEST_EVENTS`: `join_game`, `roll_dice`, `move_piece`, `skip_bust`, `arm_barrier`, `clash_card_hold`, `clash_input`, `leave_game`, `end_game` and `disconnect`. Any other event is dropped and logged, and the socket stays open. See [guest-mode.md](guest-mode.md).
+A guest socket (`g_` token) may emit only the events in `GUEST_EVENTS`: `join_game`, `roll_dice`, `move_piece`, `skip_wall_breaker`, `arm_wall_breaker`, `clash_card_hold`, `clash_input`, `leave_game`, `end_game` and `disconnect`. Any other event is dropped and logged, and the socket stays open. See [guest-mode.md](guest-mode.md).
 
 
 ---
@@ -2685,14 +2685,14 @@ socket.emit('move_piece', pieceId);
 ---
 
 
-#### `arm_barrier`
+#### `arm_wall_breaker`
 
-**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleArmBarrier`)
+**Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleArmWallBreaker`)
 
 Arm or disarm the Wall Breaker for the current turn (clash mode only). Armed means this seat may land on a wall; disarmed means the wall blocks it. The flag is turn-scoped and is cleared when the turn advances.
 
 ```js
-socket.emit('arm_barrier', true);
+socket.emit('arm_wall_breaker', true);
 
 ```
 
@@ -2700,7 +2700,7 @@ socket.emit('arm_barrier', true);
 |---|---|---|
 | `armed` | boolean | `true` = may break the wall it lands on, `false` = a wall blocks it |
 
-**Response:** `state_update` broadcast (`players[].barrierArmed`).
+**Response:** `state_update` broadcast (`players[].wallBreakerArmed`).
 
 **Errors:** `error` outside clash mode, off your turn, or when arming an empty hand.
 
@@ -2709,14 +2709,14 @@ socket.emit('arm_barrier', true);
 ---
 
 
-#### `skip_bust`
+#### `skip_wall_breaker`
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleSkipBust`)
 
 Decline the held Wall Breaker turn: a PASS, not a re-roll. The dice are spent, the turn advances, and the token stays in hand.
 
 ```js
-socket.emit('skip_bust');
+socket.emit('skip_wall_breaker');
 
 ```
 
@@ -2894,7 +2894,7 @@ socket.emit('chat:send', 'gg', (reply) => {
 |---|---|
 | `CHAT_UNAVAILABLE` | No seat on this socket, a guest socket, a room that is gone or `finished`, a seat that is `exited`/`inactive`, or a storage failure |
 | `CHAT_EMPTY` | The text is blank after `trim()` |
-| `CHAT_TOO_LONG` | Over `GAME_CHAT_MAX_CHARS` (300) UTF-16 units — the same count the composer shows |
+| `CHAT_TOO_LONG` | Over `CHAT_MAX_CHARS` (300) UTF-16 units — the same count the composer shows |
 | `CHAT_COOLDOWN` | Under `GAME_CHAT_COOLDOWN_MS` (2 s) since this **account's** last line in this room: the budget is keyed `gameId:userId`, so two tabs share it |
 
 **Response:** the ack, then `chat:message` to every seat allowed to see the line. The line is
@@ -2913,7 +2913,7 @@ both result routes store on the row.
 | `game_joined` | `GameState` (full state) | After `join_game` |
 | `dice_rolled` | `{ value, legalMoves, bonusRoll }` | After dice rolled |
 | `piece_moved` | `MoveResult` | After piece moved |
-| `turn_skipped` | `{ gameId, currentTurn }` | `skip_bust` declined the armed turn; the turn has already advanced in the state |
+| `turn_skipped` | `{ gameId, currentTurn }` | `skip_wall_breaker` declined the armed turn; the turn has already advanced in the state |
 | `clash_start` | `{ attacker, defender, attackerKey, defenderKey, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase |
 | `clash_phase` | `{ phase, countdownDeadline, pressDeadline }` | The QTE moves announce → countdown → pressing |
 | `clash_press` | `{ color, presses }` | An accepted `clash_input` press |
@@ -2933,7 +2933,7 @@ both result routes store on the row.
 | `lobby_update` | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed (join/leave/ready/colour) |
 | `color_selected` | `{ gameId, userId, color }` | A player selected a color in the lobby |
 | `modifiers_updated` | `{ gameId, clashEnabled, noSafeZones, freeExit }` | The host changed the room rules while the room was `WAITING` |
-| `state_update` | full `GameState` (includes `paused`, `pauseTurnOwner`, `players[].barrierArmed`, `players[].barrierTokens`, `resultCardUntil`) | A live exit moved the turn, a PvP disconnect paused/unpaused the game, or a barrier/clash change landed; also the SPA's catch-all for any other pub/sub frame |
+| `state_update` | full `GameState` (includes `paused`, `pauseTurnOwner`, `players[].wallBreakerArmed`, `players[].wallBreakerTokens`, `resultCardUntil`) | A live exit moved the turn, a PvP disconnect paused/unpaused the game, or a wall/clash change landed; also the SPA's catch-all for any other pub/sub frame |
 | `error` | `string` | On invalid action / failed authentication. The string is a localization code (`errors.<CODE>`); unmapped strings stay console-only |
 
 

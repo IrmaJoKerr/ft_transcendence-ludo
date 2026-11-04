@@ -16,8 +16,8 @@ export const GUEST_EVENTS = new Set([
   'join_game', // pinned by the registry's gameId
   'roll_dice',
   'move_piece',
-  'skip_bust',
-  'arm_barrier',
+  'skip_wall_breaker',
+  'arm_wall_breaker',
   'clash_card_hold',
   'clash_input',
   'leave_game',

@@ -357,27 +357,27 @@ export class LudoEngine {
       // Captured before the move resolves: a turn advance clears every seat's arm switch, so
       // this is what tells the HUD below whether it needs a fresh players[] frame.
       const moverWasArmed =
-        state.players.find((p) => p.color === moverColor)?.barrierArmed === true;
+        state.players.find((p) => p.color === moverColor)?.wallBreakerArmed === true;
 
       // A Wall Breaker move pays its token here, inside the game lock and once: the
       // pending move is cleared below, so a replay finds nothing and cannot spend a
       // second token. The debit is the attempt; a lost chain keeps the token spent.
-      if (pendingMove.spendsBarrierToken) {
+      if (pendingMove.spendsWallBreakerToken) {
         const mover = state.players.find((p) => p.color === moverColor);
         // The arm switch is the player's consent and the engine enforces it here: the
         // move list carries every priced landing whatever the switch says, so an
         // unarmed attempt is refused instead of spending a token.
-        if (mover?.barrierArmed !== true) {
+        if (mover?.wallBreakerArmed !== true) {
           throw new Error('Wall Breaker is not armed');
         }
-        if (!mover || (mover.barrierTokens ?? 0) <= 0) {
+        if (!mover || (mover.wallBreakerTokens ?? 0) <= 0) {
           throw new Error('No Wall Breaker token in hand');
         }
-        mover.barrierTokens = Math.max(0, (mover.barrierTokens ?? 0) - 1);
-        // An empty hand cannot be armed (setBarrierArmed refuses it), so the switch does not
+        mover.wallBreakerTokens = Math.max(0, (mover.wallBreakerTokens ?? 0) - 1);
+        // An empty hand cannot be armed (setWallBreakerArmed refuses it), so the switch does not
         // survive the spend: without this, a seat that KEEPS the turn (a capture re-rolls)
         // would show ARMED beside a hand of zero until some later turn change cleared it.
-        if ((mover.barrierTokens ?? 0) <= 0) delete mover.barrierArmed;
+        if ((mover.wallBreakerTokens ?? 0) <= 0) delete mover.wallBreakerArmed;
       }
 
       // Clash gate: a capture is deferred to the QTE and applied only once that
@@ -389,10 +389,10 @@ export class LudoEngine {
         const defenderIds = orderDefenderIds(
           MoveValidator.findPiecesAtPosition(state, moverColor, pendingMove.to),
         );
-        // A landing square that stood 2 or more defenders is a barrier, and winning
+        // A landing square that stood 2 or more defenders is a wall, and winning
         // its chain credits the attacker once (achTearDownThisWall): a landing on a
         // 2-stack is 1, a lone defender is 0.
-        const barrierBattles = defenderIds.length >= 2 ? 1 : 0;
+        const wallBattles = defenderIds.length >= 2 ? 1 : 0;
         // No defender behind the move (home/goal): fall through to a normal move.
         const defenderPiece = state.pieces.find((p) => p.id === defenderIds[0]);
         if (defenderPiece) {
@@ -413,7 +413,7 @@ export class LudoEngine {
             totalRounds,
             remainingDefenderIds: [...defenderIds],
             beatenDefenderIds: [],
-            barrierBattles,
+            wallBattles,
           };
           state.pendingLegalMoves = [];
           state.pendingDiceValue = undefined;
@@ -490,7 +490,7 @@ export class LudoEngine {
       // A token spend or any turn change sends a full-state frame: the count and the
       // arm switch ride players[], and a stale frame would show a token or an arm the
       // seat no longer holds.
-      if (pendingMove.spendsBarrierToken || moverWasArmed) {
+      if (pendingMove.spendsWallBreakerToken || moverWasArmed) {
         this.emit({ type: 'state_update', gameId, state });
       }
       if (winner) {
@@ -519,7 +519,7 @@ export class LudoEngine {
       // Skip is valid only when every pending move is token-priced; with an ordinary
       // move available it is refused. A 6 is no exception: an on-board piece can still
       // have a wall as its only destination.
-      const priced = state.pendingLegalMoves.filter((m) => m.spendsBarrierToken);
+      const priced = state.pendingLegalMoves.filter((m) => m.spendsWallBreakerToken);
       if (priced.length === 0 || priced.length !== state.pendingLegalMoves.length) {
         throw new Error('Nothing to skip: an ordinary move is available');
       }
@@ -532,7 +532,7 @@ export class LudoEngine {
       // currentTurn is the seat taking over from here.
       const skipper = state.currentTurn;
       advanceTurnInState(state);
-      const skippedLog = pushLog(state, { kind: 'bustSkipped', color: skipper });
+      const skippedLog = pushLog(state, { kind: 'wallBreakerSkipped', color: skipper });
       await this.store.saveGameState(gameId, state);
       this.emit({
         type: 'turn_skipped',
@@ -550,7 +550,7 @@ export class LudoEngine {
   // Wall Breaker arm switch: clash mode grants the chance to break a wall and this
   // is the seat's decision to take it. Refused with an empty hand or out of turn,
   // cleared when the turn moves on, and refused without clash mode.
-  async setBarrierArmed(gameId: string, color: PlayerColor, armed: boolean): Promise<void> {
+  async setWallBreakerArmed(gameId: string, color: PlayerColor, armed: boolean): Promise<void> {
     return this.withGameLock(gameId, async () => {
       const state = await this.store.loadGameState(gameId);
       if (state?.status !== 'active') {
@@ -566,11 +566,11 @@ export class LudoEngine {
       if (!meta) {
         throw new Error('No such seat');
       }
-      if (armed && (meta.barrierTokens ?? 0) <= 0) {
+      if (armed && (meta.wallBreakerTokens ?? 0) <= 0) {
         throw new Error('No Wall Breaker token to arm');
       }
-      if (armed) meta.barrierArmed = true;
-      else delete meta.barrierArmed;
+      if (armed) meta.wallBreakerArmed = true;
+      else delete meta.wallBreakerArmed;
       // No recompute: the move list is the same armed or not; this switch only decides
       // whether the engine accepts a landing. The frame below tells each client to
       // reveal or hide the priced moves it already holds.

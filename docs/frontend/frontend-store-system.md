@@ -28,8 +28,9 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    token never expires while a request is still waiting for a response. Presence rides on the socket —
    the connection itself is the liveness signal, so the store sends no periodic request at all;
    `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect.
-   The public chat channel rides it too: `chatLog` (the last 500 lines — the backend's
-   `CHAT_HISTORY`, oldest first, merged by message
+   The public chat channel rides it too: `chatLog` (the last `CHAT_HISTORY` lines — 500, one
+   value in `common/src/chat.constants.ts` that the backend's list and this ring both trim to —
+   oldest first, merged by message
    id so the connect-time history and the last live frame cannot double) and `sessionConnected` (whether
    the composer may send) live in the store, with `sendChat(text, ack)` as the one write. They are here
    rather than in the dock's panel because the channel can be switched off and most screens render no

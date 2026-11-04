@@ -33,7 +33,7 @@ export type LogKind =
   | 'wallBrokenBonusRoll' // the landing broke a wall and won the re-roll
   | 'wallAttackFailed' // a clash lost against a wall
   | 'bonusRollAgain' // a capture grants the same seat another roll
-  | 'bustSkipped' // the armed Wall Breaker exit was declined
+  | 'wallBreakerSkipped' // the armed Wall Breaker exit was declined
   | 'playerAborted'; // a seat aborted the game
 
 export interface LogEntry {
@@ -114,7 +114,7 @@ export interface PlayerMeta {
     // clash QTE tallies: drives the two clash achievements
     clashDefends: number;
     clashAttacksWon: number;
-    // Wall Breaker tallies: a clash chain won on a landing that stood a barrier
+    // Wall Breaker tallies: a clash chain won on a landing that stood a wall
     // (drives achTearDownThisWall). Absent on a state written before the token
     // existed, and on one written before the rename that gave it this name.
     clashWallBattlesWon: number;
@@ -133,11 +133,11 @@ export interface PlayerMeta {
   // Wall Breaker arm switch, clash mode only. While on, this seat may attack a wall
   // and every such landing spends a token; while off the wall blocks. Never settable
   // with an empty hand, and cleared when the turn leaves. Absent reads as off.
-  barrierArmed?: boolean;
-  // Wall Breaker tokens in hand: STARTING_BUSTER_TOKENS at game start, one spent
+  wallBreakerArmed?: boolean;
+  // Wall Breaker tokens in hand: STARTING_WALL_BREAKER_TOKENS at game start, one spent
   // per token-bought exit, one earned per clash won against exactly one defender
-  // (see BARRIER_BUSTER_TOKEN_CAP). Absent reads as 0.
-  barrierTokens?: number;
+  // (see WALL_BREAKER_TOKEN_CAP). Absent reads as 0.
+  wallBreakerTokens?: number;
   // The seat's departure, captured while the room's tallies still exist (parking its
   // pieces zeroes them) and posted to the backend as this seat's own row. It stays on
   // the seat so a delivery that failed is retried by the wake pass and by a reconnect;
@@ -204,14 +204,15 @@ export interface ClashState {
   totalRounds?: number;
 }
 
-// The Wall Breaker hand starts here: every seat is dealt this many tokens. A token
-// buys one landing on a barrier the roll reaches exactly.
-export const STARTING_BUSTER_TOKENS = 1;
-
-// The hand is capped here: the seed is one and a clash won against one defender pays
-// one back, so a seat banks at most three attempts. A won barrier never pays, so a
-// wall cannot feed the token that breaks walls.
-export const BARRIER_BUSTER_TOKEN_CAP = 3;
+// The Wall Breaker hand's two numbers (the deal and the cap) are tunables the SPA also
+// draws from, so they live in `common/src/wall-breaker.constants.ts`. Every other board
+// number (the 52-step loop, the safe squares, the 15 x 15 grid) is topology and stays
+// mirrored in each tree.
+//
+// This many pieces, per seat, in the base at game start. Topology rather than a knob:
+// the piece ids the state carries are `${color}-0` to `${color}-3`, and the board draws
+// one bay per id.
+export const PIECES_PER_PLAYER = 4;
 
 // A capture deferred until the clash resolves: the move is held here instead of
 // being applied at move time.
@@ -234,7 +235,7 @@ export interface PendingCapture {
   // 1 when the landing square stood 2 or more defenders, else 0. Stamped at move time
   // because the wall is gone once the chain resolves; a won chain credits that many
   // clashWallBattlesWon. A lone defender pays nothing.
-  barrierBattles?: number;
+  wallBattles?: number;
   // The key-shift seam: the letter each seat ended its last round on. Round n+1 of a
   // chain opens on a different letter per seat, so the seam between two rounds is
   // visibly a new letter rather than looking like no switch at all. Optional because
@@ -351,14 +352,14 @@ export interface LegalMove {
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
   isHomeEntry: boolean; // move enters the home stretch (52)
-  // How many defenders the capture sends home: 1 for a single piece, the barrier size
-  // (2-4) for a breakable barrier, 0 when nothing is captured. It is also the clash
+  // How many defenders the capture sends home: 1 for a single piece, the wall size
+  // (2-4) for a breakable wall, 0 when nothing is captured. It is also the clash
   // rounds the move costs. The bot ranks by it and the client labels "x N" from it.
   captureCount: number;
   // True on the Wall Breaker variant of a prison exit: the move costs one token and
-  // lands on the barrier the roll reaches exactly, never a crossing. A piece is offered
+  // lands on the wall the roll reaches exactly, never a crossing. A piece is offered
   // at most one exit per roll. The engine keys the debit off this flag.
-  spendsBarrierToken?: boolean;
+  spendsWallBreakerToken?: boolean;
 }
 
 export interface MovePieceOutput {

@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "predev": "npm run sync:shared",
     "dev": "vite",
+    "prebuild": "npm run sync:shared",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
