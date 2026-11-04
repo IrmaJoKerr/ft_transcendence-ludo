@@ -234,16 +234,17 @@ export function Game() {
     for (const seat of seats) if (seat.type === 'player') names[seat.color] = seat.name;
     return names;
   }, [seats]);
-  // Seat label for the move log / podium rows: a hotseat seat's typed-in name
-  // first, then the engine's display label (bots carry "bot-<color>
-  // (<assistant>)", localized by localizedBotName), then the raw id.
+  // Seat label for the move log / podium rows: a hotseat seat's name first (a typed
+  // one, or the raw `player-<color>` id the lobby wrote, both localized the same way),
+  // then the engine's display label (bots carry "bot-<color> (<assistant>)"), then the
+  // raw id.
   const seatLabel = (p: {
     color: PlayerColor;
     username: string;
     displayName?: string;
     isBot: boolean;
   }): string =>
-    (localNames[p.color] ?? '') ||
+    localizedBotName(t, localNames[p.color]) ||
     localizedBotName(t, p.displayName) ||
     localizedBotName(t, p.username) ||
     (p.isBot ? t('common.bot') : 'Pilot');
@@ -360,9 +361,23 @@ export function Game() {
   // active"), and every hand still holds only the dealt starting token. Gating it here
   // also keeps the lobby identical whether the room has clash mode on or not.
   const showBusterColumn = view.clashMode === true && view.status !== 'waiting';
-  // How far the roster box reaches past its grid track (and the controls box under it
-  // follows the same width): the panel's span in clash mode, plus the same extra room
-  // for the display names in every room, so the cards are equally wide either way.
+  // The waiting rail draws the room's own seats, in turn order: `view.players` is one
+  // entry per seat (the engine seats exactly the colours the room was created with),
+  // so sorting it by `SEAT_COLORS` shows the rotation and nothing else — no seat index
+  // is involved. Before the first engine frame that list is still empty, so the rail
+  // falls back to the canonical prefix for the room's seat count. Once the match is
+  // live every canonical colour is drawn, so an unseated corner still reads as empty.
+  const waitingRailColors: PlayerColor[] =
+    view.players.length > 0
+      ? [...view.players]
+          .sort((a, b) => SEAT_COLORS.indexOf(a.color) - SEAT_COLORS.indexOf(b.color))
+          .map((p) => p.color)
+      : SEAT_COLORS.slice(0, activeMatch?.playerCount || SEAT_COLORS.length);
+  const railColors: PlayerColor[] =
+    view.status === 'waiting' ? waitingRailColors : SEAT_COLORS;
+  // How far the roster box reaches past its grid track: the panel's span in clash mode,
+  // plus the same extra room for the display names in every room, so the cards are
+  // equally wide either way.
   const rosterOverhang = showBusterColumn
     ? CARD_ROOM_OVERHANG + BUSTER_PANEL_W + BUSTER_PANEL_GAP
     : CARD_ROOM_OVERHANG;
@@ -1564,7 +1579,7 @@ export function Game() {
                         gap: 10,
                       }}
                     >
-                      {SEAT_COLORS.map((ck) => {
+                      {railColors.map((ck) => {
                         const playerMeta = view.players.find((p) => p.color === ck);
                         const occupied = Boolean(
                           playerMeta &&
@@ -1584,12 +1599,6 @@ export function Game() {
                                 : '#00f0ff';
 
                         if (view.status === 'waiting') {
-                          if (
-                            activeMatch.playerCount &&
-                            SEAT_COLORS.indexOf(ck) >= activeMatch.playerCount
-                          ) {
-                            return null;
-                          }
                           // `ck === view.myColor` lags the server's seat assignment for a PvP joiner,
                           // so fall back to a username match, which recognises the seat on first paint.
                           const isYou =

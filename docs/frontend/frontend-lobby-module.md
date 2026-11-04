@@ -19,7 +19,7 @@
 
 The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room screen at `/gamelobby/table` (`Lobby.tsx`). Players set up and start a game here. It has:
 
-1. **Seat setup**: player count (2-4, read from the `?mode=` query param) and seat assignment (`you`, `player`, `bot`, or empty). **A seat owns a colour**: the host picks theirs first, from the corners still free, and an empty card *is* a free colour, so its add action seats a bot or a local pilot at that colour. The palette is `ColorPaletteModal.tsx`, built from `freeColors` on the room row (or from the four corners before a room exists), so it cannot offer a taken colour.
+1. **Seat setup**: player count (2-4, read from the `?mode=` query param) and seat assignment (`you`, `player`, `bot`, or empty). **A seat owns a colour**: the host picks theirs first, from the corners still free, and an empty card *is* a free colour, so its add action seats a bot or a local pilot at that colour. The palette is `ColorPaletteModal.tsx`, built from `freeColors` on the room row (or from the four corners before a room exists), so it cannot offer a taken colour. It draws a fixed 2×2 in board-quadrant order (`BOARD_QUADRANTS`: red/green above, blue/yellow below) and keeps a taken corner as an inert dashed slot, so a colour never moves between openings; the column beside it is the turn-order diagram, numbered from `SEAT_COLORS`. The seated colours travel as `seatColors`, which is seat identity — who sits where — not the rotation.
 2. **Bot setup**: add or remove bots.
 3. **Mode selection**: PvP (player versus player), PvE (player versus environment) or hotseat.
 4. **Match creation**: `LudoLobby.tsx` lists the rooms the caller may enter (`GET /api/games/rooms`; each row carries `mySeat`, where `true` means "you hold a seat here, so this is a REJOIN row": including a room whose game already started, as long as your seat is still inside its 45 s grace window) and the games they are seated in (`GET /api/games/mine`), and joins them (`POST /api/match/join/:code`, `POST /api/game/:id/rejoin`) or creates a PvP (player versus player) invite (`POST /api/match/pvp/invite`); for local PvE/hotseat play it hands off to the table screen (`/gamelobby/table?mode=…`). The table screen (`Lobby.tsx`) is the one that calls `POST /api/match/create` with the exact `seatColors` and `botNames`, stores the returned `activeMatch` (gameId and engine token) in the store, then navigates to `/game`, where the Socket.IO connection starts.
@@ -141,7 +141,7 @@ export const BOT_POOL = ['Siri', 'Alexa', 'Cortana']
 ```
 
 Bot assistant names, shown as-is because they need no translation. Three is enough:
-seat 0 is always you, so a 4-seat table holds at most 3 bots.
+the host is never a bot, so a 4-seat table holds at most 3 bots.
 
 The chosen name is also the in-game label. `Lobby.tsx` sends the names as `botNames`,
 the backend stores them on the seats as `displayName` (`bot-<color> (<assistant>)`), and
@@ -297,7 +297,7 @@ addPlayer(i)
 
 ## How Seat Colours Are Sent
 
-For hotseat and PvE, the created game is exactly the occupied seats (the host is always seat 0 / blue, then each added local player or bot in seat order). `Lobby.tsx` therefore sends the **exact** `seatColors` list rather than a count. Without it, the engine's `playerCount`-based default fills the gaps again and brings back seats the user deliberately skipped.
+For hotseat and PvE, the created game is exactly the occupied seats, each at the colour its card claimed. `Lobby.tsx` therefore sends the **exact** `seatColors` list rather than a count: without it the engine's `playerCount`-based default fills the gaps again and brings back seats the user deliberately skipped. That list is seat identity, not the rotation — turn order is colour order (blue → red → green → yellow) in every mode, so a room whose cards hold green and blue opens on blue. Nothing on the card prints a seat number either: the header is `// {{color}}`, the host tag is `[HOST / PILOT]`, and a local pilot's default name is the raw id `player-<color>`, localized where it is painted (`joueur-jaune` in French), so a language switch renames the seat instead of freezing the wording it was created in.
 
 
 ---

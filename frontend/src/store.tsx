@@ -285,8 +285,7 @@ function storedSeats(): Seat[] {
       const name = typeof seat.name === 'string' && seat.name ? seat.name : '';
       if (seat.type === 'you') return { type: 'you', color };
       if (seat.type === 'bot') return { type: 'bot', name: name || 'Bot', color };
-      if (seat.type === 'player')
-        return { type: 'player', name: name || i18n.t('lobby.defaultPlayerName', { num: 2 }), color };
+      if (seat.type === 'player') return { type: 'player', name: name || `player-${color}`, color };
       return { type: 'empty' };
     });
     if (parsed.some((seat, i) => seat?.type !== 'empty' && seats[i].type === 'empty')) return emptySeats();
@@ -691,10 +690,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addPlayer = useCallback((i: number, color: ColorKey) => {
     setSeats((prev) => {
-      const existing = prev.filter((s) => s.type === 'player').length;
-      const name = i18n.t('lobby.defaultPlayerName', { num: existing + 2 });
+      // A raw, language-independent seat id: rendered as "player-yellow" ->
+      // "joueur-jaune" by `localizedPilotName`, so a language switch renames it and
+      // the store never bakes a translated string into the seat.
       const next = prev.slice();
-      next[i] = { type: 'player', name, color };
+      next[i] = { type: 'player', name: `player-${color}`, color };
       return next;
     });
   }, []);

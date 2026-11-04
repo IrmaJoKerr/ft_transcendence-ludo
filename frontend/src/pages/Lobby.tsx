@@ -7,8 +7,9 @@ import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import type { PlayerColor } from '../game/types';
 import { navigate, useRoute } from '../router';
 import { freeColors, isOccupiedSeat, useApp, type PlayerCount } from '../store';
-import { type ColorKey } from '../theme';
+import { type ColorKey, COLOR_KEYS } from '../theme';
 import { retroAudio } from '../utils/audio';
+import { localizedPilotName } from '../utils/botName';
 import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
@@ -25,13 +26,6 @@ import {
   WINDOW_BODY,
   RETRO_BTN,
 } from '../styles/tw';
-
-const COLOR_KEYS: Record<ColorKey, string> = {
-  red: 'lobby.colorRed',
-  green: 'lobby.colorGreen',
-  yellow: 'lobby.colorYellow',
-  blue: 'lobby.colorBlue',
-};
 
 const SEAT_HUES: Record<ColorKey, string> = {
   red: '#ff007f',
@@ -213,10 +207,12 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
       const botNames = visible
         .map((s) => (s.type === 'bot' ? s.name : null))
         .filter((n): n is string => n !== null);
-      // The seated cards' colours in card order: that IS the engine's rotation
-      // order. Hotseat and PvE send it because a room that skips a corner must not
-      // be re-densified; PvP leaves it out, because there every corner is a seat a
-      // joiner may claim (its host's own colour rides `hostColor`).
+      // The seated cards' colours in card order. `seatColors` travels because a
+      // room that skips a corner must not be re-densified: the engine seats exactly
+      // these colours. It does NOT decide who moves first — turn order is colour
+      // order (blue → red → green → yellow). PvP leaves it out, because there every
+      // corner is a seat a joiner may claim (its host's own colour rides
+      // `hostColor`).
       const seatColors = visible.filter(isOccupiedSeat).map((s) => s.color);
       const res = await postApi<{
         gameId: string;
@@ -438,7 +434,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                 fontWeight: 'bold',
                               }}
                             >
-                              {t('lobby.seatBadgeHeader', { number: i + 1, color: colorName })}
+                              {t('lobby.seatBadgeHeader', { color: colorName })}
                             </span>
                             {/* The host card carries the same ✕ as every other card:
                                 giving the seat back frees its colour and reopens
@@ -730,7 +726,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                       <div
                                         onClick={() => {
                                           setEditingSeat(i);
-                                          setEditName(seat.name);
+                                          setEditName(localizedPilotName(t, seat.name));
                                         }}
                                         style={{
                                           display: 'flex',
@@ -755,7 +751,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                             minWidth: 0,
                                           }}
                                         >
-                                          {seat.name}
+                                          {localizedPilotName(t, seat.name)}
                                         </span>
                                         <span style={{ flex: 'none' }}>✎</span>
                                       </div>

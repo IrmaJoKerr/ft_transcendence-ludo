@@ -62,7 +62,9 @@ puts their four pieces in their matching Starting Area.
 
 ## 4. Turn Order
 
-Players take turns **clockwise**. On your turn you roll the die once.
+Players take turns **clockwise**: blue → red → green → yellow, skipping any corner that holds no
+seat. Seat position does not enter into it — the colour a player claimed decides when they move, and
+a colour nobody picked simply never appears. On your turn you roll the die once.
 
 
 ---

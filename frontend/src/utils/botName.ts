@@ -1,11 +1,5 @@
 import type { PlayerColor } from '../game/types';
-
-const COLOR_KEYS = {
-  red: 'lobby.colorRed',
-  green: 'lobby.colorGreen',
-  yellow: 'lobby.colorYellow',
-  blue: 'lobby.colorBlue',
-} as const;
+import { COLOR_KEYS, type ColorKey } from '../theme';
 
 /** `PlayerColor` to its localized colour word through the shared `lobby.color*` keys:
  *  `red` -> `Rouge` in French, `Merah` in Malay. A label shown in all caps upper-cases
@@ -17,36 +11,50 @@ export function localizedColor(
   return t(COLOR_KEYS[color]);
 }
 
-// Engine bot ids, optionally carrying the assistant name the lobby gave that
-// seat as a trailing "(Name)": "bot-red (Siri)". Identity is the `bot-<color>`
-// stem, so only the color word is localized; the name is kept unchanged.
-const BOT_ID = /^bot-(red|green|yellow|blue)(?:\s*\(([^()]*)\))?$/i;
+// Engine seat ids: `bot-<color>` for a bot, `player-<color>` for a local hotseat
+// pilot, optionally carrying the assistant name the lobby gave a bot seat as a
+// trailing "(Name)": "bot-red (Siri)". Identity is the role + colour stem, so
+// only those two words are localized; a "(Name)" suffix is kept unchanged.
+const PILOT_ID = /^(bot|player)-(red|green|yellow|blue)(?:\s*\(([^()]*)\))?$/i;
 
-/** `bot-<color>` engine ids to a localized "bot-<translated color>", keeping any "(assistant)"
- *  suffix: "bot-red (Siri)" -> "bot-rouge (Siri)". Every other string is returned unchanged. */
-export function localizedBotName(
+/** A seat id to a localized "<role>-<colour>", keeping any "(assistant)" suffix:
+ *  "bot-red (Siri)" -> "bot-rouge (Siri)", "player-yellow" -> "joueur-jaune".
+ *  Every other string is returned unchanged, so a typed-in name survives. */
+export function localizedPilotName(
   t: (key: string, options?: Record<string, unknown>) => string,
   raw?: string,
 ): string {
   if (!raw) return raw ?? '';
-  const m = raw.match(BOT_ID);
+  const m = raw.match(PILOT_ID);
   if (!m) return raw;
-  const color = m[1].toLowerCase() as keyof typeof COLOR_KEYS;
-  const label = `${t('common.bot').toLowerCase()}-${t(COLOR_KEYS[color]).toLowerCase()}`;
-  // Group 2 exists only when the "(Name)" suffix matched, so it is undefined at
+  const role = m[1].toLowerCase() === 'bot' ? 'common.bot' : 'common.player';
+  const color = m[2].toLowerCase() as ColorKey;
+  const label = `${t(role).toLowerCase()}-${t(COLOR_KEYS[color]).toLowerCase()}`;
+  // Group 3 exists only when the "(Name)" suffix matched, so it is undefined at
   // runtime although the RegExpMatchArray type reports `string`.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const name = m[2]?.trim();
+  const name = m[3]?.trim();
   return name ? `${label} (${name})` : label;
+}
+
+/** The seat label every caller uses. Both engine id shapes resolve, so a bot and a
+ *  local pilot are named the same way; the historical name is kept for those call
+ *  sites (`Game.tsx`, `ResultsModal.tsx`). */
+export function localizedBotName(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  raw?: string,
+): string {
+  return localizedPilotName(t, raw);
 }
 
 /** Locale-independent DiceBear seed for a seat. A bot label seeds from the assistant name it
  *  carries (`bot-<color> (<assistant>)` -> `<assistant>`), so one bot generates one avatar
- *  on every screen. See docs/frontend/frontend-i18n-utilities-system.md. */
+ *  on every screen; a local pilot seeds from its `player-<color>` id. See
+ *  docs/frontend/frontend-i18n-utilities-system.md. */
 export function avatarSeed(name?: string): string {
-  const m = (name ?? '').match(BOT_ID);
+  const m = (name ?? '').match(PILOT_ID);
   if (!m) return name ?? '';
-  // Group 2 exists only when the "(Name)" suffix matched (see localizedBotName above).
+  // Group 3 exists only when the "(Name)" suffix matched (see localizedPilotName above).
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  return m[2]?.trim() || m[0];
+  return m[3]?.trim() || m[0];
 }

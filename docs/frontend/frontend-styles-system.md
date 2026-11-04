@@ -50,7 +50,7 @@ These rules stay in CSS because no utility expresses them:
 | `src/styles/retrowave.css` | Theme design system — the `[data-theme='synthwave']` token set, font tokens, scrollbar, `@keyframes` |
 | `src/index.css` | Tailwind import, base element styles, Home page layout rules, scrollbar fallback |
 | `src/styles/tw.ts` | Shared Tailwind utility-class constants (documented in [frontend-components-system.md](frontend-components-system.md)) |
-| `src/theme.ts` | One-theme TypeScript constants (`COL`, `SEAT_COLORS`, `BOT_POOL`, `STATUS_STYLE`, `goldText`, `btnGold`/`btnGoldSmall`/`btnOutline`, `card`, `input`, `label`, `sectionLabel`, `avatarBlue`/`avatarDim`, `feltPanel`, `pill`) |
+| `src/theme.ts` | One-theme TypeScript constants (`COL`, `SEAT_COLORS` for the turn order, `BOARD_QUADRANTS` for the picker's 2×2, `COLOR_KEYS` for the colour→locale-key map, `BOT_POOL`, `STATUS_STYLE`, `goldText`, `btnGold`/`btnGoldSmall`/`btnOutline`, `card`, `input`, `label`, `sectionLabel`, `avatarBlue`/`avatarDim`, `feltPanel`, `pill`) |
 | `src/store.tsx` | Owns the `theme` state and applies `data-theme` to `<html>` |
 
 

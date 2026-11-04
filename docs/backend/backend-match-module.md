@@ -72,7 +72,7 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
   botCount?: number;         // 0 - (playerCount-1), PvE only
   botColors?: string[];      // Optional per-bot slot colors
   botNames?: string[];       // Optional per-bot assistant names, index-aligned with botColors
-  seatColors?: string[];     // Optional human seat colors, the host's corner first
+  seatColors?: string[];     // Optional seat list: one colour per seat, in seat order (identity, not the rotation)
   hostColor?: string;        // REQUIRED at runtime: the host's own corner (no fallback)
 }
 ```
@@ -80,7 +80,9 @@ type MatchMode = 'pvp' | 'pve' | 'hotseat'
 The host owns a corner before any other seat exists: `hostColor` is required in every mode and
 `MATCH_INVALID_COLOR` answers its absence or a colour outside the room. The written `seatColors` starts
 with the host's colour and continues in canonical order, cut to `playerCount`, and a PvE or hotseat
-create refuses a list that does not hold the host's colour. A PvP joiner claims theirs in the join
+create refuses a list that does not hold the host's colour. That list is seat identity — which corners
+exist, so a skipped one stays skipped — and not the rotation: turn order is colour order (blue → red →
+green → yellow), applied by the engine at the start gate. A PvP joiner claims theirs in the join
 request (`color`), and the claim is final: `joinMatch` resolves that colour's slot and writes it with
 `HSETNX`, so one of two racing joiners gets the seat and the other gets `MATCH_COLOR_TAKEN`. There is no
 default corner and no in-room swap.

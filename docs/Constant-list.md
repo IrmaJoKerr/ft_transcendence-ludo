@@ -546,8 +546,10 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `SEAT_COLORS` | `blue, red, green, yellow` | seat index → colour. Seat 0 is always you; this order is also the engine's `SLOT_COLORS` 🔗 |
-| `BOT_POOL` | `Siri, Alexa, Cortana` | the three assistant names a bot seat can draw (seat 0 is you, so 3 is enough) |
+| `SEAT_COLORS` | `blue, red, green, yellow` | the turn order, and only that: a seat holds whatever colour it claimed, so this is not a seat→colour map. It is also the engine's `SLOT_COLORS` rotation and the source of the picker's numerals |
+| `BOARD_QUADRANTS` | `red, green, blue, yellow` | the picker's 2×2 in board-quadrant order (row-major: red and green on top, blue and yellow below). Display geometry only — turn order is `SEAT_COLORS` |
+| `COLOR_KEYS` | `lobby.colorRed` … `lobby.colorBlue` | the one colour→locale-key map, shared by the lobby cards, the picker, the results podium and `localizedPilotName` |
+| `BOT_POOL` | `Siri, Alexa, Cortana` | the three assistant names a bot seat can draw (the host is never a bot, so 3 is enough) |
 | `BASE_MODE_HUE` | `#b8a6e4` | the lobby's "base game" room chip: a room with no mutator is a category, not an empty cell |
 | `STATUS_STYLE` (theme) | online `#4bbf7b`, playing `#f0c24e`, offline `#6b6255` | presence dot colour, mirroring the backend's `PresenceStatus` |
 | Clash plate colours | red `#e05050`, green `#5fd08a`, yellow `#f0d18a`, blue `#4a92e0` | the clash overlay's plates and bars, read as `var(--clash-<colour>, <fallback>)`. The vars are **not** defined in `retrowave.css`, so the fallback is the effective value |
@@ -825,7 +827,7 @@ that mirrors it. A change is not complete until the mirror is edited too.
 | `BOT_PREFIX` `bot-` | 🗄️ `common/botname-enforce.ts` | ⚙️ `socket/auth.ts` | `bot-<color>` is a seat identity; the hash's `player<N>_isBot` is the only answer, the prefix is never a test |
 | `GUEST_TOKEN_PREFIX` `g_` | 🗄️ `match/guest-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatched prefix fails closed ("not found") |
 | `ENGINE_TOKEN_AUDIENCE` `ludo-engine` | 🗄️ `match/engine-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatch rejects every engine token |
-| Seat order blue → red → green → yellow | ⚙️ `SLOT_COLORS` (join/lobby/match services) | 🖥️ `theme.ts` `SEAT_COLORS` | seat index 0 is always the local player |
+| Turn order blue → red → green → yellow | ⚙️ `COLORS` (`player-handler.ts`), `firstActiveColor` for the start gate | 🖥️ `theme.ts` `SEAT_COLORS` | the rotation is colour order; a seat holds whatever colour it claimed, so a seat index never decides who moves first |
 | Presence strings `online` / `playing` / `offline` | 🗄️ `presence.service.ts` | 🖥️ `theme.ts` `PresenceStatus` + `STATUS_KEYS` | the Redis value is the wire value |
 | 16 achievement keys and thresholds | 🗄️ `achievements.registry.ts` | 🖥️ `pages/Profile.tsx` `ACHIEVEMENTS_DEF` | titles, icons and copy are client-side |
 | CSRF cookie `csrf_token` | 🗄️ `common/csrf.ts` | 🖥️ `api.ts` | a mismatch fails every write with `CSRF_TOKEN_INVALID` |

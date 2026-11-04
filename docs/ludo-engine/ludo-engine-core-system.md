@@ -133,13 +133,18 @@ gone, the reason is what a client labels it from — a `'leave'` seat reads **Ab
 reads **Left** — and because it is a persisted field it survives a reload. The reversible
 waiting-room leave writes neither.
 
-**Turn order is derived from `state.players[]` (players-as-truth).** `advanceTurnInState` scans the
-array forward from `currentTurn` and picks the next seat that can play: `active` seats take the
-turn, `exited`/`inactive` seats are skipped, and a `disconnected` seat whose grace window is still
-open **holds the turn** — `currentTurn` parks on it and nobody else can act (turn ownership gates
-roll/move/bot actions) until that seat reconnects or is pruned. Disconnecting during another
-player's turn does not freeze anything — play continues, and the wait only lands when the turn
-reaches the departed seat.
+**Turn order is colour order: blue → red → green → yellow.** `advanceTurnInState` walks the engine's
+`COLORS` array forward from `currentTurn`'s position and resolves each colour to the seat that holds
+it: `active` seats take the turn, a colour nobody holds and `exited`/`inactive` seats are skipped, and
+a `disconnected` seat whose grace window is still open **holds the turn** — `currentTurn` parks on it
+and nobody else can act (turn ownership gates roll/move/bot actions) until that seat reconnects or is
+pruned. The walk is bounded by four (`COLORS.length`), and a room where no colour yields a playable
+seat finishes instead of looping. Two rooms seating the same colours therefore rotate alike whatever
+order their cards were filled in, and a seat index is decoration: a player whose card sits third and
+holds blue still moves first. The start gate uses the same rule — `firstActiveColor` picks the lowest
+seated-and-active colour, and `join-manager` / the ready path write that into `currentTurn` — so the
+opening mover and every later one come from one rule. Disconnecting during another player's turn does
+not freeze anything — play continues, and the wait only lands when the turn reaches the departed seat.
 
 **The explicit pause flag is PvP-only.** When a PvP player drops during their *own* turn
 (`handlePlayerDisconnect`), the game also sets `state.paused` / `state.pauseTurnOwner` so clients can

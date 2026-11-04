@@ -117,8 +117,10 @@ export class RedisGameStore {
   }
 
   // Create a new game, all 16 pieces in prison. Only `activeColors` seats get
-  // PlayerMeta entries. The three room rules are frozen here: clash off, free exit
-  // off, stars protecting. The lobby can change them only while WAITING.
+  // PlayerMeta entries, one per chosen colour and in the persisted order — that
+  // list is seat identity (a skipped corner stays skipped), not the rotation,
+  // which is colour order. The three room rules are frozen here: clash off, free
+  // exit off, stars protecting. The lobby can change them only while WAITING.
   async createGame(
     gameId: string,
     clashMode = false,
@@ -136,6 +138,9 @@ export class RedisGameStore {
       }
     }
 
+    // One seat per chosen colour. The list order is seat identity, which is what
+    // keeps a skipped corner skipped; the rotation is colour order and the start
+    // gate writes it (firstActiveColor).
     const players: PlayerMeta[] = activeColors.map((color) => ({
       color,
       status: 'inactive',
@@ -175,6 +180,9 @@ export class RedisGameStore {
       id: gameId,
       pieces,
       players,
+      // A placeholder until the start gate writes the real first mover
+      // (firstActiveColor, colour order): the room is still `waiting` here, and a
+      // game cannot start before every seat has joined.
       currentTurn: activeColors[0] ?? 'blue',
       consecutiveSixes: 0,
       moveCounter: 0,

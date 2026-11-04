@@ -63,7 +63,7 @@ class RedisGameStore {
   async revokeGuestToken(tokenHash: string): Promise<void>                // DEL guesttok:<sha256>
 
   // Main state (hash field "state")
-  async createGame(gameId: string, activeColors?: PlayerColor[]): Promise<void>   // Create a fresh game with all 16 pieces in prison
+  async createGame(gameId: string, activeColors?: PlayerColor[]): Promise<void>   // Fresh game, all 16 pieces in prison; one seat per colour, in the listed order (seat identity, not the rotation)
   async loadGameState(gameId: string): Promise<GameState | null>                                       // Load the full GameState (single HGET)
   async saveGameState(gameId: string, state: GameState): Promise<void>                                 // Save the full GameState (+ 24h expire)
 

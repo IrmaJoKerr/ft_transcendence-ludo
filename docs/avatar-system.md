@@ -426,7 +426,7 @@ Then in the browser, with DevTools open:
 5. Play a two-player game against someone with a photo, then read the results invoice: that opponent's
    row shows their photo, and every row without a photo keeps the generated avatar and requests nothing.
 6. Launch a hotseat game from an account with a photo: in the arena lobby every seat shows an avatar (the
-   host's uploaded photo on seat 0, a generated avatar on each named local pilot seat), the host's seat
+   host's uploaded photo on the host's own corner, a generated avatar on each named local pilot seat), the host's seat
    falls back to the generated avatar **with no** request once the photo is deleted, and a rename
    re-seeds that local pilot's avatar. Then in the game itself the host's own seat shows the photo, every
    other local seat shows the generated avatar, and **Network** gets one avatar request (the host's); the

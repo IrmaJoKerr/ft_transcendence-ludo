@@ -4,16 +4,21 @@ import { DISCONNECT_GRACE_MS, SINGLE_SOCKET_DISCONNECT_GRACE_MS } from './timing
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
-// First active seat in color order. currentTurn must always point at a
-// seated color : pre-game color swaps mean 'blue' isn't guaranteed occupied,
-// and an inactive currentTurn soft-locks the game.
+// The first active seat in colour order: the rule the start gate and the turn
+// advance share. currentTurn must always point at a seated colour (an inactive
+// currentTurn soft-locks the game), and colour order is what decides who moves
+// first, so a room seating green and blue opens on blue whatever order its cards
+// were filled in.
 export function firstActiveColor(state: GameState): PlayerColor | undefined {
   return COLORS.find((c) => state.players.find((p) => p.color === c)?.status === 'active');
 }
 
-// Move to the next seat that can play, scanning state.players[] in order.
-// Exited seats are skipped; a disconnected seat with an open grace window holds
-// the turn. Clears the paused flag once its owner reconnects or is pruned.
+// Move to the next seat that can play, walking `COLORS` in their canonical order
+// (blue → red → green → yellow) whatever index each seat holds in players[].
+// Colour order is the whole rule: two rooms seating the same colours rotate
+// alike, and a skipped corner is simply not visited. Exited seats are skipped; a
+// disconnected seat with an open grace window holds the turn. Clears the paused
+// flag once its owner reconnects or is pruned.
 export function advanceTurnInState(state: GameState): void {
   // If paused, check if the pause owner has reconnected or been pruned
   if (state.paused) {
@@ -29,44 +34,44 @@ export function advanceTurnInState(state: GameState): void {
     }
   }
 
-  if (state.players.length === 0) {
-    state.status = 'finished';
-    return;
-  }
-
-  // Find current turn index in players array
-  const currentIdx = state.players.findIndex((p) => p.color === state.currentTurn);
+  // Find the current turn's place in colour order. State arrives as Redis JSON,
+  // so the compile-time PlayerColor guarantee does not hold and an unknown
+  // currentTurn has to finish the game rather than loop forever.
+  const currentIdx = COLORS.indexOf(state.currentTurn);
   if (currentIdx === -1) {
     state.status = 'finished';
     return;
   }
 
   let loopCount = 0;
-  let nextIdx = (currentIdx + 1) % state.players.length;
-  while (loopCount < state.players.length) {
-    const p = state.players[nextIdx];
-    if (p.status === 'active') {
-      state.currentTurn = p.color;
+  let nextIdx = (currentIdx + 1) % COLORS.length;
+  let next: PlayerColor | undefined;
+  while (loopCount < COLORS.length) {
+    const color = COLORS[nextIdx];
+    const p = state.players.find((pl) => pl.color === color);
+    if (p?.status === 'active') {
+      next = color;
       break;
     }
-    if (p.status === 'disconnected') {
-      const disc = state.disconnectedPlayers.find((d) => d.color === p.color);
+    if (p?.status === 'disconnected') {
+      const disc = state.disconnectedPlayers.find((d) => d.color === color);
       if (disc && Date.now() < disc.reconnectDeadline) {
         // The turn waits on this seat; a reconnect resumes it in place.
-        state.currentTurn = p.color;
+        next = color;
         break;
       }
     }
-    // 'exited' or 'inactive' or expired disconnected: skip
-    nextIdx = (nextIdx + 1) % state.players.length;
+    // No seat on this colour, or 'exited', 'inactive', expired disconnected: skip
+    nextIdx = (nextIdx + 1) % COLORS.length;
     loopCount++;
   }
 
-  if (loopCount >= state.players.length) {
-    // No active player found
+  if (!next) {
+    // No colour yielded a playable seat.
     state.status = 'finished';
     return;
   }
+  state.currentTurn = next;
 
   state.firstRollOfTurn = true;
   // Clear the previous player's turn snapshot: the pending roll and moves

@@ -78,11 +78,16 @@ export type AuthUser = {
 
 ```typescript
 export type Seat =
-  | { type: 'you' }
-  | { type: 'bot'; name: string }
-  | { type: 'player'; name: string }
+  | { type: 'you'; color: ColorKey }
+  | { type: 'bot'; name: string; color: ColorKey }
+  | { type: 'player'; name: string; color: ColorKey }
   | { type: 'empty' }
 ```
+
+The card's colour *is* the seat, so no index maps to a colour. A local pilot is seated under
+the raw id `player-<color>` (never a translated string), which `localizedPilotName` renders as
+"Player Yellow" / "joueur-jaune" at paint time; `addPlayer` writes it, `parseSeats` falls back
+to it, and a rename replaces it with whatever the host typed.
 
 ### PlayerCount
 

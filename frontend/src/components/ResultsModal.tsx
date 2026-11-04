@@ -4,6 +4,7 @@ import { UserAvatar } from './UserAvatar';
 import { useApp, type LastResult } from '../store';
 import { retroAudio } from '../utils/audio';
 import { avatarSeed, localizedBotName } from '../utils/botName';
+import { COLOR_KEYS } from '../theme';
 import '../styles/retrowave.css';
 import {
   RETRO_BTN,
@@ -91,13 +92,7 @@ export function ResultsModal({
   const won = hasRealWinner && result.winner === myColor;
   const winnerPlayer = result.players.find((p) => p.color === result.winner);
 
-  const COLOR_NAME_KEYS: Record<string, string> = {
-    red: 'lobby.colorRed',
-    green: 'lobby.colorGreen',
-    yellow: 'lobby.colorYellow',
-    blue: 'lobby.colorBlue',
-  };
-  const winnerColorName = COLOR_NAME_KEYS[result.winner] ?? COLOR_NAME_KEYS.red;
+  const winnerColorName = COLOR_KEYS[result.winner] ?? COLOR_KEYS.red;
   const winnerName = winnerPlayer
     ? winnerPlayer.color === myColor
       ? t('common.you')

@@ -255,10 +255,12 @@ export class MatchCreatorService {
       createdAt: Date.now().toString(),
     };
 
-    // Persist the exact seat order so the engine creates matching colors :
-    // hotseat can skip seats (e.g. blue + green + yellow, no red), and the order is
-    // the rotation order. A caller with no explicit order gets the host's corner
-    // first, then the free corners in canonical order.
+    // Persist the exact seat list so the engine seats matching colors: hotseat can
+    // skip seats (e.g. blue + green + yellow, no red), and this order is what keeps
+    // a skipped corner skipped. It is seat identity, not the rotation — turn order
+    // is colour order (blue → red → green → yellow), which the engine applies at the
+    // start gate. A caller with no explicit order gets the host's corner first, then
+    // the free corners in canonical order.
     const resolvedSeatColors =
       Array.isArray(seatColors) && seatColors.length > 0
         ? seatColors

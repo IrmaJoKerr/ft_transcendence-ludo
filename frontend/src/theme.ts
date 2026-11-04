@@ -10,11 +10,28 @@ export const COL = {
 
 export type ColorKey = keyof typeof COL;
 
-/** Seat index → color is fixed: 0 = blue (you), 1 = red, 2 = green, 3 = yellow. */
+/** Turn order, and only that: a seat holds whatever colour it claimed, and the
+ *  rotation visits these in this order (blue → red → green → yellow) whatever
+ *  index a seat sits at. Engine-owned — the picker, the board and the waiting
+ *  rail all read their geometry from here. */
 export const SEAT_COLORS: ColorKey[] = ['blue', 'red', 'green', 'yellow'];
 
+/** The picker's 2×2 in board-quadrant order (row-major): red and green on top,
+ *  blue and yellow below — the corners the board draws. Display geometry only:
+ *  turn order is `SEAT_COLORS`. */
+export const BOARD_QUADRANTS: ColorKey[] = ['red', 'green', 'blue', 'yellow'];
+
+/** The localised colour word for a corner (`lobby.color*`), shared by every
+ *  screen that names a seat and by the engine's `bot-<color>` ids. */
+export const COLOR_KEYS: Record<ColorKey, string> = {
+  red: 'lobby.colorRed',
+  green: 'lobby.colorGreen',
+  yellow: 'lobby.colorYellow',
+  blue: 'lobby.colorBlue',
+};
+
 /**
- * Bot assistant names, shown as-is; seat 0 is always you, so 3 bots is enough.
+ * Bot assistant names, shown as-is; the host is never a bot, so 3 is enough.
  */
 export const BOT_POOL = ['Siri', 'Alexa', 'Cortana'];
 
