@@ -19,7 +19,7 @@ The Profile page (`/profile`) shows a user's profile with statistics, recent mat
 
 1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created. The window title bar (`// PILOT PROFILE • NAME ( USERNAME: handle )`) ends with a click-to-copy button that puts the handle on the clipboard (`profile.usernameCopy` → `profile.usernameCopiedOk` for 1.5 s, `profile.copyUsernameTooltip` on hover, UI beep) — closing the line the way `// ROOM: {{code}} [COPY]` closes the PvP badge, because the handle is the immutable identifier while the display name can be renamed.
 2. **Stats grid** — wins, losses, win rate, best streak.
-3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you.
+3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you. Since M3 an own row also carries a **transcript expander** (`SHOW TRANSCRIPT (n)` → the stored lines, oldest first, a system line rendered from its code); a PvE row and an old row that predates the channel say `N/A`, and a friend's view has no expander at all because the API ships `chat` to the row's own account only.
 4. **Friends panel** — friends with their online status and their rating; shown only on your own profile.
 5. **Avatar actions (own profile)** — the `EDIT AVATAR`, `RESET` and `EDIT PROFILE` buttons, and below them a **message area with a fixed height**. The area shows upload and reset errors in red, and the photo-load warning (`profile.photoLoadError`) in amber. Because the height is fixed, a longer translation in Malay or French wraps onto more lines without moving the content below it.
 6. **Blocked card** — a block between the viewer and this player degrades the whole page (see *Blocked profile* below).
@@ -132,6 +132,19 @@ page branches on `visibility` before reading any of them.
       abandoned?: boolean;  // The seat left before the match finished
       piecesInGoal?: number;  // Pieces home, when the report carried it
     }>;
+    // The room's channel (M3), owner-only: the API ships both fields to the row's own
+    // account and omits them entirely for a friend, so the expander is never rendered
+    // for anyone else. Absent on a PvE row (no channel was ever recorded).
+    chat?: Array<{
+      id: string;  // `game:<gameId>:<seq>`, the React key
+      senderId: string;  // '' on a system line
+      senderName: string;
+      text: string;  // '' on a system line
+      at: number;  // engine clock (ms)
+      kind?: 'system';
+      code?: 'left' | 'started';  // a system line's locale key, never prose
+    }>;
+    chatTruncated?: boolean;  // The payload was cut at 400 lines: never rendered as complete
   }>;
   pagination: {  // The page fields are nested, which is what the API returns
     page: number;  // Page number

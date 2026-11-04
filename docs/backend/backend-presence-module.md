@@ -32,7 +32,10 @@ The module provides:
    TTL), keep both alive while the socket lives.
 2. **Playing flag** — `presence:playing { playing }` is the socket's only client → server event,
    stored **per connection** (D3) so a tab leaving a match never clears a sibling tab's flag; the row
-   carries the union.
+   carries the union. On an actual edge (the account's union flips, which a second tab cannot cause)
+   `setPlaying` publishes a transient `friend_playing` to every accepted friend — or `friend_online` on
+   the way out — so the friends' dots and the duel gate read the change immediately instead of at the
+   next fetch (M3's playing edge).
 3. **Offline edge** — when the last connection of an account closes, a 45 s check is armed. It
    re-reads the connection set when it fires (a reconnect cancels the edge by construction) and
    publishes `friend_offline` once the row has actually lapsed.

@@ -5,6 +5,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { applyAvatarChange } from '../avatarCache';
 import { fetchWithCsrf, translateErrorCode } from '../api';
 import { ProfileEditModal } from '../components/ProfileEditModal';
+import { systemLineText } from '../components/chatCardTypes';
 import { useRoute, navigate } from '../router';
 import { useApp } from '../store';
 import { STATUS_STYLE, type PresenceStatus } from '../theme';
@@ -106,6 +107,23 @@ type MatchHistoryRow = {
   clashWallsAttacked: number;
   clashWallsDefended: number;
   participants: MatchParticipant[];
+  // The room's channel (M3), owner-only: the API ships this field to the row's own
+  // account and omits it entirely for a friend, so its absence is the permission.
+  chat?: TranscriptLine[] | null;
+  /** True when the engine had to cut the payload: a cut transcript says so. */
+  chatTruncated?: boolean;
+};
+
+// One line of a stored transcript. Same shape the room stores, so a system line keeps
+// its code and is rendered in whatever language the reader holds.
+type TranscriptLine = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  at: number;
+  kind?: 'system';
+  code?: 'left' | 'started';
 };
 
 // The page fields are nested under `pagination`, which is what the API returns.
@@ -235,6 +253,7 @@ const ACHIEVEMENTS_DEF = [
  *  username is the immutable identifier (display names get renamed) and it is
  *  what the friends page adds people by. */
 function useUsernameCopy(username: string) {
+
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1937,6 +1956,18 @@ export function Profile() {
                                         </span>
                                       ))}
                                     </div>
+
+                                    {/* Line 4 (M3): the transcript, on the row's own
+                                        account only. The API ships `chat` to nobody
+                                        else, so a friend's copy has no field at all and
+                                        this line is not rendered for them; a PvE row was
+                                        never recorded with a channel and says N/A. */}
+                                    <TranscriptRow
+                                      chat={g.chat}
+                                      chatTruncated={g.chatTruncated === true}
+                                      gameType={g.gameType}
+                                      ownerId={user?.id ?? ''}
+                                    />
                                   </div>
                                 );
                               })}
@@ -2395,5 +2426,111 @@ export function Profile() {
         />
       )}
     </>
+  );
+}
+
+// The transcript on one history row (M3, Q4). It expands in place: the row grows to
+// hold it, the page does not navigate, and the lines are painted as text nodes with a
+// system line's code resolved in the reader's own language. `N/A` is for the owner's
+// own PvE rows and for an old row that predates the channel, never for a friend.
+function TranscriptRow({
+  chat,
+  chatTruncated,
+  gameType,
+  ownerId,
+}: {
+  chat?: TranscriptLine[] | null;
+  chatTruncated: boolean;
+  gameType: 'PVP' | 'PVE';
+  /** The row's own account: its lines are the ones painted in the channel's colour. */
+  ownerId: string;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const lines = Array.isArray(chat) ? chat : [];
+  const hasTranscript = gameType === 'PVP' && lines.length > 0;
+
+  return (
+    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {hasTranscript ? (
+          <button
+            type="button"
+            className={RETRO_BTN}
+            aria-expanded={open}
+            onClick={() => {
+              retroAudio.playUiBeep(open ? 520 : 700, 0.05);
+              setOpen((previous) => !previous);
+            }}
+            style={{ fontSize: '0.66rem', padding: '3px 10px' }}
+          >
+            {open
+              ? t('profile.transcriptHide')
+              : t('profile.transcriptShow', { count: lines.length })}
+          </button>
+        ) : (
+          <span
+            style={{
+              fontSize: '0.66rem',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.04em',
+              color: 'var(--text-muted)',
+            }}
+          >
+            {t('profile.transcriptLabel')} {t('profile.transcriptNa')}
+          </span>
+        )}
+        {chatTruncated && (
+          <span
+            style={{
+              fontSize: '0.62rem',
+              fontFamily: 'var(--font-mono)',
+              color: '#ffe600',
+            }}
+          >
+            {t('profile.transcriptTruncated')}
+          </span>
+        )}
+      </div>
+      {open && hasTranscript && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            padding: 10,
+            maxHeight: 220,
+            overflowY: 'auto',
+            borderRadius: 6,
+            background: 'rgba(0, 0, 0, 0.45)',
+            border: '1px solid rgba(0, 240, 255, 0.16)',
+          }}
+        >
+          {lines.map((line) => (
+            <span
+              key={line.id}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.66rem',
+                lineHeight: 1.45,
+                color:
+                  line.kind === 'system'
+                    ? 'var(--text-muted)'
+                    : line.senderId === ownerId
+                      ? 'var(--accent-cyan)'
+                      : 'var(--text-main)',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
+                textAlign: line.kind === 'system' ? 'center' : 'left',
+              }}
+            >
+              {line.kind === 'system'
+                ? systemLineText(t, line)
+                : `${line.senderName} > ${line.text}`}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

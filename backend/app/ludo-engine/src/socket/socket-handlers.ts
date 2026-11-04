@@ -26,6 +26,7 @@ export class SocketHandlers {
     private scheduleBotTurn?: (gameId: string) => void,
     private notifyAbort?: (gameId: string) => void,
     refreshIdle?: (gameId: string) => void,
+    onJoined?: (socket: GameSocket) => void,
   ) {
     this.joinManager = new JoinManager(
       this.store,
@@ -34,6 +35,7 @@ export class SocketHandlers {
       this.getOrCreateBot,
       this.scheduleBotTurn,
       refreshIdle,
+      onJoined,
     );
   }
 

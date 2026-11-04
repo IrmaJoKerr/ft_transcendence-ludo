@@ -598,6 +598,23 @@ in the seats that have no row".
   career row (`playerStats`, rating, leaderboard, streak) is gated on `status === 'completed'`, so
   the no-stats rule is one condition in one place.
 
+## The room's transcript on a row (`chat`, M3)
+
+Both result writers store the room's channel on the row they write, and neither re-mints a line: the
+engine sent them as it stored them.
+
+| piece | where |
+| --- | --- |
+| the payload | `GameEndPayload.chat` / `.blocks` and `SeatAbandonPayload.chat` / `.blocks`: `chat: { truncated?: boolean, lines: ChatLine[] }` and `blocks: { a, b, atSeq }[]` |
+| the projection | `chatForSeat(chat, blocks, seatUserId)` (exported from `match.postgame.service.ts`): the room's lines in order, cut at the ledger — a line is hidden when a block between that seat and its sender was applied at or before the line's own sequence, in either direction. A seat's own lines and every system line always survive |
+| the columns | `chatColumns(...)` is spread into `matchHistory.create` by both `processGameEnd` and `recordAbandonedSeat`: `chat` stays absent when the room had no channel or never spoke, and `chatTruncated` is only ever true when the engine's 413 fallback cut the payload |
+| the body cap | `main.ts` mounts a 2 MB json parser for `POST /api/game/end` and `POST /api/game/:id/abandon` and the 100 kB default for everything else. A 413 is the one refusal the engine answers rather than retries: it re-posts the newest 400 lines with `truncated: true` |
+
+The transcript is written once, at the end of the room, and it is **never** read back by
+`GET /api/game/:id/result`: a card needs the outcome, not the conversation. The one reader is
+`getUserGames`, which ships `chat` and `chatTruncated` to the row's own account and omits both for
+a friend, so the profile's expander is owner-only by construction rather than by a UI condition.
+
 ## The result read (`GET /api/game/:id/result`)
 
 A dropped client cannot be handed a card: the frame that ends a match is addressed to the sockets

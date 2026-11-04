@@ -149,6 +149,19 @@ function getToastInfo(
           displayName: payload.displayName ?? from,
         }),
       };
+    // A friend entered a match (M3's playing edge): the same transient toast shape as
+    // the two above, saying what the dot now says.
+    case 'friend_playing':
+      return {
+        tag: t('notifications.friendPlayingTag'),
+        badgeLabel: 'INGAME',
+        badgeColor: 'var(--accent-yellow, #ffe600)',
+        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        fromUser: String(payload.displayName ?? from),
+        actionMessage: t('notifications.actionFriendPlaying', {
+          displayName: payload.displayName ?? from,
+        }),
+      };
     case 'profile_updated': {
       const items = Array.isArray(payload.items) ? (payload.items as string[]) : [];
       const labels = items

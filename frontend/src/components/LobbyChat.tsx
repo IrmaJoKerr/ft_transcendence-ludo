@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { postApi, translateErrorCode } from '../api';
 import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
-import type { ChatErrorCode, ChatMessage } from '../sessionSocket';
+import type { ChatErrorCode } from '../sessionSocket';
+import { ChatCardFeed, ChatCardHead } from './ChatCard';
+import type { ChatCardLine } from './chatCardTypes';
 import { RETRO_BTN } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
@@ -146,7 +148,20 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   // The open name card: which pilot, and where the name was when it was pressed.
   // Anchored to that rectangle because the transcript scrolls under the pointer.
   const [nameCard, setNameCard] = useState<NameCard | null>(null);
-  const openNameCard = useCallback((line: ChatMessage, anchor: DOMRect) => {
+  // The shared card paints `ChatCardLine`, whose clock is a number; the lobby's wire
+  // carries an ISO string, so it is parsed here once instead of inside the card.
+  const cardLines = useMemo<ChatCardLine[]>(
+    () =>
+      chatLog.map((line) => ({
+        id: line.id,
+        senderId: line.senderId,
+        senderName: line.senderName,
+        text: line.text,
+        at: Date.parse(line.at) || 0,
+      })),
+    [chatLog],
+  );
+  const openNameCard = useCallback((line: ChatCardLine, anchor: DOMRect) => {
     const width = NAME_CARD_WIDTH;
     const left = Math.max(NAME_CARD_MARGIN, Math.min(anchor.left, window.innerWidth - width - NAME_CARD_MARGIN));
     const top = Math.min(anchor.bottom + 6, window.innerHeight - NAME_CARD_HEIGHT - NAME_CARD_MARGIN);
@@ -453,7 +468,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
             }}
           >
             <ChatCardHead onClose={closeCard} />
-            <ChatCardFeed lines={chatLog} onOpenName={openNameCard} />
+            <ChatCardFeed lines={cardLines} onOpenName={openNameCard} />
             <ChatCardComposer
               draft={draft}
               onDraft={setDraft}
@@ -478,198 +493,6 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
           document.body,
         )}
     </section>
-  );
-}
-
-/** The card's title row: the channel, its scope, and the way out. */
-function ChatCardHead({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 10,
-        flexShrink: 0,
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-        <span
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '0.86rem',
-            fontWeight: 900,
-            letterSpacing: '1px',
-            color: 'var(--accent-cyan)',
-            textShadow: '0 0 12px rgba(0, 240, 255, 0.45)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {t('chat.title')}
-        </span>
-        <span
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.56rem',
-            letterSpacing: '0.6px',
-            color: 'var(--text-muted)',
-          }}
-        >
-          {t('chat.scope')}
-        </span>
-      </div>
-      <button
-        type="button"
-        className={RETRO_BTN}
-        onClick={onClose}
-        style={{ padding: '3px 9px', fontSize: '0.66rem', color: 'var(--text-muted)' }}
-      >
-        {t('chat.close')}
-      </button>
-    </div>
-  );
-}
-
-/** The transcript. Newest line at the bottom, scrolled there as it arrives, and a
- *  live region so a line is announced rather than only painted. */
-function ChatCardFeed({ lines, onOpenName }: { lines: ChatMessage[]; onOpenName: (line: ChatMessage, anchor: DOMRect) => void }) {
-  const feedRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const feed = feedRef.current;
-    if (feed) feed.scrollTop = feed.scrollHeight;
-  }, [lines.length]);
-
-  return (
-    <div
-      ref={feedRef}
-      aria-live="polite"
-      className="chat-card-feed"
-      style={{
-        flex: '1 1 0',
-        minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: lines.length === 0 ? 'center' : 'flex-start',
-        alignItems: lines.length === 0 ? 'center' : 'stretch',
-        gap: 6,
-        padding: 10,
-        overflowY: 'auto',
-        borderRadius: 8,
-        background: 'rgba(0, 0, 0, 0.45)',
-        border: '1px solid rgba(0, 240, 255, 0.16)',
-        textAlign: lines.length === 0 ? 'center' : 'left',
-      }}
-    >
-      {lines.length === 0 ? (
-        <FeedEmpty />
-      ) : (
-        lines.map((line) => <FeedLine key={line.id} line={line} onOpenName={onOpenName} />)
-      )}
-    </div>
-  );
-}
-
-/** One line of the transcript. Two rows: the sender above, the text below, which
- *  is the layout that survives a 400 px card and a long name. Another pilot's name
- *  is a button (the card asks what to do about them); your own is a label. */
-function FeedLine({
-  line,
-  onOpenName,
-}: {
-  line: ChatMessage;
-  onOpenName: (line: ChatMessage, anchor: DOMRect) => void;
-}) {
-  const { user, lang } = useApp();
-  const mine = user?.id === line.senderId;
-  const time = new Date(line.at).toLocaleTimeString(lang, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const nameStyle = {
-    fontFamily: 'var(--font-mono)',
-    fontSize: '0.58rem',
-    fontWeight: 900,
-    letterSpacing: '0.5px',
-    color: mine ? 'var(--accent-cyan)' : 'var(--text-main)',
-    padding: 0,
-    margin: 0,
-    background: 'none',
-    border: 'none',
-    textAlign: 'left' as const,
-    cursor: mine ? 'default' : 'pointer',
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  };
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-        {mine ? (
-          <span style={nameStyle}>{line.senderName}</span>
-        ) : (
-          <button
-            type="button"
-            style={nameStyle}
-            title={line.senderName}
-            onClick={(event) => onOpenName(line, event.currentTarget.getBoundingClientRect())}
-          >
-            {line.senderName}
-          </button>
-        )}
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.54rem', color: 'var(--text-muted)' }}>
-          {time}
-        </span>
-      </div>
-      <span
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.72rem',
-          lineHeight: 1.45,
-          color: mine ? 'var(--accent-cyan)' : 'var(--text-main)',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'anywhere',
-        }}
-      >
-        {line.text}
-      </span>
-    </div>
-  );
-}
-
-/** The transcript's empty state. It stays a live region like the feed, so the first
- *  line is announced where the placeholder was. */
-function FeedEmpty() {
-  const { t } = useTranslation();
-  return (
-    <>
-      <span
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.78rem',
-          fontWeight: 900,
-          letterSpacing: '1px',
-          color: 'var(--text-main)',
-        }}
-      >
-        {t('chat.emptyTitle')}
-      </span>
-      <span
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.58rem',
-          letterSpacing: '0.5px',
-          lineHeight: 1.5,
-          color: 'var(--text-muted)',
-          maxWidth: 300,
-        }}
-      >
-        {t('chat.emptyDesc')}
-      </span>
-    </>
   );
 }
 

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
-import { publishRoomsChanged } from '../common/channels';
+import { publishBlocksChanged, publishRoomsChanged } from '../common/channels';
 import { PrismaService } from '../prisma.service';
 import { PresenceService } from '../presence/presence.service';
 import { MatchService } from '../match/match.service';
@@ -542,6 +542,9 @@ export class FriendsService {
       // And the room list moves with it: a room holding either side stops being a
       // row for the other, so the block needs no reload (queue item 3).
       await publishRoomsChanged(this.redis);
+      // A live room that seats both is the one place the block has to act at once
+      // (M3): the engine stamps the cut with its own chat sequence.
+      await publishBlocksChanged(this.redis, userId, targetUserId, true);
       return { id: created.id };
     }
 
@@ -572,6 +575,8 @@ export class FriendsService {
     // a block placed against you removes the row rather than announcing it.
     void this.events.publishPair(userId, targetUserId);
     await publishRoomsChanged(this.redis);
+    // A live room that seats both cuts the pair's speech from the next line on.
+    await publishBlocksChanged(this.redis, userId, targetUserId, true);
 
     return { ok: true };
   }
@@ -611,6 +616,9 @@ export class FriendsService {
     void this.events.publishPair(userId, targetUserId);
     // The other side's room comes back as a row for this viewer with it.
     await publishRoomsChanged(this.redis);
+    // The room's ledger drops the pair, so a live room reads like the lobby again:
+    // nothing is retroactively hidden, nothing stays cut.
+    await publishBlocksChanged(this.redis, userId, targetUserId, false);
 
     return { ok: true };
   }

@@ -12,6 +12,7 @@ import { useApp } from '../store';
 import { apiFetch } from '../api';
 import { applyAvatarChange } from '../avatarCache';
 import type { Notification } from '../sessionSocket';
+import type { PresenceStatus } from '../theme';
 
 // **Types**
 
@@ -32,7 +33,7 @@ interface NotificationsContextValue {
   dismissToast: (id: string) => void;
   /** The last presence edge each friend's account announced on this connection.
    * The friends lists read it for their dots now that they are not polled. */
-  friendPresence: Record<string, 'online' | 'offline'>;
+  friendPresence: Record<string, PresenceStatus>;
   /** The bell panel's open state: the navbar's trigger and the digest toast both
    * drive it, so it cannot live in the navbar's local state. */
   bellOpen: boolean;
@@ -80,7 +81,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // userId -> the last presence edge seen on this stream. A transient toast is
   // dismissed; this map is not: it is what keeps a friend's dot honest between
   // the list's first paint and the next repair fetch.
-  const [friendPresence, setFriendPresence] = useState<Record<string, 'online' | 'offline'>>({});
+  const [friendPresence, setFriendPresence] = useState<Record<string, PresenceStatus>>({});
   const [bellOpen, setBellOpen] = useState(false);
   const [digestCount, setDigestCount] = useState(0);
   const [unavailable, setUnavailable] = useState(false);
@@ -165,14 +166,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       // Friend presence is SHORT-LIVED/TRANSIENT: toast only, never the
       // bell/unread badge (the backend sends these via notifyTransient, so they
       // are not stored). Skip the actor's own tabs defensively.
-      if (notification.type === 'friend_online' || notification.type === 'friend_offline') {
+      if (
+        notification.type === 'friend_online' ||
+        notification.type === 'friend_offline' ||
+        notification.type === 'friend_playing'
+      ) {
         const p = notification.payload;
         if (p.userId === userId) return;
         // The dot's only live source (D2): the record itself says nothing about
-        // presence, and the list is no longer polled.
+        // presence, and the list is no longer polled. `friend_playing` is the M3 edge
+        // that keeps the duel gate honest: a friend in a match reads `playing`, not
+        // a stale `online`.
         const friendId = typeof p.userId === 'string' ? p.userId : null;
         if (friendId) {
-          const presence = notification.type === 'friend_online' ? 'online' : 'offline';
+          const presence =
+            notification.type === 'friend_playing'
+              ? 'playing'
+              : notification.type === 'friend_online'
+                ? 'online'
+                : 'offline';
           setFriendPresence((prev) => ({ ...prev, [friendId]: presence }));
         }
         setToasts((prev) => [notification, ...prev]);
@@ -301,9 +313,9 @@ export function useNotifications(): NotificationsContextValue {
 
 // The presence map alone, for the friends lists: they need the dots without the
 // bell, and this keeps the fallback (no provider) a stable empty object.
-const NO_PRESENCE: Record<string, 'online' | 'offline'> = {};
+const NO_PRESENCE: Record<string, PresenceStatus> = {};
 
-export function useFriendPresence(): Record<string, 'online' | 'offline'> {
+export function useFriendPresence(): Record<string, PresenceStatus> {
   const ctx = useContext(NotificationsContext);
   return ctx?.friendPresence ?? NO_PRESENCE;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Board } from '../components/Board';
 import { CaptureBurst } from '../components/CaptureBurst';
@@ -32,6 +32,9 @@ import { UserAvatar } from '../components/UserAvatar';
 import { CyberButton, CyberModal } from '../components/CyberModal';
 import { ControlsSettingsModal } from '../components/ControlsSettingsModal';
 import { ResultsModal } from '../components/ResultsModal';
+import { ChatCard } from '../components/ChatCard';
+import type { ChatCardLine, ChatCardStatus } from '../components/chatCardTypes';
+import { InviteComms } from '../components/InviteComms';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
@@ -197,6 +200,15 @@ const CARD_ROOM_OVERHANG = 46;
 // constant, so switching glyphs is one edit.
 const BUSTER_GLYPH = '🧨';
 
+// Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the
+// tail, and a few hundred is enough scrollback without growing this page's state on
+// every frame of a long game.
+const CHAT_LINES_KEPT = 200;
+
+// How long the composer waits for the engine's ack before it says the line did not go:
+// an ack that never arrives is a dead socket, not a slow one.
+const CHAT_ACK_TIMEOUT_MS = 4000;
+
 /**
  * Where a capture's burst belongs on screen: the viewport centre of the cell the mover
  * landed on. Measured from the board at the moment the move lands, because the clash
@@ -345,6 +357,16 @@ export function Game() {
   viewRef.current = view;
   const [moveLogs, setMoveLogs] = useState<LogEntry[]>([]);
   const moveLogContainerRef = useRef<HTMLDivElement>(null);
+  // The room's channel (M3): the transcript as this seat sees it, and whether the
+  // engine socket is up. The lines live here, above the card, so a re-render cannot
+  // drop a frame; the card's draft and band stay inside the card for the same reason.
+  const [chatLines, setChatLines] = useState<ChatCardLine[]>([]);
+  const [chatConnected, setChatConnected] = useState(false);
+  // The card's one status band. It is owned here rather than by the card so a block's
+  // answer (a refusal, or the confirmation) lands in the same line as a send refusal.
+  const [chatStatus, setChatStatus] = useState<ChatCardStatus | null>(null);
+  // The pilot whose name was pressed in the transcript, while the block confirm is up.
+  const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
   const isRollingRef = useRef(false);
@@ -603,6 +625,7 @@ export function Game() {
 
     socket.on('connect', () => {
       const current = activeMatchRef.current;
+      setChatConnected(true);
       if (!current) return;
       // A decided match is never re-joined: the read above already answered for it.
       if (matchOverRef.current) return;
@@ -633,6 +656,7 @@ export function Game() {
     socket.on('disconnect', () => {
       // A dropped socket ends the roll's clock too: nothing will ever land it.
       resetRoll();
+      setChatConnected(false);
     });
 
     // The other half of the reconnect budget (socket.ts): a frozen or backgrounded
@@ -653,6 +677,25 @@ export function Game() {
       // engine restart rebuild the whole panel from the log the engine stored. The
       // stored order is oldest-first; the panel renders newest-first.
       setMoveLogs([...((state as { log?: LogEntry[] }).log ?? [])].reverse().slice(0, LOG_CAP));
+    });
+
+    // The room's channel (M3). `chat:history` is pushed to this socket right after
+    // `game_joined`, already filtered by the engine for this seat, and replaces the
+    // local copy: it is the authority on what was said before the panel mounted.
+    // `chat:message` is one live line, deduped by id so the history's seam and a frame
+    // that raced it cannot paint the same line twice.
+    socket.on('chat:history', (payload: { lines?: ChatCardLine[] }) => {
+      const lines = Array.isArray(payload?.lines) ? payload.lines : [];
+      setChatLines(lines.slice(-CHAT_LINES_KEPT));
+    });
+    socket.on('chat:message', (payload: { line?: ChatCardLine }) => {
+      const line = payload?.line;
+      if (!line || typeof line.id !== 'string') return;
+      setChatLines((previous) =>
+        previous.some((existing) => existing.id === line.id)
+          ? previous
+          : [...previous, line].slice(-CHAT_LINES_KEPT),
+      );
     });
 
     const handleEngineEvent = (state: unknown) => {
@@ -1189,6 +1232,32 @@ export function Game() {
   // rather than a fifth positional boolean. The engine enforces host-only
   // (MODIFIERS_HOST_ONLY) and echoes back what it actually persisted.
   const updateModifiers = (rules: RoomRules) => socketRef.current?.emit('update_modifiers', rules);
+
+  // One line out to the room's channel (M3). The ack is the engine's own: `ok`, or a
+  // code the card localizes. A socket that never answers (a dead connection) is
+  // reported as unavailable rather than leaving the composer waiting forever.
+  const sendChatLine = useCallback(
+    (text: string, ack: (reply: { ok: true } | { ok: false; error: string }) => void) => {
+      const socket = socketRef.current;
+      if (!socket?.connected) {
+        ack({ ok: false, error: 'CHAT_UNAVAILABLE' });
+        return;
+      }
+      let answered = false;
+      const guard = setTimeout(() => {
+        if (answered) return;
+        answered = true;
+        ack({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      }, CHAT_ACK_TIMEOUT_MS);
+      socket.emit('chat:send', text, (reply: { ok: true } | { ok: false; error: string }) => {
+        if (answered) return;
+        answered = true;
+        clearTimeout(guard);
+        ack(reply ?? { ok: false, error: 'CHAT_UNAVAILABLE' });
+      });
+    },
+    [],
+  );
 
   // The key-shift row's own count. Re-enabling the mutator restores this instead of
   // resetting to 1, while the room's canonical value stays `view.clashKeyShift` (the
@@ -2268,6 +2337,35 @@ export function Game() {
                 </div>
               </section>
 
+              {/* The room's channel (M3): the compact feed in this column's slot, the
+                  full card as an overlay on click. PvP only, and independent of the
+                  room's status: it opens in the waiting room and never leaves when the
+                  match starts. The Invite Comms column rides its side slot while the
+                  room is still WAITING, and unmounts (with the card staying put) at
+                  the start. */}
+              {activeMatch.mode === 'pvp' && (
+                <ChatCard
+                  lines={chatLines}
+                  send={sendChatLine}
+                  connected={chatConnected}
+                  inert={Boolean(view.clash)}
+                  status={chatStatus}
+                  onStatus={setChatStatus}
+                  onBlockName={(id, name) => setBlockTarget({ id, name })}
+                  sideSlot={
+                    view.status === 'waiting' ? (
+                      <InviteComms
+                        gameId={activeMatch.gameId}
+                        seatUserIds={view.players
+                          .map((player) => player.userId)
+                          .filter((id): id is string => typeof id === 'string' && id !== '')}
+                        playerCount={activeMatch.playerCount ?? 4}
+                      />
+                    ) : undefined
+                  }
+                />
+              )}
+
               {/* View Results Button below Pilot Roster */}
               {lastResult && (
                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column' }}>
@@ -2937,6 +3035,35 @@ export function Game() {
         }}
         cancelLabel={t('gameExtra.cancelBtn')}
         proceedLabel={t('gameExtra.confirmAbortBtn')}
+        cancelShortcut="ESC"
+        proceedShortcut="↵"
+        isDanger
+      />
+
+      {/* The in-game name card's one action (M3): BLOCK. A confirm first, because a
+          block hides the pair's speech both ways and cannot be undone from this card:
+          UNBLOCK lives on the friends page, where the confirmation story already is. */}
+      <CyberModal
+        isOpen={blockTarget !== null}
+        title={t('gameChat.blockTitle')}
+        message={t('gameChat.blockConfirm', { name: blockTarget?.name ?? '' })}
+        subMessage={t('gameChat.blockSubMessage')}
+        onCancel={() => setBlockTarget(null)}
+        onProceed={() => {
+          const target = blockTarget;
+          setBlockTarget(null);
+          if (!target) return;
+          void postApi(`/api/friends/block/${target.id}`, {})
+            .then(() => setChatStatus({ tone: 'info', text: t('gameChat.blocked') }))
+            .catch((error: unknown) =>
+              setChatStatus({
+                tone: 'error',
+                text: error instanceof Error ? error.message : t('friends.genericError'),
+              }),
+            );
+        }}
+        cancelLabel={t('gameExtra.cancelBtn')}
+        proceedLabel={t('gameChat.blockProceed')}
         cancelShortcut="ESC"
         proceedShortcut="↵"
         isDanger

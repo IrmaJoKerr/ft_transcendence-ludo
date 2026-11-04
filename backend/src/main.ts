@@ -55,11 +55,40 @@ function validationExceptionFactory(errors: ValidationError[]): BadRequestExcept
   return new BadRequestException({ statusCode: 400, message, error: 'Bad Request' });
 }
 
+// Engine-to-backend result posts carry the room's chat transcript (M3), and a long
+// game's channel is a few hundred kilobytes: Express's 100 kB default would refuse the
+// very report that writes the rows. Two json parsers split the URL space instead of one
+// global cap, so the raised limit is the two engine routes' own and an ordinary request
+// can never grow. `type` is body-parser's own predicate — false skips a request without
+// touching its stream, so the second parser still reads it.
+const ENGINE_BODY_LIMIT = '2mb';
+const DEFAULT_BODY_LIMIT = '100kb';
+
+// The two routes the engine posts a result to. Matched on the URL alone, before
+// routing, because a body parser never learns which handler will answer.
+export function engineResultRoute(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.split('?')[0];
+  return path === '/api/game/end' || /^\/api\/game\/[^/]+\/abandon$/.test(path);
+}
+
 // App entry point: builds the NestJS app, sets up trust-proxy, cookies and validation,
 // exposes a /health DB check, and starts listening on port 3000.
 // Called once at startup from the line below.
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // The raised cap first, for the engine's two result routes only, then the default for
+  // everything else. The order is the whole mechanism: a parser that refuses a request
+  // leaves the body unread for the next one.
+  app.useBodyParser('json', {
+    limit: ENGINE_BODY_LIMIT,
+    type: (req: { url?: string }) => (engineResultRoute(req.url) ? 'application/json' : false),
+  });
+  app.useBodyParser('json', {
+    limit: DEFAULT_BODY_LIMIT,
+    type: (req: { url?: string }) => (engineResultRoute(req.url) ? false : 'application/json'),
+  });
 
   // Trust internal hops (localhost/LAN/tunnel) by address, so req.ip is the
   // real client IP for rate limiting and can't be spoofed via X-Forwarded-For.

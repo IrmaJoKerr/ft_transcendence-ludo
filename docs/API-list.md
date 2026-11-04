@@ -1072,6 +1072,12 @@ Get a user's game history.
 
 One indexed read over `(user_id, playedAt DESC)` plus a count, with no join: the row carries its own counters and its own participant snapshot (a bot seat included, marked `isBot`), so a row renders even after another player deletes their account. The store keeps the **newest 50 matches per player**, so `total` stops at 50: three pages of 20.
 
+**The transcript is the owner's alone (M3).** When the caller is the account whose history
+this is (`viewerId === user.id`) and the row holds one, it also carries
+`chat: ChatLine[]` and `chatTruncated: boolean`. A friend's view of the same row omits both
+fields entirely, so the profile's transcript expander is never rendered for anyone else. `chat`
+stays null on a row whose room had no channel (PvE, hotseat, guest) or never spoke.
+
 **Errors:** 401 (no session); 404 if user not found; **403 `FRIEND_BLOCKED`** when a block exists between the caller and the target (any direction). The profile page skips this read when `visibility !== 'full'`; the 403 is what stops a deep link or `curl`.
 
 
@@ -1647,10 +1653,35 @@ Called by ludo-engine when a game finishes. 🤖 Does not require JWT — authen
       "clashWallsAttacked": 2,
       "clashWallsDefended": 1
     }
-  ]
+  ],
+  "chat": {
+    "truncated": false,
+    "lines": [
+      {
+        "id": "game:uuid:1",
+        "seq": 1,
+        "senderId": "account id, '' on a system line",
+        "senderName": "Pilot",
+        "text": "gg",
+        "at": 1730716800000,
+        "ch": "game:uuid",
+        "kind": "system?",
+        "code": "'left' | 'started'?"
+      }
+    ]
+  },
+  "blocks": [{ "a": "account id", "b": "account id", "atSeq": 7 }]
 }
 
 ```
+
+The two optional fields are the room's channel (M3). `chat.lines` is the whole transcript,
+oldest first, and `blocks` is the room's ledger: the backend applies it **per seat** as it builds
+the rows, so every row keeps exactly what its own player was shown. `chat.truncated: true` means
+the engine had to re-post only the newest 400 lines (a 413 from this route's 2 MB cap), and the
+row then carries `chatTruncated: true` so a cut transcript never renders as a complete one. A room
+with no channel (PvE, hotseat, guest) or one that never spoke sends neither field and its rows keep
+`chat` null. This route parses up to **2 MB**; every other route keeps Express's 100 kB default.
 
 **Response:**
 
@@ -1708,9 +1739,19 @@ parked.
   "clashAttacksWon": 1,
   "clashWallBattlesWon": 0,
   "clashWallsAttacked": 1,
-  "clashWallsDefended": 0
+  "clashWallsDefended": 0,
+  "chat": {
+    "truncated": false,
+    "lines": [ "…the same ChatLine objects /api/game/end carries…" ]
+  },
+  "blocks": [ { "a": "account id", "b": "account id", "atSeq": 7 } ]
 }
 ```
+
+The two optional fields are the room's transcript and ledger (M3), the same shape `/end` takes.
+The row keeps only the lines **this seat** was shown: the backend applies the ledger to the
+transcript before it writes, so a blocked pair's post-block speech is not in either row. This
+route also parses up to **2 MB**.
 
 **Response:**
 
@@ -1733,6 +1774,7 @@ that never started (a waiting-room abort frees a corner and leaves no record), 4
   `ratingDelta: 0`, the reported counters, the room's rules and the seat snapshot (the leaving seat
   flagged `abandoned`)
 - Trims that seat's history to its newest 50 rows, in the same transaction
+- Stores `chat` (that seat's cut transcript) and `chatTruncated` when the payload carried them
 - Sends a `match_abandoned` notification to that account
 - **Nothing else:** no `PlayerStats` write, no rating, no leaderboard entry, no achievement
   progress, no `rooms:changed`, and `match:{gameId}` is never deleted (the room may still be live
@@ -2808,6 +2850,35 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 ---
 
 
+#### `chat:send`
+
+**Source:** `backend/app/ludo-engine/src/socket/room-chat.ts` (`RoomChat.send`)
+
+One line to the room's channel (M3). The channel exists in PvP rooms only; a PvE, hotseat
+or guest room writes no `chat:game:*` key at all, so a send there is refused.
+
+```typescript
+socket.emit('chat:send', 'gg', (reply) => {
+  // { ok: true } | { ok: false, error: 'CHAT_EMPTY' | 'CHAT_TOO_LONG' | 'CHAT_COOLDOWN' | 'CHAT_UNAVAILABLE' }
+});
+```
+
+| Refusal | When |
+|---|---|
+| `CHAT_UNAVAILABLE` | No seat on this socket, a guest socket, a room that is gone or `finished`, a seat that is `exited`/`inactive`, or a storage failure |
+| `CHAT_EMPTY` | The text is blank after `trim()` |
+| `CHAT_TOO_LONG` | Over `GAME_CHAT_MAX_CHARS` (300) UTF-16 units — the same count the composer shows |
+| `CHAT_COOLDOWN` | Under `GAME_CHAT_COOLDOWN_MS` (2 s) since this **account's** last line in this room: the budget is keyed `gameId:userId`, so two tabs share it |
+
+**Response:** the ack, then `chat:message` to every seat allowed to see the line. The line is
+also appended to `chat:game:<id>:log`, which is what a later `chat:history` replays and what
+both result routes store on the row.
+
+
+---
+---
+
+
 ### 21. Server → Client Events (on)
 
 | Event | Payload | When |
@@ -2821,6 +2892,8 @@ Automatically handled when the WebSocket connection drops. Opens a reconnect gra
 | `clash_press` | `{ color, presses }` | An accepted `clash_input` press |
 | `clash_result` | `{ cardId, winner, loser, winnerPresses, loserPresses, round, totalRounds, resultCardUntil, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `continues: true` means the square still holds defenders and another round follows; `resultCardUntil` is the card's deadline, which the bots' next turn is timed from |
 | `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card's length; the input freeze ends at `resultCardUntil` and the SPA card keeps its own timer |
+| `chat:message` | `{ line: ChatLine }` where `ChatLine` is `{ id, seq, senderId, senderName, text, at, ch, kind?, code? }` | One line entered the room's channel (M3). A player's line is sent **per socket**, with the block ledger applied, so a blocked pair never receives the other side's post-block speech; an engine-written line (`kind: 'system'`, `code: 'left'` or `'started'`, empty `text`) goes room-wide because it holds no speech |
+| `chat:history` | `{ lines: ChatLine[] }`, oldest first, already cut at the block ledger | Right after `game_joined`, on a join and on a rejoin. The transcript is per seat, which is why it cannot ride the room frame |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
 | `game_timeout` | none | Post-game lobby expired (60s) — room torn down |

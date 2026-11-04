@@ -59,6 +59,10 @@ export const PING_INTERVAL_MS = 10 * 1000;
 export const PING_TIMEOUT_MS = 15 * 1000;
 export const EVENT_WINDOW_MS = 5 * 1000; // inbound budget window, per socket
 export const CLASH_EVENT_WINDOW_MS = 5 * 1000; // the press bucket's own window
+// The room channel's send spacing, keyed `gameId:userId` so two tabs share one
+// budget. The lobby's 1 s is per socket; a room is a smaller audience and a slower
+// conversation, and a per-account key is the hole M3 set out to close.
+export const GAME_CHAT_COOLDOWN_MS = 2 * 1000;
 
 // --- lifecycle ----------------------------------------------------------------
 export const IDLE_LOBBY_TIMEOUT_MS = 5 * 60 * 1000; // empty PvP lobby

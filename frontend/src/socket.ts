@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import type { ClashPhase, GameState, PlayerColor, LegalMove, MoveResult } from './game/types';
+import type { ChatCardLine } from './components/chatCardTypes';
 
 // The room rules travel as ONE object in both directions (create body and
 // `update_modifiers` / `modifiers_updated`): a fifth rule is a field, not a fifth
@@ -102,6 +103,12 @@ export type ServerEvents = {
   // Host flipped the room rules while the room is still waiting. Carries what
   // the engine actually persisted, not what the caller asked for.
   modifiers_updated: (e: RoomRules) => void;
+  // The room's channel (M3). `chat:message` is one live line, `chat:history` the
+  // transcript pushed to this socket right after `game_joined`, already filtered by
+  // the engine for this seat. The names are the colon form the session socket already
+  // carries, so the SPA has one convention for both channels.
+  'chat:message': (e: { line: ChatCardLine }) => void;
+  'chat:history': (e: { lines: ChatCardLine[] }) => void;
   error: (msg: string) => void;
 };
 
@@ -125,6 +132,12 @@ export type ClientEvents = {
   clash_card_hold: (cardId: string, holdMs: number) => void;
   player_ready: () => void;
   update_modifiers: (rules: RoomRules) => void;
+  // One line to the room's channel. The ack says whether it went and, if not, why,
+  // so the composer never has to guess after a silent drop.
+  'chat:send': (
+    text: string,
+    ack: (reply: { ok: true } | { ok: false; error: string }) => void,
+  ) => void;
   leave_game: () => void;
   end_game: () => void;
 };

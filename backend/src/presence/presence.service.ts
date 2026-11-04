@@ -108,8 +108,18 @@ export class PresenceService implements OnModuleDestroy {
     const connection = this.connections.get(socketId);
     // A stale event (the close raced it) must not resurrect the row.
     if (!connection || connection.userId !== userId) return;
+    // The account's aggregate, before and after: a second tab entering a match is not
+    // an edge, and only an edge is worth a push to every friend.
+    const wasPlaying = this.playingNow(userId);
     connection.playing = playing;
     await this.writeStatus(userId, this.playingNow(userId));
+    const nowPlaying = this.playingNow(userId);
+    if (nowPlaying === wasPlaying) return;
+    // The `playing` notify edge (M3): leave the match -> back to plain online; enter one
+    // -> the friends' dots and the duel gate learn it now, not at their next fetch.
+    this.notifyFriendsPresence(userId, nowPlaying ? 'playing' : 'online').catch((error) => {
+      console.error('Failed to broadcast a playing edge:', error);
+    });
   }
 
   // A session socket closed: remove only this connection's member, then let the
@@ -275,9 +285,13 @@ export class PresenceService implements OnModuleDestroy {
     }
   }
 
-  // Transient presence toast to all accepted friends on coming online or
-  // logging out. Fire-and-forget : must never block a connect or a sign-out.
-  private async notifyFriendsPresence(userId: string, status: 'online' | 'offline'): Promise<void> {
+  // Transient presence toast to all accepted friends on coming online, entering a
+  // match, coming back out of one, or logging out. Fire-and-forget : must never block a
+  // connect, a match or a sign-out.
+  private async notifyFriendsPresence(
+    userId: string,
+    status: 'online' | 'offline' | 'playing',
+  ): Promise<void> {
     try {
       const friends = await this.prisma.db.friendship.findMany({
         where: {
@@ -298,7 +312,12 @@ export class PresenceService implements OnModuleDestroy {
         select: { username: true, displayName: true },
       });
 
-      const type = status === 'online' ? 'friend_online' : 'friend_offline';
+      const type =
+        status === 'playing'
+          ? 'friend_playing'
+          : status === 'online'
+            ? 'friend_online'
+            : 'friend_offline';
       const payload = {
         userId,
         fromUsername: actor?.username ?? 'Pilot',

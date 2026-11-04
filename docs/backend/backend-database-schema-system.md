@@ -249,8 +249,8 @@ the row carries its own counters and its own company line.
 | `clashWallBattlesWon` | Int | Default: 0 | Wall Breaker chains won |
 | `clashWallsAttacked` / `clashWallsDefended` | Int | Default: 0 | Landings on a wall / walls that held |
 | `participants` | JSON | | Snapshot of every seat, bots included, so the row renders with no join. Each seat carries `abandoned` (it left, and its row says so) and, when the report carried it, `piecesInGoal` |
-| `chat` | JSON? | Nullable | The seat's own transcript, already filtered to what that seat was shown. Written with the row at the end of a room (band 5); never read by the result route |
-| `chatTruncated` | Boolean | Default: false | The transcript outgrew the wire cap and its tail was dropped |
+| `chat` | JSON? | Nullable | The seat's own transcript, already filtered to what that seat was shown. Written by both end paths (band 5): `/end` for a completed seat and `/abandon` for a seat that left. The backend applies the room's block ledger per seat with `chatForSeat`, so a row never carries a line its player was not shown. `getUserGames` ships it to the row's own account only, and the result route never carries it |
+| `chatTruncated` | Boolean | Default: false | True only when the engine had to re-post the newest 400 lines because the payload outgrew the route's body cap, so a cut transcript never renders as a complete one |
 
 **Two kinds of row, one table.** A `COMPLETED` row is a game that ended with a winner:
 rows, ratings, leaderboard entry and achievements in one transaction

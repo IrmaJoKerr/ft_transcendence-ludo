@@ -86,8 +86,25 @@ class RedisGameStore {
   // Teardown / publish
   async deleteGame(gameId: string): Promise<void>                                                      // Delete the game state hash for a match
   async publish(gameId: string, message: string): Promise<void>                                        // Publish a message on game:{gameId} (pub/sub)
+
+  // The room channel (M3): its own two keys, with the state's 86,400 s life
+  async nextChatSeq(gameId: string): Promise<number>                                                   // INCR chat:game:<id>:seq (+ TTL); the line id, the React key and the block ledger's cut
+  async appendChat(gameId: string, line: ChatLine): Promise<void>                                      // LPUSH chat:game:<id>:log + LTRIM 1,000 + TTL
+  async chatTail(gameId: string): Promise<ChatLine[]>                                                  // LRANGE the log, drop a malformed line, reverse to oldest-first
+  async currentChatSeq(gameId: string): Promise<number>                                                // GET the counter without spending a number (a block's cut is this + 1)
 }
 ```
+
+### The room channel's two keys
+
+| Key | Type | Written by | Why it lives beside `game:<id>` rather than inside it |
+|---|---|---|---|
+| `chat:game:<id>:log` | list | `appendChat` (a player's line and every engine-written line) | The transcript is ~415 kB at its cap and the state snapshot is read on every frame; one key each means a chat eviction can only cost a transcript, never a game |
+| `chat:game:<id>:seq` | string (counter) | `nextChatSeq` (`INCR`) | The total order, the React key, the dedupe between a replay and a live frame, and the cut a block is stamped with — all four need one monotonic number per room |
+
+Both carry `GAME_CHAT_TTL_S` (86,400 s) refreshed on every write, so an idle room's transcript lapses with the
+room that wrote it. Nothing is published on `game:<id>` for a player's line: the fan-out is the room's own
+socket set, filtered per seat (see `ludo-engine-socket-system.md`).
 
 
 ---

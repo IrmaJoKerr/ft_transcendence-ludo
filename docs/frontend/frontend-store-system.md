@@ -40,7 +40,13 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    because a connection-scoped number must survive a navigation, while the friendship rows live in
    `hooks/useFriendships.ts` (one mount = one snapshot read + a `friendship:changed` listener) and the
    presence edges in `NotificationsProvider.friendPresence`. Keeping the per-screen state out of the
-   store is what lets a screen unmount without tearing the socket down.
+   store is what lets a screen unmount without tearing the socket down. Since M3 that map carries three
+   states (`online` | `playing` | `offline`): `friend_playing` is the edge the backend pushes when an
+   account's match bit flips, so a friend's dot and the duel gate read "in a match" without a refetch.
+   The **room channel** is deliberately not here: its lines belong to one room, so they live in
+   `Game.tsx` (`chatLines`, capped at 200, replaced by `chat:history` and appended from
+   `chat:message`), and the draft lives inside `ChatCard`. A page-level store would keep a transcript
+   alive across two different matches, which is exactly what a room-scoped channel must not do.
 
 
 ---

@@ -60,3 +60,28 @@ export const CHAT_CHANNEL = 'lobby';
 export const chatPubSubChannel = (ch: string): string => `chat:${ch}`;
 export const chatLogKey = (ch: string): string => `chat:${ch}:log`;
 export const chatSeqKey = (ch: string): string => `chat:${ch}:seq`;
+
+// A room's channel name (M3). The engine keeps its own copy of the key helpers in
+// `game-chat.ts`; the channel name is the contract between the two builds, and the
+// backend reads the same list when it writes a row's transcript.
+export const gameChatChannel = (gameId: string): string => `game:${gameId}`;
+
+// `blocks:changed` carries { a, b, blocked }: a block minted here has to be applied
+// inside the room, which is where the chat lines and their sequence live. The engine
+// stamps the cut with its own sequence, so no clock crosses the wire. Best effort:
+// with the engine down or the message lost, the block still hides the pair in every
+// live room from the next send on, and nothing is retroactively deleted.
+export const BLOCKS_CHANGED_CHANNEL = 'blocks:changed';
+
+export async function publishBlocksChanged(
+  redis: { publish(channel: string, message: string): Promise<unknown> },
+  a: string,
+  b: string,
+  blocked: boolean,
+): Promise<void> {
+  try {
+    await redis.publish(BLOCKS_CHANGED_CHANNEL, JSON.stringify({ a, b, blocked }));
+  } catch (error) {
+    console.error('Failed to publish blocks:changed:', error);
+  }
+}

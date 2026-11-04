@@ -50,6 +50,31 @@ export interface LogEntry {
 // rest, so a long game cannot grow the state snapshot without bound.
 export const LOG_CAP = 30;
 
+// One line of the room's chat channel (M3). A player's line carries the text it was
+// sent with; a system line carries a `code` instead and no text at all, so a stored
+// transcript re-renders in whatever locale the reader holds. `seq` is the room's own
+// chat sequence, which is also the cut a block is stamped with.
+export interface ChatLine {
+  id: string; // `game:<gameId>:<seq>`, the React key and the dedupe
+  seq: number;
+  senderId: string; // '' on a system line
+  senderName: string; // display name, or the seat a system line is about
+  text: string; // '' on a system line
+  at: number; // engine clock (ms)
+  ch: string; // `game:<gameId>`
+  kind?: 'system'; // absent on a player's line
+  code?: 'left' | 'started'; // a system line's locale key, never prose
+}
+
+// One block, engine-stamped: the pair and the room chat sequence at the moment the
+// engine applied it. The cut is the sequence, never the backend's clock, because the
+// block is minted where the clocks differ and the sequence is minted here.
+export interface ChatBlock {
+  a: string; // the account that blocked
+  b: string; // the account it hid from
+  atSeq: number;
+}
+
 // Per-seat metadata for one player (human or bot) in a game.
 export interface PlayerMeta {
   color: PlayerColor; // seat color
@@ -287,6 +312,12 @@ export interface GameState {
   // or an engine restart rebuilds the panel from the snapshot. Absent on a state
   // written before the log existed.
   log?: LogEntry[];
+  // The room's live block ledger (M3): one entry per pair that fell out mid-game,
+  // stamped with the chat sequence it was applied at. Read at every emit, at every
+  // history replay and at report time, so a blocked pair never sees the other side's
+  // post-block speech. Persisted with the rest of the state, so a redeploy mid-game
+  // does not lose it. Absent reads as no blocks.
+  blockedPairs?: ChatBlock[];
 }
 
 // The outcome of one applied move, recorded in history and broadcast to clients.
@@ -472,4 +503,9 @@ export type GameEvent =
       noSafeZones: boolean;
       freeExit: boolean;
       clashKeyShift: 0 | 1 | 2;
-    };
+    }
+  // One line the ENGINE wrote to the room's channel (M3): "Game started", and the
+  // universal "X has left". A player's own line never travels this way — it is
+  // emitted per socket, because a block has to be applied before a frame leaves.
+  // The wire frame is `chat:message`, the colon name the session socket already uses.
+  | { type: 'chat_message'; gameId: string; line: ChatLine };

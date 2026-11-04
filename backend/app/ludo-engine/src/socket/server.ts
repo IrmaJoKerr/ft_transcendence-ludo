@@ -9,6 +9,8 @@ import { RedisBroadcaster } from './redis-broadcaster';
 import { MatchAbandonSubscriber } from './abandon-subscriber';
 import { ResultSubmitter } from './result-submitter';
 import { SocketHandlers } from './socket-handlers';
+import { RoomChat } from './room-chat';
+import { BlockSubscriber } from './block-subscriber';
 import { BotTurnScheduler } from './bot-scheduler';
 import { PostGameManager } from './post-game';
 import type { GameSocket } from './auth';
@@ -74,7 +76,13 @@ export class SocketServer {
   // Sign-out departures: the backend publishes `match:abandon`, this applies
   // departSeat in this process (the room state lives here, not there).
   private abandon: MatchAbandonSubscriber;
+  // The live block ledger's feed: a block minted in the backend is stamped with this
+  // room's chat sequence here, which is the only place that sequence exists.
+  private blocks: BlockSubscriber;
   private resultSubmitter: ResultSubmitter;
+  // The room channel's handlers. Built in start(), because its fan-out is the socket
+  // server itself and that does not exist until then.
+  private roomChat?: RoomChat;
   private handlers: SocketHandlers;
   private botScheduler: BotTurnScheduler;
   private postGame: PostGameManager;
@@ -99,6 +107,7 @@ export class SocketServer {
     this.abandon = new MatchAbandonSubscriber(this.store, this.engine, (gameId) => {
       this.cleanupGame(gameId);
     });
+    this.blocks = new BlockSubscriber(this.store);
     // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
     // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan. The deadline it
     // holds is also what the waiting room's banner counts down: the room publishes it,
@@ -152,6 +161,10 @@ export class SocketServer {
       (gameId) => {
         // A refill cancels the idle window; a departure re-arms it.
         void this.idleLobby.refresh(gameId);
+      },
+      (socket) => {
+        // The room's transcript, replayed to this socket alone (M3).
+        void this.roomChat?.history(socket);
       },
     );
     // Subscribe to engine events: the engine detects lifecycle changes once, here.
@@ -268,6 +281,9 @@ export class SocketServer {
 
     this.broadcaster.start(this.io);
     this.abandon.start();
+    this.blocks.start();
+    // The room channel: one handler pair, built once the io server exists.
+    this.roomChat = new RoomChat(this.io, this.store);
     this.setupSocketHandlers();
     // Boot-time clash recovery: re-arm the persisted QTE phase timers and sweep
     // every 5 s for an orphaned or stalled clash. The wake pass below replays the
@@ -288,6 +304,7 @@ export class SocketServer {
     await this.store.disconnect();
     await this.broadcaster.disconnect();
     await this.abandon.disconnect();
+    await this.blocks.disconnect();
     this.httpServer.close();
   }
   // Drop a room's in-memory state: its RoomContext (seat bindings + timers) and
@@ -297,6 +314,7 @@ export class SocketServer {
     this.rooms.delete(gameId);
     this.botScheduler.clear(gameId);
     this.idleLobby.forget(gameId);
+    this.roomChat?.forget(gameId);
   }
 
   // Abort an idle lobby: closeRoom emits game_expired, aborts the match and
@@ -599,6 +617,14 @@ export class SocketServer {
       // `{clashEnabled, noSafeZones, freeExit}`, never as positional booleans.
       socket.on('update_modifiers', (rules: unknown) => {
         this.handlers.handleUpdateModifiers(socket, rules);
+      });
+
+      // The room's channel (M3). `chat:send` carries the line and an ack that says
+      // whether it went and, if not, why; `chat:history` is pushed to this socket on
+      // join, so there is no client-side request for it. Guests are outside both: a
+      // guest room has no channel, and the allow-list above already refuses them.
+      socket.on('chat:send', (text: unknown, ack?: (reply: unknown) => void) => {
+        void this.roomChat?.send(socket, text, ack);
       });
 
       socket.on('leave_game', () => {

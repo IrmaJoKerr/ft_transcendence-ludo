@@ -272,6 +272,13 @@ export class UserService {
         clashWallsAttacked: row.clashWallsAttacked,
         clashWallsDefended: row.clashWallsDefended,
         participants: row.participants,
+        // The transcript is the owner's alone (M3/R5): a friend's view of the same row
+        // omits it entirely rather than shipping a field the UI hides, and the history
+        // expander is never rendered for anyone else. `chatTruncated` rides with it,
+        // because a cut transcript must never read as a complete one.
+        ...(viewerId === user.id && row.chat !== null
+          ? { chat: row.chat, chatTruncated: row.chatTruncated }
+          : {}),
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };

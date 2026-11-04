@@ -539,6 +539,24 @@ avoids. Only the owner's own list is live.
 
 ## Logic Paths Summary
 
+### Block / unblock fan-out (M3)
+
+```
+POST /api/friends/block/:userId  (JWT)
+  ├── upsert the pair to 'blocked' (+ the two publishes it already had)
+  ├── publishRoomsChanged(redis)            → a room holding either side stops being a row
+  └── publishBlocksChanged(redis, a, b, true) → 'blocks:changed' on the engine, which stamps the
+                                              pair's cut with that room's own chat sequence
+
+POST /api/friends/unblock/:userId (JWT)
+  └── publishBlocksChanged(redis, a, b, false) → the room's ledger drops the pair
+```
+
+The engine side is `socket/block-subscriber.ts`: it scans the live rooms, keeps the pair only when
+both accounts are seated in one, and writes `{ a, b, atSeq }` into that room's state (an unblock
+removes it). Pre-block lines are never deleted, so the player who blocked keeps the record of what
+happened; a block placed mid-game is never announced and never ejects anybody.
+
 ### Send Friend Request Path
 ```
 POST /api/friends/request/{userId} (JWT required)

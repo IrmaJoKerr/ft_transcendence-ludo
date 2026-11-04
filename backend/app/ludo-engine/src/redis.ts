@@ -1,7 +1,14 @@
 import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
-import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState } from './types';
+import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState, ChatLine } from './types';
 import { STARTING_BUSTER_TOKENS } from './types';
+import {
+  GAME_CHAT_MAX_LINES,
+  GAME_CHAT_TTL_S,
+  chatLogKey,
+  chatSeqKey,
+  parseChatLine,
+} from './game-chat';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
@@ -63,6 +70,9 @@ function withBarrierDefaults(state: GameState): GameState {
     if (stats.clashWallsDefended === undefined) stats.clashWallsDefended = 0;
   }
   if (state.clashKeyShift !== 1 && state.clashKeyShift !== 2) state.clashKeyShift = 0;
+  // A room written before the channel existed has no ledger: no blocks reads as
+  // no cuts, which is the lobby's own default.
+  if (!Array.isArray(state.blockedPairs)) state.blockedPairs = [];
   return state;
 }
 
@@ -212,6 +222,48 @@ export class RedisGameStore {
   async saveGameState(gameId: string, state: GameState): Promise<void> {
     await this.client.hset(this.gameKey(gameId), 'state', JSON.stringify(state));
     await this.client.expire(this.gameKey(gameId), 86400);
+  }
+
+  // --- the room channel (M3) ---------------------------------------------------
+  // Its two keys are the room's own, beside `game:<id>`: one list and one counter,
+  // each with the state's 86400 s life, so chat volume can never evict live state and
+  // an idle room's transcript lapses with the room that wrote it. No publish: the
+  // fan-out is the engine's own room emit.
+  async nextChatSeq(gameId: string): Promise<number> {
+    const key = chatSeqKey(gameId);
+    const seq = await this.client.incr(key);
+    await this.client.expire(key, GAME_CHAT_TTL_S);
+    return seq;
+  }
+
+  async appendChat(gameId: string, line: ChatLine): Promise<void> {
+    const key = chatLogKey(gameId);
+    // Push then trim: the list is the transcript and the trim is its retention, so
+    // there is no deletion story and no second key to keep in step.
+    await this.client.lpush(key, JSON.stringify(line));
+    await this.client.ltrim(key, 0, GAME_CHAT_MAX_LINES - 1);
+    await this.client.expire(key, GAME_CHAT_TTL_S);
+  }
+
+  // The transcript, oldest first, which is the order a log is painted in and the
+  // order a row stores it in. A malformed line is dropped, never surfaced.
+  async chatTail(gameId: string): Promise<ChatLine[]> {
+    const raw = await this.client.lrange(chatLogKey(gameId), 0, GAME_CHAT_MAX_LINES - 1);
+    const lines: ChatLine[] = [];
+    for (const line of raw) {
+      const parsed = parseChatLine(line);
+      if (parsed) lines.push(parsed);
+    }
+    return lines.reverse();
+  }
+
+  // The room's chat sequence as it stands, without spending one. The block ledger
+  // stamps a cut with the sequence of the first line the pair must not see, which is
+  // this number plus one (the counter is incremented before a line is built).
+  async currentChatSeq(gameId: string): Promise<number> {
+    const raw = await this.client.get(chatSeqKey(gameId));
+    const seq = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(seq) ? seq : 0;
   }
 
   // Publish state change to all subscribers

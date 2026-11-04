@@ -1,9 +1,10 @@
 import type { LudoEngine } from '../engine';
 import type { RedisGameStore } from '../redis';
-import type { ExitRecord } from '../types';
+import type { ChatBlock, ChatLine, ExitRecord } from '../types';
 import { BACKEND_URL } from './auth';
 import type { RoomRegistry } from './room-context';
 import { MoveValidator } from '../move-validator';
+import { GAME_CHAT_FALLBACK_LINES, chatForTransport, normalizeBlocks } from '../game-chat';
 
 // The backend compares this against its own ENGINE_API_KEY, so a fallback would
 // only ever be rejected and would hide a misconfigured container. The engine
@@ -144,11 +145,21 @@ export class ResultSubmitter {
       // The flag is written only after a 2xx (R4). Burning it before the POST loses
       // the result for good when the backend answers 409 (the room is not over yet)
       // or fails: the record is a fact, the delivery is not.
-      const ok = await this.postWithRetry(
-        `${BACKEND_URL}/api/game/end`,
-        { gameId, participants, status: 'completed' },
-        END_RETRY_MS,
-      );
+      const room = await this.readChat(gameId);
+      // `truncated` starts false: it is only ever set by the fallback below, so a row
+      // never claims a cut transcript that was not cut.
+      let truncated = false;
+      const body = () => ({
+        gameId,
+        participants,
+        status: 'completed',
+        ...(room ? { chat: { truncated, lines: room.lines }, blocks: room.blocks } : {}),
+      });
+      const ok = await this.postWithRetry(`${BACKEND_URL}/api/game/end`, body, END_RETRY_MS, () => {
+        if (!room) return;
+        room.lines = chatForTransport(room.lines, GAME_CHAT_FALLBACK_LINES);
+        truncated = true;
+      });
       if (!ok) {
         console.error(`Game ${gameId}: /api/game/end never accepted the result; left unsubmitted`);
         return;
@@ -172,11 +183,24 @@ export class ResultSubmitter {
   async submitExits(gameId: string, records: ExitRecord[]): Promise<void> {
     if (records.length === 0) return;
     try {
+      // The room's transcript rides each seat's body: the backend filters it per seat
+      // with this same block ledger (M3), so a row holds what that player was shown.
+      const room = await this.readChat(gameId);
       for (const record of records) {
+        let truncated = false;
+        const body = () => ({
+          ...abandonBody(record),
+          ...(room ? { chat: { truncated, lines: room.lines }, blocks: room.blocks } : {}),
+        });
         const ok = await this.postWithRetry(
           `${BACKEND_URL}/api/game/${encodeURIComponent(gameId)}/abandon`,
-          abandonBody(record),
+          body,
           EXIT_RETRY_MS,
+          () => {
+            if (!room) return;
+            room.lines = chatForTransport(room.lines, GAME_CHAT_FALLBACK_LINES);
+            truncated = true;
+          },
         );
         if (!ok) {
           console.error(
@@ -191,10 +215,30 @@ export class ResultSubmitter {
     }
   }
 
+  // The room's transcript and its block ledger, read once per delivery: the backend
+  // applies the ledger per seat as it builds the rows, so one payload serves all of
+  // them. `null` when the room has no channel (PvE, hotseat, guest) or never wrote a
+  // line, which is what leaves `chat` null on those rows.
+  private async readChat(
+    gameId: string,
+  ): Promise<{ lines: ChatLine[]; blocks: ChatBlock[] } | null> {
+    const state = await this.store.loadGameState(gameId);
+    const lines = await this.store.chatTail(gameId);
+    if (lines.length === 0) return null;
+    return { lines, blocks: normalizeBlocks(state?.blockedPairs) };
+  }
+
   // A POST with a fixed backoff: 2xx is the only success, a 409 ("not yet") and a 5xx
-  // are retried, and any other 4xx is a body the backend will never accept. Returns
-  // whether the backend took it.
-  private async postWithRetry(url: string, body: unknown, delays: number[]): Promise<boolean> {
+  // are retried, and any other 4xx is a body the backend will never accept. A 413 is
+  // the one refusal that is answered rather than retried as-is: `onTooLarge` shrinks
+  // the body once (the newest lines only) and the smaller one goes out immediately.
+  private async postWithRetry(
+    url: string,
+    makeBody: () => unknown,
+    delays: number[],
+    onTooLarge?: () => void,
+  ): Promise<boolean> {
+    let recovered = false;
     for (let attempt = 0; ; attempt++) {
       try {
         const res = await fetch(url, {
@@ -203,10 +247,18 @@ export class ResultSubmitter {
             'Content-Type': 'application/json',
             'X-Engine-Key': getEngineApiKey(),
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify(makeBody()),
         });
         if (res.ok) return true;
         const text = await res.text().catch(() => '');
+        if (res.status === 413 && onTooLarge && !recovered) {
+          // The transcript outgrew the route's cap. One smaller body, no backoff:
+          // this is not the same request failing, it is a different one.
+          recovered = true;
+          onTooLarge();
+          console.error(`${url} refused the transcript (413); re-posting the tail only`);
+          continue;
+        }
         console.error(`${url} rejected ${res.status}: ${text}`);
         if (res.status !== 409 && res.status < 500) return false;
       } catch (err) {

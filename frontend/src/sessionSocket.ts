@@ -78,6 +78,9 @@ export type NotificationType =
   | 'display_name_changed'
   | 'friend_online'
   | 'friend_offline'
+  // A friend entered a match (M3's `playing` edge). Transient like the two above: a
+  // toast and the dot, never a bell entry.
+  | 'friend_playing'
   | 'avatar_changed';
 
 export type Notification = {

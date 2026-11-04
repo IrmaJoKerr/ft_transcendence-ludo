@@ -45,6 +45,9 @@ export class JoinManager {
     // Re-evaluate a room's idle window: a join can refill a WAITING room that was
     // below quorum, which cancels the abort timer.
     private refreshIdle?: (gameId: string) => void,
+    // Told once the seat is in `game_joined`, so the room's transcript can be replayed
+    // to this socket alone (M3): history is per seat, so it cannot ride the room frame.
+    private onJoined?: (socket: GameSocket) => void,
   ) {}
 
   private withGameLock<T>(gameId: string, fn: () => Promise<T>): Promise<T> {
@@ -249,6 +252,9 @@ export class JoinManager {
         }
 
         if (state) socket.emit('game_joined', state);
+        // The room's transcript, oldest first, filtered for this seat. After
+        // `game_joined`, so the panel is already mounted when the lines arrive.
+        this.onJoined?.(socket);
       } catch (error) {
         socket.emit('error', `Failed to join game: ${error}`);
       }

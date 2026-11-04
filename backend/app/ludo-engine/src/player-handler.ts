@@ -1,6 +1,7 @@
-import type { GameState, PlayerColor, GameEvent, DepartureReason, ExitRecord } from './types';
+import type { GameState, PlayerColor, GameEvent, DepartureReason, ExitRecord, ChatLine } from './types';
 import type { RedisGameStore } from './redis';
 import { MoveValidator } from './move-validator';
+import { seatDisplayName, systemLine } from './game-chat';
 import {
   DISCONNECT_GRACE_MS,
   SINGLE_SOCKET_DISCONNECT_GRACE_MS,
@@ -8,6 +9,36 @@ import {
 } from './timing';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// Whether a room has a chat channel at all (M3): PvP's alone. A PvE, hotseat or guest
+// room writes no `chat:game:*` key, so nothing is stored and a row from one of those
+// rooms has no empty transcript to carry.
+function hasChat(matchData: Record<string, string> | null | undefined): boolean {
+  return matchData?.gameType === 'PVP';
+}
+
+// One system line, written where the thing happened, so the seat that leaves and the
+// seats that stay read it at the same position of the same transcript. A failure only
+// logs: a channel that cannot be written must never fail the departure it describes.
+async function writeSystemChat(
+  store: RedisGameStore,
+  emit: (event: GameEvent) => void,
+  gameId: string,
+  code: NonNullable<ChatLine['code']>,
+  name: string,
+): Promise<void> {
+  try {
+    const seq = await store.nextChatSeq(gameId);
+    const line = systemLine(gameId, seq, code, name);
+    await store.appendChat(gameId, line);
+    emit({ type: 'chat_message', gameId, line });
+  } catch (error) {
+    console.error(
+      `Failed to write the room channel line for ${gameId}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
 
 // PvE and hotseat drive every seat from one device, so the room has no second
 // participant to wait for and no quorum to lose.
@@ -272,6 +303,11 @@ export async function expireReconnectGrace(
     player.isConnected = false;
     state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
     await store.saveGameState(gameId, state);
+    // The same line a manual Abort writes: the seat is gone, and how it went changes
+    // nothing the room can see.
+    if (hasChat(matchData)) {
+      await writeSystemChat(store, emit, gameId, 'left', seatDisplayName(state, color));
+    }
     emit({ type: 'player_exited', gameId, color });
     await store.clearMatchSeat(gameId, color);
     return { closed: false };
@@ -361,6 +397,13 @@ export async function handlePlayerReady(
     state.currentTurn = firstActiveColor(state) ?? state.currentTurn;
     state.status = 'active';
     await store.saveGameState(gameId, state);
+    // The one "Game started" line (M3), written where the room leaves the waiting
+    // state. It separates waiting-room chatter from the match's own, and the status
+    // check above is what keeps a repeated start from writing a second one.
+    const matchData = await store.getMatchData(gameId);
+    if (hasChat(matchData)) {
+      await writeSystemChat(store, emit, gameId, 'started', '');
+    }
     emit({ type: 'game_started', gameId });
   }
 }
@@ -410,6 +453,11 @@ export async function departSeat(
     player.isConnected = false;
     state.disconnectedPlayers = state.disconnectedPlayers.filter((d) => d.color !== color);
     await store.saveGameState(gameId, state);
+    // The universal departure line, written before the frame that says the corner is
+    // free: a room that keeps its channel keeps the moment it was given up.
+    if (hasChat(matchData)) {
+      await writeSystemChat(store, emit, gameId, 'left', seatDisplayName(state, color));
+    }
     emit({ type: 'player_exited', gameId, color });
     // The hash is what the lobby's join palette, the seat count and the rejoin
     // door read, so the seat is deleted, never reserved: a reserved corner was
@@ -466,6 +514,11 @@ export async function departSeat(
   delete state.pendingCapture;
 
   await store.saveGameState(gameId, state);
+  // The departure line, for the seats that stay: the leaver's own transcript ends on
+  // its own line (E8), which is what marks the moment in a stored row.
+  if (hasChat(matchData)) {
+    await writeSystemChat(store, emit, gameId, 'left', seatDisplayName(state, color));
+  }
   emit({ type: 'player_exited', gameId, color });
   // The turn may have moved and the departed seat's pieces are gone; clients
   // need this frame to stop rendering the old turn.

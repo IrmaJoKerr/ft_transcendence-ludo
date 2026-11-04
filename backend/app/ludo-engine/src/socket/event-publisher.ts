@@ -210,6 +210,21 @@ export class EventPublisher {
         );
         break;
 
+      // A system line the engine wrote (M3): "Game started", "X has left". The wire
+      // frame is `chat:message`, the name the session socket already carries, and the
+      // room-wide emit is safe because a system line contains no speech. A player's
+      // line is NOT published here: it is emitted per socket in the send handler, so a
+      // block can be applied before the frame leaves.
+      case 'chat_message':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'chat:message',
+            line: event.line,
+          }),
+        );
+        break;
+
       // Room teardown (quorum lost, single-instance disconnect expiry, idle
       // lobby). Emitted by closeRoom so every surviving client leaves the
       // closed room cleanly.

@@ -38,6 +38,41 @@ export interface GameEndPayload {
   // every seat keeps a row but nobody scores (R19: the no-stats rule is one
   // condition, in one place).
   status?: 'completed' | 'abandoned';
+  // The room's channel (M3): every line and the ledger that says which pair fell out
+  // when. One payload serves the whole room — the write below cuts it per seat, so a
+  // row holds exactly what that player was shown.
+  chat?: GameChatPayload;
+  blocks?: GameChatBlock[];
+}
+
+// One line of the room's channel, as the engine stores it. The backend never mints an
+// id, a sequence or a timestamp: it projects what the room said. A type alias, not an
+// interface, so an array of them is assignable to Prisma's `Json` input without a cast.
+export type GameChatLine = {
+  id: string;
+  seq: number;
+  senderId: string; // '' on a system line
+  senderName: string;
+  text: string;
+  at: number;
+  ch: string;
+  kind?: 'system';
+  code?: 'left' | 'started';
+};
+
+// One block, stamped with the room's chat sequence at the moment the engine applied
+// it. A line is hidden from a pair when its own sequence is at or after the cut.
+export interface GameChatBlock {
+  a: string;
+  b: string;
+  atSeq: number;
+}
+
+export interface GameChatPayload {
+  // True when the engine had to re-post the newest lines only: a cut transcript must
+  // never render as a complete one.
+  truncated?: boolean;
+  lines?: GameChatLine[];
 }
 
 // Engine → backend payload for POST /api/game/:id/abandon: one seat that left a
@@ -61,6 +96,10 @@ export interface SeatAbandonPayload {
   clashWallBattlesWon?: number;
   clashWallsAttacked?: number;
   clashWallsDefended?: number;
+  // The room's channel, the same two fields `/end` carries: this seat's row keeps what
+  // it was shown up to the moment it left.
+  chat?: GameChatPayload;
+  blocks?: GameChatBlock[];
 }
 
 // One seat of the finished room, as a match row keeps it. A type alias, not an
@@ -174,6 +213,48 @@ function seatSnapshot(
   return seats.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
 }
 
+// The transcript ONE seat's row keeps (M3): the room's lines in the order they were
+// spoken, cut at the ledger so a row never carries a line that seat was not shown.
+// A seat's own lines and every system line survive whatever the pairs say, and
+// `null` means the room had no channel or never spoke, which leaves the column null.
+export function chatForSeat(
+  chat: GameChatPayload | undefined,
+  blocks: GameChatBlock[] | undefined,
+  seatUserId: string,
+): { lines: GameChatLine[]; truncated: boolean } | null {
+  const lines = Array.isArray(chat?.lines) ? chat.lines : [];
+  if (lines.length === 0) return null;
+
+  // Only a pair that includes this seat cuts anything; a block between two other
+  // players is not this reader's business and changes nothing here.
+  const cuts = (Array.isArray(blocks) ? blocks : [])
+    .filter((block) => block && (block.a === seatUserId || block.b === seatUserId))
+    .map((block) => ({
+      other: block.a === seatUserId ? block.b : block.a,
+      atSeq: block.atSeq,
+    }));
+
+  const kept = lines.filter((line) => {
+    if (!line || typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
+    if (!line.senderId || line.senderId === seatUserId) return true;
+    return !cuts.some((cut) => cut.other === line.senderId && line.seq >= cut.atSeq);
+  });
+  return { lines: kept, truncated: chat?.truncated === true };
+}
+
+// The two columns a row takes from the room's channel, in one place so both writers
+// spell them the same way: `chat` stays absent when the room had no channel or never
+// spoke, and `chatTruncated` is only ever true when the engine had to cut the payload.
+function chatColumns(
+  chat: GameChatPayload | undefined,
+  blocks: GameChatBlock[] | undefined,
+  seatUserId: string,
+): { chat?: GameChatLine[]; chatTruncated: boolean } {
+  const projected = chatForSeat(chat, blocks, seatUserId);
+  if (!projected) return { chatTruncated: false };
+  return { chat: projected.lines, chatTruncated: projected.truncated };
+}
+
 // The engine's own view of a room, read straight from `game:<id>` (`state` holds
 // the JSON). `null` means the key is genuinely gone or unreadable, which is the
 // one case the R21 guard falls through instead of refusing. The reader is the
@@ -227,7 +308,7 @@ export class MatchPostgameService {
   // piece-based rating, refresh the Redis leaderboard, and notify players. Called
   // by the engine when a match ends.
   async processGameEnd(data: GameEndPayload) {
-    const { gameId, participants, status = 'completed' } = data;
+    const { gameId, participants, status = 'completed', chat, blocks } = data;
     if (!gameId) {
       throw new BadRequestException({
         code: 'MATCH_END_GAME_ID_REQUIRED',
@@ -520,6 +601,9 @@ export class MatchPostgameService {
               clashWallsAttacked: p.clashWallsAttacked ?? 0,
               clashWallsDefended: p.clashWallsDefended ?? 0,
               participants: snapshot,
+              // The seat's own transcript (M3): the room's lines cut at the ledger, so a
+              // row never carries a line this player was not shown.
+              ...chatColumns(chat, blocks, p.userId),
             },
           });
 
@@ -729,6 +813,8 @@ export class MatchPostgameService {
             clashWallsAttacked: seat.clashWallsAttacked ?? 0,
             clashWallsDefended: seat.clashWallsDefended ?? 0,
             participants: snapshot,
+            // What this seat was shown of the room, up to the moment it left (M3).
+            ...chatColumns(seat.chat, seat.blocks, userId),
           },
         });
 

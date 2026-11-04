@@ -125,6 +125,7 @@ finishes animating before the next action fires.
 | `PING_TIMEOUT_MS` | 15000 | a socket silent this long is dropped |
 | `EVENT_WINDOW_MS` | 5000 | refill window for the per-socket inbound budget (§9) |
 | `CLASH_EVENT_WINDOW_MS` | 5000 | refill window for the clash-press bucket (§9) |
+| `GAME_CHAT_COOLDOWN_MS` | 2000 | the room channel's send spacing, keyed `gameId:userId` so two tabs share one budget (the lobby's is per socket) 🔗 |
 
 **Lifecycle**
 
@@ -137,6 +138,19 @@ finishes animating before the next action fires.
 
 `player-handler.ts` arms the disconnect timer at `DISCONNECT_GRACE_MS + 1000` so the deadline is
 already past when the callback fires; the stored `reconnectDeadline` still uses the bare constant.
+
+**The room channel** — the caps and the fallback, all in `backend/app/ludo-engine/src/game-chat.ts`
+(one block, so raising one is a one-line change in one place).
+
+| Constant | Value | What it decides |
+|---|---|---|
+| `GAME_CHAT_MAX_LINES` | 1000 | lines the room keeps (`LPUSH` + `LTRIM`); the panel paints the tail, a stored row keeps the whole log |
+| `GAME_CHAT_MAX_CHARS` | 300 | characters one line may carry, counted in UTF-16 units — exactly what both composers show 🔗 |
+| `GAME_CHAT_FALLBACK_LINES` | 400 | lines the fallback re-post keeps when `/api/game/end` refuses the body (413) |
+| `GAME_CHAT_TTL_S` | 86400 | the two chat keys' life, the same window `game:<id>` keeps |
+
+The lobby's composer uses the same `CHAT_MAX_CHARS` (300), so the two channels refuse the same line
+at the same length.
 
 
 ### **2. Clash rules**
