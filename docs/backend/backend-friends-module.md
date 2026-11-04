@@ -54,7 +54,7 @@ helpers in `friendship-pair.ts`.
 | `friendship-record.ts` | Pure helpers for the live record: `viewerState` (the five viewer-relative states), `stateSince`, and the broadcaster's payload guard. No NestJS/Prisma imports |
 | `friendship-events.service.ts` | The `friendship:changed` publisher: `publishPair` (both directions of a changed row) and `publishSubject` (a changed display name / avatar / rating to every accepted friend) |
 | `friendship-events.module.ts` | Leaf module exporting the publisher — user, auth and match inject it without a cycle |
-| `block-state.service.ts` | The read-path gate: one unordered-pair lookup (`between`) returning `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus `assertUnblocked` (403 `FRIEND_BLOCKED`). Prisma-only, injected by User, Achievements and Friends |
+| `block-state.service.ts` | The read-path gate: one unordered-pair lookup (`between`) returning `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus `assertUnblocked` (403 `USER_BLOCKED`, the read path's own code: the request path keeps `FRIEND_BLOCKED`, whose copy is about sending). Prisma-only, injected by User, Achievements and Friends |
 | `block-state.module.ts` | The leaf module that exports `BlockStateService` (no service imports, so no cycle) |
 | `friends.module.ts` | NestJS module — registers controller, service, and PrismaService; imports `BlockStateModule`, `AvatarMetaModule` and `FriendshipEventsModule` |
 
@@ -344,9 +344,9 @@ pair, because a deep link or a `curl` bypasses the click and the client router:
 | Route | On a block between caller and target |
 |---|---|
 | `GET /api/user/:username` | `200` with the degraded shape and `visibility` (`blocked-by-you` / `blocked-by-them`): identity + avatar only |
-| `GET /api/user/:username/games` | `403 FRIEND_BLOCKED` |
-| `GET /api/achievements?username=` | `403 FRIEND_BLOCKED` |
-| `GET /api/friends?username=` | `403 FRIEND_BLOCKED` |
+| `GET /api/user/:username/games` | `403 USER_BLOCKED` |
+| `GET /api/achievements?username=` | `403 USER_BLOCKED` |
+| `GET /api/friends?username=` | `403 USER_BLOCKED` |
 | `GET /api/user/id/:userId/avatar` | Served: the bytes are not a capability (the same picture is on the leaderboard) |
 
 `BlockStateService` (`block-state.service.ts`) is the single asker: one `findUnique` by `pairKey`,
@@ -658,7 +658,7 @@ POST /api/friends/decline/{requestId} (JWT required)
 ### List Friends Path
 ```
 GET /api/friends (JWT required)   ← first paint / reconnect / window focus only
-  ├── With ?username=<other>: blockState.assertUnblocked → any block → 403 FRIEND_BLOCKED
+  ├── With ?username=<other>: blockState.assertUnblocked → any block → 403 USER_BLOCKED
   ├── Find pairs where caller is user1/user2 AND both directions 'accepted'
   ├── Map to { id, username, displayName, avatarStyle, hasAvatarPhoto, rating, friendsSince }
   ├── One pipelined avatar-meta read → avatarV per row
@@ -707,7 +707,7 @@ POST /api/friends/unblock/{userId} (JWT required)
 | `PresenceService` | Live status in friend lists |
 | `MatchService` | Create a room for a challenge (`createInvite`), assert one the caller already sits in (`assertInvitableRoom`), and read whether a challenged room is still `WAITING` (`isWaitingRoom`) |
 | `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` notifications |
-| `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `FRIEND_BLOCKED`); reads never trust the client router |
+| `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `USER_BLOCKED`); reads never trust the client router |
 | `AvatarMetaService` | `avatarV` for the friends / requests / blocked lists (one pipelined read per list) |
 | `FriendshipEventsService` | The `friendship:changed` publisher called after every membership mutation |
 

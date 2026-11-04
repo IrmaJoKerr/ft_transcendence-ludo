@@ -201,6 +201,6 @@ POST /api/achievements/check (JWT)
 |-----------|---------|
 | `PrismaService` | Database access (Achievement, PlayerStats, MatchHistory models) |
 | `NotificationService` | Push an `achievement` notification on unlock |
-| `BlockStateService` | `GET /api/achievements?username=` is pair-gated: a block between the caller and that user is `403 FRIEND_BLOCKED` (see `backend-friends-module.md`) |
+| `BlockStateService` | `GET /api/achievements?username=` is pair-gated: a block between the caller and that user is `403 USER_BLOCKED` (see `backend-friends-module.md`) |
 | `JwtAuthGuard` | Protects achievement endpoints |
 

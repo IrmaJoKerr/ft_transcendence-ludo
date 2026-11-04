@@ -28,7 +28,7 @@ When the page loads it reads the profile first, then the game history, achieveme
 
 ### Blocked profile
 
-`GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 FRIEND_BLOCKED`). `BlockedProfileCard` in the same file then renders the avatar, the name and the same click-to-copy `@username` chip (`UsernameCopyChip`; a block hides the relationship, not the identifier), a `CONTACT UNAVAILABLE` notice, and:
+`GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 USER_BLOCKED`, the read path's own code: *"This section is hidden because of a block between you and this user"*). `BlockedProfileCard` in the same file then renders the avatar, the name and the same click-to-copy `@username` chip (`UsernameCopyChip`; a block hides the relationship, not the identifier), a `CONTACT UNAVAILABLE` notice, and:
 
 | `visibility` | Copy | Action |
 |---|---|---|

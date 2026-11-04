@@ -388,8 +388,10 @@ account recovers on its own.
   the single friendship row for the pair (`pairKey`) and a block between the caller and the target
   degrades `GET /api/user/:username` to the identity and avatar (`visibility: 'blocked-by-you' |
   'blocked-by-them'`) while `/games`, `/achievements?username=` and `/friends?username=` answer
-  `403 FRIEND_BLOCKED`. The client router is never the gate: a deep link or a `curl` holds the same
-  cookie and gets the same answer. See
+  `403 USER_BLOCKED`. The read path carries its own code rather than the request path's `FRIEND_BLOCKED`,
+  whose copy is about sending a request: a profile read answers with the sentence that fits the screen
+  and still never says which side placed the block. The client router is never the gate: a deep link or a
+  `curl` holds the same cookie and gets the same answer. See
   [backend-friends-module.md](./backend/backend-friends-module.md).
 - **Re-authentication for sensitive profile changes:** changing the email, toggling 2FA, or
   unlinking an OAuth provider (and the API's `oauthToAdd` field) requires `currentPassword` on an

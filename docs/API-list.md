@@ -95,6 +95,10 @@ An error response has one of two shapes:
 | `AVATAR_FILE_REQUIRED` | 400 | No file in the upload |
 | `AVATAR_INVALID_TYPE` | 400 | File is not a valid image (mapped to `profile.fileTypeError`) |
 
+A block between the caller and the profile's owner is `403 USER_BLOCKED` on the three collateral
+reads (`/api/user/:username/games`, `/api/achievements?username=`, `/api/friends?username=`); the code
+itself is listed under *Friends* with the other block codes.
+
 *Friends*
 
 | Code | HTTP | Meaning |
@@ -105,6 +109,7 @@ An error response has one of two shapes:
 | `FRIEND_ALREADY` | 400 | Already friends |
 | `FRIEND_REQUEST_PENDING` | 400 | Request already pending |
 | `FRIEND_BLOCKED` | 403 | A block exists between the two users (send / accept / invite) |
+| `USER_BLOCKED` | 403 | A block hides a user's games, achievements or friends: the read-path gate on a profile |
 | `FRIEND_REQUEST_COOLDOWN` | 400 | Cannot re-request — the sender was declined less than 1 h ago |
 | `FRIEND_REQUEST_NOT_FOUND` | 404 | Friend request not found |
 | `FRIEND_NOT_FOUND` | 404 | Friendship not found |
@@ -1078,7 +1083,7 @@ this is (`viewerId === user.id`) and the row holds one, it also carries
 fields entirely, so the profile's transcript expander is never rendered for anyone else. `chat`
 stays null on a row whose room had no channel (PvE, hotseat, guest) or never spoke.
 
-**Errors:** 401 (no session); 404 if user not found; **403 `FRIEND_BLOCKED`** when a block exists between the caller and the target (any direction). The profile page skips this read when `visibility !== 'full'`; the 403 is what stops a deep link or `curl`.
+**Errors:** 401 (no session); 404 if user not found; **403 `USER_BLOCKED`** when a block exists between the caller and the target (any direction, and the code never says which). The profile page skips this read when `visibility !== 'full'`; the 403 is what stops a deep link or `curl`.
 
 
 ---
@@ -1881,7 +1886,7 @@ Get the current user's achievement report (unlocked state + progress + target pe
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Query Params:** optional `?username=<username>` returns another user's achievement report.  
-**Errors:** 401 (no session); **403 `FRIEND_BLOCKED`** when a block exists between the caller and `?username=`'s user.
+**Errors:** 401 (no session); **403 `USER_BLOCKED`** when a block exists between the caller and `?username=`'s user.
 **Response:**
 
 ```json
@@ -2160,7 +2165,7 @@ request; the client turns it into the photo URL's `?v=` (see
 re-reads this route only on mount, on socket reconnect and on window focus. The same is true of
 `GET /api/friends/requests` and `GET /api/friends/blocked`.
 
-**Errors:** 401 (no session); **403 `FRIEND_BLOCKED`** when a block exists between the caller and `?username=`'s user (the profile page skips the read when `visibility !== 'full'`).
+**Errors:** 401 (no session); **403 `USER_BLOCKED`** when a block exists between the caller and `?username=`'s user (the profile page skips the read when `visibility !== 'full'`).
 
 
 ---

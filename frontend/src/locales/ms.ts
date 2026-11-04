@@ -57,6 +57,7 @@ export const ms = {
     FRIEND_ALREADY: 'Sudah berkawan',
     FRIEND_REQUEST_PENDING: 'Permintaan kawan sudah menunggu',
     FRIEND_BLOCKED: 'Tidak boleh menghantar permintaan: pengguna disekat',
+    USER_BLOCKED: 'Bahagian ini disembunyikan kerana terdapat sekatan antara anda dan pengguna ini',
     FRIEND_REQUEST_NOT_FOUND: 'Permintaan kawan tidak dijumpai',
     FRIEND_NOT_FOUND: 'Persahabatan tidak dijumpai',
     FRIEND_BLOCK_SELF: 'Tidak boleh menyekat diri sendiri',

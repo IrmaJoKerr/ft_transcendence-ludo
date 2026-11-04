@@ -57,6 +57,7 @@ export const en = {
     FRIEND_ALREADY: 'Already friends',
     FRIEND_REQUEST_PENDING: 'Friend request already pending',
     FRIEND_BLOCKED: 'Cannot send request: user is blocked',
+    USER_BLOCKED: 'This section is hidden because of a block between you and this user',
     FRIEND_REQUEST_NOT_FOUND: 'Friend request not found',
     FRIEND_NOT_FOUND: 'Friendship not found',
     FRIEND_BLOCK_SELF: 'Cannot block yourself',

@@ -44,12 +44,17 @@ export class BlockStateService {
   }
 
   // Defence in depth for the collateral reads (games, achievements, friends):
-  // 403 FRIEND_BLOCKED, so a deep link or curl cannot render what the UI hides.
+  // 403 USER_BLOCKED, so a deep link or curl cannot render what the UI hides.
+  //
+  // Its own code, not FRIEND_BLOCKED: that one is the request path's refusal and
+  // reads "cannot send request", which is the wrong sentence on a profile. This one
+  // says only what the caller can see for themselves — a block exists between the
+  // two accounts — and never which side placed it.
   async assertUnblocked(viewerId: string, targetId: string): Promise<void> {
     if ((await this.between(viewerId, targetId)) !== 'none') {
       throw new ForbiddenException({
-        code: 'FRIEND_BLOCKED',
-        message: 'Content is not available for a blocked user',
+        code: 'USER_BLOCKED',
+        message: 'This section is hidden because of a block between you and this user',
       });
     }
   }

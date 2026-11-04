@@ -58,6 +58,7 @@ export const fr = {
     FRIEND_ALREADY: 'Déjà amis',
     FRIEND_REQUEST_PENDING: 'Demande d\'ami déjà en attente',
     FRIEND_BLOCKED: 'Impossible d\'envoyer la demande : utilisateur bloqué',
+    USER_BLOCKED: 'Cette section est masquée en raison d\'un blocage entre vous et cet utilisateur',
     FRIEND_REQUEST_NOT_FOUND: 'Demande d\'ami introuvable',
     FRIEND_NOT_FOUND: 'Amitié introuvable',
     FRIEND_BLOCK_SELF: 'Vous ne pouvez pas vous bloquer vous-même',

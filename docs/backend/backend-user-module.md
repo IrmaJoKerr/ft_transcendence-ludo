@@ -20,7 +20,7 @@
 The User module manages user profiles, game history, and avatar images.
 
 1. **Profile** — `GET /api/user/:username` returns the profile as the caller is allowed to see it: full stats, or the degraded identity-and-avatar card when a block sits between the viewer and that player.
-2. **Game history** — `GET /api/user/:username/games` returns paginated past games (`403 FRIEND_BLOCKED` on a block).
+2. **Game history** — `GET /api/user/:username/games` returns paginated past games (`403 USER_BLOCKED` on a block).
 3. **Avatar upload** — `POST /api/user/avatar` accepts a multipart image (max 2 MB, PNG/JPEG/GIF/WebP).
 4. **Avatar retrieval** — `GET /api/user/id/:userId/avatar` returns the binary image (keyed by the immutable user id, so a rename cannot break it).
 5. **Avatar deletion** — `DELETE /api/user/avatar` removes the custom avatar.
@@ -130,7 +130,7 @@ Every route here is `JwtAuthGuard`-protected. The profile gate is the pair, not 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/user/:username` | JWT | Profile as the caller may see it (`visibility`, pair-gated) |
-| `GET` | `/api/user/:username/games` | JWT | Get paginated game history (`403 FRIEND_BLOCKED` on a block) |
+| `GET` | `/api/user/:username/games` | JWT | Get paginated game history (`403 USER_BLOCKED` on a block) |
 | `POST` | `/api/user/avatar` | JWT | Upload avatar image |
 | `GET` | `/api/user/id/:userId/avatar` | JWT | Retrieve avatar image by user id (not pair-gated) |
 | `DELETE` | `/api/user/avatar` | JWT | Delete current user's avatar |
@@ -260,7 +260,7 @@ GET /api/user/:username  (JWT)
 ```
 GET /api/user/:username/games?page=&limit= (JWT)
   ├── user.findUnique({ username }) → null → 404
-  ├── blockState.assertUnblocked(callerId, user.id) → any block → 403 FRIEND_BLOCKED
+  ├── blockState.assertUnblocked(callerId, user.id) → any block → 403 USER_BLOCKED
   ├── matchHistory.findMany({ where: { user_id }, orderBy: { playedAt: 'desc' }, skip, take })
   ├── Map to GameHistoryItem[] (the row's own counters, gameModes and participants
   │   snapshot: no join, and no recomputation of ratingDelta)
@@ -327,5 +327,5 @@ DELETE /api/user/avatar (JWT)
 | `PresenceService` | `status` (`online`/`playing`/`offline`) on the public profile |
 | `NotificationService` | Two owner-only events per avatar change: a persisted `profile_updated` self-confirmation (`items: ['avatar']` - the actor's own bell row and toast, and the only audience) plus the transient `avatar_changed` state sync pushed with `notifyTransient()` (never `broadcast()`: no other account is told, so an already-open view elsewhere catches up on its next profile/roster fetch) |
 | `AvatarMetaService` | Keeps the shared `avatar:<userId>` Redis record in sync (see `avatar-system.md`) and supplies the profile's `avatarV` stamp |
-| `BlockStateService` | The pair gate: one `pairKey` lookup that returns `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus the `403 FRIEND_BLOCKED` assert the collateral reads use. Prisma-only, so reading a profile never drags `MatchModule` in |
+| `BlockStateService` | The pair gate: one `pairKey` lookup that returns `none`, `viewer-blocked-target`, `target-blocked-viewer` or `both`, plus the `403 USER_BLOCKED` assert the collateral reads use. Prisma-only, so reading a profile never drags `MatchModule` in |
 | `JwtAuthGuard` | Protects every route: profile, games, avatar read/write/delete |
