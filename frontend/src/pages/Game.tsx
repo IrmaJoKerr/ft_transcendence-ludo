@@ -25,14 +25,12 @@ import {
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
-import { getApi, postApi, translateErrorCode } from '../api';
+import { postApi, translateErrorCode } from '../api';
 import { useApp, isOccupiedSeat, type ResultPlayer, type Seat } from '../store';
-import { useFriendshipRecords } from '../hooks/useFriendships';
-import { useNotifications } from '../hooks/useNotifications';
-import { mergeFriends, type FriendRow } from '../friendshipFeed';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
 import { CyberButton, CyberModal } from '../components/CyberModal';
+import { ControlsSettingsModal } from '../components/ControlsSettingsModal';
 import { ResultsModal } from '../components/ResultsModal';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
@@ -210,6 +208,7 @@ export function Game() {
   const [soundMuted, setSoundMuted] = useState(retroAudio.muted);
   const [isAbortModalOpen, setIsAbortModalOpen] = useState(false);
   const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
+  const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
   const [rulesPage, setRulesPage] = useState(0);
 
   useEffect(() => {
@@ -435,12 +434,6 @@ export function Game() {
   // The board burst a clash card is holding back: set when the settling move lands,
   // fired `CAPTURE_FX_AFTER_CARD_MS` after the card goes (see the `view.clash` effect).
   const pendingCardBurstRef = useRef<{ color: string; to: number } | null>(null);
-  // Friend-invite picker (waiting room, PvP only): lets the host invite an
-  // online accepted friend into THIS room (POST /api/game/:id/invite).
-  const [friends, setFriends] = useState<FriendRow[]>([]);
-  const friendshipRecords = useFriendshipRecords();
-  const { friendPresence } = useNotifications();
-  const [inviteStates, setInviteStates] = useState<Record<string, 'idle' | 'busy' | 'sent'>>({});
 
   const copyRoomCode = () => {
     if (!activeMatch?.inviteCode) return;
@@ -461,33 +454,6 @@ export function Game() {
     setPlaying(true);
     return () => setPlaying(false);
   }, [setPlaying]);
-
-  // Load online accepted friends when waiting in a PvP room so the host can invite.
-  // One load at game entry, then `friendship:changed` upserts into the row map and
-  // the presence edges move the dots (socket D2): the 5 s poll is gone.
-  useEffect(() => {
-    if (view.status !== 'waiting' || activeMatch?.mode !== 'pvp') return;
-
-    let cancelled = false;
-    getApi<FriendRow[]>('/api/friends')
-      .then((data) => {
-        if (!cancelled) setFriends(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (!cancelled) setFriends([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [view.status, activeMatch?.mode, activeMatch?.gameId]);
-
-  // Only a friend with no live match can be seated: `online` and not `playing`,
-  // which is exactly what the picker offered before (the GET's own status).
-  const onlineFriends = useMemo(
-    () =>
-      mergeFriends(friends, friendshipRecords, friendPresence).filter((f) => f.status === 'online'),
-    [friends, friendshipRecords, friendPresence],
-  );
 
   // Connect to engine via Socket.IO
   useEffect(() => {
@@ -1093,18 +1059,6 @@ export function Game() {
   // The key-shift row goes through the same door, so every rule row sends one
   // complete object.
   const emitKeyShift = (next: 0 | 1 | 2) => emitRule({ clashKeyShift: next });
-
-  const inviteFriend = async (friendId: string) => {
-    if (!activeMatch || inviteStates[friendId] === 'busy') return;
-    retroAudio.playUiBeep(800, 0.06);
-    setInviteStates((prev) => ({ ...prev, [friendId]: 'busy' }));
-    try {
-      await postApi(`/api/game/${activeMatch.gameId}/invite`, { friendId });
-      setInviteStates((prev) => ({ ...prev, [friendId]: 'sent' }));
-    } catch {
-      setInviteStates((prev) => ({ ...prev, [friendId]: 'idle' }));
-    }
-  };
 
   const endGame = () => {
     retroAudio.playExplosionSound();
@@ -2096,147 +2050,6 @@ export function Game() {
                 </div>
               </section>
 
-              {/* Controls, Shortcuts & Audio Window */}
-              <section
-                className={RETRO_WINDOW}
-                id="sectorControlWindow"
-                style={{
-                  // Kept in step with the roster box above it (see rosterOverhang): both
-                  // boxes share one width, wider only where the token panel needs room.
-                  width: `calc(100% + ${rosterOverhang}px)`,
-                  position: 'relative',
-                  zIndex: 2,
-                }}
-              >
-                <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>{t('gameExtra.controlsShortcuts')}</span>
-                  </div>
-                </div>
-
-                <div
-                  className={WINDOW_BODY}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    padding: '14px 14px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      fontSize: '0.75rem',
-                      color: 'var(--text-muted)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span>{t('gameExtra.diceRollLabel')}</span>
-                      <span
-                        style={{
-                          color: '#fff',
-                          fontFamily: 'var(--font-mono)',
-                          background: 'rgba(0, 240, 255, 0.15)',
-                          padding: '2px 6px',
-                          borderRadius: 3,
-                          border: '1px solid var(--accent-cyan)',
-                        }}
-                      >
-                        {t('gameExtra.spacebarKey')}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span>{t('gameExtra.selectPieceLabel')}</span>
-                      <span
-                        style={{
-                          color: '#fff',
-                          fontFamily: 'var(--font-mono)',
-                          background: 'rgba(255, 0, 127, 0.15)',
-                          padding: '2px 6px',
-                          borderRadius: 3,
-                          border: '1px solid var(--accent-pink)',
-                        }}
-                      >
-                        {t('gameExtra.leftClickKey')}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span>{t('gameExtra.goalColonLabel')}</span>
-                      <span style={{ color: '#ffe600', fontFamily: 'var(--font-mono)' }}>
-                        {t('gameExtra.goalValue')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '2px 0' }}
-                  />
-
-                  {/* Audio Preferences Toggle Button */}
-                  <button
-                    className={RETRO_BADGE}
-                    style={{
-                      cursor: 'pointer',
-                      padding: '8px 10px',
-                      background: soundMuted ? 'rgba(255, 0, 85, 0.12)' : 'rgba(0, 255, 136, 0.12)',
-                      border: soundMuted ? '1.5px solid #ff0055' : '1.5px solid #00ff88',
-                      color: soundMuted ? '#ff0055' : '#00ff88',
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.72rem',
-                      fontWeight: 'bold',
-                      letterSpacing: '0.8px',
-                      textAlign: 'center',
-                      justifyContent: 'center',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      borderRadius: 4,
-                      boxShadow: soundMuted ? 'none' : '0 0 8px rgba(0, 255, 136, 0.25)',
-                      transition: 'all 0.2s ease',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                    }}
-                    onClick={toggleSound}
-                    title={t('gameExtra.toggleAudio')}
-                  >
-                    <span>{soundMuted ? '🔇' : '🔊'}</span>
-                    <span>{soundMuted ? t('game.audioOff') : t('game.audioOn')}</span>
-                  </button>
-
-                  <CyberButton
-                    label={t('gameExtra.gameRulesBtn')}
-                    shortcut="?"
-                    variant="cyan"
-                    onClick={() => {
-                      retroAudio.playUiBeep(600, 0.05);
-                      setRulesPage(0);
-                      setIsSystemModalOpen(true);
-                    }}
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  />
-                </div>
-              </section>
-
               {/* View Results Button below Pilot Roster */}
               {lastResult && (
                 <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column' }}>
@@ -2301,6 +2114,33 @@ export function Game() {
                   </div>
                 );
               })()}
+
+              {/* Under the board, in every mode and also mid-game. The controls
+                  popover and the rules deck used to share one column box; they
+                  are two controls now, so neither label covers both. This column
+                  is `order-1` when the layout stacks, so one placement serves the
+                  desktop second column and the tablet/phone stack alike. */}
+              <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 12 }}>
+                <CyberButton
+                  label={t('gameExtra.controlsSettings')}
+                  variant="cyan"
+                  onClick={() => {
+                    retroAudio.playUiBeep(600, 0.05);
+                    setIsControlsModalOpen(true);
+                  }}
+                  style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
+                />
+                <CyberButton
+                  label={t('gameExtra.gameRulesBtn')}
+                  variant="pink"
+                  onClick={() => {
+                    retroAudio.playUiBeep(600, 0.05);
+                    setRulesPage(0);
+                    setIsSystemModalOpen(true);
+                  }}
+                  style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
+                />
+              </div>
             </div>
 
             {/* COLUMN 3: TACTICAL CONTROLS & LOGS */}
@@ -2492,104 +2332,6 @@ export function Game() {
                       </div>
                     )}
 
-                    {activeMatch.mode === 'pvp' && (
-                      <div
-                        style={{ borderTop: '1px solid rgba(255, 0, 127, 0.25)', paddingTop: 12 }}
-                      >
-                        <div
-                          style={{
-                            fontSize: '0.72rem',
-                            color: 'var(--accent-cyan)',
-                            marginBottom: 8,
-                            fontFamily: 'var(--font-mono)',
-                          }}
-                        >
-                          {t('game.inviteComms')}
-                        </div>
-                        {onlineFriends.length === 0 ? (
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                            {t('game.noFriendsToInvite')}
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 6,
-                              maxHeight: 110,
-                              overflowY: 'auto',
-                            }}
-                          >
-                            {onlineFriends.map((f) => {
-                              const st = inviteStates[f.id] ?? 'idle';
-                              return (
-                                <div
-                                  key={f.id}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '6px 8px',
-                                    background: 'rgba(0, 0, 0, 0.4)',
-                                    borderRadius: 3,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      minWidth: 0,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        width: 6,
-                                        height: 6,
-                                        borderRadius: '50%',
-                                        background: '#00ff88',
-                                        boxShadow: '0 0 6px #00ff88',
-                                        flex: 'none',
-                                      }}
-                                    />
-                                    <span
-                                      style={{
-                                        fontSize: '0.75rem',
-                                        color: '#ffffff',
-                                        fontFamily: 'var(--font-mono)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      {f.displayName ?? f.username}
-                                    </span>
-                                  </div>
-                                  <button
-                                    className={RETRO_BTN}
-                                    onClick={() => {
-                                      void inviteFriend(f.id);
-                                    }}
-                                    disabled={st !== 'idle'}
-                                    style={{
-                                      padding: '3px 8px',
-                                      fontSize: '0.62rem',
-                                      flex: 'none',
-                                    }}
-                                  >
-                                    {st === 'busy'
-                                      ? '...'
-                                      : st === 'sent'
-                                        ? t('game.inviteSent')
-                                        : `+ ${t('game.inviteBtn')}`}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </section>
               ) : (
@@ -2980,6 +2722,16 @@ export function Game() {
         cancelShortcut="ESC"
         proceedShortcut="↵"
         isDanger
+      />
+
+      {/* Keys and audio, the popover the old column box became. It holds no rule
+          switch: those stay in the waiting-room window, which is where the host
+          gate already lives, so this panel is safe for every seat. */}
+      <ControlsSettingsModal
+        isOpen={isControlsModalOpen}
+        onClose={() => setIsControlsModalOpen(false)}
+        muted={soundMuted}
+        onToggleSound={toggleSound}
       />
 
       {/* Cyberpunk System Control & Multi-Page Rules Modal (10 Pages) */}
