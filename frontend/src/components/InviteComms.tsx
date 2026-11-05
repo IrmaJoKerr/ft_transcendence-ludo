@@ -5,8 +5,15 @@ import { useFriendships } from '../hooks/useFriendships';
 import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, GAME_WINDOW_HEADER_EXTRA, WINDOW_BODY } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
-// The Invite Comms column (M3): the waiting room's occupancy list, rendered in the
-// chat card's `sideSlot` and only while `status === 'WAITING'`.
+// INVITE COMMS (M3): the waiting room's occupancy list, mounted as the chat card's
+// `sidePanel` and only while `status === 'WAITING'`.
+//
+// It was a 150 px column beside the compact slot until 19.8, which meant the board's
+// left column reflowed when a room filled and the column left. It is a panel now:
+// portaled beside the open card (240 px, clamped inside the viewport), off until the
+// band's glyph asks for it, and gone when the match starts. Because it costs the
+// column nothing, a full room no longer hides it — it says nobody is free, which is
+// true at capacity and is the same press a half-empty room offers.
 //
 // It is occupancy, not duelling: a friend listed here is online and not already in
 // this room, so pressing invite cannot fail for the reason the duel gate exists. The
@@ -28,7 +35,8 @@ export function InviteComms({
   gameId: string;
   /** Every account seated in this room, taken from the room's own player list. */
   seatUserIds: string[];
-  /** The room's capacity: a full room hides the column entirely. */
+  /** The room's capacity. A full room lists nobody: every friend is either seated
+   *  here or has no free seat to take, so the panel says so rather than vanishing. */
   playerCount: number;
 }) {
   const { t } = useTranslation();
@@ -36,12 +44,12 @@ export function InviteComms({
   const { isSent, busy, challenge } = useChallenges();
   const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
 
-  // A full room has no occupation to offer, so the column is gone rather than empty.
-  if (seatUserIds.length >= playerCount) return null;
-
-  const listed = friends.filter(
-    (friend) => friend.status === 'online' && !seatUserIds.includes(friend.id),
-  );
+  const full = seatUserIds.length >= playerCount;
+  const listed = full
+    ? []
+    : friends.filter(
+        (friend) => friend.status === 'online' && !seatUserIds.includes(friend.id),
+      );
 
   const invite = async (friendId: string, name: string) => {
     setMessage(null);
@@ -57,11 +65,31 @@ export function InviteComms({
   };
 
   return (
-    <section className={RETRO_WINDOW} style={{ height: '100%' }}>
-      <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
+    <section
+      className={RETRO_WINDOW}
+      style={{
+        // The portal gives the box its width and its ceiling; the window fills both,
+        // so a six-row list scrolls inside the panel rather than growing past the
+        // card it sits beside.
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        maxHeight: '100%',
+      }}
+    >
+      <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`} style={{ flexShrink: 0 }}>
         <span>{t('gameChat.inviteTitle')}</span>
       </div>
-      <div className={WINDOW_BODY} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div
+        className={WINDOW_BODY}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          minHeight: 0,
+          overflowY: 'auto',
+        }}
+      >
         {listed.length === 0 ? (
           <span
             style={{ fontFamily: 'var(--font-mono)', fontSize: '0.58rem', color: 'var(--text-muted)' }}

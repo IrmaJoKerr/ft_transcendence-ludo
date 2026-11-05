@@ -463,6 +463,9 @@ export const en = {
     inviteAction: 'INVITE',
     inviteSentShort: 'SENT',
     inviteSent: 'Invite sent.',
+    // The band's glyph in the room's card: it opens the panel above. A panel's title,
+    // not its state — `aria-pressed` says open or shut.
+    inviteToggle: 'Invite comms',
     blockTitle: 'SEVER LINK?',
     blockConfirm: 'Block {{name}}?',
     blockSubMessage: 'Neither of you will see the other in chat again. This cannot be undone here.',

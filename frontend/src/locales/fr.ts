@@ -468,6 +468,7 @@ export const fr = {
     inviteAction: 'INVITER',
     inviteSentShort: 'ENVOYÉ',
     inviteSent: 'Invitation envoyée.',
+    inviteToggle: 'Comms d’invitation',
     blockTitle: 'ROMPRE LE LIEN ?',
     blockConfirm: 'Bloquer {{name}} ?',
     blockSubMessage:

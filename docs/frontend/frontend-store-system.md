@@ -30,8 +30,8 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    `presence:playing` goes out on game enter/leave and is re-asserted on every reconnect.
    The public chat channel rides it too: `chatLog` (the last `CHAT_HISTORY` lines — 500, one
    value in `common/src/chat.constants.ts` that the backend's list and this ring both trim to —
-   oldest first, merged by message
-   id so the connect-time history and the last live frame cannot double) and `sessionConnected` (whether
+   oldest first, kept by `hooks/useChatFeed.ts` so the connect-time history and the last live frame
+   cannot double) and `sessionConnected` (whether
    the composer may send) live in the store, with `sendChat(text, ack)` as the one write. They are here
    rather than in the dock's panel because the channel can be switched off and most screens render no
    panel at all, while `/game` must still keep the log current.
@@ -46,9 +46,10 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
    states (`online` | `playing` | `offline`): `friend_playing` is the edge the backend pushes when an
    account's match bit flips, so a friend's dot and the duel gate read "in a match" without a refetch.
    The **room channel** is deliberately not here: its lines belong to one room, so they live in
-   `Game.tsx` (`chatLines`, capped at 200, replaced by `chat:history` and appended from
-   `chat:message`), and the draft lives inside `ChatCard`. A page-level store would keep a transcript
-   alive across two different matches, which is exactly what a room-scoped channel must not do.
+   `Game.tsx` through the same `useChatFeed` hook (capped at 200, replaced by `chat:history` and
+   appended from `chat:message`), and the draft lives inside `ChatCard`. A page-level store would keep
+   a transcript alive across two different matches, which is exactly what a room-scoped channel must
+   not do. The hook is the part both channels share: the merge and the cap rule, never the socket.
 
 
 ---

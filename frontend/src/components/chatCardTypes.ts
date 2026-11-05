@@ -27,6 +27,18 @@ export type ChatCardLine = {
  *  channel refusal and a friend action's localized error share one line. */
 export type ChatCardStatus = { tone: 'error' | 'info'; text: string };
 
+/** The band's second column: a glyph that switches a host's panel (the room's INVITE
+ *  COMMS). Declared here so the band, the composer and the hosts that pass it share
+ *  one spelling; `pressed` is the panel's state, which the press toggles. */
+export type ChatBandGlyph = {
+  glyph: string;
+  /** The accessible name and the tooltip: a panel's title, never its state, because
+   *  `aria-pressed` already carries that. */
+  label: string;
+  pressed: boolean;
+  onPress: () => void;
+};
+
 /** A system line's copy: a code the engine stored, rendered in this reader's locale,
  *  so a transcript written today still reads correctly tomorrow. */
 export function systemLineText(

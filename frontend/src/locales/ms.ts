@@ -464,6 +464,7 @@ export const ms = {
     inviteAction: 'JEMPUT',
     inviteSentShort: 'DIHANTAR',
     inviteSent: 'Jemputan dihantar.',
+    inviteToggle: 'Kom jemputan',
     blockTitle: 'PUTUSKAN PAUTAN?',
     blockConfirm: 'Sekat {{name}}?',
     blockSubMessage: 'Kamu berdua tidak akan melihat satu sama lain dalam sembang. Ia tidak boleh dibatalkan di sini.',

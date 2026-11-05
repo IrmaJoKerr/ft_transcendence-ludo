@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { postApi, translateErrorCode } from '../api';
+import { postApi } from '../api';
 import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
@@ -20,40 +20,15 @@ import { retroAudio } from '../utils/audio';
 // whole transcript and the composer. Every string is a locale key now, and the
 // composer has one reserved status line under the input, so "message too long" and
 // "NO SPAMMING" never move the card. Since M3 the head, the feed and the composer are
-// `ChatCard.tsx`'s: this file keeps the dock's own band (a friend action's
-// confirmation has no room equivalent) and hands it to the composer as `band`, so
-// both channels count one `n / 300` from `chatLength`. The name card here is the
+// `ChatCard.tsx`'s; since 19.8 the band is too (`ChatStatusBand`, the same one the
+// room paints, with a glyph column the lobby leaves empty), so both channels count one
+// `n / 300` from `chatLength` and reserve one height. The name card here is the
 // public channel's only set of actions — ADD FRIEND (a request the other side
 // answers), ACCEPT, and BLOCK (unilateral, so it confirms through
 // `ConfirmActionModal` the same way the friends screen's row does) — and the feed
 // drops the lines of whoever this reader has blocked, which the channel's own empty
 // state promises.
 const SCREEN_PREVIEW_LINES = 3;
-
-/** Every line the band can show, in one list, so its height is reserved for the
- *  longest of them in every language (the `PassActionPill` trick below). */
-const STATUS_KEYS = [
-  'error.CHAT_EMPTY',
-  'error.CHAT_TOO_LONG',
-  'error.CHAT_COOLDOWN',
-  'error.CHAT_UNAVAILABLE',
-  'status.friendSent',
-  'status.friendAdded',
-  'status.challengeSent',
-  'status.blocked',
-] as const;
-
-/** The friend actions' refusals, which arrive as server codes rather than chat
- *  strings. They are part of the reservation for the same reason. */
-const FRIEND_ERROR_CODES = [
-  'FRIEND_REQUEST_PENDING',
-  'FRIEND_REQUEST_COOLDOWN',
-  'FRIEND_ALREADY',
-  'RATE_LIMITED',
-] as const;
-
-/** The longest display name a profile may hold, used to size the invite line. */
-const NAME_SAMPLE = 'W'.repeat(24);
 
 /** The name card's box. It is portaled to the body, so it is not clipped by the
  *  dock's 360 px column; the height is an upper bound for the clamp, not a size, and
@@ -508,7 +483,6 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
               status={status}
               connected={sessionConnected}
               onStatus={setStatus}
-              band={<ChatStatusBand status={status} />}
             />
           </div>,
           document.body,
@@ -562,66 +536,6 @@ function ScreenEmpty() {
         {t('chat.emptyPlate')}
       </span>
     </>
-  );
-}
-
-/** The reserved line under the composer. Every string the band can show is mounted
- *  in one grid cell, hidden, so the cell is as tall as the longest of them in the
- *  current language (`PassActionPill`'s trick): a chat refusal, a friend action's
- *  error and a "friend invite sent to X" confirmation all appear and clear without
- *  moving the composer or the transcript by a pixel. */
-function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
-  const { t } = useTranslation();
-
-  // The sizing rows. The chat strings are keyed; a friend refusal is a localized
-  // error code, so those four are resolved through the same helper the API uses.
-  const sized = [
-    ...STATUS_KEYS.map((key) => ({ key, text: t(`chat.${key}`, { max: CHAT_MAX_CHARS, name: NAME_SAMPLE }) })),
-    ...FRIEND_ERROR_CODES.map((code) => ({
-      key: code,
-      text:
-        translateErrorCode(code) ??
-        t('chat.error.CHAT_UNAVAILABLE', { max: CHAT_MAX_CHARS }),
-    })),
-  ];
-
-  return (
-    <div
-      role="status"
-      style={{
-        display: 'grid',
-        flexShrink: 0,
-        minHeight: 14,
-        fontFamily: 'var(--font-mono)',
-        fontSize: '0.6rem',
-        letterSpacing: '0.5px',
-        lineHeight: 1.35,
-        color: status?.tone === 'error' ? 'var(--text-main)' : 'var(--accent-cyan)',
-        textShadow:
-          status?.tone === 'error'
-            ? '0 0 8px rgba(255, 82, 120, 0.55)'
-            : '0 0 8px rgba(0, 240, 255, 0.45)',
-      }}
-    >
-      {sized.map((row) => (
-        <span
-          key={row.key}
-          aria-hidden
-          style={{ gridArea: '1 / 1', visibility: 'hidden' }}
-        >
-          {row.text}
-        </span>
-      ))}
-      {status && (
-        <span
-          key="live"
-          title={status.text}
-          style={{ gridArea: '1 / 1', overflow: 'hidden' }}
-        >
-          {status.text}
-        </span>
-      )}
-    </div>
   );
 }
 

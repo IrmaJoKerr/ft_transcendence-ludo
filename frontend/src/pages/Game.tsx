@@ -38,6 +38,7 @@ import { ResultsModal } from '../components/ResultsModal';
 import { ChatCard } from '../components/ChatCard';
 import type { ChatCardLine, ChatCardStatus } from '../components/chatCardTypes';
 import { InviteComms } from '../components/InviteComms';
+import { useChatFeed } from '../hooks/useChatFeed';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
 import {
@@ -204,8 +205,8 @@ const WALL_BREAKER_GLYPH = '🧨';
 
 // Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the
 // tail, and a few hundred is enough scrollback without growing this page's state on
-// every frame of a long game.
-const CHAT_LINES_KEPT = 200;
+// every frame of a long game. The cap itself is `useChatFeed`'s `CHAT_LINES_KEPT`
+// (19.8), applied by the same hook the lobby's channel drives.
 
 // How long the composer waits for the engine's ack before it says the line did not go:
 // an ack that never arrives is a dead socket, not a slow one.
@@ -360,9 +361,14 @@ export function Game() {
   const [moveLogs, setMoveLogs] = useState<LogEntry[]>([]);
   const moveLogContainerRef = useRef<HTMLDivElement>(null);
   // The room's channel (M3): the transcript as this seat sees it, and whether the
-  // engine socket is up. The lines live here, above the card, so a re-render cannot
-  // drop a frame; the card's draft and band stay inside the card for the same reason.
-  const [chatLines, setChatLines] = useState<ChatCardLine[]>([]);
+  // engine socket is up. The lines live in `useChatFeed` (19.8), above the card, so a
+  // re-render cannot drop a frame and the room cannot merge or order differently from
+  // the lobby; the card's draft and band stay inside the card for the same reason.
+  const {
+    lines: chatLines,
+    replace: replaceChatLines,
+    append: appendChatLine,
+  } = useChatFeed<ChatCardLine>();
   const [chatConnected, setChatConnected] = useState(false);
   // The card's one status band. It is owned here rather than by the card so a block's
   // answer (a refusal, or the confirmation) lands in the same line as a send refusal.
@@ -685,19 +691,12 @@ export function Game() {
     // `game_joined`, already filtered by the engine for this seat, and replaces the
     // local copy: it is the authority on what was said before the panel mounted.
     // `chat:message` is one live line, deduped by id so the history's seam and a frame
-    // that raced it cannot paint the same line twice.
-    socket.on('chat:history', (payload: { lines?: ChatCardLine[] }) => {
-      const lines = Array.isArray(payload?.lines) ? payload.lines : [];
-      setChatLines(lines.slice(-CHAT_LINES_KEPT));
+    // that raced it cannot paint the same line twice. Both rules are `useChatFeed`'s.
+    socket.on('chat:history', (payload: { lines?: ChatCardLine[] } = {}) => {
+      replaceChatLines(payload.lines);
     });
-    socket.on('chat:message', (payload: { line?: ChatCardLine }) => {
-      const line = payload?.line;
-      if (!line || typeof line.id !== 'string') return;
-      setChatLines((previous) =>
-        previous.some((existing) => existing.id === line.id)
-          ? previous
-          : [...previous, line].slice(-CHAT_LINES_KEPT),
-      );
+    socket.on('chat:message', (payload: { line?: ChatCardLine } = {}) => {
+      appendChatLine(payload.line);
     });
 
     const handleEngineEvent = (state: unknown) => {
@@ -2357,9 +2356,9 @@ export function Game() {
               {/* The room's channel (M3): the compact feed in this column's slot, the
                   full card as an overlay on click. PvP only, and independent of the
                   room's status: it opens in the waiting room and never leaves when the
-                  match starts. The Invite Comms column rides its side slot while the
-                  room is still WAITING, and unmounts (with the card staying put) at
-                  the start. */}
+                  match starts. While the room is still WAITING, INVITE COMMS rides the
+                  band's glyph as a panel portaled beside the card (19.8): off until the
+                  glyph asks for it, and gone at the start, while the card stays put. */}
               {activeMatch.mode === 'pvp' && (
                 <ChatCard
                   lines={chatLines}
@@ -2369,7 +2368,7 @@ export function Game() {
                   status={chatStatus}
                   onStatus={setChatStatus}
                   onBlockName={(id, name) => setBlockTarget({ id, name })}
-                  sideSlot={
+                  sidePanel={
                     view.status === 'waiting' ? (
                       <InviteComms
                         gameId={activeMatch.gameId}

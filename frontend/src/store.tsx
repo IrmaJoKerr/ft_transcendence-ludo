@@ -12,6 +12,7 @@ import i18n from './i18n';
 import { CHAT_HISTORY } from './__shared__/chat.constants';
 import { BOT_POOL, SEAT_COLORS, type ColorKey } from './theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from './api';
+import { useChatFeed } from './hooks/useChatFeed';
 import { connectSessionSocket } from './sessionSocket';
 import type { ChatAck, ChatMessage, SessionSocket } from './sessionSocket';
 import type { PlayerColor } from './game/types';
@@ -262,8 +263,8 @@ type AppState = {
   /** Whether the session socket is up right now. The chat composer is disabled
    * while it is not: an emit made offline would be queued and land minutes later. */
   sessionConnected: boolean;
-  /** The public channel's transcript, oldest first, at most 50 lines. Held above
-   * the panel so a collapsed channel and `/game` both keep it current. */
+  /** The public channel's transcript, oldest first, at most `CHAT_HISTORY` lines. Held
+   * above the panel so a collapsed channel and `/game` both keep it current. */
   chatLog: ChatMessage[];
   /** Sends one line to the public channel. The ack reports a refusal (too long,
    * too soon, empty, or the transport being down) for the panel's status line. */
@@ -544,8 +545,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // The public channel's transcript (queue item 3), and whether the socket is up.
   // Both live here rather than in the dock's panel: the channel can be switched
   // off, and most screens render no panel at all, but the log must not lose a line
-  // and the composer must know if a send is possible.
-  const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
+  // and the composer must know if a send is possible. The ring itself is
+  // `useChatFeed`'s (19.8), capped at `CHAT_HISTORY`.
+  const {
+    lines: chatLog,
+    replace: replaceChatLog,
+    append: appendChatLog,
+    clear: clearChatLog,
+  } = useChatFeed<ChatMessage>(CHAT_HISTORY);
   const [sessionConnected, setSessionConnected] = useState(false);
   // The effect keys on the id, not the object: a profile edit replaces `user` and
   // must not tear down a healthy connection.
@@ -587,16 +594,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     socket.on('disconnect', () => setSessionConnected(false));
 
     // The transcript. The connect-time history replaces the ring, a live line
-    // appends to it, and the id merge keeps the overlap between the two from
-    // painting the newest line twice.
-    socket.on('chat:history', (messages) => setChatLog(messages.slice(-CHAT_HISTORY)));
-    socket.on('chat:message', (message) => {
-      setChatLog((prev) =>
-        prev.some((line) => line.id === message.id)
-          ? prev
-          : [...prev, message].slice(-CHAT_HISTORY),
-      );
-    });
+    // appends to it, and the id merge that keeps the overlap between the two from
+    // painting the newest line twice is `useChatFeed`'s — the same hook the room's
+    // channel drives, so the two surfaces cannot order or dedupe differently.
+    socket.on('chat:history', (messages) => replaceChatLog(messages));
+    socket.on('chat:message', (message) => appendChatLog(message));
 
     // The site-wide badge. It arrives on every connection edge, and the gateway
     // also hands a fresh socket the last number it pushed, so this is the badge's
@@ -629,10 +631,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // the last number this session saw. The transcript does too: another
       // account's tab must not inherit this one's channel.
       setOnlineCount(null);
-      setChatLog([]);
+      clearChatLog();
       setSessionConnected(false);
     };
-  }, [sessionUserId]);
+  }, [sessionUserId, replaceChatLog, appendChatLog, clearChatLog]);
 
   // Proactive refresh so a reconnect handshake (and any apiFetch call) never hits
   // the reactive 401 path with an expired access token. Auth, not state: it stays
