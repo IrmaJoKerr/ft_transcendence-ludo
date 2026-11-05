@@ -468,8 +468,9 @@ export const en = {
     inviteAction: 'INVITE',
     inviteSentShort: 'SENT',
     inviteSent: 'Invite sent.',
-    // The band's glyph in the room's card: it opens the panel above. A panel's title,
-    // not its state — `aria-pressed` says open or shut.
+    // The head's switch in the room's card: it opens the panel above. A panel's name,
+    // not its state — `aria-pressed` says open or shut. It is shown as the button's
+    // caption, uppercased by CSS, so it must read as a label in every language.
     inviteToggle: 'Invite comms',
     // The friends screen's REMOVE confirm. It is the milder of the two row presses, so
     // it says what goes with the friendship rather than what is hidden afterwards.

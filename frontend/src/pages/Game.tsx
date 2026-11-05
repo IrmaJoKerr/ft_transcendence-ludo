@@ -2367,8 +2367,9 @@ export function Game() {
                   full card as an overlay on click. PvP only, and independent of the
                   room's status: it opens in the waiting room and never leaves when the
                   match starts. While the room is still WAITING, INVITE COMMS rides the
-                  band's glyph as a panel portaled beside the card (19.8): off until the
-                  glyph asks for it, and gone at the start, while the card stays put. */}
+                  card head's switch as a panel portaled beside the card (19.8), beside
+                  CLOSE: off until the switch asks for it, and gone at the start, while
+                  the card stays put. */}
               {activeMatch.mode === 'pvp' && (
                 <ChatCard
                   lines={chatLines}

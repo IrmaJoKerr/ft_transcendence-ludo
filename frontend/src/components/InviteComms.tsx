@@ -11,8 +11,8 @@ import { retroAudio } from '../utils/audio';
 // It was a 150 px column beside the compact slot until 19.8, which meant the board's
 // left column reflowed when a room filled and the column left. It is a panel now:
 // portaled beside the open card (240 px, clamped inside the viewport), off until the
-// band's glyph asks for it, and gone when the match starts. Because it costs the
-// column nothing, a full room no longer hides it — it says nobody is free, which is
+// card head's switch asks for it, and gone when the match starts. Because it costs
+// the column nothing, a full room no longer hides it — it says nobody is free, which is
 // true at capacity and is the same press a half-empty room offers.
 //
 // It is occupancy, not duelling: a friend listed here is online and not already in

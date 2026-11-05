@@ -8,7 +8,7 @@ import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, GAME_WINDOW_HEADER
 import { retroAudio } from '../utils/audio';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import { systemLineText } from './chatCardTypes';
-import type { ChatBandGlyph, ChatCardLine, ChatCardStatus } from './chatCardTypes';
+import type { ChatCardLine, ChatCardStatus, ChatHeadGlyph } from './chatCardTypes';
 
 // The chat card, in one place (M3/R8). The lobby dock and the board's left column
 // both render this: the lobby anchors it to its plate as an overlay, the board mounts
@@ -17,11 +17,12 @@ import type { ChatBandGlyph, ChatCardLine, ChatCardStatus } from './chatCardType
 // channel's own lines. The wire-side types and the cap live in `chatCardTypes.ts`, so
 // this file exports components only.
 //
-// Since 19.8 the band under the composer is this file's too (`ChatStatusBand`), with a
-// glyph column in which the room mounts the INVITE COMMS switch, and a host with a
-// panel to offer passes it as `sidePanel`: portaled beside the open card rather than
-// laid out next to it, so the card's width is the card's business and the board's
-// column never reflows when the panel appears.
+// Since 19.8 the band under the composer is this file's too (`ChatStatusBand`), and a
+// host with a panel to offer passes it as `sidePanel`: portaled beside the open card
+// rather than laid out next to it, so the card's width is the card's business and the
+// board's column never reflows when the panel appears. The switch that opens it is the
+// head's (`ChatCardHead`'s `glyph`), beside CLOSE: the band under the composer is one
+// reserved line of text and does not also have to hold a control.
 
 /** The card's width, and the ceiling the overlay clamps to. */
 const CARD_WIDTH = 440;
@@ -66,9 +67,8 @@ const FRIEND_ERROR_CODES = [
 /** The longest display name a profile may hold, used to size the invite line. */
 const NAME_SAMPLE = 'W'.repeat(24);
 
-/** The glyph the room puts in the band's second column: the INVITE COMMS panel's
- *  switch. One constant, so the two surfaces that name it (the band and the panel)
- *  cannot drift. */
+/** The glyph the room puts in the card's head: the INVITE COMMS panel's switch. One
+ *  constant, so the two surfaces that name it (the head and the panel) cannot drift. */
 const INVITE_GLYPH = '👥';
 
 export interface ChatCardProps {
@@ -80,8 +80,8 @@ export interface ChatCardProps {
   connected: boolean;
   /** The panel a host can mount beside the open card (the room's INVITE COMMS,
    *  waiting room only). Portaled, so it never changes the card's width or the
-   *  board's, and behind the band's glyph: the glyph exists exactly while there is a
-   *  panel to open, so a room never shows a switch that does nothing. */
+   *  board's, and behind the head's glyph: the switch exists exactly while there is a
+   *  panel to open, so a room never shows one that does nothing. */
   sidePanel?: ReactNode;
   /** The name pressed in the transcript: the host owns the card it opens and the
    *  calls that card makes, and takes the pressed rectangle so the card can be placed
@@ -100,15 +100,21 @@ export interface ChatCardProps {
   onStatus?: (status: ChatCardStatus | null) => void;
 }
 
-/** The card's title row: the channel, its scope, and the way out. */
+/** The card's title row: the channel, its scope, the host's panel switch, and the way
+ *  out. The switch sits beside CLOSE, in the same corner, because both leave the card's
+ *  own business: the band under the composer reserves one line and says only what
+ *  happened, so a control is the head's. */
 export function ChatCardHead({
   onClose,
   titleKey = 'chat.title',
   scopeKey = 'chat.scope',
+  glyph,
 }: {
   onClose?: () => void;
   titleKey?: string;
   scopeKey?: string;
+  /** The host's panel switch, when it has a panel to open (the room's INVITE COMMS). */
+  glyph?: ChatHeadGlyph;
 }) {
   const { t } = useTranslation();
   return (
@@ -148,16 +154,71 @@ export function ChatCardHead({
           {t(scopeKey)}
         </span>
       </div>
-      {onClose && (
-        <button
-          type="button"
-          className={RETRO_BTN}
-          onClick={onClose}
-          style={{ padding: '3px 9px', fontSize: '0.66rem', color: 'var(--text-muted)' }}
-        >
-          {t('chat.close')}
-        </button>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {glyph && (
+          <button
+            type="button"
+            title={glyph.label}
+            aria-pressed={glyph.pressed}
+            onClick={glyph.onPress}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '2px 8px 2px 2px',
+              flexShrink: 0,
+              cursor: 'pointer',
+              borderRadius: 5,
+              outline: 'none',
+              color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
+              background: glyph.pressed ? 'rgba(0, 240, 255, 0.14)' : 'rgba(255, 255, 255, 0.05)',
+              border: `1px solid ${glyph.pressed ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
+              transition: 'all 0.18s ease',
+            }}
+          >
+            {/* Twice the box the band gave it (22 × 18, 0.72rem), centred in the larger
+                one: the glyph now carries the whole press on its own, with its title
+                beside it rather than only in a tooltip. */}
+            <span
+              aria-hidden="true"
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                width: 44,
+                height: 36,
+                fontSize: '1.44rem',
+                lineHeight: 1,
+              }}
+            >
+              {glyph.glyph}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.5rem',
+                fontWeight: 900,
+                letterSpacing: '0.6px',
+                lineHeight: 1.2,
+                textAlign: 'center',
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {glyph.label}
+            </span>
+          </button>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            className={RETRO_BTN}
+            onClick={onClose}
+            style={{ padding: '3px 9px', fontSize: '0.66rem', color: 'var(--text-muted)' }}
+          >
+            {t('chat.close')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -334,25 +395,16 @@ function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string })
   );
 }
 
-/** The reserved line under the composer: one grid, a text column that takes the
- *  width and a glyph column that does not. Every string the band can show is mounted
- *  in the text cell, hidden, so the cell is as tall as the longest of them in the
- *  current language (`PassActionPill`'s trick) — a chat refusal, a friend action's
- *  error and a "friend invite sent" confirmation all appear and clear without moving
- *  the composer or the transcript by a pixel.
+/** The reserved line under the composer: one cell, as tall as the longest string it can
+ *  show. Every string the band can hold is mounted in it, hidden, so the cell is as tall
+ *  as the longest of them in the current language (`PassActionPill`'s trick) — a chat
+ *  refusal, a friend action's error and a "friend invite sent" confirmation all appear
+ *  and clear without moving the composer or the transcript by a pixel.
  *
- *  One shape for both channels (19.8 moved it here from the lobby): the lobby passes
- *  no glyph, the room passes the INVITE COMMS switch, and because the glyph is a
- *  grid column it costs width and no height either way. */
-export function ChatStatusBand({
-  status,
-  glyph,
-}: {
-  status: ChatCardStatus | null;
-  /** The second column's switch: a glyph, its label, and whether the panel it owns
-   *  is up. Absent leaves the column empty. */
-  glyph?: ChatBandGlyph;
-}) {
+ *  One shape for both channels (19.8 moved it here from the lobby), and text only: a
+ *  host's switch is a control, and controls live in the head (`ChatCardHead`'s `glyph`),
+ *  so a panel toggle never changes what this line has to reserve. */
+export function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
   const { t } = useTranslation();
 
   // The sizing rows. The chat strings are keyed; a friend refusal is a localized
@@ -372,7 +424,6 @@ export function ChatStatusBand({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr auto',
         alignItems: 'center',
         gap: 6,
         flexShrink: 0,
@@ -400,43 +451,14 @@ export function ChatStatusBand({
           </span>
         )}
       </div>
-      {glyph && (
-        <button
-          type="button"
-          aria-label={glyph.label}
-          title={glyph.label}
-          aria-pressed={glyph.pressed}
-          onClick={glyph.onPress}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 22,
-            height: 18,
-            padding: 0,
-            flexShrink: 0,
-            cursor: 'pointer',
-            borderRadius: 4,
-            outline: 'none',
-            fontSize: '0.72rem',
-            lineHeight: 1,
-            color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
-            background: glyph.pressed ? 'rgba(0, 240, 255, 0.14)' : 'rgba(255, 255, 255, 0.05)',
-            border: `1px solid ${glyph.pressed ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
-            transition: 'all 0.18s ease',
-          }}
-        >
-          <span aria-hidden="true">{glyph.glyph}</span>
-        </button>
-      )}
     </div>
   );
 }
 
 /** The composer: one input, one send, a counter, and the band under it. The band is
  *  always mounted, so a refusal never resizes the card. Both channels render this one
- *  component and one band; what differs between them is a host's business, so the
- *  only slot left is the band's glyph, which the room uses for its invite panel. */
+ *  component and one band; what differs between them is a host's business, and the one
+ *  control either host adds (the room's panel switch) is the head's, not this row's. */
 export function ChatCardComposer({
   draft,
   onDraft,
@@ -445,7 +467,6 @@ export function ChatCardComposer({
   onStatus,
   connected,
   inert,
-  glyph,
   placeholderKey = 'chat.placeholder',
   inputLabelKey = 'chat.inputLabel',
   offlineKey = 'chat.offline',
@@ -458,8 +479,6 @@ export function ChatCardComposer({
   onStatus: (status: ChatCardStatus | null) => void;
   connected: boolean;
   inert?: boolean;
-  /** The band's second column, when the host has a panel to open. */
-  glyph?: ChatBandGlyph;
   placeholderKey?: string;
   inputLabelKey?: string;
   offlineKey?: string;
@@ -532,7 +551,7 @@ export function ChatCardComposer({
           {t(sendKey)}
         </button>
       </form>
-      <ChatStatusBand status={status} glyph={glyph} />
+      <ChatStatusBand status={status} />
     </div>
   );
 }
@@ -567,7 +586,7 @@ export function ChatCard({
   const status = hostStatus !== undefined ? hostStatus : localStatus;
   const setStatus = hostStatusSetter ?? setLocalStatus;
   const [open, setOpen] = useState(false);
-  // The side panel is off until the band's glyph asks for it (19.8): a room never
+  // The side panel is off until the head's switch asks for it (19.8): a room never
   // opens with a friend list nobody asked for, and closing the card puts it away.
   const [panelOpen, setPanelOpen] = useState(false);
   const [box, setBox] = useState<{
@@ -809,7 +828,21 @@ export function ChatCard({
               boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 240, 255, 0.22)',
             }}
           >
-            <ChatCardHead onClose={closeCard} titleKey={titleKey} scopeKey={scopeKey} />
+            <ChatCardHead
+              onClose={closeCard}
+              titleKey={titleKey}
+              scopeKey={scopeKey}
+              glyph={
+                sidePanel
+                  ? {
+                      glyph: INVITE_GLYPH,
+                      label: t('gameChat.inviteToggle'),
+                      pressed: panelOpen,
+                      onPress: togglePanel,
+                    }
+                  : undefined
+              }
+            />
             <ChatCardFeed
               lines={lines}
               onOpenName={
@@ -830,16 +863,6 @@ export function ChatCard({
               onStatus={setStatus}
               connected={connected}
               inert={inert}
-              glyph={
-                sidePanel
-                  ? {
-                      glyph: INVITE_GLYPH,
-                      label: t('gameChat.inviteToggle'),
-                      pressed: panelOpen,
-                      onPress: togglePanel,
-                    }
-                  : undefined
-              }
               placeholderKey="gameChat.placeholder"
               inputLabelKey="gameChat.inputLabel"
             />

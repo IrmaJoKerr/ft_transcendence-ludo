@@ -19,8 +19,9 @@ import { retroAudio } from '../utils/audio';
 // composer has one reserved status line under the input, so "message too long" and
 // "NO SPAMMING" never move the card. Since M3 the head, the feed and the composer are
 // `ChatCard.tsx`'s; since 19.8 the band is too (`ChatStatusBand`, the same one the
-// room paints, with a glyph column the lobby leaves empty), so both channels count one
-// `n / 300` from `chatLength` and reserve one height. Since 19.7 the name card is
+// room paints), so both channels count one `n / 300` from `chatLength` and reserve one
+// height, and both draw the same head — the room's panel switch is the one thing either
+// host puts in it that the other leaves out. Since 19.7 the name card is
 // `ChatNameCard.tsx`'s, the same component the room mounts, so a pilot met here and a
 // pilot met across the board are offered the same acts; the lobby's own contribution
 // to it is CHALLENGE, which it passes because it has a duel to offer. The feed drops
