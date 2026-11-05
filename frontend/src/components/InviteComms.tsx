@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChallenges } from '../hooks/useChallenges';
-import { useFriendships } from '../hooks/useFriendships';
+import type { FriendRow } from '../friendshipFeed';
 import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, GAME_WINDOW_HEADER_EXTRA, WINDOW_BODY } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
@@ -31,6 +31,7 @@ export function InviteComms({
   gameId,
   seatUserIds,
   playerCount,
+  friends,
 }: {
   gameId: string;
   /** Every account seated in this room, taken from the room's own player list. */
@@ -38,9 +39,11 @@ export function InviteComms({
   /** The room's capacity. A full room lists nobody: every friend is either seated
    *  here or has no free seat to take, so the panel says so rather than vanishing. */
   playerCount: number;
+  /** The friendship snapshot, read once by the page and shared with the name card, so
+   *  a waiting room opens with one read rather than one per surface. */
+  friends: FriendRow[];
 }) {
   const { t } = useTranslation();
-  const { friends } = useFriendships();
   const { isSent, busy, challenge } = useChallenges();
   const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
 

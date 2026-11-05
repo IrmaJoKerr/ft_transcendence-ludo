@@ -3,12 +3,12 @@ import type { ReactNode } from 'react';
 import { CyberModal } from './CyberModal';
 
 // One confirm for every destructive press in the app, so a gate is never wired
-// twice: the lobby's name card, the friends page's BLOCK and its REMOVE all render
-// this. It is portaled to `document.body` on its own layer because the surfaces it
-// is opened from stack: the name card sits at z-10005 and the transcript card at
-// 10004, while `CyberModal`'s overlay is z-10002. Lifting the wrapper lifts the
-// whole overlay; the wrapper is `pointer-events-none` because only the overlay
-// takes presses, and it takes them itself once open.
+// twice: the name card (in the lobby and in a room, `ChatNameCard`), the friends
+// page's BLOCK and its REMOVE all render this. It is portaled to `document.body` on
+// its own layer because the surfaces it is opened from stack: the name card sits at
+// z-10005 and the transcript card at 10004, while `CyberModal`'s overlay is z-10002.
+// Lifting the wrapper lifts the whole overlay; the wrapper is `pointer-events-none`
+// because only the overlay takes presses, and it takes them itself once open.
 const CONFIRM_LAYER_Z = 10006;
 
 export function ConfirmActionModal({

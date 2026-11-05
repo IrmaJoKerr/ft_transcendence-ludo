@@ -23,7 +23,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 3. **Blocked list** — users you have blocked, each with an unblock action. The two lists are separate tabs: Friends and Blocked.
 4. **One challenge route** — `POST /api/friends/:friendId/invite`, which answers with the room: `{ hostColor }` creates it and returns the caller's credentials (the friends screen always took this shape), `{ gameId }` stages the friend into a room the caller already sits in. The route never seats the friend (they claim a corner when they accept), so a friend who is already seated elsewhere is refused at accept, not here. A second press while a challenge to that friend is still out is `409 CHALLENGE_ALREADY_SENT`.
 5. **The grey state is the server's**, not a client TTL: `useChallenges` reads `GET /api/friends/challenges/sent` (on mount, and again on window focus) and adds the echo of its own presses. A greyed CHALLENGE stays pressable; the press asks, and the 409 prints `errors.CHALLENGE_ALREADY_SENT` in the page's band.
-6. **BLOCK and REMOVE confirm** through `ConfirmActionModal` (the same gate the lobby's name card blocks through), because neither can be undone from this screen: `friends.block*` and `friends.remove*` carry the two questions.
+6. **BLOCK and REMOVE confirm** through `ConfirmActionModal` (the same gate both name cards block through), because neither can be undone from this screen: `friends.block*` and `friends.remove*` carry the two questions.
 
 > **Note:** The Friends page reads its data from the backend API (Application Programming Interface) once, for first paint. Every later change arrives as a `friendship:changed` record on the session socket, so no list is polled.
 
@@ -39,7 +39,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 | `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the two confirms |
 | `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
 | `src/hooks/useChallenges.ts` | The one challenge: the server's sent list, the press, and the 409, with no client window |
-| `src/components/ConfirmActionModal.tsx` | The shared confirm for BLOCK and REMOVE (and the lobby's name card) |
+| `src/components/ConfirmActionModal.tsx` | The shared confirm for BLOCK and REMOVE (and both name cards) |
 | `src/friendshipFeed.ts` | Pure merge functions (friends / requests / blocked) — the record always wins over the snapshot |
 | `src/components/UserAvatar.tsx` | Player avatars |
 

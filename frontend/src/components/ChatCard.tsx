@@ -83,9 +83,10 @@ export interface ChatCardProps {
    *  board's, and behind the band's glyph: the glyph exists exactly while there is a
    *  panel to open, so a room never shows a switch that does nothing. */
   sidePanel?: ReactNode;
-  /** The name pressed in the transcript: the host owns the confirmation and the call
-   *  (in a room the card offers Block only, M3's E6/R8). */
-  onBlockName?: (userId: string, displayName: string) => void;
+  /** The name pressed in the transcript: the host owns the card it opens and the
+   *  calls that card makes, and takes the pressed rectangle so the card can be placed
+   *  against the name (the feed scrolls under the pointer). */
+  onOpenName?: (userId: string, displayName: string, anchor: DOMRect) => void;
   /** A clash is up: the card stays mounted and readable but takes no keys (E7). */
   inert?: boolean;
   titleKey?: string;
@@ -548,7 +549,7 @@ export function ChatCard({
   send,
   connected,
   sidePanel,
-  onBlockName,
+  onOpenName,
   inert,
   titleKey = 'gameChat.title',
   scopeKey = 'gameChat.scope',
@@ -638,6 +639,10 @@ export function ChatCard({
           target.tagName === 'TEXTAREA' ||
           target.isContentEditable === true);
       if (e.key !== 'Escape' || typing) return;
+      // An overlay above this one owns the key: the name card (10005) and the confirm
+      // it opens (10006) each handle Escape themselves, so one press dismisses the top
+      // of the stack rather than the whole stack.
+      if (document.querySelector('[data-chat-overlay]')) return;
       if (panelOpen) setPanelOpen(false);
       else closeCard();
     };
@@ -647,6 +652,11 @@ export function ChatCard({
       if (cardRef.current?.contains(target)) return;
       if (slotRef.current?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
+      // The name card and its confirm are further overlays, portaled outside this
+      // one's subtree: a press inside them must not collapse the transcript they were
+      // opened from, because the outcome of their actions lands in this card's band.
+      if (target instanceof Element && target.closest('[data-chat-overlay], [data-modal-state]'))
+        return;
       setOpen(false);
       setPanelOpen(false);
     };
@@ -803,9 +813,9 @@ export function ChatCard({
             <ChatCardFeed
               lines={lines}
               onOpenName={
-                onBlockName
-                  ? (line) => {
-                      onBlockName(line.senderId, line.senderName);
+                onOpenName
+                  ? (line, anchor) => {
+                      onOpenName(line.senderId, line.senderName, anchor);
                     }
                   : undefined
               }

@@ -431,20 +431,24 @@ export const ms = {
     },
     card: {
       addFriend: 'TAMBAH RAKAN',
+      // Soalan yang ADD FRIEND menjadi pada tekan pertama: tekan kedua menghantar.
+      addFriendConfirm: 'HANTAR PERMINTAAN?',
       requestSent: 'PERMINTAAN DIHANTAR',
       accept: 'TERIMA PERMINTAAN',
       friends: 'RAKAN',
       challenge: 'CABAR',
       block: 'SEKAT',
     },
-    // Pengesahan sekatan lobi. Yang di bilik (`gameChat.block*`) berkata kedua-dua
-    // juruterbang berhenti melihat satu sama lain di bilik itu; yang ini juga menamatkan
-    // persahabatan dan menyatakannya.
+    // Pengesahan sekatan kad nama, dalam kedua-dua saluran (`ChatNameCard`). Ia satu-
+    // satunya cangkerang memusnahkan: akibatnya menamakan apa yang benar-benar hilang,
+    // jadi persahabatan atau permintaan tertunggak disebut dan orang asing tidak.
     block: {
       title: 'PUTUSKAN PAUTAN?',
       confirm: 'Sekat {{name}}?',
       subMessage:
         'Ini menamatkan persahabatan, membatalkan permintaan yang menunggu, dan menyembunyikan mesej mereka dari saluran ini. Ia tidak boleh dibatalkan dari kad ini: NYAHSEKAT ada di skrin rakan.',
+      subMessageStranger:
+        'Kamu berdua tidak akan melihat satu sama lain dalam sembang lagi. Ia tidak boleh dibatalkan dari kad ini: NYAHSEKAT ada di skrin rakan.',
       proceed: 'SEKAT',
     },
   },
@@ -465,11 +469,6 @@ export const ms = {
     inviteSentShort: 'DIHANTAR',
     inviteSent: 'Jemputan dihantar.',
     inviteToggle: 'Kom jemputan',
-    blockTitle: 'PUTUSKAN PAUTAN?',
-    blockConfirm: 'Sekat {{name}}?',
-    blockSubMessage: 'Kamu berdua tidak akan melihat satu sama lain dalam sembang. Ia tidak boleh dibatalkan di sini.',
-    blockProceed: 'SEKAT',
-    blocked: 'Pautan diputuskan.',
     // Pengesahan BUANG, yang lebih lembut antara dua tekan pada baris ini: ia menyebut
     // apa yang hilang bersama persahabatan, bukan apa yang disembunyikan selepasnya.
     removeTitle: 'BUANG RAKAN?',

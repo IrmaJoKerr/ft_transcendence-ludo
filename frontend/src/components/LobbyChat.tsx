@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { postApi } from '../api';
 import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
 import { ChatCardComposer, ChatCardFeed, ChatCardHead } from './ChatCard';
-import { ConfirmActionModal } from './ConfirmActionModal';
+import { ChatNameCard } from './ChatNameCard';
+import type { ChatNameCardTarget } from './ChatNameCard';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
-import type { FriendRequestRow, FriendRow } from '../friendshipFeed';
 import { useChallenges } from '../hooks/useChallenges';
-import { RETRO_BTN } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
 // The dock's chat slot, wired to the public channel (queue item 3). The plate is
@@ -22,25 +20,13 @@ import { retroAudio } from '../utils/audio';
 // "NO SPAMMING" never move the card. Since M3 the head, the feed and the composer are
 // `ChatCard.tsx`'s; since 19.8 the band is too (`ChatStatusBand`, the same one the
 // room paints, with a glyph column the lobby leaves empty), so both channels count one
-// `n / 300` from `chatLength` and reserve one height. The name card here is the
-// public channel's only set of actions — ADD FRIEND (a request the other side
-// answers), ACCEPT, and BLOCK (unilateral, so it confirms through
-// `ConfirmActionModal` the same way the friends screen's row does) — and the feed
-// drops the lines of whoever this reader has blocked, which the channel's own empty
-// state promises.
+// `n / 300` from `chatLength` and reserve one height. Since 19.7 the name card is
+// `ChatNameCard.tsx`'s, the same component the room mounts, so a pilot met here and a
+// pilot met across the board are offered the same acts; the lobby's own contribution
+// to it is CHALLENGE, which it passes because it has a duel to offer. The feed drops
+// the lines of whoever this reader has blocked, which the channel's own empty state
+// promises.
 const SCREEN_PREVIEW_LINES = 3;
-
-/** The name card's box. It is portaled to the body, so it is not clipped by the
- *  dock's 360 px column; the height is an upper bound for the clamp, not a size, and
- *  it counts the tallest stack the card can build: title, the friend state, BLOCK
- *  under its rule, and CLOSE. */
-const NAME_CARD_WIDTH = 220;
-const NAME_CARD_HEIGHT = 244;
-const NAME_CARD_MARGIN = 12;
-
-/** The pilot whose name was pressed, and where the card was placed for it. */
-type NameCard = { id: string; name: string; left: number; top: number };
-
 
 /** The screen's floor, in both states. The 720p budget is 656 px (100vh − 64)
  *  minus 40 of dock padding, 74 of profile pill, 316 of nav track (five 52 px
@@ -73,12 +59,15 @@ interface CardBox {
 
 export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   const { t } = useTranslation();
-  const { chatLog, sendChat, sessionConnected, user } = useApp();
+  const { chatLog, sendChat, sessionConnected, user, activeMatch } = useApp();
 
   // The friendship snapshot lives here rather than in the name card: the card needs
   // it (friend, request sent, request received) and the feed needs the block list, so
   // one read serves both and opening a card no longer refetches it.
   const { friends, requests, blocked, loading, refresh } = useFriendships();
+  // The one challenge route, and the server's own list behind the grey state: the card
+  // closes on a press, so the list is what a reopened card reads after a reload.
+  const { isSent, challenge: sendChallenge } = useChallenges();
 
   // A block hides that pilot's lines from this reader — the rule the channel's own
   // empty state already promised. A room gets it server-side, per seat
@@ -151,7 +140,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
 
   // The open name card: which pilot, and where the name was when it was pressed.
   // Anchored to that rectangle because the transcript scrolls under the pointer.
-  const [nameCard, setNameCard] = useState<NameCard | null>(null);
+  const [nameTarget, setNameTarget] = useState<ChatNameCardTarget | null>(null);
   // The shared card paints `ChatCardLine`, whose clock is a number; the lobby's wire
   // carries an ISO string, so it is parsed here once instead of inside the card.
   const cardLines = useMemo<ChatCardLine[]>(
@@ -165,15 +154,31 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
       })),
     [lines],
   );
-  const openNameCard = useCallback((line: ChatCardLine, anchor: DOMRect) => {
-    // Your own name opens nothing: every action on the card is about the other pilot,
-    // so the only thing a self-card could offer is a guaranteed `400`.
-    if (user && line.senderId === user.id) return;
-    const width = NAME_CARD_WIDTH;
-    const left = Math.max(NAME_CARD_MARGIN, Math.min(anchor.left, window.innerWidth - width - NAME_CARD_MARGIN));
-    const top = Math.min(anchor.bottom + 6, window.innerHeight - NAME_CARD_HEIGHT - NAME_CARD_MARGIN);
-    setNameCard({ id: line.senderId, name: line.senderName, left, top });
-  }, [user]);
+  const openNameCard = useCallback(
+    (line: ChatCardLine, anchor: DOMRect) => {
+      // Your own name opens nothing: every action on the card is about the other pilot,
+      // so the only thing a self-card could offer is a guaranteed `400`.
+      if (user && line.senderId === user.id) return;
+      setNameTarget({ id: line.senderId, name: line.senderName, anchor });
+    },
+    [user],
+  );
+
+  // CHALLENGE is this surface's to offer: the friends list's own duel, sent with the
+  // room the viewer already sits in. It is thrown on refusal so the card's band
+  // carries the server's sentence, and it stays optional because a name card without
+  // a duel (the room's) simply does not pass it.
+  const challengeName = useCallback(
+    async (target: ChatNameCardTarget) => {
+      if (!activeMatch) throw new Error(t('friends.genericError'));
+      const outcome = await sendChallenge(
+        { id: target.id, name: target.name },
+        { gameId: activeMatch.gameId },
+      );
+      if (!outcome.ok) throw new Error(outcome.message || t('friends.genericError'));
+    },
+    [activeMatch, sendChallenge, t],
+  );
 
   // Measured from the plate's own rectangle rather than from CSS: where the plate
   // sits depends on the nav track, the notifications and the window height, and
@@ -226,16 +231,21 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   useEffect(() => {
     if (!cardOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeCard();
+      // An overlay above this one owns the key: the name card (10005) and the confirm
+      // it opens (10006) each handle Escape themselves, so one press dismisses the top
+      // of the stack rather than the whole stack.
+      if (e.key === 'Escape' && !document.querySelector('[data-chat-overlay]')) closeCard();
     };
     const onPress = (e: PointerEvent) => {
       const target = e.target as Node | null;
       if (!target) return;
       if (cardRef.current?.contains(target)) return;
       if (plateRef.current?.contains(target)) return;
-      // The name card is a second overlay, portaled outside this one's subtree:
-      // pressing inside it must not also collapse the transcript behind it.
-      if (target instanceof Element && target.closest('[data-chat-overlay]')) return;
+      // The name card and its confirm are further overlays, portaled outside this
+      // one's subtree: pressing inside them must not collapse the transcript they were
+      // opened from, because the outcome of their actions lands in its band.
+      if (target instanceof Element && target.closest('[data-chat-overlay], [data-modal-state]'))
+        return;
       setCardOpen(false);
     };
     document.addEventListener('keydown', onKey);
@@ -488,21 +498,28 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
           document.body,
         )}
 
-      {/* The name card. Portaled for the same reason the card is, and rendered
-          above it: it is opened from a name inside the card. */}
-      {nameCard &&
-        createPortal(
-          <ChatNameCard
-            card={nameCard}
-            friends={friends}
-            requests={requests}
-            loading={loading}
-            onClose={() => setNameCard(null)}
-            onStatus={setStatus}
-            onBlocked={refresh}
-          />,
-          document.body,
-        )}
+      {/* The name card. It portals itself above this one (10005 against 10004,
+          because it is opened from a name inside the card), and it is the room's card
+          too: the only thing this surface adds is the duel. */}
+      {nameTarget && (
+        <ChatNameCard
+          target={nameTarget}
+          friends={friends}
+          requests={requests}
+          loading={loading}
+          challenge={
+            activeMatch?.mode === 'pvp'
+              ? {
+                  sent: isSent(nameTarget.id),
+                  onPress: () => challengeName(nameTarget),
+                }
+              : undefined
+          }
+          onClose={() => setNameTarget(null)}
+          onStatus={setStatus}
+          onBlocked={refresh}
+        />
+      )}
     </section>
   );
 }
@@ -538,293 +555,3 @@ function ScreenEmpty() {
     </>
   );
 }
-
-/** The card a name opens: what the viewer can do about that pilot. Its state comes
- *  from the friendship snapshot (friends, requests sent, requests received), the
- *  same source the Friends screen reads, and its confirmations go to the panel's
- *  band rather than to a toast. A refusal lands in the same line, which is what the
- *  band is reserved for. */
-function ChatNameCard({
-  card,
-  friends,
-  requests,
-  loading,
-  onClose,
-  onStatus,
-  onBlocked,
-}: {
-  card: NameCard;
-  friends: FriendRow[];
-  requests: { sent: FriendRequestRow[]; received: FriendRequestRow[] };
-  loading: boolean;
-  onClose: () => void;
-  onStatus: (status: ChatCardStatus | null) => void;
-  /** Re-read the friendship snapshot: a block is a mutation, and the feed's filter
-   *  is built from that snapshot. */
-  onBlocked: () => void;
-}) {
-  const { t } = useTranslation();
-  const { activeMatch } = useApp();
-  // The one challenge route, and the server's own list behind the grey state: this
-  // card closes on a press, so the list is what a reopened card reads after a reload.
-  const { isSent, challenge: sendChallenge } = useChallenges();
-  const challenged = isSent(card.id);
-  const [busy, setBusy] = useState(false);
-  // The block confirm. It is the card's own state rather than the page's, because
-  // the card is what opened it.
-  const [confirmBlock, setConfirmBlock] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  // Escape and an outside press close it, the same pair of gestures the transcript
-  // card uses. `pointerdown` so a drag that ends outside does not count as a press.
-  // Both stand down while the confirm is up: the modal owns Escape and answers a
-  // press anywhere (`CyberModal` cancels on an overlay click), so acting on the same
-  // gestures here would dismiss the card behind the confirm as well.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (confirmBlock) return;
-      if (event.key === 'Escape') onClose();
-    };
-    const onPress = (event: PointerEvent) => {
-      if (confirmBlock) return;
-      const target = event.target as Node | null;
-      if (target && cardRef.current?.contains(target)) return;
-      onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('pointerdown', onPress);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('pointerdown', onPress);
-    };
-  }, [onClose, confirmBlock]);
-
-  const friend = friends.find((entry) => entry.id === card.id);
-  const sent = requests.sent.find((entry) => entry.userId === card.id);
-  const received = requests.received.find((entry) => entry.userId === card.id);
-
-  // The band is the only place an outcome is reported, and the card closes with it:
-  // two surfaces saying the same thing is what this design avoids.
-  const report = (tone: 'error' | 'info', text: string) => {
-    onStatus({ tone, text });
-    onClose();
-  };
-
-  const run = async (action: () => Promise<void>, done: () => void, failure: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await action();
-      done();
-      retroAudio.playUiBeep(880, 0.06);
-    } catch (error) {
-      retroAudio.playUiBeep(320, 0.08);
-      // `postApi` already localized the server's code; `failure` covers a
-      // transport error with no body to read.
-      report('error', (error as Error).message || failure);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const addFriend = () =>
-    run(
-      () => postApi(`/api/friends/request/${card.id}`, {}),
-      () => report('info', t('chat.status.friendSent', { name: card.name })),
-      t('friends.couldNotSendRequest'),
-    );
-
-  const accept = (requestId: string) =>
-    run(
-      () => postApi(`/api/friends/accept/${requestId}`, {}),
-      () => report('info', t('chat.status.friendAdded', { name: card.name })),
-      t('friends.genericError'),
-    );
-
-  const challenge = () =>
-    activeMatch &&
-    run(
-      async () => {
-        const outcome = await sendChallenge(
-          { id: card.id, name: card.name },
-          { gameId: activeMatch.gameId },
-        );
-        // `run` reports through the catch, so a refusal is thrown as the sentence the
-        // band should carry rather than returned to a caller that has no band.
-        if (!outcome.ok) throw new Error(outcome.message || t('friends.genericError'));
-      },
-      () => report('info', t('chat.status.challengeSent')),
-      t('friends.genericError'),
-    );
-
-  // Blocking is the one unilateral action here: the other pilot is not asked, the
-  // friendship (and any pending request) goes with it, and this card cannot undo it.
-  // Hence the confirm, and hence the same `ConfirmActionModal` the friends screen's
-  // BLOCK uses.
-  const block = () =>
-    run(
-      () => postApi(`/api/friends/block/${card.id}`, {}),
-      () => {
-        // The feed's filter is built from the snapshot, and the block's live record
-        // lands on the next frame from the socket: re-reading here means the lines
-        // are gone even if that frame is lost.
-        onBlocked();
-        report('info', t('chat.status.blocked', { name: card.name }));
-      },
-      t('friends.genericError'),
-    );
-
-  const actionStyle: CSSProperties = {
-    width: '100%',
-    padding: '5px 8px',
-    fontFamily: 'var(--font-display)',
-    fontSize: '0.66rem',
-    fontWeight: 900,
-    letterSpacing: '0.6px',
-    color: 'var(--accent-cyan)',
-    cursor: busy ? 'wait' : 'pointer',
-  };
-  const labelStyle: CSSProperties = {
-    padding: '5px 8px',
-    textAlign: 'center',
-    fontFamily: 'var(--font-display)',
-    fontSize: '0.66rem',
-    fontWeight: 900,
-    letterSpacing: '0.6px',
-    color: 'var(--text-muted)',
-    border: '1px solid rgba(184, 166, 228, 0.28)',
-    borderRadius: 6,
-  };
-
-  return (
-    <div
-      ref={cardRef}
-      role="dialog"
-      aria-label={card.name}
-      data-chat-overlay="name"
-      className="chat-card"
-      style={{
-        position: 'fixed',
-        left: card.left,
-        top: card.top,
-        width: NAME_CARD_WIDTH,
-        zIndex: 10005,
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        padding: 12,
-        borderRadius: 10,
-        background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.97), rgba(10, 2, 28, 0.985))',
-        backdropFilter: 'blur(24px) saturate(180%)',
-        border: '1px solid rgba(0, 240, 255, 0.45)',
-        boxShadow: '0 18px 44px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 240, 255, 0.2)',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.8rem',
-          fontWeight: 900,
-          letterSpacing: '0.8px',
-          color: 'var(--text-main)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-        title={card.name}
-      >
-        {card.name}
-      </span>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {loading ? (
-          <span style={labelStyle}>…</span>
-        ) : friend ? (
-          <>
-            <span style={labelStyle}>{t('chat.card.friends')}</span>
-            {activeMatch?.mode === 'pvp' && (
-              <button
-                type="button"
-                className={RETRO_BTN}
-                style={{ ...actionStyle, opacity: challenged ? 0.6 : 1 }}
-                disabled={busy}
-                onClick={() => void challenge()}
-              >
-                {t('chat.card.challenge')}
-              </button>
-            )}
-          </>
-        ) : sent ? (
-          <span style={labelStyle}>{t('chat.card.requestSent')}</span>
-        ) : received ? (
-          <button
-            type="button"
-            className={RETRO_BTN}
-            style={actionStyle}
-            disabled={busy}
-            onClick={() => void accept(received.id)}
-          >
-            {t('chat.card.accept')}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={RETRO_BTN}
-            style={actionStyle}
-            disabled={busy}
-            onClick={() => void addFriend()}
-          >
-            {t('chat.card.addFriend')}
-          </button>
-        )}
-        {/* BLOCK sits under a rule and last but one: a stray double press on the
-            action above must not land on the one button that cannot be undone. */}
-        <span
-          aria-hidden="true"
-          style={{ height: 1, margin: '2px 0', background: 'rgba(184, 166, 228, 0.22)' }}
-        />
-        <button
-          type="button"
-          className={RETRO_BTN}
-          style={{ ...actionStyle, color: 'var(--accent-pink, #ff007f)' }}
-          disabled={busy}
-          aria-haspopup="dialog"
-          onClick={() => {
-            retroAudio.playUiBeep(320, 0.08);
-            setConfirmBlock(true);
-          }}
-        >
-          {t('chat.card.block')}
-        </button>
-        <button
-          type="button"
-          className={RETRO_BTN}
-          style={{ ...actionStyle, color: 'var(--text-muted)' }}
-          onClick={onClose}
-        >
-          {t('chat.close')}
-        </button>
-      </div>
-
-      {/* The confirm. `ConfirmActionModal` is the app's one gate: it lifts the whole
-          overlay above this card (10005) and the transcript's (10004), which `CyberModal`
-          alone cannot do from here. */}
-      <ConfirmActionModal
-        isOpen={confirmBlock}
-        title={t('chat.block.title')}
-        message={t('chat.block.confirm', { name: card.name })}
-        subMessage={t('chat.block.subMessage')}
-        cancelLabel={t('chat.cancel')}
-        proceedLabel={t('chat.block.proceed')}
-        onCancel={() => setConfirmBlock(false)}
-        onProceed={() => {
-          setConfirmBlock(false);
-          void block();
-        }}
-      />
-    </div>
-  );
-}
-
-

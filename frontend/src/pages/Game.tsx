@@ -37,7 +37,10 @@ import { ControlsSettingsModal } from '../components/ControlsSettingsModal';
 import { ResultsModal } from '../components/ResultsModal';
 import { ChatCard } from '../components/ChatCard';
 import type { ChatCardLine, ChatCardStatus } from '../components/chatCardTypes';
+import { ChatNameCard } from '../components/ChatNameCard';
+import type { ChatNameCardTarget } from '../components/ChatNameCard';
 import { InviteComms } from '../components/InviteComms';
+import { useFriendships } from '../hooks/useFriendships';
 import { useChatFeed } from '../hooks/useChatFeed';
 import { retroAudio } from '../utils/audio';
 import '../styles/retrowave.css';
@@ -370,11 +373,18 @@ export function Game() {
     append: appendChatLine,
   } = useChatFeed<ChatCardLine>();
   const [chatConnected, setChatConnected] = useState(false);
-  // The card's one status band. It is owned here rather than by the card so a block's
-  // answer (a refusal, or the confirmation) lands in the same line as a send refusal.
+  // The card's one status band. It is owned here rather than by the card so a name
+  // card's answer (a refusal, or the confirmation) lands in the same line as a send
+  // refusal.
   const [chatStatus, setChatStatus] = useState<ChatCardStatus | null>(null);
-  // The pilot whose name was pressed in the transcript, while the block confirm is up.
-  const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
+  // The pilot whose name was pressed in the transcript, and where the name was: the
+  // card is placed off that rectangle, because the transcript scrolls under the
+  // pointer. The card itself is `ChatNameCard`, the same one the lobby mounts (19.7).
+  const [nameTarget, setNameTarget] = useState<ChatNameCardTarget | null>(null);
+  // The friendship snapshot the name card reads, taken here so opening a card
+  // refetches nothing and so a block can re-read it. The room's transcript needs no
+  // local block filter: the engine's history is already cut for this seat.
+  const { friends, requests, loading: friendsLoading, refresh: refreshFriends } = useFriendships();
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
   const isRollingRef = useRef(false);
@@ -2367,7 +2377,7 @@ export function Game() {
                   inert={Boolean(view.clash)}
                   status={chatStatus}
                   onStatus={setChatStatus}
-                  onBlockName={(id, name) => setBlockTarget({ id, name })}
+                  onOpenName={(id, name, anchor) => setNameTarget({ id, name, anchor })}
                   sidePanel={
                     view.status === 'waiting' ? (
                       <InviteComms
@@ -2376,6 +2386,7 @@ export function Game() {
                           .map((player) => player.userId)
                           .filter((id): id is string => typeof id === 'string' && id !== '')}
                         playerCount={activeMatch.playerCount ?? 4}
+                        friends={friends}
                       />
                     ) : undefined
                   }
@@ -3056,34 +3067,22 @@ export function Game() {
         isDanger
       />
 
-      {/* The in-game name card's one action (M3): BLOCK. A confirm first, because a
-          block hides the pair's speech both ways and cannot be undone from this card:
-          UNBLOCK lives on the friends page, where the confirmation story already is. */}
-      <CyberModal
-        isOpen={blockTarget !== null}
-        title={t('gameChat.blockTitle')}
-        message={t('gameChat.blockConfirm', { name: blockTarget?.name ?? '' })}
-        subMessage={t('gameChat.blockSubMessage')}
-        onCancel={() => setBlockTarget(null)}
-        onProceed={() => {
-          const target = blockTarget;
-          setBlockTarget(null);
-          if (!target) return;
-          void postApi(`/api/friends/block/${target.id}`, {})
-            .then(() => setChatStatus({ tone: 'info', text: t('gameChat.blocked') }))
-            .catch((error: unknown) =>
-              setChatStatus({
-                tone: 'error',
-                text: error instanceof Error ? error.message : t('friends.genericError'),
-              }),
-            );
-        }}
-        cancelLabel={t('gameExtra.cancelBtn')}
-        proceedLabel={t('gameChat.blockProceed')}
-        cancelShortcut="ESC"
-        proceedShortcut="↵"
-        isDanger
-      />
+      {/* The name card (19.7). Pressing a pilot's name in the transcript opens the
+          same card the lobby opens, so a player met across the board can be added,
+          accepted or blocked without leaving the game. It passes no `challenge`: in a
+          room, inviting is the occupancy panel's job, and it says so by not offering
+          the button. */}
+      {nameTarget && (
+        <ChatNameCard
+          target={nameTarget}
+          friends={friends}
+          requests={requests}
+          loading={friendsLoading}
+          onClose={() => setNameTarget(null)}
+          onStatus={setChatStatus}
+          onBlocked={refreshFriends}
+        />
+      )}
 
       {/* Keys and audio, the popover the old column box became. It holds no rule
           switch: those stay in the waiting-room window, which is where the host

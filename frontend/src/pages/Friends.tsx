@@ -1211,7 +1211,7 @@ export function Friends() {
       )}
 
       {/* One gate for the two presses on a row that cannot be undone from here: the
-          same `ConfirmActionModal` the lobby's name card blocks through, so the
+          same `ConfirmActionModal` the chat's name card blocks through, so the
           question, the keyboard shortcuts and the danger styling are one component. */}
       {confirmRow && (
         <ConfirmActionModal

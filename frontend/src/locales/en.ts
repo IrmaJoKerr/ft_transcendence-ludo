@@ -431,19 +431,24 @@ export const en = {
     },
     card: {
       addFriend: 'ADD FRIEND',
+      // The ask ADD FRIEND turns into on its first press: the second press sends.
+      addFriendConfirm: 'SEND REQUEST?',
       requestSent: 'REQUEST SENT',
       accept: 'ACCEPT REQUEST',
       friends: 'FRIENDS',
       challenge: 'CHALLENGE',
       block: 'BLOCK',
     },
-    // The lobby's block confirm. The room's (`gameChat.block*`) says the pair stop
-    // seeing each other in that room; this one also ends the friendship and says so.
+    // The name card's block confirm, in both channels (`ChatNameCard`). It is the one
+    // destructive shell: the consequence names what is actually there to lose, so a
+    // friendship or a pending request is mentioned and a stranger is not.
     block: {
       title: 'SEVER LINK?',
       confirm: 'Block {{name}}?',
       subMessage:
         'This ends the friendship, cancels a pending request, and hides their messages from this channel. It cannot be undone from this card: UNBLOCK lives on the friends screen.',
+      subMessageStranger:
+        'Neither of you will see the other in chat again. It cannot be undone from this card: UNBLOCK lives on the friends screen.',
       proceed: 'BLOCK',
     },
   },
@@ -466,11 +471,6 @@ export const en = {
     // The band's glyph in the room's card: it opens the panel above. A panel's title,
     // not its state — `aria-pressed` says open or shut.
     inviteToggle: 'Invite comms',
-    blockTitle: 'SEVER LINK?',
-    blockConfirm: 'Block {{name}}?',
-    blockSubMessage: 'Neither of you will see the other in chat again. This cannot be undone here.',
-    blockProceed: 'BLOCK',
-    blocked: 'Link severed.',
     // The friends screen's REMOVE confirm. It is the milder of the two row presses, so
     // it says what goes with the friendship rather than what is hidden afterwards.
     removeTitle: 'REMOVE COMRADE?',

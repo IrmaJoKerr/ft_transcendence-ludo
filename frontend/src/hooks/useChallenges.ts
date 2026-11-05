@@ -1,10 +1,11 @@
 // **The one challenge** — the friends page's button, the lobby's name card and the
-// waiting room's INVITE COMMS column all call this, and it posts the one route
+// waiting room's INVITE COMMS panel all call this, and it posts the one route
 // (POST /api/friends/:friendId/invite). The route takes either a `hostColor` (the
 // caller's corner: no room yet, so one is created for them) or a `gameId` (the
 // waiting room the caller already sits in), which is the whole difference between
 // the three screens; the friendship gate, the invite record and the notification
-// behind it are the same writes.
+// behind it are the same writes. A room's name card passes neither, because inviting
+// from a room belongs to the occupancy panel and not to a name (19.7).
 //
 // **Where "already sent" comes from.** Only the server decides. This module keeps no
 // TTL and no copy of the backend's window: the grey state is the server's own list

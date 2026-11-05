@@ -434,20 +434,25 @@ export const fr = {
     },
     card: {
       addFriend: 'AJOUTER UN AMI',
+      // La question que devient ADD FRIEND au premier appui : le second envoie.
+      addFriendConfirm: 'ENVOYER LA DEMANDE ?',
       requestSent: 'DEMANDE ENVOYÉE',
       accept: 'ACCEPTER LA DEMANDE',
       friends: 'AMIS',
       challenge: 'DÉFIER',
       block: 'BLOQUER',
     },
-    // La confirmation de blocage du lobby. Celle de la salle (`gameChat.block*`) dit que
-    // les deux pilotes cessent de se voir dans cette salle ; celle-ci met aussi fin à
-    // l’amitié et le dit.
+    // La confirmation de blocage de la carte de nom, dans les deux canaux
+    // (`ChatNameCard`). C’est la seule coquille destructive : la conséquence nomme ce
+    // qu’il y a réellement à perdre, donc une amitié ou une demande en attente est
+    // mentionnée et un inconnu ne l’est pas.
     block: {
       title: 'ROMPRE LE LIEN ?',
       confirm: 'Bloquer {{name}} ?',
       subMessage:
         'Cela met fin à l’amitié, annule une demande en attente et masque ses messages sur ce canal. Cela ne peut pas être annulé depuis cette carte : DÉBLOQUER se trouve sur l’écran des amis.',
+      subMessageStranger:
+        'Vous ne vous verrez plus dans le chat. Cela ne peut pas être annulé depuis cette carte : DÉBLOQUER se trouve sur l’écran des amis.',
       proceed: 'BLOQUER',
     },
   },
@@ -469,12 +474,6 @@ export const fr = {
     inviteSentShort: 'ENVOYÉ',
     inviteSent: 'Invitation envoyée.',
     inviteToggle: 'Comms d’invitation',
-    blockTitle: 'ROMPRE LE LIEN ?',
-    blockConfirm: 'Bloquer {{name}} ?',
-    blockSubMessage:
-      'Vous ne vous verrez plus dans le chat. Cette action est irréversible ici.',
-    blockProceed: 'BLOQUER',
-    blocked: 'Lien rompu.',
     // Le confirm de RETIRER, la plus douce des deux pressions de la ligne : il dit ce
     // qui part avec l'amitié, pas ce qui disparaît ensuite.
     removeTitle: 'RETIRER LE CAMARADE ?',
