@@ -77,6 +77,11 @@ export class MatchService {
   async isWaitingRoom(gameId: string) {
     return this.player.isWaitingRoom(gameId);
   }
+  // The one-seat lock, asked of an account rather than of a room: the challenge
+  // accept gates the challenger with it before creating the room that seats them.
+  async seatedMatch(userId: string) {
+    return this.player.seatedMatch(userId);
+  }
 
   // Mark Started (called by ludo-engine once a PvP game actually starts)
   async markStarted(gameId: string) {

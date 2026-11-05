@@ -344,6 +344,10 @@ never be silently rewritten from the other.
 | `user2StatusAt` | DateTime? | | When user2's status changed (TTL / cooldown base) |
 | `requestCount` | Int | Default: 0 | Re-request bookkeeping |
 | `lastRequestAt` | DateTime? | | When the last request was sent (24 h pending TTL) |
+| `user1RefusalStreak` | Int | Default: 0 | How many of user2's challenges user1 has refused (the ladder's rung) |
+| `user2RefusalStreak` | Int | Default: 0 | How many of user1's challenges user2 has refused |
+| `user1RefusalsUntil` | DateTime? | | Until when user1's refusals suspend challenges toward them (2 h / 4 h / 24 h) |
+| `user2RefusalsUntil` | DateTime? | | Until when user2's refusals suspend challenges toward them |
 | `createdAt` | DateTime | Auto | When the pair row was created |
 | `updatedAt` | DateTime | Auto | Last change |
 
@@ -353,6 +357,12 @@ never be silently rewritten from the other.
 > re-requests after a 1 h cooldown; both are applied lazily on read by the pure
 > helpers in `backend/src/friends/friendship-pair.ts` (see
 > [backend-friends-module.md](./backend-friends-module.md)).
+>
+> The four ladder columns are the same per-direction shape as the two statuses: the
+> streak is the refuser's own count and the deadline is what it buys (19.6). They sit
+> on this row rather than in Redis because the streak is not transient — it outlives
+> the deadline and is reset only by an accepted challenge — and because the send path
+> already loads this row for the friendship gate, so the cooldown costs no extra read.
 
 
 ---

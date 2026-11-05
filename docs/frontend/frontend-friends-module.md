@@ -21,8 +21,8 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 1. **Friends list** — accepted friends with avatar, username, rating, and live presence status.
 2. **Friend requests** — requests you have received and not yet answered, each with accept and decline actions; you can also send a request by username.
 3. **Blocked list** — users you have blocked, each with an unblock action. The two lists are separate tabs: Friends and Blocked.
-4. **One challenge route** — `POST /api/friends/:friendId/invite`, which answers with the room: `{ hostColor }` creates it and returns the caller's credentials (the friends screen always took this shape), `{ gameId }` stages the friend into a room the caller already sits in. The route never seats the friend (they claim a corner when they accept), so a friend who is already seated elsewhere is refused at accept, not here. A second press while a challenge to that friend is still out is `409 CHALLENGE_ALREADY_SENT`.
-5. **The grey state is the server's**, not a client TTL: `useChallenges` reads `GET /api/friends/challenges/sent` (on mount, and again on window focus) and adds the echo of its own presses. A greyed CHALLENGE stays pressable; the press asks, and the 409 prints `errors.CHALLENGE_ALREADY_SENT` in the page's band.
+4. **Two places to offer a game** (19.6). **CHALLENGE** posts `POST /api/friends/:friendId/challenge` with `{ hostColor }`, the corner the challenger will host in: it creates nothing, answers `{ ok, kind: 'challenge' }`, and the page says the challenge is out (`friends.challengeSent`) rather than navigating. The room appears when the friend accepts — the server sends `challenge_accepted`, and the challenger enters it from the toast, the bell, or the dock's rejoin banner. A **room invite** (`POST /api/friends/:friendId/invite` with `{ gameId }`) is the other act and belongs to the surfaces that already sit in a room: the lobby's name card and the waiting room's INVITE COMMS column.
+5. **The grey state is the server's**, not a client TTL: `useChallenges` reads `GET /api/friends/challenges/sent` (on mount, and again on window focus) and adds the echo of its own presses. A greyed CHALLENGE stays pressable; the press asks, and the 409 prints in the page's band — `errors.CHALLENGE_ALREADY_SENT`, or `errors.CHALLENGE_COOLDOWN` while a refusal of the friend's still runs.
 6. **BLOCK and REMOVE confirm** through `ConfirmActionModal` (the same gate both name cards block through), because neither can be undone from this screen: `friends.block*` and `friends.remove*` carry the two questions.
 
 > **Note:** The Friends page reads its data from the backend API (Application Programming Interface) once, for first paint. Every later change arrives as a `friendship:changed` record on the session socket, so no list is polled.
@@ -38,7 +38,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 |------|------|
 | `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the two confirms |
 | `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
-| `src/hooks/useChallenges.ts` | The one challenge: the server's sent list, the press, and the 409, with no client window |
+| `src/hooks/useChallenges.ts` | The two send routes (challenge and room invite): the server's sent list, the press, and the 409s, with no client window |
 | `src/components/ConfirmActionModal.tsx` | The shared confirm for BLOCK and REMOVE (and both name cards) |
 | `src/friendshipFeed.ts` | Pure merge functions (friends / requests / blocked) — the record always wins over the snapshot |
 | `src/components/UserAvatar.tsx` | Player avatars |
@@ -159,9 +159,11 @@ Remove → DELETE /api/friends/remove/{friendId}   (after a ConfirmActionModal)
 Block  → POST /api/friends/block/{friendId}      (after a ConfirmActionModal)
 Unblock→ POST /api/friends/unblock/{userId}
 Challenge (greyed by) → GET /api/friends/challenges/sent
-Challenge (press)     → POST /api/friends/{friendId}/invite { hostColor } → setActiveMatch(room) → navigate('/game?gameId={gameId}')
+Challenge (press)     → POST /api/friends/{friendId}/challenge { hostColor } → friends.challengeSent in the band (stays on the page)
   ├── 409 CHALLENGE_ALREADY_SENT → errors.CHALLENGE_ALREADY_SENT in the band, and the row greys itself
-  └── 403 MATCH_ALREADY_SEATED → errors.MATCH_ALREADY_SEATED (the create shape refuses while a seat is held)
+  ├── 409 CHALLENGE_COOLDOWN     → errors.CHALLENGE_COOLDOWN (the friend refused a challenge recently)
+  └── 403 MATCH_ALREADY_SEATED   → errors.MATCH_ALREADY_SEATED (a duel seats the challenger first, so a held seat refuses the send)
+The room then arrives on its own: challenge_accepted → toast/bell ENTER TABLE → /gamelobby?join={code} → rejoin
 ```
 
 
@@ -174,9 +176,9 @@ Challenge (press)     → POST /api/friends/{friendId}/invite { hostColor } → 
 | Dependency | Purpose |
 |-----------|---------|
 | `api.ts` | `postApi`, `fetchWithCsrf` and `translateErrorCode` request helpers |
-| `hooks/useChallenges.ts` | The challenge route and the server's sent list (the grey state) |
+| `hooks/useChallenges.ts` | The two send routes (challenge / room invite) and the server's sent list (the grey state) |
 | `components/ConfirmActionModal.tsx` | The confirm both destructive row presses open |
-| `store.tsx` | `useApp` for user, setActiveMatch (the challenge's creating shape) |
+| `store.tsx` | `useApp` for user and the presence feed behind the list |
 | `router.tsx` | `navigate` |
 | `i18n.ts` | `useTranslation` (`friends.*` keys) |
 

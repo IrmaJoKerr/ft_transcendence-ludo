@@ -82,18 +82,54 @@ export class FriendsController {
   }
 
   // Game Invitations
+  //
+  // **Two routes, one per act** (19.6). A challenge is a duel: nothing is created
+  // until the invitee accepts, and the answer comes back through the same target.
+  // A room invite offers a seat in a room the caller already sits in, so it carries
+  // that room's id and never creates one.
+  @UseGuards(JwtAuthGuard)
+  @Throttle(FRIENDS_THROTTLE.invite)
+  @Post('api/friends/:friendId/challenge')
+  challengeFriend(
+    @Request() req: { user: { id: string } },
+    @Param('friendId') friendId: string,
+    // `hostColor` is the corner the challenger will sit in once the duel exists:
+    // the room is made at the accept, and the host is seated first.
+    @Body() dto: ChallengeFriendDto,
+  ) {
+    return this.friends.challengeFriend(req.user.id, friendId, dto.hostColor);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Throttle(FRIENDS_THROTTLE.invite)
   @Post('api/friends/:friendId/invite')
-  inviteToGame(
+  inviteToRoom(
     @Request() req: { user: { id: string } },
     @Param('friendId') friendId: string,
-    // One body, two shapes (both optional): `gameId` names the waiting room the
-    // caller already sits in, and `hostColor` is the corner the caller takes when
-    // the room has to be created for them.
+    // `gameId` is the waiting room the caller already sits in: the invite offers a
+    // seat in it, and nothing is created.
     @Body() dto: ChallengeFriendDto,
   ) {
-    return this.friends.inviteToGame(req.user.id, friendId, dto.hostColor, dto.gameId);
+    return this.friends.inviteToRoom(req.user.id, friendId, dto.gameId);
+  }
+
+  // The two answers to a challenge. ACCEPT creates the room; DECLINE writes the one
+  // rung of the refusal ladder that a decline is, and neither is a friend request.
+  @UseGuards(JwtAuthGuard)
+  @Throttle(FRIENDS_THROTTLE.accept)
+  @Post('api/friends/challenges/:friendId/accept')
+  acceptChallenge(@Request() req: { user: { id: string } }, @Param('friendId') fromUserId: string) {
+    return this.friends.acceptChallenge(req.user.id, fromUserId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle(FRIENDS_THROTTLE.decline)
+  @Post('api/friends/challenges/:friendId/decline')
+  declineChallenge(
+    @Request() req: { user: { id: string } },
+    @Param('friendId') fromUserId: string,
+  ) {
+    return this.friends.declineChallenge(req.user.id, fromUserId);
   }
 
   // The challenges this caller has out: what every CHALLENGE button greys itself

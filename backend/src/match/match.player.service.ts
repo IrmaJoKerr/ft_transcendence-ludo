@@ -17,8 +17,7 @@ import { findSeatedMatch, ENDED_MATCH_STATUSES } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
 import { readRoomRules } from './room-rules';
 import { signEngineToken } from './engine-token.util';
-
-const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
+import { SLOT_COLORS } from './slot-colors';
 
 @Injectable()
 // Per-player match actions: joining, rejoining, inviting friends, ready
@@ -248,8 +247,8 @@ export class MatchPlayerService {
 
   // Can this room take a friend right now? The room's own preconditions and nothing
   // else: the friendship gate, the invite record and the notification all belong to
-  // FriendsService.inviteToGame, which is this method's only caller — one gate for
-  // every CHALLENGE button in the app instead of one per entry point.
+  // FriendsService.inviteToRoom, which is this method's only caller — one gate for
+  // every room-invite surface instead of one per entry point.
   //
   // The seat is deliberately not created here: a seat owns a colour, so the friend
   // claims one from the palette when they accept (POST api/match/join/:code).
@@ -291,6 +290,15 @@ export class MatchPlayerService {
   // so the sender may challenge that friend again.
   async isWaitingRoom(gameId: string): Promise<boolean> {
     return (await this.redis.hget(`match:${gameId}`, 'status')) === 'WAITING';
+  }
+
+  // Does this account hold a seat anywhere right now, waiting room included? The
+  // challenge accept asks it of the challenger (19.6): the room is created at the
+  // accept, so the create gate has not run against the challenger yet and the
+  // question has to be asked here instead. Nothing is exempt — the room the accept
+  // is about to make does not exist yet.
+  async seatedMatch(userId: string): Promise<boolean> {
+    return Boolean(await findSeatedMatch(this.redis, userId));
   }
 
   // Toggle the ready flag for a player in a WAITING match.

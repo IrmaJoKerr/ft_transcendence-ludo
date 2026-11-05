@@ -25,7 +25,13 @@ The Notification module delivers notifications to users and keeps their bell. It
 1. **Storage** — the bell is a Redis structure per account (D12): a `notif:<userId>` hash of id → frame JSON plus a `notif:<userId>:unread` sorted set of the unread ids. Both expire after 14 days, hold at most 150 entries, and lose an entry the moment it is read.
 2. **Real-time push** — `notify()` publishes on Redis Pub/Sub (`notify:<userId>`) and the session socket delivers the frame to every tab that account has open (`notification`). The unread list is re-sent on every connect (`notifications:unread`), which is the bell's only read path: there is no SSE stream and no REST list route.
 
-Notification types: `friend_request`, `friend_accepted`, `friend_removed`, `friend_declined`, `game_invite`, `achievement`, `match_finished`, `match_cancelled`, `profile_updated`, `display_name_changed`, `friend_online`, `friend_offline`, `avatar_changed`.
+Notification types: `friend_request`, `friend_accepted`, `friend_removed`, `friend_declined`, `game_invite`, `challenge_accepted`, `achievement`, `match_finished`, `match_cancelled`, `profile_updated`, `display_name_changed`, `friend_online`, `friend_offline`, `avatar_changed`.
+
+> **`game_invite` carries two acts** (19.6). Its `payload.kind` is `'challenge'` (a duel from a
+> friend: `fromUserId`, `fromUsername`, `hostColor`, no room yet) or `'room'` (a seat offered in a
+> room that already waits: `gameId`, `inviteCode`, `playerCount`). The client answers each
+> differently — a challenge posts the accept/decline routes, a room invite carries its code to the
+> lobby — and `challenge_accepted` is the challenger's own frame when the accept creates the room.
 
 > **The `friend_*` types are not the friendship feed.** Each one is addressed to a single side of a
 > pair (`friend_request` → the target, `friend_accepted` → the requester, `friend_removed` → the
@@ -162,6 +168,7 @@ export type NotificationType =
   | 'friend_removed'
   | 'friend_declined'
   | 'game_invite'
+  | 'challenge_accepted'
   | 'achievement'
   | 'match_finished'
   | 'match_cancelled'

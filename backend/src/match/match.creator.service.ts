@@ -23,8 +23,8 @@ import {
   roomRuleHashFields,
   type RoomRules,
 } from './room-rules';
+import { SLOT_COLORS } from './slot-colors';
 
-const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 const FRONTEND_URL = requireSecret('FRONTEND_URL');
 export const ENGINE_WS_URL = FRONTEND_URL.replace(/^http/, 'ws');
 

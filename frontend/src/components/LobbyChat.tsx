@@ -165,10 +165,12 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
     [user],
   );
 
-  // CHALLENGE is this surface's to offer: the friends list's own duel, sent with the
-  // room the viewer already sits in. It is thrown on refusal so the card's band
-  // carries the server's sentence, and it stays optional because a name card without
-  // a duel (the room's) simply does not pass it.
+  // CHALLENGE is this surface's to offer: the friends list's own duel, thrown at the
+  // room the viewer already sits in — a seat offer, not a duel, because a duel makes
+  // its own room at the accept and a seated player cannot host a second one (19.6).
+  // It is thrown on refusal so the card's band carries the server's sentence, and it
+  // stays optional because a name card without a duel (the room's) simply does not
+  // pass it.
   const challengeName = useCallback(
     async (target: ChatNameCardTarget) => {
       if (!activeMatch) throw new Error(t('friends.genericError'));

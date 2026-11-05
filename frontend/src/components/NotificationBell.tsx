@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import type { Notification } from '../hooks/useNotifications';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
+import { postApi } from '../api';
+import { useApp, type ActiveMatch } from '../store';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 import { railButtonStyle, railHoverHandlers } from './railButton';
@@ -21,6 +23,12 @@ function getNotificationTypeBadge(type: string): {
       return {
         tagKey: 'notifications.matchChallengeTag',
         defaultTag: '[MATCH_INVITE]',
+        color: 'var(--accent-cyan, #00f0ff)',
+      };
+    case 'challenge_accepted':
+      return {
+        tagKey: 'notifications.matchAcceptedTag',
+        defaultTag: '[CHALLENGE_ACCEPTED]',
         color: 'var(--accent-cyan, #00f0ff)',
       };
     case 'friend_request':
@@ -131,6 +139,8 @@ function renderNotificationBody(
       return <span>{t('notifications.friendAcceptedText', { username: from })}</span>;
     case 'game_invite':
       return <span>{t('notifications.matchChallengeText', { username: from })}</span>;
+    case 'challenge_accepted':
+      return <span>{t('notifications.matchAcceptedText', { username: from })}</span>;
     case 'achievement': {
       const nameKey = payload.nameKey as string | undefined;
       const name = nameKey ? t(nameKey) : '';
@@ -234,6 +244,9 @@ export function NotificationBell({
   // The panel's open state lives in the notification context: the digest toast at
   // the app root has to be able to open it (Phase 4).
   const { bellOpen, setBellOpen, unavailable } = useNotifications();
+  // The accept's handoff is applied like any other room entry: the seat the server
+  // wrote is what the game page reads.
+  const { setActiveMatch } = useApp();
   const open = bellOpen;
   const setOpen = setBellOpen;
   const ref = useRef<HTMLDivElement>(null);
@@ -305,6 +318,31 @@ export function NotificationBell({
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
   };
 
+  // The two answers a challenge has (19.6). The bell is a log, so a refused accept has
+  // nowhere here to be read: the toast is where the four named failures are printed,
+  // and a press that fails leaves the row where it was rather than guessing.
+  const acceptChallenge = async (p: Record<string, unknown>) => {
+    const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
+    if (!fromId) return;
+    try {
+      const seat = await postApi<NonNullable<ActiveMatch>>(
+        `/api/friends/challenges/${fromId}/accept`,
+        {},
+      );
+      setActiveMatch(seat);
+      navigate(`/game?gameId=${seat.gameId}`);
+    } catch (error) {
+      console.error('[notifications] challenge accept failed:', error);
+    }
+  };
+
+  // The challenger's way in: the accept already seated them in the room, so the
+  // lobby's own rejoin is what opens it.
+  const enterTable = (p: Record<string, unknown>) => {
+    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
+    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
+  };
+
   const handleItemClick = (n: Notification) => {
     if (n.id) {
       onMarkRead(n.id);
@@ -317,10 +355,18 @@ export function NotificationBell({
 
     const p = parseNotificationPayload(n.payload);
 
-    if (n.type === 'game_invite') {
+    if (n.type === 'game_invite' && p.kind === 'challenge') {
+      // A challenge names no room: the accept is the request that makes one, and the
+      // answer is the seat that opens the game page.
+      void acceptChallenge(p);
+      setOpen(false);
+    } else if (n.type === 'game_invite') {
       // The invite carries the room, not a seat: accepting lands in the lobby with
       // the code filled in, where the invitee claims one of the room's free corners.
       acceptInvite(p);
+      setOpen(false);
+    } else if (n.type === 'challenge_accepted') {
+      enterTable(p);
       setOpen(false);
     } else if (n.type === 'friend_request' || n.type === 'friend_accepted') {
       navigate('/friends');

@@ -6,8 +6,7 @@ import { ConfirmActionModal } from '../components/ConfirmActionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
 import { navigate } from '../router';
-import { useApp } from '../store';
-import { useChallenges, challengeCredentials } from '../hooks/useChallenges';
+import { useChallenges } from '../hooks/useChallenges';
 import { useFriendships } from '../hooks/useFriendships';
 import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
@@ -36,7 +35,6 @@ const STATUS_KEYS: Record<PresenceStatus, string> = {
 
 export function Friends() {
   const { t } = useTranslation();
-  const { setActiveMatch } = useApp();
 
   // **CRT CONTROLS**
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
@@ -159,20 +157,22 @@ export function Friends() {
     retroAudio.playUiBeep(780, 0.06);
     const friend = friends.find((row) => row.id === friendId);
     const name = friend?.displayName ?? friend?.username ?? friendId;
-    // No room exists yet, so this is the creating shape: the caller names their corner
-    // and the route answers with the credentials that seat them in the new room.
+    // A duel, not a room (19.6): the corner is the one this caller will host in once
+    // the friend accepts, and nothing exists until they do. So the press answers with
+    // the challenge being out, and the room arrives later as a `challenge_accepted`
+    // frame — the toast, the bell, and the dock's rejoin banner all lead to it.
     const outcome = await challenge({ id: friendId, name }, { hostColor });
-    const room = outcome.ok ? challengeCredentials(outcome.room) : null;
-    if (!room) {
+    if (!outcome.ok) {
       setMsg({
-        text: (outcome.ok ? '' : outcome.message) || t('friends.genericError'),
+        text: outcome.message || t('friends.genericError'),
         type: 'error',
       });
       setInvitingId(null);
       return;
     }
-    setActiveMatch(room);
-    navigate(`/game?gameId=${room.gameId}`);
+    retroAudio.playUiBeep(880, 0.06);
+    setMsg({ text: t('friends.challengeSent', { name }), type: 'success' });
+    setInvitingId(null);
   };
 
   const handleRemove = async (friendId: string) => {
@@ -1193,9 +1193,10 @@ export function Friends() {
         </div>
       </div>
 
-      {/* The corner picker. The inviter hosts the room, so they claim one corner
-          before it exists; the friend picks from the remaining three when they
-          accept the invite. */}
+      {/* The corner picker. A duel seats this caller first when the friend accepts, so
+          they claim the corner they will host in before anything is sent; the friend
+          takes the first free one at that accept (19.6). */}
+
       {paletteFriendId !== null && (
         <ColorPaletteModal
           isOpen

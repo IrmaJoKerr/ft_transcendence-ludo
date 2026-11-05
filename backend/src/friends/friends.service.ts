@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
   ConflictException,
+  HttpException,
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
@@ -20,11 +21,15 @@ import {
   isFriendPair,
   isBlockedPair,
   effectiveStatus,
+  refusalSide,
+  nextRefusal,
   DECLINE_COOLDOWN_MS,
   CHALLENGE_TTL_MS,
   type FriendshipStatus,
   type PairLike,
+  type RefusalPairLike,
 } from './friendship-pair';
+import { firstFreeColor } from '../match/slot-colors';
 
 // Shape returned for each entry in the sent/received friend-request lists.
 type FriendRequestView = {
@@ -37,14 +42,48 @@ type FriendRequestView = {
   createdAt: Date;
 };
 
-// One challenge the caller has out: the friend, the room it points at, and when it
-// was sent. `sentAt` is what the reader expires it on.
+// One offer the caller has out. Two kinds travel this list because two acts put an
+// entry here (19.6): a *challenge*, which is a duel and points at no room until it
+// is accepted, and a *room invite*, which offers a seat in the waiting room the
+// caller already sits in. `sentAt` is what the reader expires either on.
 export type SentChallenge = {
   userId: string;
-  gameId: string;
+  kind: 'challenge' | 'room';
+  gameId?: string;
   inviteCode?: string;
   sentAt: number;
 };
+
+// What the invitee holds in `invite:<userId>`: one offer, either kind. Every field
+// is optional because the record is read back off Redis, where each value is a
+// claim to verify rather than a value to trust.
+type PendingInvite = {
+  kind?: 'challenge' | 'room';
+  fromUserId?: string;
+  fromUsername?: string;
+  hostColor?: string;
+  gameId?: string;
+  inviteCode?: string;
+  playerCount?: number;
+  createdAt?: number;
+};
+
+// How long an accept waits for the challenger to become free, and how often it
+// asks. Polled rather than refused on the first tick because the two answers come
+// a second or two apart — one player finishing an abort, a socket reconnecting —
+// and a refusal there would spend a challenge that was about to be answered.
+const PRESENCE_GATE_MS = 2000;
+const PRESENCE_GATE_STEP_MS = 100;
+
+// The `code` a service exception carries. Only a couple of places translate one
+// failure into another (the challenge accept does it for the challenger's seat), and
+// each of them has to read the code rather than the message to do it.
+function errorCode(error: unknown): string | undefined {
+  if (!(error instanceof HttpException)) return undefined;
+  const response = error.getResponse();
+  if (typeof response !== 'object') return undefined;
+  return (response as { code?: string }).code;
+}
 
 @Injectable()
 // Friend system: friend requests/accept/decline, friend list with online
@@ -73,90 +112,205 @@ export class FriendsService {
     });
   }
 
-  // Challenge a friend, in one call with two shapes. With a `gameId` the friend is
-  // staged into the room the caller already sits in; without one a room is created
-  // for them and the caller is handed its credentials. Both shapes write the same
-  // three records (the `game_invite` notification, the invitee's pending invite,
-  // and the inviter's `challenge:` entry), so every CHALLENGE button in the app —
-  // the friends page, the lobby's name card, the waiting room's column — is this
-  // path. POST /api/friends/:friendId/invite
-  async inviteToGame(userId: string, friendId: string, hostColor?: string, gameId?: string) {
-    if (userId === friendId)
+  // POST /api/friends/:friendId/challenge
+  //
+  // A duel. Nothing is created here: the room is made by the accept, because a room
+  // made at the send holds an id, seats and colours for a challenge that may never
+  // be answered, and blocks both players from starting anything else while it waits.
+  async challengeFriend(userId: string, friendId: string, hostColor?: string) {
+    const pair = await this.assertOfferable(userId, friendId);
+    this.assertNoRefusalCooldown(pair, friendId);
+
+    if (!hostColor)
       throw new BadRequestException({
-        code: 'FRIEND_INVITE_SELF',
-        message: 'Cannot invite yourself',
+        code: 'CHALLENGE_COLOR_REQUIRED',
+        message: 'Pick a corner before challenging',
       });
 
-    const pair = await this.findPair(userId, friendId);
-    if (pair && isBlockedPair(pair))
+    // The room the accept will make seats the challenger first, so a challenger who
+    // already holds a seat would be handed a room they cannot enter. That is
+    // answered here, on the sender's own screen, rather than as a failed accept on
+    // the other player's.
+    if (await this.matchService.seatedMatch(userId))
       throw new ForbiddenException({
-        code: 'FRIEND_BLOCKED',
-        message: 'Cannot invite - user is blocked',
-      });
-    if (!pair || !isFriendPair(pair))
-      throw new ForbiddenException({
-        code: 'NOT_FRIENDS_WITH_USER',
-        message: 'You are not friends with this user',
+        code: 'MATCH_ALREADY_SEATED',
+        message:
+          'You are already seated in a game. Return to it, or click Abort to leave it before creating or joining another.',
       });
 
-    // One challenge per friend at a time. Without this the create shape would mint
-    // a second room on every press, and the friend would hold an invite to a room
-    // nobody is sitting in.
-    const pending = await this.sentChallenges(userId);
-    if (pending.some((row) => row.userId === friendId))
-      throw new ConflictException({
-        code: 'CHALLENGE_ALREADY_SENT',
-        message: 'A challenge to this player is already pending',
-      });
-
-    // The room: the caller's own waiting room, or a new one. The match service owns
-    // both questions — a room's seat/PvP/WAITING preconditions live with the room,
-    // and a create takes the host's corner because the host is seated first.
-    const room = gameId
-      ? await this.matchService.assertInvitableRoom(gameId, userId)
-      : await this.matchService.createInvite(userId, undefined, hostColor);
-
-    const inviter = await this.prisma.db.user.findUnique({
-      where: { id: userId },
-      select: { username: true, displayName: true },
+    const fromUsername = await this.username(userId);
+    await this.notificationService.notify(friendId, 'game_invite', {
+      kind: 'challenge',
+      fromUserId: userId,
+      fromUsername,
+      hostColor,
     });
-    const fromUsername = inviter?.username ?? 'A friend';
+    await this.rememberPending(friendId, {
+      kind: 'challenge',
+      fromUserId: userId,
+      fromUsername,
+      hostColor,
+      createdAt: Date.now(),
+    });
+    await this.recordChallenge(userId, friendId, { kind: 'challenge' });
+
+    // Nothing to hand back: no room exists yet. The sender's screen says the
+    // challenge is out, and the room arrives with the `challenge_accepted` frame.
+    return { ok: true, kind: 'challenge' as const };
+  }
+
+  // POST /api/friends/:friendId/invite
+  //
+  // A seat, not a duel: the caller already sits in a waiting room and offers the
+  // friend one of its free corners. The friend answers it by joining, so there is
+  // nothing here to decline and nothing to count.
+  async inviteToRoom(userId: string, friendId: string, gameId?: string) {
+    await this.assertOfferable(userId, friendId);
+
+    if (!gameId)
+      throw new BadRequestException({
+        code: 'FRIEND_INVITE_ROOM_REQUIRED',
+        message: 'A room invite needs the room it offers a seat in',
+      });
+
+    // The room's own preconditions live with the room: a seat/PvP/WAITING check, and
+    // the caller must be one of its players.
+    const room = await this.matchService.assertInvitableRoom(gameId, userId);
+    const fromUsername = await this.username(userId);
 
     // The friend is NOT seated here: a seat owns a colour, so they claim one from
-    // the palette when they accept. The invite carries the room only.
+    // the palette when they join. The invite carries the room only.
     await this.notificationService.notify(friendId, 'game_invite', {
+      kind: 'room',
       gameId: room.gameId,
       inviteCode: room.inviteCode,
       fromUsername,
       playerCount: room.playerCount,
     });
+    await this.rememberPending(friendId, {
+      kind: 'room',
+      gameId: room.gameId,
+      inviteCode: room.inviteCode,
+      fromUsername,
+      playerCount: room.playerCount,
+      createdAt: Date.now(),
+    });
+    await this.recordChallenge(userId, friendId, {
+      kind: 'room',
+      gameId: room.gameId,
+      inviteCode: room.inviteCode,
+    });
 
-    // The invitee's own record (GET /api/friends/invites/pending, and the bell that
-    // re-reads it after a reload) and the inviter's challenge record are the two
-    // halves of one send, so they are written together and expire together.
-    await this.redis.set(
-      `invite:${friendId}`,
-      JSON.stringify({
-        gameId: room.gameId,
-        inviteCode: room.inviteCode,
-        fromUsername,
-        createdAt: Date.now(),
-      }),
-      'EX',
-      Math.ceil(CHALLENGE_TTL_MS / 1000),
-    );
-    await this.recordChallenge(userId, friendId, room.gameId, room.inviteCode);
-
-    // A created room also hands the inviter their own credentials, so the caller can
-    // join its own room immediately: the host must be seated before the friend can
-    // accept, otherwise the friend's accept could create/join the room alone.
+    // The caller is already in that room, so the answer is the room alone.
     return room;
   }
 
-  // The challenges this caller has out, newest record per friend. Each entry is
-  // skipped when its stamp is past CHALLENGE_TTL_MS or when its room is no longer
-  // waiting — a friend who already joined, or a room that ended, spends the record
-  // early, which is what lets a re-challenge after a join through.
+  // POST /api/friends/challenges/:friendId/accept
+  //
+  // The accept is where the room is made (19.6). It seats the challenger first, at
+  // the corner they named when they sent, then the invitee, and answers with the
+  // credentials that put the invitee at that table.
+  async acceptChallenge(userId: string, fromUserId: string) {
+    const pending = await this.readPending(userId);
+    if (pending?.kind !== 'challenge' || pending.fromUserId !== fromUserId)
+      throw new NotFoundException({
+        code: 'CHALLENGE_NOT_PENDING',
+        message: 'That challenge is no longer pending',
+      });
+
+    // Both seats have to be present and free, and each failure says which side is
+    // missing. None of them is a refusal: nothing below touches the ladder.
+    if ((await this.presence.getStatus(userId)) !== 'online')
+      throw new ForbiddenException({
+        code: 'CHALLENGEE_OFFLINE',
+        message: 'You are not connected',
+      });
+    if (await this.matchService.seatedMatch(userId))
+      throw new ForbiddenException({
+        code: 'CHALLENGEE_BUSY',
+        message: 'You are already seated in a game',
+      });
+    const challenger = await this.awaitChallengerFree(fromUserId);
+    if (challenger !== 'ok')
+      throw new ForbiddenException(
+        challenger === 'offline'
+          ? { code: 'CHALLENGER_OFFLINE', message: 'That player is not connected' }
+          : { code: 'CHALLENGER_BUSY', message: 'That player is already seated in a game' },
+      );
+
+    const hostColor = pending.hostColor;
+    let created;
+    try {
+      created = await this.matchService.createInvite(fromUserId, undefined, hostColor);
+    } catch (error) {
+      // The gate above was a poll, so this is the window it cannot close: the
+      // challenger took a seat in the same instant. It is still their side that is
+      // missing, so the answer is the one the poll would have given.
+      if (errorCode(error) === 'MATCH_ALREADY_SEATED')
+        throw new ForbiddenException({
+          code: 'CHALLENGER_BUSY',
+          message: 'That player is already seated in a game',
+        });
+      throw error;
+    }
+
+    let seat;
+    try {
+      // The invitee's corner is dealt, not asked: the answer arrived from a
+      // notification, and the only fact that matters is that it is not the host's.
+      seat = await this.matchService.joinMatch(created.gameId, userId, firstFreeColor(hostColor));
+    } catch (error) {
+      // A room nobody can join would keep the challenger's seat out of every other
+      // table: close it rather than leave it waiting.
+      await this.matchService.cancelGame(created.gameId, fromUserId).catch(() => undefined);
+      throw error;
+    }
+
+    // The accepter's own ladder resets: they answered, which is what a streak
+    // measures the absence of. The pending record and the challenger's entry are
+    // spent either way.
+    await this.resetRefusalStreak(userId, fromUserId);
+    await this.redis.del(`invite:${userId}`);
+    await this.redis.hdel(`challenge:${fromUserId}`, userId);
+
+    // The challenger is already seated in that room, so the frame carries the code
+    // the lobby rejoins by, not a second handoff.
+    await this.notificationService.notify(fromUserId, 'challenge_accepted', {
+      gameId: seat.gameId,
+      // The joiner's handoff carries the room's code, and the creator's is the
+      // fallback: the frame has to name the room the challenger rejoins by.
+      inviteCode: seat.inviteCode ?? created.inviteCode,
+      fromUsername: await this.username(userId),
+    });
+
+    return seat;
+  }
+
+  // POST /api/friends/challenges/:friendId/decline
+  //
+  // A refusal is the only act the ladder counts. A challenge that simply expires
+  // costs nothing: ignoring one is not the same as answering it, so a player who was
+  // not looking at the screen is never locked out of the next one.
+  async declineChallenge(userId: string, fromUserId: string) {
+    const pending = await this.readPending(userId);
+    if (pending?.kind !== 'challenge' || pending.fromUserId !== fromUserId)
+      throw new NotFoundException({
+        code: 'CHALLENGE_NOT_PENDING',
+        message: 'That challenge is no longer pending',
+      });
+
+    await this.redis.del(`invite:${userId}`);
+    await this.redis.hdel(`challenge:${fromUserId}`, userId);
+    const ladder = await this.recordRefusal(userId, fromUserId);
+    return { ok: true, ...ladder };
+  }
+
+  // The offers this caller has out, one entry per friend. Each is skipped when its
+  // stamp is past CHALLENGE_TTL_MS, and a room invite is also skipped when its room
+  // is no longer waiting — a friend who already joined, or a room that ended, spends
+  // the record early, which is what lets a re-challenge after a join through. A
+  // challenge has no room to check: its accept or decline deletes the entry, so its
+  // own age is the only lifetime it has.
   private async sentChallenges(userId: string): Promise<SentChallenge[]> {
     const raw = await this.redis.hgetall(`challenge:${userId}`);
     const now = Date.now();
@@ -168,15 +322,19 @@ export class FriendsService {
       } catch {
         continue;
       }
-      if (!parsed.sentAt || !parsed.gameId) continue;
-      if (now - parsed.sentAt > CHALLENGE_TTL_MS) continue;
-      if (!(await this.matchService.isWaitingRoom(parsed.gameId))) continue;
-      rows.push({
-        userId: friendId,
-        gameId: parsed.gameId,
-        inviteCode: parsed.inviteCode,
-        sentAt: parsed.sentAt,
-      });
+      if (!parsed.sentAt || now - parsed.sentAt > CHALLENGE_TTL_MS) continue;
+      if (parsed.gameId) {
+        if (!(await this.matchService.isWaitingRoom(parsed.gameId))) continue;
+        rows.push({
+          userId: friendId,
+          kind: 'room',
+          gameId: parsed.gameId,
+          inviteCode: parsed.inviteCode,
+          sentAt: parsed.sentAt,
+        });
+        continue;
+      }
+      rows.push({ userId: friendId, kind: 'challenge', sentAt: parsed.sentAt });
     }
     return rows;
   }
@@ -190,38 +348,52 @@ export class FriendsService {
   private async recordChallenge(
     userId: string,
     friendId: string,
-    gameId: string,
-    inviteCode?: string,
+    entry: { kind: 'challenge' } | { kind: 'room'; gameId: string; inviteCode?: string },
   ) {
     const key = `challenge:${userId}`;
-    await this.redis.hset(
-      key,
-      friendId,
-      JSON.stringify({ gameId, inviteCode, sentAt: Date.now() }),
-    );
+    await this.redis.hset(key, friendId, JSON.stringify({ ...entry, sentAt: Date.now() }));
     // One hash per inviter, so the key's own life is the last entry's: a press
     // refreshes it, and the per-entry stamp above is the real expiry.
     await this.redis.expire(key, Math.ceil(CHALLENGE_TTL_MS / 1000) + 60);
   }
 
-  // The invitee's side of a challenge: the staged record, plus the one fact that
-  // cannot be stored — whether the room still waits. `expired` is computed on read
-  // because a stored flag would need a writer on every way a room can start or end,
-  // and the record itself stays until its TTL so the invitee reads EXPIRED rather
-  // than nothing at all.
-  async getPendingInvite(userId: string) {
+  // The invitee's own record of one offer, whichever act sent it. Written with the
+  // notification, so the bell that re-reads after a reload and the accept that
+  // answers it read the same facts.
+  private async rememberPending(userId: string, record: PendingInvite) {
+    await this.redis.set(
+      `invite:${userId}`,
+      JSON.stringify(record),
+      'EX',
+      Math.ceil(CHALLENGE_TTL_MS / 1000),
+    );
+  }
+
+  private async readPending(userId: string): Promise<PendingInvite | null> {
     const raw = await this.redis.get(`invite:${userId}`);
     if (!raw) return null;
-    let parsed: { gameId?: string } & Record<string, unknown>;
     try {
-      parsed = JSON.parse(raw) as typeof parsed;
+      return JSON.parse(raw) as PendingInvite;
     } catch {
       return null;
     }
-    const open = typeof parsed.gameId === 'string' && (await this.matchService.isWaitingRoom(parsed.gameId));
-    return { ...parsed, expired: !open };
   }
 
+  // The invitee's side of an offer: the staged record, plus the one fact that cannot
+  // be stored — whether the room still waits. `expired` is computed on read because a
+  // stored flag would need a writer on every way a room can start or end, and the
+  // record itself stays until its TTL so the invitee reads EXPIRED rather than
+  // nothing at all. A challenge has no room yet, so it cannot be stale: its own TTL
+  // is the whole of its life, and an expiry costs nothing (19.6).
+  async getPendingInvite(userId: string) {
+    const parsed = await this.readPending(userId);
+    if (!parsed) return null;
+    const expired =
+      typeof parsed.gameId === 'string' && !(await this.matchService.isWaitingRoom(parsed.gameId));
+    return { ...parsed, expired };
+  }
+
+  // Hiding an offer is not answering it: the record goes, the ladder does not move.
   async dismissInvite(userId: string) {
     await this.redis.del(`invite:${userId}`);
     return { ok: true };
@@ -788,6 +960,110 @@ export class FriendsService {
   // Load the single unordered pair row shared by two users, if any.
   private findPair(a: string, b: string) {
     return this.prisma.db.friendship.findUnique({ where: { pairKey: pairKey(a, b) } });
+  }
+
+  // The gates every offer passes, whichever act it is: not yourself, nothing blocked
+  // between the pair, friends, and no offer to this friend still live. The row comes
+  // back because the challenge path reads the refusal ladder off it.
+  private async assertOfferable(userId: string, friendId: string): Promise<RefusalPairLike> {
+    if (userId === friendId)
+      throw new BadRequestException({
+        code: 'FRIEND_INVITE_SELF',
+        message: 'Cannot invite yourself',
+      });
+
+    const pair = await this.findPair(userId, friendId);
+    if (pair && isBlockedPair(pair))
+      throw new ForbiddenException({
+        code: 'FRIEND_BLOCKED',
+        message: 'Cannot invite - user is blocked',
+      });
+    if (!pair || !isFriendPair(pair))
+      throw new ForbiddenException({
+        code: 'NOT_FRIENDS_WITH_USER',
+        message: 'You are not friends with this user',
+      });
+
+    // One offer per friend at a time. Without it a press mints a second room (the
+    // room invite) or a second pending challenge, and the friend's bell fills with
+    // the same person.
+    const pending = await this.sentChallenges(userId);
+    if (pending.some((row) => row.userId === friendId))
+      throw new ConflictException({
+        code: 'CHALLENGE_ALREADY_SENT',
+        message: 'A challenge to this player is already pending',
+      });
+
+    return pair;
+  }
+
+  // The ladder, read off the row the gate already loaded, so a refusal costs no extra
+  // read on the send path. It gates challenges and not room invites: a decline is an
+  // answer to a duel, so a refusal suspends the duels *toward* the refuser — not the
+  // offers of a seat, and not the challenges the refuser sends themselves.
+  private assertNoRefusalCooldown(pair: RefusalPairLike, friendId: string) {
+    const { until } = refusalSide(pair, friendId);
+    const wait = until ? until.getTime() - Date.now() : 0;
+    if (wait <= 0) return;
+    throw new ConflictException({
+      code: 'CHALLENGE_COOLDOWN',
+      message: 'This player refused a challenge recently',
+      retryAfterMs: wait,
+    });
+  }
+
+  // The other player's half of the accept gate, polled for about two seconds. The
+  // accepting player's own seat is not polled: their state is the request itself.
+  private async awaitChallengerFree(fromUserId: string): Promise<'ok' | 'offline' | 'busy'> {
+    const deadline = Date.now() + PRESENCE_GATE_MS;
+    for (;;) {
+      const online = (await this.presence.getStatus(fromUserId)) === 'online';
+      const seated = await this.matchService.seatedMatch(fromUserId);
+      if (online && !seated) return 'ok';
+      if (Date.now() >= deadline) return online ? 'busy' : 'offline';
+      await new Promise((resolve) => setTimeout(resolve, PRESENCE_GATE_STEP_MS));
+    }
+  }
+
+  // One rung for a refusal, written on the refuser's own side of the pair row: the
+  // streak prices the next rung, so it grows with every refusal and only an accept on
+  // that same side resets it.
+  private async recordRefusal(refuserId: string, otherId: string) {
+    const pair = await this.findPair(refuserId, otherId);
+    if (!pair) return { streak: 0, until: null };
+    const side = refusalSide(pair, refuserId);
+    const next = nextRefusal(side);
+    await this.prisma.db.friendship.update({
+      where: { id: pair.id },
+      data: side.isUser1
+        ? { user1RefusalStreak: next.streak, user1RefusalsUntil: next.until }
+        : { user2RefusalStreak: next.streak, user2RefusalsUntil: next.until },
+    });
+    return { streak: next.streak, until: next.until };
+  }
+
+  // An accepted challenge clears the accepter's own ladder against that challenger.
+  private async resetRefusalStreak(accepterId: string, otherId: string) {
+    const pair = await this.findPair(accepterId, otherId);
+    if (!pair) return;
+    const side = refusalSide(pair, accepterId);
+    if (side.streak === 0 && side.until === null) return;
+    await this.prisma.db.friendship.update({
+      where: { id: pair.id },
+      data: side.isUser1
+        ? { user1RefusalStreak: 0, user1RefusalsUntil: null }
+        : { user2RefusalStreak: 0, user2RefusalsUntil: null },
+    });
+  }
+
+  // The caller's account name for a notification. A row that is somehow missing still
+  // names something rather than leaving the frame blank.
+  private async username(userId: string): Promise<string> {
+    const user = await this.prisma.db.user.findUnique({
+      where: { id: userId },
+      select: { username: true },
+    });
+    return user?.username ?? 'A friend';
   }
 
   // Effective status of the row as seen from one user's side (applies expiry).

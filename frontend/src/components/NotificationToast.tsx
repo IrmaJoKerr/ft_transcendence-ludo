@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Notification } from '../hooks/useNotifications';
 import { navigate } from '../router';
-import { apiFetch } from '../api';
+import { apiFetch, postApi } from '../api';
+import { useApp, type ActiveMatch } from '../store';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN } from '../styles/tw';
 
@@ -99,6 +100,17 @@ function getToastInfo(
         badgeBg: 'rgba(255, 230, 0, 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionMatchCancelled'),
+      };
+    case 'challenge_accepted':
+      // The challenger's half of an accept (19.6): the room exists now, and they are
+      // already seated in it, so the toast's one press goes to the table.
+      return {
+        tag: t('notifications.matchAcceptedTag'),
+        badgeLabel: 'DUEL',
+        badgeColor: 'var(--accent-cyan, #00f0ff)',
+        badgeBg: 'rgba(0, 240, 255, 0.18)',
+        fromUser: from,
+        actionMessage: t('notifications.actionMatchAccepted'),
       };
     case 'match_abandoned':
       return {
@@ -220,6 +232,13 @@ function Toast({
 }) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
+  // The accepted challenge's handoff is applied like any other room entry: the seat
+  // the server just wrote is what the game page reads.
+  const { setActiveMatch } = useApp();
+  // The band's sentence when an answer is refused. The four named failures
+  // (`CHALLENGER_OFFLINE`, `CHALLENGER_BUSY`, `CHALLENGEE_OFFLINE`, `CHALLENGEE_BUSY`)
+  // exist to be read, so the toast stays up and prints one instead of vanishing.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Play audio alert and slide in on mount.
   useEffect(() => {
@@ -255,17 +274,72 @@ function Toast({
     setTimeout(() => onDismiss(notification.id), 350);
   };
 
-  // Accept a game invite
-  const acceptInvite = () => {
+  // Accept an invitation. A room invite carries the room, so the lobby claims a corner
+  // from it; a challenge carries no room at all (19.6), so the accept is the request
+  // that makes one — and the answer is the seat.
+  const acceptInvite = async () => {
     try {
       retroAudio.playUiBeep(880, 0.08);
     } catch {
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
+    if (p.kind === 'challenge') {
+      const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
+      if (!fromId) {
+        dismiss();
+        return;
+      }
+      try {
+        const seat = await postApi<NonNullable<ActiveMatch>>(
+          `/api/friends/challenges/${fromId}/accept`,
+          {},
+        );
+        setActiveMatch(seat);
+        onDismiss(notification.id);
+        navigate(`/game?gameId=${seat.gameId}`);
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : t('friends.genericError'));
+      }
+      return;
+    }
     // The invite carries the room, not a seat: accepting lands in the lobby with the
     // code filled in and the corner claimed there. A seat held elsewhere is left
     // alone: the lobby's lock refuses the claim and the player aborts it themselves.
+    onDismiss(notification.id);
+    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
+    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
+  };
+
+  // Decline a challenge. The one act the refusal ladder counts: the server answers
+  // with the rung it wrote, and the toast only has to go away.
+  const declineInvite = async () => {
+    try {
+      retroAudio.playUiBeep(400, 0.05);
+    } catch {
+      // Ignore: a sound failure should never break the UI.
+    }
+    const p = parseNotificationPayload(notification.payload);
+    const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
+    if (p.kind === 'challenge' && fromId) {
+      try {
+        await postApi(`/api/friends/challenges/${fromId}/decline`, {});
+      } catch {
+        // Ignore: a refusal that cannot be recorded still hides the offer.
+      }
+    }
+    dismiss();
+  };
+
+  // Enter the table an accepted challenge made. The challenger is already seated in
+  // it, so the lobby's own rejoin path is what opens the room.
+  const enterTable = () => {
+    try {
+      retroAudio.playUiBeep(880, 0.08);
+    } catch {
+      // Ignore: a sound failure should never break the UI.
+    }
+    const p = parseNotificationPayload(notification.payload);
     onDismiss(notification.id);
     const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
@@ -312,6 +386,7 @@ function Toast({
     t,
   );
   const isInvite = notification.type === 'game_invite';
+  const isAcceptedChallenge = notification.type === 'challenge_accepted';
 
   const toastStyle: CSSProperties = {
     position: 'fixed',
@@ -463,20 +538,23 @@ function Toast({
               style={{
                 fontFamily: 'var(--font-mono, monospace)',
                 fontSize: '0.82rem',
-                color: '#e4e4e4',
+                color: actionError ? 'var(--accent-pink, #ff007f)' : '#e4e4e4',
                 lineHeight: 1.35,
               }}
             >
-              {actionMessage}
+              {actionError ?? actionMessage}
             </div>
           </div>
         </div>
 
-        {/* Action Buttons for Game Invites */}
+        {/* Action Buttons for Game Invites: a seat offered in a room, or a challenge
+            that has no room yet. Both answer here, in one press each. */}
         {isInvite && (
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             <button
-              onClick={acceptInvite}
+              onClick={() => {
+                void acceptInvite();
+              }}
               className={RETRO_BTN}
               style={{
                 flex: 1,
@@ -497,7 +575,9 @@ function Toast({
               {t('nav.acceptInvite').toUpperCase()}
             </button>
             <button
-              onClick={dismiss}
+              onClick={() => {
+                void declineInvite();
+              }}
               className={RETRO_BTN}
               style={{
                 flex: 1,
@@ -516,6 +596,34 @@ function Toast({
               }}
             >
               {t('nav.declineInvite').toUpperCase()}
+            </button>
+          </div>
+        )}
+
+        {/* The challenger's one press out of the toast: the room exists, they are
+            seated in it, and the lobby's rejoin is what opens it. */}
+        {isAcceptedChallenge && (
+          <div style={{ display: 'flex', marginTop: 4 }}>
+            <button
+              onClick={enterTable}
+              className={RETRO_BTN}
+              style={{
+                width: '100%',
+                height: 38,
+                padding: '0 16px',
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                background: 'rgba(0, 240, 255, 0.18)',
+                border: '2px solid var(--accent-cyan, #00f0ff)',
+                color: 'var(--accent-cyan, #00f0ff)',
+                boxSizing: 'border-box',
+                margin: 0,
+              }}
+            >
+              {t('notifications.enterTable')}
             </button>
           </div>
         )}

@@ -169,39 +169,52 @@ enum FriendshipStatus {
 | `GET` | `/api/friends/blocked` | JWT | List users I have blocked |
 | `POST` | `/api/friends/block/:userId` | JWT | Block a user |
 | `POST` | `/api/friends/unblock/:userId` | JWT | Unblock a user |
-| `POST` | `/api/friends/:friendId/invite` | JWT | Challenge a friend, in one call with two shapes: `{ hostColor }` creates the caller's room and answers its credentials, `{ gameId }` stages the friend into the waiting room the caller already sits in |
-| `GET` | `/api/friends/challenges/sent` | JWT | The challenges this caller has out (`SentChallenge[]`), which is what every CHALLENGE button greys itself from |
-| `GET` | `/api/friends/invites/pending` | JWT | Get my pending game invite |
-| `POST` | `/api/friends/invites/dismiss` | JWT | Dismiss a pending game invite |
+| `POST` | `/api/friends/:friendId/challenge` | JWT | Challenge a friend to a duel (`{ hostColor }`). **Creates nothing**: the room is made by the invitee's accept, and the caller is answered with `{ ok, kind: 'challenge' }` |
+| `POST` | `/api/friends/:friendId/invite` | JWT | Offer a friend a seat in the waiting room the caller already sits in (`{ gameId }`); answers with the room |
+| `POST` | `/api/friends/challenges/:friendId/accept` | JWT | Answer a challenge: gate both seats, create the room, seat the challenger then the invitee, answer the invitee's credentials |
+| `POST` | `/api/friends/challenges/:friendId/decline` | JWT | Refuse a challenge: writes one rung of the pair's refusal ladder (`{ ok, streak, until }`) |
+| `GET` | `/api/friends/challenges/sent` | JWT | The offers this caller has out (`SentChallenge[]`), which is what every CHALLENGE button greys itself from |
+| `GET` | `/api/friends/invites/pending` | JWT | Get my pending offer (a challenge, or a seat in a room) |
+| `POST` | `/api/friends/invites/dismiss` | JWT | Dismiss a pending offer without answering it (no ladder write) |
 
-> **One invite route.** `POST /api/friends/:friendId/invite` takes `ChallengeFriendDto`:
-> both fields optional, `gameId` when the caller already sits in a waiting room and
-> `hostColor` when one has to be created for them. A present-but-empty value is refused
-> at the boundary rather than read as absent, so a mistyped `gameId` cannot quietly mint
-> a second room. Every CHALLENGE in the app (the friends screen's row, the lobby's name
-> card, the waiting room's INVITE COMMS column) is this one path, and the friendship
-> gate, the `game_invite` notification, the invitee's `invite:` record and the inviter's
-> `challenge:` record are its single set of writes.
+> **Two routes, one per act.** A challenge and a room invite are different objects with
+> different lifecycles, and 19.6 split the two shapes that used to share
+> `POST /api/friends/:friendId/invite`:
+>
+> | Act | Route | Body | Room | Answered by |
+> |---|---|---|---|---|
+> | Challenge (a duel) | `POST /api/friends/:friendId/challenge` | `{ hostColor }` | made at the **accept** | `challenges/:friendId/accept` or `/decline` |
+> | Room invite (a seat) | `POST /api/friends/:friendId/invite` | `{ gameId }` | already exists | joining it (`POST /api/match/join/:code`) |
+>
+> Both send the same four writes — the friendship gate, the `game_invite` notification,
+> the invitee's `invite:` record and the sender's `challenge:` record — and neither field
+> is optional in practice: a present-but-empty value is refused at the boundary rather
+> than read as absent, and each route refuses its own field when it is missing
+> (`400 CHALLENGE_COLOR_REQUIRED` / `400 FRIEND_INVITE_ROOM_REQUIRED`).
 
-> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + `notification` frame), and friend lists show live presence status via `PresenceService.getStatuses()`. A challenge creates a room and sends a `game_invite` notification; the challenge record is not pushed, because only the sender reads it, and what spends it is the room (a friend who joined, a room that ended) or its own five-minute stamp at the next read of `GET /api/friends/challenges/sent`.
+> **Real-time touches:** friend requests and accepted friendships fire a `NotificationService.notify()` push (bell + `notification` frame), and friend lists show live presence status via `PresenceService.getStatuses()`. A challenge or a room invite sends a `game_invite` notification discriminated by `payload.kind` (`'challenge'` or `'room'`), and an accepted challenge sends `challenge_accepted` back to the challenger, who is already seated in the room it created. The sent record is not pushed, because only the sender reads it, and what spends it is its own five-minute stamp, the friend's answer (accept and decline both delete it), or — for a room invite — the room no longer waiting.
 
 
 ### Timeouts
 
-Two clocks govern the pair row, and both are **lazy** — nothing is scheduled on the
+Three clocks govern the pair row, and all three are **lazy** — nothing is scheduled on the
 database; `effectiveStatus()` (`friendship-pair.ts`) normalises the stored status on the
-next read.
+next read, and the refusal deadline is compared on the next send.
 
 | Timeout | Value | Source | Effect when it elapses |
 |---|---|---|---|
 | Pending request TTL | 24 h | `PENDING_TTL_MS` (`friendship-pair.ts`) | A live `pending` direction reads as `none`: the sender may re-request (`requestCount` +1) and the row drops out of the sent/received lists |
 | Decline cooldown | 1 h | `DECLINE_COOLDOWN_MS` (`friendship-pair.ts`) | A `declined` direction reads as `none`, so the declined sender may re-request; before it elapses a retry returns `400 FRIEND_REQUEST_COOLDOWN` |
+| Refusal cooldown (challenge) | 2 h → 4 h → 24 h, then 24 h forever | `REFUSAL_LADDER_MS` (`friendship-pair.ts`), stored as `userNRefusalsUntil` | Challenges *toward* the refuser are allowed again; the streak (`userNRefusalStreak`) stays until an accepted challenge on that side resets it, so the next refusal lands on a longer rung |
 | Unblock cooldown | none | — | Unblocking is immediate — contact can restart with a fresh request, no waiting period |
-| Pending game-invite record | 5 min | Redis `invite:<userId>`, set `EX 300` by the invite creator | `GET /api/friends/invites/pending` stops returning the invite and Redis drops the key |
-| Sent-challenge record | 5 min | Redis hash `challenge:<inviterId>` (`EX 360` on the key, one stamp per entry) | `GET /api/friends/challenges/sent` skips the entry, so the friend may be challenged again; a room that is no longer `WAITING` spends it earlier |
+| Pending offer record | 5 min | Redis `invite:<userId>`, set `EX 300` by either send | `GET /api/friends/invites/pending` stops returning the offer and Redis drops the key. A challenge that lapses this way costs **nothing**: a timeout is not a refusal |
+| Sent-offer record | 5 min | Redis hash `challenge:<senderId>` (`EX 360` on the key, one stamp per entry) | `GET /api/friends/challenges/sent` skips the entry, so the friend may be challenged again; an accept or a decline deletes it earlier, and so does a room invite whose room is no longer `WAITING` |
 
 > The two friendship timeouts are per-direction and independent: each side's
-> `pending`/`declined` expires off its own `user1StatusAt` / `user2StatusAt` timestamp.
+> `pending`/`declined` expires off its own `user1StatusAt` / `user2StatusAt` timestamp. The
+> ladder is per-direction for the same reason — four columns, so neither player's rung can
+> move the other's — and it lives on the row rather than in Redis because it is not
+> transient: the deadline is a couple of hours but the streak outlives it.
 
 
 ---
@@ -457,9 +470,20 @@ stateDiagram-v2
 > | A invites B to a game | the pair is not currently friends | `403 NOT_FRIENDS_WITH_USER` |
 > | A invites B to a game | either side is `blocked` | `403 FRIEND_BLOCKED` |
 > | A invites themself | — | `400 FRIEND_INVITE_SELF` |
-> | A invites B to a game | a challenge to B is already out (5 min, or its room is still waiting) | `409 CHALLENGE_ALREADY_SENT` |
-> | A invites B to a game | A already holds a seat in a live game | `403 MATCH_ALREADY_SEATED` (room create refused) |
+> | A challenges or invites B | an offer to B is already out (5 min, or its room still waiting) | `409 CHALLENGE_ALREADY_SENT` |
+> | A challenges B | B refused a challenge recently and the ladder's window still runs | `409 CHALLENGE_COOLDOWN` (carries `retryAfterMs`) |
+> | A challenges B | A already holds a seat in a live game | `403 MATCH_ALREADY_SEATED` (a duel would seat them twice) |
+> | A challenges B | no `hostColor` in the body | `400 CHALLENGE_COLOR_REQUIRED` |
+> | A invites B into a room | no `gameId` in the body | `400 FRIEND_INVITE_ROOM_REQUIRED` |
 > | A invites B into a room | the room is not the caller's, or is not `WAITING` / `PVP` | `403 MATCH_NOT_PLAYER` / `403 MATCH_ALREADY_STARTED` / `403 MATCH_PVP_ONLY_INVITE` (from `assertInvitableRoom`) |
+> | A accepts B's challenge | A holds no pending challenge from B | `404 CHALLENGE_NOT_PENDING` |
+> | A accepts B's challenge | A is not `online` / A already holds a seat | `403 CHALLENGEE_OFFLINE` / `403 CHALLENGEE_BUSY` |
+> | A accepts B's challenge | B is not `online`, or holds a seat, after the 2 s poll | `403 CHALLENGER_OFFLINE` / `403 CHALLENGER_BUSY` |
+> | A declines B's challenge | A holds no pending challenge from B | `404 CHALLENGE_NOT_PENDING` |
+>
+> The four accept failures name **which side** is missing and none of them touches the
+> ladder: a challenger who was not looking at the screen is never charged a refusal for a
+> failed accept. Only `POST /api/friends/challenges/:friendId/decline` writes a rung.
 
 
 ---
@@ -545,9 +569,9 @@ open does not re-push, so it lingers until the next focus/refocus.
 payload would have to be filtered per viewer, which is exactly the viewer-dependence the room model
 avoids. Only the owner's own list is live.
 
-### 10. Challenge a friend (`POST /api/friends/:friendId/invite`)
+### 10. Challenge a friend, and answer it (`POST /api/friends/:friendId/challenge` → `/accept` | `/decline`)
 
-One route for every CHALLENGE in the app, with two shapes in one optional body:
+A challenge is a duel, and nothing about it exists until the friend answers it:
 
 ```mermaid
 sequenceDiagram
@@ -557,37 +581,85 @@ sequenceDiagram
     participant Redis
     participant B as The friend
 
-    Sender->>Server: POST /api/friends/{friendId}/invite { hostColor | gameId }
+    Sender->>Server: POST /api/friends/{friendId}/challenge { hostColor }
     Server->>Server: self? pair friends? either side blocked?
-    alt a challenge to this friend is still out
+    alt an offer to this friend is still out
         Server-->>Sender: 409 CHALLENGE_ALREADY_SENT
     end
-    alt body carries gameId
-        Server->>Match: assertInvitableRoom(gameId, sender)
-        Match-->>Server: { gameId, inviteCode, playerCount }
-    else body carries hostColor
-        Server->>Match: createInvite(sender, undefined, hostColor)
-        Match-->>Server: credentials (token, engineUrl, colour, mode, playerCount)
+    alt the friend's ladder still runs
+        Server-->>Sender: 409 CHALLENGE_COOLDOWN (retryAfterMs)
     end
-    Server->>B: notification game_invite
-    Server->>Redis: SET invite:{friendId} (5 min)
-    Server->>Redis: HSET challenge:{sender} {friendId} -> { gameId, sentAt }
-    Server-->>Sender: the room (credentials on the creating shape)
+    alt the sender already holds a seat
+        Server-->>Sender: 403 MATCH_ALREADY_SEATED
+    end
+    Server->>B: notification game_invite { kind: 'challenge', fromUserId, hostColor }
+    Server->>Redis: SET invite:{friendId} = { kind: 'challenge', fromUserId, hostColor, sentAt } (5 min)
+    Server->>Redis: HSET challenge:{sender} {friendId} -> { kind: 'challenge', sentAt }
+    Server-->>Sender: { ok: true, kind: 'challenge' } — no room exists yet
+
+    B->>Server: POST /api/friends/challenges/{sender}/accept
+    Server->>Server: gate: B online? B seated? then poll A (100 ms x 20)
+    alt either side missing
+        Server-->>B: 403 CHALLENGER_OFFLINE / _BUSY / CHALLENGEE_OFFLINE / _BUSY
+    end
+    Server->>Match: createInvite(sender, undefined, hostColor)
+    Match-->>Server: the room, sender seated at their corner
+    Server->>Match: joinMatch(gameId, B, firstFreeColor(hostColor))
+    Match-->>Server: B's credentials
+    Server->>Server: reset B's own rung on the pair row
+    Server->>Redis: DEL invite:{B}; HDEL challenge:{sender} {B}
+    Server->>A: notification challenge_accepted { gameId, inviteCode }
+    Server-->>B: credentials — B enters the room
 ```
 
-**One challenge per friend at a time.** Before either shape runs, the sender's own
-`challenge:<senderId>` hash is read through the same reader the sent list uses, so a second press
-is `409 CHALLENGE_ALREADY_SENT` instead of a second room nobody is sitting in. The record is spent
-by three things and never by the client: its own five-minute stamp, a friend who joined (the room
-is no longer `WAITING`, checked with `MatchService.isWaitingRoom`), and a room that ended. The
-reader is `GET /api/friends/challenges/sent`, which is what every CHALLENGE button greys itself
-from after a reload: no SPA constant mirrors the window, so the grey state cannot outlive the
-server's own answer.
+**The room is created at the accept, not at the send.** A room made at the send holds an
+id, seats and colours for a challenge that may never be answered, and it blocks both
+players from starting anything else while it waits. So the send writes the four records
+and stops, and the accept is the one request that creates: `createInvite` seats the
+challenger at the corner they named, `joinMatch` seats the invitee at the first free
+one (`firstFreeColor`), and the challenger is told with `challenge_accepted` — a frame
+carrying the room code, because they are the host and the lobby's rejoin is what opens
+it. A join that fails after the room was made closes the room rather than leaving it
+waiting with the challenger's seat inside.
 
-**The invitee is not seated.** A seat owns a colour, so the friend claims one from the palette when
-they accept; the invite carries the room only. A friend who is already seated elsewhere is therefore
-refused where a seat is actually taken, by `joinMatch` at accept time (`403 MATCH_ALREADY_SEATED`),
-not by the send.
+**The accept is gated on both seats.** `presence.getStatus(user) === 'online'` and
+`seatedMatch(user) == null`, checked for the invitee once and for the challenger on a
+100 ms poll for about two seconds (`awaitChallengerFree`) — the two answers arrive a
+second or two apart in practice, and refusing on the first tick would spend a challenge
+that was about to be answered. The four answers are named and none of them is a refusal:
+`CHALLENGER_OFFLINE`, `CHALLENGER_BUSY`, `CHALLENGEE_OFFLINE`, `CHALLENGEE_BUSY`.
+
+**The refusal ladder.** A decline is the only act that costs anything: the pair row's
+`userNRefusalStreak` (the refuser's own side) goes up by one and `userNRefusalsUntil`
+becomes `now + REFUSAL_LADDER_MS[streak - 1]` — two hours, then four, then a day, and a
+day for every one after. The next challenge *toward* the refuser is `409
+CHALLENGE_COOLDOWN` until that instant passes; the refuser may still challenge the other
+way, and a room invite is not gated by it (a seat offer is answered by joining, not by
+declining). An accept resets the accepter's own side to zero, and a challenge that simply
+expires costs nothing at all — ignoring an invitation is not the same act as refusing it,
+so a player who was not looking at the screen is never locked out.
+
+Two consequences worth naming, because they follow from "the ladder prices a history of
+refusals" rather than from a timer: the streak survives an unfriend (the pair row does, at
+`none`/`none`) and picks up where it left off if the friendship is made again, and a block
+leaves both sides exactly where they were — a block is not a refusal, so it neither adds a
+rung nor clears one, and a window bought before the block can still be running after the
+unblock.
+
+**One offer per friend at a time.** Before either route runs, the sender's own
+`challenge:<senderId>` hash is read through the same reader the sent list uses, so a
+second press is `409 CHALLENGE_ALREADY_SENT` instead of a second pending offer. The
+record is spent by its own five-minute stamp, by the friend's answer (accept and decline
+both delete it), and — for a room invite — by the room no longer being `WAITING`
+(`MatchService.isWaitingRoom`). The reader is `GET /api/friends/challenges/sent`, which
+is what every CHALLENGE button greys itself from after a reload: no SPA constant mirrors
+the window, so the grey state cannot outlive the server's own answer.
+
+**The room invite is unchanged in spirit.** `POST /api/friends/:friendId/invite` offers a
+seat in the room the caller already sits in, so it never creates anything and answers with
+that room. The friend is still not seated by it: a seat owns a colour, so they claim one
+when they join, and a friend already seated elsewhere is refused where the seat is
+actually taken (`403 MATCH_ALREADY_SEATED` from `joinMatch`).
 
 
 ---
@@ -705,12 +777,12 @@ POST /api/friends/unblock/{userId} (JWT required)
 |-----------|---------|
 | `PrismaService` | Database access (Friendship, User models) |
 | `PresenceService` | Live status in friend lists |
-| `MatchService` | Create a room for a challenge (`createInvite`), assert one the caller already sits in (`assertInvitableRoom`), and read whether a challenged room is still `WAITING` (`isWaitingRoom`) |
-| `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` notifications |
+| `MatchService` | Create the room a challenge's accept makes (`createInvite`), seat the invitee in it (`joinMatch`), assert a room the caller already sits in (`assertInvitableRoom`), read whether a room invite's room is still `WAITING` (`isWaitingRoom`), and ask whether an account holds any seat at all (`seatedMatch`) |
+| `NotificationService` | Push `friend_request` / `friend_accepted` / `friend_declined` / `friend_removed` / `game_invite` (both `kind`s) / `challenge_accepted` notifications |
 | `BlockStateService` | `getFriends`'s pair gate on `?username=` (403 `USER_BLOCKED`); reads never trust the client router |
 | `AvatarMetaService` | `avatarV` for the friends / requests / blocked lists (one pipelined read per list) |
 | `FriendshipEventsService` | The `friendship:changed` publisher called after every membership mutation |
 
-| `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence |
-| `Redis` (ioredis) | Pending game-invite records (`invite:<userId>`) and the sent-challenge hash (`challenge:<inviterId>`) that `GET /api/friends/challenges/sent` reads and the 409 is decided on |
+| `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence, plus the refusal ladder (`REFUSAL_LADDER_MS`, `refusalSide`, `nextRefusal`) that only this module reads |
+| `Redis` (ioredis) | Pending offer records (`invite:<userId>`, either kind) and the sent-offer hash (`challenge:<senderId>`) that `GET /api/friends/challenges/sent` reads and the 409 is decided on |
 | `JwtAuthGuard` | Protects all friend endpoints |

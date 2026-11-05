@@ -237,7 +237,7 @@ itself is listed under *Friends* with the other block codes.
    - [`GET /api/friends/blocked`](#get-apifriendsblocked) — List users you have blocked
    - [`POST /api/friends/unblock/:userId`](#post-apifriendsunblockuserid) — Unblock a user
 
-15. **[Friends — Game Invites](#15-friends--game-invites)** — Challenge a friend, read the sent list, pending/dismiss
+15. **[Friends — Challenges and room invites](#15-friends--challenges-and-room-invites)** — Challenge a friend, accept or decline it, offer a seat, read the sent list, pending/dismiss
    - [`POST /api/friends/:friendId/invite`](#post-apifriendsfriendidinvite) — Challenge a friend, in one call with two shapes
    - [`GET /api/friends/challenges/sent`](#get-apifriendschallengessent) — The challenges you have out, which is what the CHALLENGE buttons grey themselves from
    - [`GET /api/friends/invites/pending`](#get-apifriendsinvitespending) — Check whether you have a pending game invite
@@ -2244,7 +2244,91 @@ Unblock a user.
 ---
 
 
-### 15. Friends — Game Invites
+### 15. Friends — Challenges and room invites
+
+
+---
+---
+
+
+#### `POST /api/friends/:friendId/challenge`
+
+**Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
+
+Challenge a friend to a duel. **Nothing is created here**: the room is made by the invitee's accept
+(19.6), so a challenge that is never answered holds no id, seats or colours and blocks neither
+player. `hostColor` is the corner the challenger will be seated in when that room is made. The send
+pushes a `game_invite` notification (`payload.kind: 'challenge'`), writes the invitee's pending
+record and the caller's sent record, and answers with the challenge being out.
+
+**Headers:** 🔒 (requires `token` cookie)  
+**Path:** `:friendId` = friend's user ID  
+**Body:** `hostColor` required (a present-but-empty value is refused, never read as absent).
+
+```json
+{ "hostColor": "red" }
+```
+
+**Response:**
+
+```json
+{ "ok": true, "kind": "challenge" }
+```
+
+**Errors:** 400 `FRIEND_INVITE_SELF`; 403 `NOT_FRIENDS_WITH_USER`; 403 `FRIEND_BLOCKED`; 400
+`CHALLENGE_COLOR_REQUIRED`; 409 `CHALLENGE_ALREADY_SENT` while an offer to that friend is still out
+(five minutes, or until its room stops waiting); 409 `CHALLENGE_COOLDOWN` while the friend's own
+refusal window runs (carries `retryAfterMs`); 403 `MATCH_ALREADY_SEATED` when the caller already
+holds a seat, because the accept will seat them first.
+
+
+---
+---
+
+
+#### `POST /api/friends/challenges/:friendId/accept`
+
+**Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
+
+Answer a challenge. This is the request that creates the room: the challenger is seated first, at
+the corner they named when they sent, the invitee takes the first free one, and the answer is the
+invitee's own handoff. The challenger is told with a `challenge_accepted` frame carrying the room
+code. The accepter's own refusal streak against that challenger resets.
+
+**Headers:** 🔒 (requires `token` cookie)  
+**Path:** `:friendId` = the challenger's user ID  
+**Body:** None  
+**Response:** the invitee's room handoff (`gameId`, `token`, `engineUrl`, `color`, `inviteCode`,
+`mode`, `playerCount`, `rules`).
+
+**Errors:** 404 `CHALLENGE_NOT_PENDING`; 403 `CHALLENGEE_OFFLINE` / `CHALLENGEE_BUSY` (my own side);
+403 `CHALLENGER_OFFLINE` / `CHALLENGER_BUSY` (the other side, after a ~2 s poll at 100 ms). None of
+the four touches the refusal ladder: a failed accept is not a refusal.
+
+
+---
+---
+
+
+#### `POST /api/friends/challenges/:friendId/decline`
+
+**Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
+
+Refuse a challenge. The one act the refusal ladder counts: the refuser's own streak goes up by one,
+the pair's challenges **toward the refuser** are closed for `[2 h, 4 h, 24 h, then 24 h]`, and the
+pending record plus the challenger's sent record are spent. A challenge that simply expires costs
+nothing, and so does `POST /api/friends/invites/dismiss`.
+
+**Headers:** 🔒 (requires `token` cookie)  
+**Path:** `:friendId` = the challenger's user ID  
+**Body:** None  
+**Response:**
+
+```json
+{ "ok": true, "streak": 1, "until": "2026-11-05T18:20:55.015Z" }
+```
+
+**Errors:** 404 `CHALLENGE_NOT_PENDING`.
 
 
 ---
@@ -2255,39 +2339,20 @@ Unblock a user.
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Challenge a friend, in one call with two shapes. With `{ hostColor }` the caller's room is created and the
-caller is seated first, so the answer carries their credentials; with `{ gameId }` the friend is staged into
-the waiting room the caller already sits in, and the answer is that room. Both shapes push a `game_invite`
-notification, write the invitee's pending invite and the caller's sent-challenge record. The friend is never
-seated: they claim a corner when they accept.
+Offer a friend a seat in the waiting room the caller already sits in. It creates nothing and answers
+with that room; the friend is never seated by it, because a seat owns a colour and they claim one
+when they join. Pushes a `game_invite` notification (`payload.kind: 'room'`). The other act — a duel
+whose room is made at the accept — is `POST /api/friends/:friendId/challenge`.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Path:** `:friendId` = friend's user ID  
-**Body:** both fields optional, and a present-but-empty value is refused rather than read as absent.
-
-```json
-{ "hostColor": "red" }
-```
+**Body:** `gameId` required.
 
 ```json
 { "gameId": "game-id" }
 ```
 
-**Response (creating shape):**
-
-```json
-{
-  "gameId": "game-id",
-  "token": "<jwt>",
-  "engineUrl": "wss://localhost:8443",
-  "color": "red",
-  "inviteCode": "ABCD12",
-  "mode": "pvp",
-  "playerCount": 4
-}
-```
-
-**Response (staging shape):**
+**Response:**
 
 ```json
 {
@@ -2297,11 +2362,10 @@ seated: they claim a corner when they accept.
 }
 ```
 
-**Errors:** 400 `FRIEND_INVITE_SELF`; 403 `NOT_FRIENDS_WITH_USER`; 403 `FRIEND_BLOCKED`; 409
-`CHALLENGE_ALREADY_SENT` while a challenge to that friend is still out (five minutes, or until its room
-stops waiting); 403 `MATCH_ALREADY_SEATED` when the caller already holds a seat (creating shape); 404
-`MATCH_GAME_NOT_FOUND`, 403 `MATCH_PVP_ONLY_INVITE` / `MATCH_ALREADY_STARTED` / `MATCH_NOT_PLAYER` from the
-room's own check (staging shape).
+**Errors:** 400 `FRIEND_INVITE_SELF`; 403 `NOT_FRIENDS_WITH_USER`; 403 `FRIEND_BLOCKED`; 400
+`FRIEND_INVITE_ROOM_REQUIRED`; 409 `CHALLENGE_ALREADY_SENT` while an offer to that friend is still
+out; 404 `MATCH_GAME_NOT_FOUND`, 403 `MATCH_PVP_ONLY_INVITE` / `MATCH_ALREADY_STARTED` /
+`MATCH_NOT_PLAYER` from the room's own check.
 
 
 ---
@@ -2312,9 +2376,11 @@ room's own check (staging shape).
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-The challenges this caller has out, newest record per friend. Each entry is skipped when its stamp is past
-`CHALLENGE_TTL_MS` or when its room is no longer waiting, which is what lets a re-challenge after a join
-through. The SPA greys every CHALLENGE button from this list, so no client constant mirrors the window.
+The offers this caller has out, newest record per friend. Each entry is skipped when its stamp is past
+`CHALLENGE_TTL_MS`, and a room invite is also skipped when its room is no longer waiting — which is
+what lets a re-challenge after a join through. A challenge carries no `gameId`: its accept or decline
+deletes the entry, so its own age is the only lifetime it has. The SPA greys every CHALLENGE button
+from this list, so no client constant mirrors the window.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:**
@@ -2323,6 +2389,12 @@ through. The SPA greys every CHALLENGE button from this list, so no client const
 [
   {
     "userId": "friend-user-id",
+    "kind": "challenge",
+    "sentAt": 1762300000000
+  },
+  {
+    "userId": "other-friend-id",
+    "kind": "room",
     "gameId": "game-id",
     "inviteCode": "ABCD12",
     "sentAt": 1762300000000
@@ -2338,10 +2410,13 @@ through. The SPA greys every CHALLENGE button from this list, so no client const
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Get the current user's pending game invite (if any).
+Get the current user's pending offer (if any): a challenge from a friend, or a seat in a room.
+`expired` is computed on read and only means something for the room kind (whether the room still
+waits); a challenge's own five-minute TTL is its whole life.
 
 **Headers:** 🔒 (requires `token` cookie)  
-**Response:** `null` or a pending-invite object.
+**Response:** `null` or a pending-offer object (`kind`, `fromUserId`, `fromUsername`, `hostColor` for
+a challenge; `kind`, `gameId`, `inviteCode`, `playerCount` for a room).
 
 
 ---
@@ -2352,7 +2427,9 @@ Get the current user's pending game invite (if any).
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Dismiss the current user's pending game invite.
+Dismiss the current user's pending offer without answering it. A dismissal is **not** a refusal: the
+record goes and the refusal ladder does not move (only `POST /api/friends/challenges/:friendId/decline`
+writes a rung).
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Body:** None  
@@ -2465,7 +2542,7 @@ handshake) carries both halves:
 | `notifications:unread` | server → client | Array of `NotificationPayload`, unread only, newest first. Emitted on every (re)connect. |
 | `notification` | server → client | One `NotificationPayload`: a stored entry, or a transient frame (`friend_online`, `friend_offline`, `display_name_changed`, `avatar_changed`). Stored frames go to that account's room; a global `notify:all` would reach every socket. |
 
-Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_declined` | `game_invite` | `achievement` | `match_finished` | `match_cancelled` | `profile_updated` | `display_name_changed` | `friend_online` | `friend_offline` | `avatar_changed`
+Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_declined` | `game_invite` | `challenge_accepted` | `achievement` | `match_finished` | `match_cancelled` | `profile_updated` | `display_name_changed` | `friend_online` | `friend_offline` | `avatar_changed`
 
 **Storage:** the bell is two Redis keys per account (D12): `notif:<userId>` (hash of
 id to frame JSON) and `notif:<userId>:unread` (zset of unread ids scored by

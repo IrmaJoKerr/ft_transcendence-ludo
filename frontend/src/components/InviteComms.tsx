@@ -24,9 +24,11 @@ import { retroAudio } from '../utils/audio';
 // invite is answered by the band in one press: accepted, because hiding them would
 // need the live `playing` edge for a case that resolves itself (R1).
 //
-// The press is the app's one challenge route with the room's own id (`useChallenges`),
+// The press is the app's room-invite route with the room's own id (`useChallenges`),
 // so an invite already out reads grey from the server's list rather than from a
-// remembered press, and it survives a reload.
+// remembered press, and it survives a reload. This column never duels: a challenge
+// makes its own room at the accept, which is the lobby's business and not a seat in
+// this one (19.6).
 export function InviteComms({
   gameId,
   seatUserIds,

@@ -70,6 +70,9 @@ export type NotificationType =
   | 'friend_removed'
   | 'friend_declined'
   | 'game_invite'
+  // The challenger's half of an accept (19.6): the room exists and they are seated in
+  // it, so the frame carries the code the lobby rejoins by.
+  | 'challenge_accepted'
   | 'achievement'
   | 'match_finished'
   | 'match_abandoned'

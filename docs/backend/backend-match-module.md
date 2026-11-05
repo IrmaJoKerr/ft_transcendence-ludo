@@ -138,6 +138,12 @@ default corner and no in-room swap.
 > 403 `MATCH_PVP_ONLY_INVITE` / `MATCH_ALREADY_STARTED` / `MATCH_NOT_PLAYER`) and
 > `isWaitingRoom`, which the friends module calls before it writes anything. One route
 > means the friendship gate, the invite record and the notification exist once.
+>
+> A **challenge** (a duel between two friends) is the other act, and it goes through
+> this module the other way round: `POST /api/friends/:friendId/challenge` creates
+> nothing, and the invitee's accept calls `createInvite` + `joinMatch` here (19.6). What
+> the accept gates on, it asks this module for: `seatedMatch(userId)`, the one-seat lock
+> read as a question about an account rather than about a room.
 
 > **One seat at a time:** every create and every join path refuses a caller who
 > already holds a seat in a waiting room or a live game with `403 MATCH_ALREADY_SEATED`;

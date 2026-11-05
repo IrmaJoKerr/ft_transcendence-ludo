@@ -240,6 +240,18 @@ model Friendship {
   requestCount  Int       @default(0)
   lastRequestAt DateTime?
 
+  // The refusal ladder of a challenge (19.6): how many of the other side's
+  // challenges this side has refused, and until when those refusals suspend the
+  // pair. One pair per side, so neither player's ladder can overwrite the other's.
+  // It lives here rather than in Redis because it is not transient: the deadline
+  // is a couple of hours but the streak outlives it (the third refusal costs a
+  // day, and an accept is what resets the count), so it is the same species as the
+  // two cooldowns above, read lazily off the row the gate already loads.
+  user1RefusalStreak Int       @default(0)
+  user2RefusalStreak Int       @default(0)
+  user1RefusalsUntil DateTime?
+  user2RefusalsUntil DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
