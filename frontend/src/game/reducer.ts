@@ -3,6 +3,7 @@
 // The engine is authoritative; the reducer keeps the UI in sync.
 
 import type { ClashState, GameState, LegalMove, MoveResult, PlayerColor } from './types';
+import { SEAT_COLORS } from '../theme';
 
 // `clash_start` may omit these three (older payloads); the reducer fills them.
 // `serverNow` is the frame's engine stamp for the clock offset; it is not part of
@@ -249,7 +250,14 @@ export function applyEvent(
       };
     }
     case 'piece_moved':
-      return applyMove(state, event as unknown as MoveResult);
+      // The frame names the seat the engine left holding the turn, so the reducer takes
+      // it rather than predicting one. Only a frame from an older engine (no
+      // `currentTurn`) falls back to the rotation walk.
+      return applyMove(
+        state,
+        event as unknown as MoveResult,
+        event.currentTurn as PlayerColor | undefined,
+      );
     case 'game_ended':
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
     case 'clash_start': {
@@ -366,7 +374,11 @@ export function applyEvent(
   }
 }
 
-function applyMove(state: GameViewState, move: MoveResult): GameViewState {
+// `held` is the seat the engine named as next on the frame. When it is there the
+// reducer takes it, because the engine has already applied the whole turn rule (the
+// rotation, the bonus roll, a forfeit, the win). The rotation walk below is only the
+// fallback for a frame from an engine built before the field existed.
+function applyMove(state: GameViewState, move: MoveResult, held?: PlayerColor): GameViewState {
   const pieces = state.pieces.map((p) => {
     // Captured-first precedence: a repelled clash sends the mover to prison instead of
     // the landing square. A normal move never lists its own mover as captured, so
@@ -393,19 +405,24 @@ function applyMove(state: GameViewState, move: MoveResult): GameViewState {
     diceValue: move.diceValue,
     legalMoves: [],
     turnPhase: 'WAITING_FOR_ROLL',
-    currentTurn: move.bonusRoll ? move.color : nextTurn(state.players, move.color),
+    currentTurn: held ?? (move.bonusRoll ? move.color : nextTurn(state.players, move.color)),
   };
 }
 
+// Fallback only: taken when a `piece_moved` frame arrives without `currentTurn` (an
+// engine built before the field existed). Mirror of the engine's turn advance
+// (`player-handler.ts`): the next seat in COLOUR order takes the turn unless it has
+// left. Colour order, never players[] order: that array is seat order (the host's
+// corner first, then the free corners), so walking it names the wrong seat in any room
+// whose host is not blue. A disconnected seat with an open grace window holds the
+// turn, so the walk must not skip past it.
 function nextTurn(players: GameState['players'], from: PlayerColor): PlayerColor {
-  const idx = players.findIndex((x) => x.color === from);
+  const idx = SEAT_COLORS.indexOf(from);
   if (idx === -1) return from;
-  // Mirror of the engine's turn advance: the next seat in players[] order takes
-  // the turn unless it has left. A disconnected seat with an open grace window
-  // holds the turn, so the prediction must not skip past it.
-  for (let i = 1; i <= players.length; i++) {
-    const p = players[(idx + i) % players.length];
-    if (p.status === 'active' || p.status === 'disconnected') return p.color;
+  for (let i = 1; i <= SEAT_COLORS.length; i++) {
+    const color = SEAT_COLORS[(idx + i) % SEAT_COLORS.length];
+    const seat = players.find((p) => p.color === color);
+    if (seat && (seat.status === 'active' || seat.status === 'disconnected')) return color;
   }
   return from;
 }

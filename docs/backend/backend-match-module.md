@@ -711,7 +711,7 @@ the record's shape and the watcher short-circuit.
 | `REDIS_HOST` | `redis` | Redis connection for match state |
 | `REDIS_PORT` | `6479` | Redis port |
 | `REDIS_PASSWORD` | (from secrets) | Redis authentication |
-| `ENGINE_API_KEY` | (from secrets) | Validates `POST /api/game/end` and `/api/game/:id/started` from engine. Compared with `verifySecret()` (both sides SHA-256-hashed, then `timingSafeEqual`, so a wrong-length key cannot throw or leak its length) and the entrypoint preflight rejects a build where it is empty |
+| `ENGINE_API_KEY` | (from secrets) | Validates `POST /api/game/end`, `/api/game/:id/started` and `/api/game/:id/abandon` from engine. Compared with `verifySecret()` (both sides SHA-256-hashed, then `timingSafeEqual`, so a wrong-length key cannot throw or leak its length) and the entrypoint preflight rejects a build where it is empty |
 | `ENGINE_JWT_SECRET` | (from secrets) | Signs the Socket.IO engine tokens handed to clients (`signEngineToken`, `engine-token.util.ts`) — separate from the session `JWT_SECRET` so one leaked key cannot forge the other token family. Required: the preflight rejects a build without it |
 | `FRONTEND_URL` | `https://localhost:8443` (from `.env`) | Derives `ENGINE_WS_URL` by replacing `http` with `ws`; required, so the app throws at startup if it is unset |
 

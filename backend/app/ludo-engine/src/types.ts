@@ -384,7 +384,18 @@ export type GameEvent =
       // The lines this roll added to the log, so a live client never re-derives them.
       log?: LogEntry[];
     }
-  | { type: 'piece_moved'; gameId: string; result: MoveResult; log?: LogEntry[] }
+  // A settled move: a plain move, or the move a clash chain resolved into. Carries
+  // the seat that holds the turn once the outcome has been applied, so no client has
+  // to predict the next seat from the rotation. The engine has already advanced it,
+  // handed it back on a bonus roll, or left it on the winner when this move finished
+  // the game. `piece_moved` is the only turn-bearing frame that used to omit it.
+  | {
+      type: 'piece_moved';
+      gameId: string;
+      result: MoveResult;
+      currentTurn: PlayerColor;
+      log?: LogEntry[];
+    }
   // A held turn passed without a move: the armed exit was declined (Skip), so no
   // token was spent and the turn moves on. Carries the seat that takes over.
   | { type: 'turn_skipped'; gameId: string; currentTurn: PlayerColor; log?: LogEntry[] }

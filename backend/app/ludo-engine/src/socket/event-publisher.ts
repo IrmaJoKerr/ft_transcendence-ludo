@@ -38,6 +38,10 @@ export class EventPublisher {
           JSON.stringify({
             type: 'piece_moved',
             ...event.result,
+            // The seat the engine left holding the turn. Without it a client has to
+            // predict the next seat from the rotation, and nothing corrects the guess
+            // until the next frame that names a turn.
+            currentTurn: event.currentTurn,
             log: event.log,
           }),
         );
@@ -256,6 +260,12 @@ export class EventPublisher {
           JSON.stringify({
             type: 'lobby_update',
             gameId: event.gameId,
+            // The room's own facts, not a seat's: a client that joins or reloads
+            // draws its countdown from `closesAt` and its host-only Abort from
+            // `hostId`, and it reads both off this frame. Dropping them here left
+            // a rejoin with no clock and pointed every abort at the seat route.
+            hostId: event.hostId,
+            closesAt: event.closesAt,
             players: event.players,
           }),
         );

@@ -485,7 +485,7 @@ boundary rests on three properties:
 - `POST /api/match/create` never rewrites an existing room hash: a reusable lobby is handed back unchanged.
 - A socket is bounded before it is authenticated: only origins on the `CORS_ORIGIN` allow-list complete a handshake, events are capped at 64 KB, one account may hold at most 4 sockets, and a socket that drains its 20-events-per-5 s bucket is closed and follows the ordinary disconnect path.
 - The engine's CORS allow-list is never empty at runtime: `parseAllowedOrigins('')` returns `[]`, and `start()` exits on `[]` rather than widening to `*`.
-- `POST /api/game/end` and `POST /api/game/:id/started` compare `X-Engine-Key` with `verifySecret()` (both sides SHA-256-hashed, then `timingSafeEqual`), and the key has no default on either side.
+- `POST /api/game/end`, `POST /api/game/:id/started` and `POST /api/game/:id/abandon` compare `X-Engine-Key` with `verifySecret()` (both sides SHA-256-hashed, then `timingSafeEqual`), and the key has no default on either side.
 - `GET /api/games/rooms` is caller-scoped: a started room is visible only to the holder of a reclaimable seat in it (`mySeat`).
 - The engine's state readers fail open (a missing or unreadable `game:<gameId>` returns `false`), so a bad read hides no legitimate seat and locks no legitimate room.
 

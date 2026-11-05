@@ -56,7 +56,12 @@ export type ServerEvents = {
     currentTurn: PlayerColor;
     forfeited?: boolean;
   }) => void;
-  piece_moved: (e: MoveResult) => void;
+  // The settled move. `currentTurn` is the seat the engine left holding the turn (it
+  // has already advanced it, kept it on a bonus roll, or left it on the winner), so
+  // the reducer takes that seat instead of predicting one. Optional only because a
+  // frame from an engine built before it existed still has to read: the reducer then
+  // falls back to its own rotation walk.
+  piece_moved: (e: MoveResult & { currentTurn?: PlayerColor }) => void;
   // A held turn passed by Skip: no piece moved, the turn advanced, and the engine
   // names the seat that takes over.
   turn_skipped: (e: { gameId: string; currentTurn: PlayerColor }) => void;

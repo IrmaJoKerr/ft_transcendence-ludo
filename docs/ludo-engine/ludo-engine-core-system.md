@@ -258,7 +258,7 @@ One source of truth for game lifecycle — the engine emits these, and the socke
 ```typescript
 export type GameEvent =
   | { type: 'dice_rolled'; gameId; value; legalMoves; bonusRoll; currentTurn; forfeited? }      // A roll happened; includes the value + legal moves (+ forfeited on third 6)
-  | { type: 'piece_moved'; gameId; result: MoveResult }                                         // A piece moved; full MoveResult payload
+  | { type: 'piece_moved'; gameId; result: MoveResult; currentTurn }                            // A piece moved; full MoveResult payload + the seat left holding the turn
   | { type: 'game_ended'; gameId; winner; resultDetail }                                        // Game finished; winner + reason
   | { type: 'game_started'; gameId }                                                            // Game transitioned from waiting → active
   | { type: 'game_expired'; gameId }                                                            // Room torn down (quorum lost, single-instance expiry, idle lobby)
@@ -268,7 +268,7 @@ export type GameEvent =
   | { type: 'player_reconnected'; gameId; color; displayName? }                                 // A player reconnected (displayName carries a rename)
   | { type: 'state_update'; gameId; state: GameState }                                          // Full state frame after a prune or a pause change
   | { type: 'color_selected'; gameId; userId; color }                                           // A player picked a color in the lobby
-  | { type: 'lobby_update'; gameId; players };                                                  // Lobby seats changed
+  | { type: 'lobby_update'; gameId; hostId?; closesAt?; players };                              // Lobby seats changed
 ```
 
 

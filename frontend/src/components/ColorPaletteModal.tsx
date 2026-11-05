@@ -20,14 +20,15 @@ const RING = SEAT_COLORS.map((color) => CORNER_XY[color]);
 const RING_CENTRE = 50;
 const NODE_RADIUS = 9;
 
-/** One arrow of the ring: bowed towards the middle and stopping short of both
- *  nodes, so it never runs under a coloured ring. */
+/** One arrow of the ring: bowed away from the middle, so the ring reads as a
+ *  pillow rather than a pinch, and stopping short of both nodes, so it never
+ *  runs under a coloured ring. */
 function ringSegment(from: [number, number], to: [number, number], hue: string, key: string) {
   const midX = (from[0] + to[0]) / 2;
   const midY = (from[1] + to[1]) / 2;
   const control: [number, number] = [
-    midX + (RING_CENTRE - midX) * 0.35,
-    midY + (RING_CENTRE - midY) * 0.35,
+    midX - (RING_CENTRE - midX) * 0.35,
+    midY - (RING_CENTRE - midY) * 0.35,
   ];
   const angle = Math.atan2(to[1] - control[1], to[0] - control[0]);
   const gap = NODE_RADIUS + 3;

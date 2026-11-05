@@ -16,7 +16,11 @@ const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 // Engine callbacks authenticate with the x-engine-key header, never with the
 // user's cookies, so CSRF does not apply: there is no browser session to ride.
 // Everything else under /api stays covered.
-const ENGINE_CALLBACKS = [/^\/api\/game\/end$/, /^\/api\/game\/[^/]+\/started$/];
+const ENGINE_CALLBACKS = [
+  /^\/api\/game\/end$/,
+  /^\/api\/game\/[^/]+\/started$/,
+  /^\/api\/game\/[^/]+\/abandon$/,
+];
 
 // Domain separation: derive a CSRF key from the JWT secret instead of adding a
 // new required env var. Rotating JWT_SECRET invalidates outstanding CSRF

@@ -486,7 +486,11 @@ export class LudoEngine {
 
       await this.store.saveGameState(gameId, state);
 
-      this.emit({ type: 'piece_moved', gameId, result, log });
+      // `currentTurn` is the seat that holds the turn once this outcome is applied:
+      // the engine advanced it, handed it back on a bonus roll, or (on a winning move)
+      // left it on the winner. It rides this frame so a client never predicts the next
+      // seat from the rotation, which is the one thing it had to guess here before.
+      this.emit({ type: 'piece_moved', gameId, result, currentTurn: state.currentTurn, log });
       // A token spend or any turn change sends a full-state frame: the count and the
       // arm switch ride players[], and a stale frame would show a token or an arm the
       // seat no longer holds.

@@ -184,6 +184,12 @@ export class ResultSubmitter {
   async submitExits(gameId: string, records: ExitRecord[]): Promise<void> {
     if (records.length === 0) return;
     try {
+      // A room that never started is a room, not a match: the backend refuses every
+      // row with MATCH_ABANDON_NEVER_STARTED, so this pass would post one body per
+      // seat that is refused by design. The guard reads the same start stamp the
+      // backend's own check does (PvE writes it at creation, PvP when the game starts).
+      const matchData = await this.store.getMatchData(gameId);
+      if (!matchData?.startedAt) return;
       // The room's transcript rides each seat's body: the backend filters it per seat
       // with this same block ledger (M3), so a row holds what that player was shown.
       const room = await this.readChat(gameId);

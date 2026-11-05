@@ -67,7 +67,7 @@ input/output. Each event is documented in full below; see
 |---|---|---|---|
 | `game_joined` | A successful `join_game` | `GameState` | Sent to the joining socket only. The only frame that carries `state.log`, which is how a reload, a rejoin, a second tab or an engine restart rebuilds the recon panel |
 | `dice_rolled` | A die roll | `{ color, value, legalMoves, bonusRoll, currentTurn, forfeited?, log? }` | Room-wide. `color` is the seat that actually rolled (the engine has already advanced `currentTurn` on a no-move roll or the third-six forfeit, so it cannot be read off the frame's turn), and `log` carries the line this roll wrote (a `roll`, or the `thirdSixForfeit`) |
-| `piece_moved` | A legal move applied | `MoveResult` + `log?` | Room-wide. `log` carries the lines the engine wrote for the move: a capture and its re-roll, or the repulse that sent the attacker home |
+| `piece_moved` | A legal move applied | `MoveResult` + `currentTurn` + `log?` | Room-wide. `currentTurn` is the seat the engine left holding the turn, stamped after the outcome was applied, so a client takes it instead of predicting the next seat from the rotation; `log` carries the lines the engine wrote for the move: a capture and its re-roll, or the repulse that sent the attacker home |
 | `turn_skipped` | The armed Wall Breaker exit was declined (`skip_wall_breaker`) | `{ gameId, currentTurn, log? }` | Room-wide. The turn has already advanced in the state: the SPA's reducer clears the move list and takes the seat this names, and the room's clients would otherwise keep rendering the skipped turn and its armed move. `log` carries the `wallBreakerSkipped` line |
 | `clash_start` | A capture is deferred to the QTE, or a chain starts its next round | `{ attacker, defender, attackerKey, defenderKey, attackerKeys, defenderKeys, switchAt, keyShift, serverNow, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | Room-wide. Keys are hidden until the press phase; the deadlines are absolute engine timestamps and the SPA draws the announce, countdown and press window from them. `attackerKeys`/`defenderKeys` are the key-shift schedules (element 0 is the legacy `attackerKey`/`defenderKey`, and each later element replaces the one before at `switchAt[i]`), `keyShift` is the room's count and `serverNow` is the engine clock the overlay derives its offset from; a room with the mutator off sends empty arrays, `0` and no switch. The chain fields appear only on a wall attack |
 | `clash_phase` | The QTE moves announce → countdown → pressing | `{ phase, countdownDeadline, pressDeadline }` | Room-wide |
@@ -84,7 +84,7 @@ input/output. Each event is documented in full below; see
 | `player_disconnected` | A socket dropped (temporary) | `{ color }` | Room-wide |
 | `player_reconnected` | Reconnect inside the grace window | `{ color, displayName? }` | Room-wide. Sent only when the seat really was restored, and carries the name the client reports (a rename while away rides along) |
 | `seat_expired` | A `join_game` for a seat already removed (left, or its grace window expired) | `{ gameId, color }` | Sent to that socket only — the seat is gone for good, so the client shows the end-of-match card and leaves |
-| `lobby_update` | Lobby seats / ready state changed | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Room-wide |
+| `lobby_update` | Lobby seats / ready state changed | `{ hostId?, closesAt?, players: [{ userId, username, avatarStyle, color, ready }] }` | Room-wide. The host and the room's closing deadline ride the roster, so a joiner or a reload draws the countdown and the host-only Abort from this frame |
 | `color_selected` | A seat color change | `{ gameId, userId, color }` | Room-wide |
 | `modifiers_updated` | The host changed the room rules while the room was waiting | `{ gameId, clashEnabled, noSafeZones, freeExit, clashKeyShift }` | Room-wide. Carries what was actually persisted, not what the caller sent |
 | `state_update` | A live exit moved the turn (and cleared the departed seat's pieces), a PvP disconnect set/cleared the reconnect pause, or a Wall Breaker change landed (arm, disarm, a token spent on an attempt, an armed move, a Skip, or the end of a clash chain) | full `GameState` **minus `log`** (includes `paused` / `pauseTurnOwner` / `players[].wallBreakerArmed` / `players[].wallBreakerTokens` / `players[].lastRoll` / `resultCardUntil`) | Room-wide. The SPA's reducer merges it field by field; it is also the fallback for any other pub/sub frame. Because the switch and the hand ride `players[]`, this is what refreshes every client's token column and ARM badge. `log` is stripped here on purpose: the recon panel rebuilds from `game_joined` and every event frame carries its own lines, so re-sending 30 entries on each full-state frame would be the one place the log costs bandwidth |
@@ -115,7 +115,7 @@ input/output. Each event is documented in full below; see
 | `socket/event-publisher.ts` | `EventPublisher` — publishes each engine event to the Redis `game:{gameId}` channel. One case per event type: a type with no case is dropped silently, which is how the `turn_skipped` frame went missing until the live `wall-breaker` probe caught it (every frame the SPA consumes needs a published-frame assertion or a live probe) |
 | `socket/redis-broadcaster.ts` | `RedisBroadcaster` — forwards Redis `game:*` messages into the matching Socket.IO room |
 | `socket/abandon-subscriber.ts` | `MatchAbandonSubscriber` — subscribes to the backend's `match:abandon` channel and departs the signed-out seat through `engine.departSeat(..., 'leave')`, so a sign-out ends the live match from the engine that owns the room state |
-| `socket/result-submitter.ts` | The backend's two result writers. `submitGameResult` posts the human seats that finished to `POST /api/game/end` (the completion pass), retrying inside the room's 60 s post-game window and setting `resultSubmitted` only after a 2xx; `submitExits` posts one `POST /api/game/:id/abandon` per seat that left and marks each record `submitted` only after its own 2xx. Both skip a seat whose account cannot be recovered and log the colour, report the piece count read from the board rather than from a cached tally, and carry the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them. Since M3 both also attach the room's transcript and block ledger (`readChat`), and a 413 re-posts the newest 400 lines with `chat.truncated: true` |
+| `socket/result-submitter.ts` | The backend's two result writers. `submitGameResult` posts the human seats that finished to `POST /api/game/end` (the completion pass), retrying inside the room's 60 s post-game window and setting `resultSubmitted` only after a 2xx; `submitExits` posts one `POST /api/game/:id/abandon` per seat that left and marks each record `submitted` only after its own 2xx. Both skip a seat whose account cannot be recovered and log the colour, report the piece count read from the board rather than from a cached tally, and carry the seat's clash tallies (`clashDefends` / `clashAttacksWon`) so the backend can persist them. Since M3 both also attach the room's transcript and block ledger (`readChat`), and a 413 re-posts the newest 400 lines with `chat.truncated: true`. `submitExits` also skips a room with no start stamp (`startedAt`), because the backend refuses every row of a room that never started (`MATCH_ABANDON_NEVER_STARTED`) |
 | `game-chat.ts` | The room's channel in one module: its two keys, the two line builders, `parseChatLine`, `chatForTransport`, the per-seat `filterChatForSeat`, and the block-ledger helpers. Its caps are not here: `CHAT_MAX_CHARS` 300, `GAME_CHAT_MAX_LINES` 1,000, `GAME_CHAT_FALLBACK_LINES` 400 and `GAME_CHAT_TTL_S` come from `common/src/chat.constants.ts`. |
 | `socket/room-chat.ts` | `RoomChat`: the `chat:send` handler (validation, the per-account 2 s cooldown, the ack) and `chat:history`. Its fan-out iterates the room's own sockets so the block ledger is applied before a frame leaves |
 | `socket/block-subscriber.ts` | `BlockSubscriber`: the backend's `blocks:changed { a, b, blocked }`, applied to every live room that seats both accounts, stamped with that room's chat sequence |
@@ -405,7 +405,7 @@ socket.emit('move_piece', pieceId);
 |---|---|---|
 | `pieceId` | string | e.g. `"red-0"` |
 
-**Response:** `piece_moved` event (broadcast to all in room)
+**Response:** `piece_moved` event (broadcast to all in room). The frame names the seat it leaves holding the turn (`currentTurn`), so no client derives the next seat from the rotation.
 
 **Errors:** `error` if piece not in current legal moves.
 
@@ -513,7 +513,7 @@ A redelivered message costs nothing: `departSeat` no-ops on a seat that already 
 |---|---|---|
 | `game_joined` | `GameState` (full state) | After `join_game` |
 | `dice_rolled` | `{ color, value, legalMoves, bonusRoll, currentTurn, forfeited?, log? }` | After dice rolled |
-| `piece_moved` | `MoveResult` + `log?` | After piece moved |
+| `piece_moved` | `MoveResult` + `currentTurn` + `log?` | After piece moved |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
 | `game_timeout` | none | Post-game lobby expired (60s) — finished room torn down. The timer lives in the room's `RoomContext` and is re-armed by the wake pass after a restart |
@@ -523,7 +523,7 @@ A redelivered message costs nothing: `departSeat` no-ops on a seat that already 
 | `player_disconnected` | `{ color }` | A player's connection dropped |
 | `player_reconnected` | `{ color, displayName? }` | A player reconnected (name included in case they renamed while away) |
 | `seat_expired` | `{ gameId, color }` | Your `join_game` was refused: that seat was already removed (left, or its grace window expired) — this socket only |
-| `lobby_update` | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed |
+| `lobby_update` | `{ hostId?, closesAt?, players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed, with the room's host and its closing deadline |
 | `color_selected` | `{ gameId, userId, color }` | A player picked a color |
 | `state_update` | full `GameState` | A live exit moved the turn, a PvP disconnect set or cleared the reconnect pause, or a Wall Breaker change landed (arm, disarm, token spend, armed move, Skip, chain end) |
 | `error` | `string` | On invalid action, or `MATCH_GAME_NOT_FOUND` when the match is missing or `ABORTED` |

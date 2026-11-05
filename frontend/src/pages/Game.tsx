@@ -703,6 +703,21 @@ export function Game() {
     const handleEngineEvent = (state: unknown) => {
       const type = (state as { type?: string }).type;
 
+      // A roll is not dispatched where it arrives: the reducer sees it when the die
+      // lands, so the moves do not light up mid-spin. Every other frame is applied on
+      // arrival, which means a frame that follows a roll on the wire but beats its
+      // landing reaches the reducer FIRST. That is not cosmetic: a roll frame names the
+      // seat that rolled, still current when it left the engine, so a Skip that lands
+      // 4 ms after the roll would be applied, then overwritten by the older roll naming
+      // the seat the engine already left. The board parks on a bot that will never be
+      // asked to act again. Land the die first, so the reducer takes the frames in
+      // arrival order. `piece_moved` is exempt: its walk is meant to start on the
+      // landed face, and its own dispatch already waits for the landing below.
+      if (type !== 'piece_moved') {
+        const pendingLand = rollLandFnRef.current;
+        if (pendingLand) pendingLand();
+      }
+
       if (type === 'dice_rolled') {
         const e = state as {
           value: number;

@@ -356,7 +356,7 @@ typo early, the server is authoritative.
 | `CSRF_COOKIE` / `CSRF_HEADER` | `csrf_token` / `x-csrf-token` | the double-submit pair 🔗 (the SPA reads the cookie in `api.ts`) |
 | `TOKEN_TTL_MS` | 604800000 (7 days) | CSRF cookie lifetime; rotating `JWT_SECRET` invalidates outstanding tokens |
 | `MUTATING` | `POST PUT PATCH DELETE` | methods that must present the token |
-| `ENGINE_CALLBACKS` | `/api/game/end`, `/api/game/:id/started` | the two key-authenticated callbacks CSRF exempts |
+| `ENGINE_CALLBACKS` | `/api/game/end`, `/api/game/:id/started`, `/api/game/:id/abandon` | the three key-authenticated callbacks CSRF exempts |
 | CSRF nonce | 18 random bytes | `nonce.signature`, HMAC-SHA256 base64url, key derived from `JWT_SECRET` |
 | `BOT_PREFIX` | `bot-` | a bot seat's user id; `bot-<color>` is the identity, and the seat's kind is its `player<N>_isBot` flag, never the prefix 🔗 (engine copy in `socket/auth.ts`, minting only) |
 | Reserved bot name | `^bot[-\s_]` | a human username or display name may not start with `bot`, `bot-`, `bot ` or `bot_` |
@@ -365,7 +365,7 @@ typo early, the server is authoritative.
 | `ENGINE_TOKEN_AUDIENCE` | `ludo-engine` | audience of every engine match token 🔗 (engine `socket/auth.ts`) |
 | `ENGINE_TOKEN_TTL` | `'24h'` | engine match-token lifetime |
 | CSRF origin allow-list | `FRONTEND_URL`, `NGROK_FRONTEND_URL`, `http://localhost:5173`, `http://127.0.0.1:5173`, and `https://LAN_IP:8443` when `LAN_IP` is set | origins a mutating request may come from (its own host is always allowed). The engine's socket handshake has its own list from `CORS_ORIGIN` |
-| Engine backend URL | `BACKEND_URL` default `http://backend:3000` | where the engine posts `/api/game/end` and `/api/game/:id/started` |
+| Engine backend URL | `BACKEND_URL` default `http://backend:3000` | where the engine posts `/api/game/end`, `/api/game/:id/started` and `/api/game/:id/abandon` |
 
 
 ### **7. Route rate limits**

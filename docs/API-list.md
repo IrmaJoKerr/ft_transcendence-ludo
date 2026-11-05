@@ -2676,7 +2676,7 @@ socket.emit('move_piece', pieceId);
 |---|---|---|
 | `pieceId` | string | e.g. `"red-0"` |
 
-**Response:** `piece_moved` event (broadcast to all in room)
+**Response:** `piece_moved` event (broadcast to all in room). The frame names the seat it leaves holding the turn (`currentTurn`), so no client derives the next seat from the rotation.
 
 **Errors:** `error` if piece not in current legal moves.
 
@@ -2912,7 +2912,7 @@ both result routes store on the row.
 |---|---|---|
 | `game_joined` | `GameState` (full state) | After `join_game` |
 | `dice_rolled` | `{ value, legalMoves, bonusRoll }` | After dice rolled |
-| `piece_moved` | `MoveResult` | After piece moved |
+| `piece_moved` | `MoveResult` + `currentTurn` | After piece moved. `currentTurn` names the seat that holds the turn next |
 | `turn_skipped` | `{ gameId, currentTurn }` | `skip_wall_breaker` declined the armed turn; the turn has already advanced in the state |
 | `clash_start` | `{ attacker, defender, attackerKey, defenderKey, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase |
 | `clash_phase` | `{ phase, countdownDeadline, pressDeadline }` | The QTE moves announce → countdown → pressing |
@@ -2983,7 +2983,7 @@ both result routes store on the row.
 
 - **Auth:** All auth endpoints use httpOnly cookies. Set by login, 2FA verify, OAuth completion, and refresh; cleared by logout. No `Authorization: Bearer` header is used.
 - **`code` is the contract, `message` is a diagnostic.** Every error body carries a stable `code` that the SPA localizes (`errors.<CODE>` in `frontend/src/locales`); `message` is English and intended for logs, the console and non-browser clients, and the SPA never renders it. Success bodies that carry a `message` follow the same rule — the SPA keys off `code` (or shows its own localized notice).
-- **CSRF:** every mutating `/api` request carries a signed double-submit token (`csrf_token` cookie + `X-CSRF-Token` header, bootstrapped by `GET /api/auth/csrf`) and must come from this host or a configured frontend origin. The engine callbacks (`POST /api/game/end`, `POST /api/game/:id/started`) are exempt: they authenticate with `x-engine-key` and use no cookies.
+- **CSRF:** every mutating `/api` request carries a signed double-submit token (`csrf_token` cookie + `X-CSRF-Token` header, bootstrapped by `GET /api/auth/csrf`) and must come from this host or a configured frontend origin. The engine callbacks (`POST /api/game/end`, `POST /api/game/:id/started`, `POST /api/game/:id/abandon`) are exempt: they authenticate with `x-engine-key` and use no cookies.
 - **JWT expiration:** 15 minutes for access tokens. Refresh tokens last 7 days and are rotated on each use.
 - **Bot seats:** a bot has no account, so its seat id is the literal `bot-<color>` (for example `bot-green`), and `role` is `'player'` / `'player1'`. The shown name comes from our own `player{n}_displayName` entry when the creator sent a `botNames` value: it reads `bot-<color> (<assistant>)`, and the client re-localizes the colour word.
 - **CORS:** Not enabled on the backend. Every client call is same-origin through nginx's `/api` proxy, so the backend emits no CORS headers. The engine is the one exception: its Socket.IO handshake answers only the origins on the allow-list compose builds from `FRONTEND_URL` and `NGROK_FRONTEND_URL` (see [`security_measures.md`](security_measures.md), Game engine boundary).

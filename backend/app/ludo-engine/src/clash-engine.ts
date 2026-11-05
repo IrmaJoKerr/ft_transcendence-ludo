@@ -587,7 +587,10 @@ export class ClashEngine {
       this.armCardHold(state, cardId, [pc.attacker, defenderColor], false);
       await this.store.saveGameState(gameId, state);
 
-      this.emit({ type: 'piece_moved', gameId, result, log });
+      // `currentTurn` is the seat the chain left holding the turn, stamped after
+      // `applyMoveOutcome` ran, so the frame names the next seat the way the move's
+      // own frame does instead of leaving every client to predict it.
+      this.emit({ type: 'piece_moved', gameId, result, currentTurn: state.currentTurn, log });
       // A won chain can move the attacker's hand (a lone defender pays one token
       // back, a wall pays nothing) and a chain also ends any staged capture, so the
       // clients get a full-state frame to refresh the token column.
