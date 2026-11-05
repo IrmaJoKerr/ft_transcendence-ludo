@@ -15,7 +15,7 @@ import type { ChatCardLine, ChatCardStatus, ChatHeadGlyph } from './chatCardType
 // the compact feed in the slot and opens the same card on click. Nothing here knows
 // which channel it is showing — the host owns the transport and the text of the
 // channel's own lines. The wire-side types and the cap live in `chatCardTypes.ts`, so
-// this file exports components only.
+// what this file exports is components and one size.
 //
 // Since 19.8 the band under the composer is this file's too (`ChatStatusBand`), and a
 // host with a panel to offer passes it as `sidePanel`: portaled beside the open card
@@ -23,11 +23,21 @@ import type { ChatCardLine, ChatCardStatus, ChatHeadGlyph } from './chatCardType
 // board's column never reflows when the panel appears. The switch that opens it is the
 // head's (`ChatCardHead`'s `glyph`), beside CLOSE: the band under the composer is one
 // reserved line of text and does not also have to hold a control.
+//
+// Since 19.3 that one size is `CHAT_CARD_WIDTH`, `CHAT_CARD_HEIGHT` and
+// `CHAT_CARD_MARGIN`, exported below: both hosts drew 440 × 560 at 16 before, and the
+// dock now imports these instead of keeping a copy. Neither host may grow the card —
+// the head and the band are drawn inside its height and the transcript gives up rows.
 
-/** The card's width, and the ceiling the overlay clamps to. */
-const CARD_WIDTH = 440;
-const CARD_MAX_HEIGHT = 560;
-const CARD_MARGIN = 16;
+/** The card's budget, one home for both hosts (19.3): 440 wide, 560 tall, 16 off the
+ *  window's edges. The height is the card's own rather than a ceiling it may grow
+ *  into: the head and the composer — the reserved band included — are drawn inside
+ *  it and the transcript gives up the rows, so nothing a channel has to say can make
+ *  the card taller than it was when it opened. Only the window — or a dock whose own
+ *  rows leave less — can shorten it. */
+export const CHAT_CARD_WIDTH = 440;
+export const CHAT_CARD_HEIGHT = 560;
+export const CHAT_CARD_MARGIN = 16;
 
 /** How many lines the collapsed board card previews. */
 const PREVIEW_LINES = 3;
@@ -611,15 +621,21 @@ export function ChatCard({
     const slot = slotRef.current;
     if (!slot) return;
     const r = slot.getBoundingClientRect();
-    const height = Math.min(CARD_MAX_HEIGHT, window.innerHeight - CARD_MARGIN * 2);
-    const width = Math.min(CARD_WIDTH, window.innerWidth - CARD_MARGIN * 2);
-    const left = Math.max(CARD_MARGIN, Math.min(r.left, window.innerWidth - width - CARD_MARGIN));
-    const top = Math.max(CARD_MARGIN, Math.min(r.top, window.innerHeight - height - CARD_MARGIN));
+    const height = Math.min(CHAT_CARD_HEIGHT, window.innerHeight - CHAT_CARD_MARGIN * 2);
+    const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
+    const left = Math.max(
+      CHAT_CARD_MARGIN,
+      Math.min(r.left, window.innerWidth - width - CHAT_CARD_MARGIN),
+    );
+    const top = Math.max(
+      CHAT_CARD_MARGIN,
+      Math.min(r.top, window.innerHeight - height - CHAT_CARD_MARGIN),
+    );
     const right = left + width + PANEL_GAP;
     const panelLeft =
-      right + PANEL_WIDTH <= window.innerWidth - CARD_MARGIN
+      right + PANEL_WIDTH <= window.innerWidth - CHAT_CARD_MARGIN
         ? right
-        : Math.max(CARD_MARGIN, left - PANEL_GAP - PANEL_WIDTH);
+        : Math.max(CHAT_CARD_MARGIN, left - PANEL_GAP - PANEL_WIDTH);
     setBox({ left, top, width, height, panelLeft });
   }, []);
 

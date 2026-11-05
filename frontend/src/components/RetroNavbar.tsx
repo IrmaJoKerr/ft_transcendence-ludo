@@ -784,8 +784,12 @@ export function RetroNavbar({
           borderTop: '1px solid rgba(255, 255, 255, 0.08)',
         }}
       >
-        {/* Notifications Bell -> Accessible across ALL pages */}
+        {/* Notifications Bell -> Accessible across ALL pages. The block is the
+            dock's floor for the chat card too: `LobbyChat` measures its top off
+            `data-chat-reserve` (19.3), so the card stops above this row rather
+            than at the plate's edge, and it follows if the row's height moves. */}
         <div
+          data-chat-reserve=""
           style={{
             width: '100%',
             display: 'flex',

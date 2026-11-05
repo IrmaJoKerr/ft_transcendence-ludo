@@ -5,7 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { useFriendships } from '../hooks/useFriendships';
 import { useApp } from '../store';
 import type { ChatErrorCode } from '../sessionSocket';
-import { ChatCardComposer, ChatCardFeed, ChatCardHead } from './ChatCard';
+import {
+  ChatCardComposer,
+  ChatCardFeed,
+  ChatCardHead,
+  CHAT_CARD_HEIGHT,
+  CHAT_CARD_MARGIN,
+  CHAT_CARD_WIDTH,
+} from './ChatCard';
 import { ChatNameCard } from './ChatNameCard';
 import type { ChatNameCardTarget } from './ChatNameCard';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
@@ -36,13 +43,6 @@ const SCREEN_PREVIEW_LINES = 3;
  *  track is not the box that shrinks at 720p; below about 707 px of window height
  *  it does. */
 const SCREEN_MIN_HEIGHT = 112;
-
-/** The expanded card: wider than the dock on purpose (the dock itself must never
- *  resize, so the room comes from the page behind it), tall enough for a
- *  transcript and a composer, and never taller than the window. */
-const CARD_WIDTH = 440;
-const CARD_MAX_HEIGHT = 560;
-const CARD_MARGIN = 16;
 
 interface LobbyChatProps {
   /** ON lights the screen; OFF leaves the same plate black, and inert: the card
@@ -183,21 +183,28 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
 
   // Measured from the plate's own rectangle rather than from CSS: where the plate
   // sits depends on the nav track, the notifications and the window height, and
-  // the card has to clear the viewport edges at every one of them.
+  // the card has to clear the viewport edges at every one of them. Its floor is the
+  // bell row, which the bar marks `data-chat-reserve` (19.3): the card stops one
+  // pixel above it, so a navbar that reflows moves the card with it and no second
+  // constant has to track the nav's height. The height is the card's budget and the
+  // window is the only thing allowed to shorten it.
   const place = useCallback(() => {
     const plate = plateRef.current;
     if (!plate) return;
     const r = plate.getBoundingClientRect();
-    const height = Math.min(CARD_MAX_HEIGHT, window.innerHeight - CARD_MARGIN * 2);
-    const width = Math.min(CARD_WIDTH, window.innerWidth - CARD_MARGIN * 2);
+    const reserve = document.querySelector('[data-chat-reserve]');
+    const floor = reserve ? reserve.getBoundingClientRect().top : r.bottom;
     // Left-aligned with the plate where that fits, held inside the right edge
-    // otherwise; bottom-aligned with the plate, so the card rises out of the
-    // screen rather than dropping over it.
-    const left = Math.max(CARD_MARGIN, Math.min(r.left, window.innerWidth - width - CARD_MARGIN));
-    const top = Math.max(
-      CARD_MARGIN,
-      Math.min(r.bottom - height, window.innerHeight - height - CARD_MARGIN),
+    // otherwise; rising out of the screen from the reserve rather than dropping
+    // over it.
+    const bottom = Math.min(floor - 1, window.innerHeight - CHAT_CARD_MARGIN);
+    const height = Math.max(0, Math.min(CHAT_CARD_HEIGHT, bottom - CHAT_CARD_MARGIN));
+    const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
+    const left = Math.max(
+      CHAT_CARD_MARGIN,
+      Math.min(r.left, window.innerWidth - width - CHAT_CARD_MARGIN),
     );
+    const top = Math.max(CHAT_CARD_MARGIN, bottom - height);
     setBox({ left, top, width, height });
   }, []);
 
@@ -452,7 +459,9 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
       {/* The expanded card. Portaled to `document.body` (the dock is a sticky
           column with its own stacking context, and the card is wider than it), so
           it can hang over the page without being clipped and without the dock
-          changing width — the rule this whole dock is built on. */}
+          changing width — the rule this whole dock is built on. Its size is
+          `ChatCard.tsx`'s (`CHAT_CARD_WIDTH` × `CHAT_CARD_HEIGHT`, 19.3), so the
+          dock draws the same card the room does. */}
       {open &&
         cardOpen &&
         box &&
