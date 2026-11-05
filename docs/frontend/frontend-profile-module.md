@@ -18,7 +18,7 @@
 The Profile page (`/profile`) shows a user's profile with statistics, recent match history and a friends panel. It is a full-screen route (rendered directly by the router); the page mounts its own `NavDock`. The route is signed-in only.
 
 1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created. The window title bar (`// PILOT PROFILE • NAME ( USERNAME: handle )`) ends with a click-to-copy button that puts the handle on the clipboard (`profile.usernameCopy` → `profile.usernameCopiedOk` for 1.5 s, `profile.copyUsernameTooltip` on hover, UI beep) — closing the line the way `// ROOM: {{code}} [COPY]` closes the PvP badge, because the handle is the immutable identifier while the display name can be renamed.
-2. **Stats grid** — wins, losses, win rate, best streak.
+2. **Stats grid** — six cards: wins, losses, win rate, best streak, wins against humans and wins against bots (see *The career strip* below).
 3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you. Since M3 an own row also carries a **transcript expander** (`SHOW TRANSCRIPT (n)` → the stored lines, oldest first, a system line rendered from its code); a PvE row and an old row that predates the channel say `N/A`, and a friend's view has no expander at all because the API ships `chat` to the row's own account only.
 4. **Friends panel** — friends with their online status and their rating; shown only on your own profile.
 5. **Avatar actions (own profile)** — the `EDIT AVATAR`, `RESET` and `EDIT PROFILE` buttons, and below them a **message area with a fixed height**. The area shows upload and reset errors in red, and the photo-load warning (`profile.photoLoadError`) in amber. Because the height is fixed, a longer translation in Malay or French wraps onto more lines without moving the content below it.
@@ -26,7 +26,37 @@ The Profile page (`/profile`) shows a user's profile with statistics, recent mat
 
 When the page loads it reads the profile first, then the game history, achievements and friends **only if the profile came back `visibility: 'full'`**. It reads them again when the username changes or the edit modal closes. It does **not** repeat on a timer. A refresh after **Unblock** shows the full page again.
 
-### Blocked profile
+### The career strip
+
+The strip under the two rating blocks is one grid, `repeat(auto-fit, minmax(150px, 1fr))`, so the
+row fits as many cards as its width allows and stretches them to fill it, instead of dividing it
+four ways whatever the width is: six share one line at a full window, and the count steps down
+(five, four, three) as the page narrows. 150 px is the floor because it is the width at which the
+label (`VICTORIES`) and the 1.6 rem number both still fit on one line. Where six does not divide
+the tracks the last row ends short, which is the tail a fixed four-column strip had at every width.
+
+| card | key | reads |
+| --- | --- | --- |
+| VICTORIES | `profile.victoriesStat` | `stats.wins`, captioned `OF {{gamesPlayed}} MATCHES` |
+| DEFEATS | `profile.defeatsStat` | `stats.losses`, same caption |
+| WIN RATIO | `profile.winRatioStat` | `wins / gamesPlayed`, drawn as a number and a bar |
+| BEST STREAK | `profile.bestStreakStat` | `stats.bestWinStreak`, captioned `CURRENT: {{winStreak}}` |
+| HUMAN WINS | `profile.humanWinsStat` | `stats.humanWins`, captioned `PvP MATCHES` |
+| BOT WINS | `profile.botWinsStat` | `stats.botWins`, captioned `PvE MATCHES` |
+
+The caption names the *mode* rather than repeating the label, because "human wins" on its own
+does not say whether it counts a lobby duel, a room invite or a PvE seat.
+
+`stats.lastRatingDelta` is deliberately **not** a card: it is the swing one match applied, not a
+career total, so it is a chip beside `CURRENT ELO` (`profile.ratingDeltaChip`, `LAST +12`), green
+when positive and the page's red `#ff0055` when negative, with `profile.ratingDeltaHint` on hover
+and **hidden at zero** — an unrated player has no change to report, and a `LAST 0` chip would read
+as a bug.
+
+Every one of those numbers arrives on the payload. The win rate is the only thing the page derives
+(`wins / gamesPlayed`), and it stays derived rather than becoming a stored column; the split and
+the delta are printed as they come, the delta only gaining its sign.
+
 
 `GET /api/user/:username` answers `200` with `visibility: 'blocked-by-you' | 'blocked-by-them'` and identity + avatar only; the three collateral reads are skipped (they would `403 USER_BLOCKED`, the read path's own code: *"This section is hidden because of a block between you and this user"*). `BlockedProfileCard` in the same file then renders the avatar, the name and the same click-to-copy `@username` chip (`UsernameCopyChip`; a block hides the relationship, not the identifier), a `CONTACT UNAVAILABLE` notice, and:
 

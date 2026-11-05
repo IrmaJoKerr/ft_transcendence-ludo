@@ -721,6 +721,11 @@ export function Profile() {
   const career = profile && !isBlockedView ? (profile.stats ?? null) : null;
   const totalGames = career ? career.gamesPlayed : 0;
   const winRate = career && totalGames > 0 ? Math.round((career.wins / totalGames) * 100) : 0;
+  // The split under `wins` and the last rated match's movement are carried by the payload
+  // and only printed here (19.5): nothing is summed or divided to draw them, and a delta
+  // is signed, so it is formatted with its sign rather than recomputed.
+  const lastDelta = career?.lastRatingDelta ?? 0;
+  const lastDeltaLabel = `${lastDelta > 0 ? '+' : ''}${lastDelta}`;
   const statusStyle =
     profile && !isBlockedView ? STATUS_STYLE[profile.status] : STATUS_STYLE.offline;
   const peakRating = career ? career.highestRating || career.rating : 1200;
@@ -1298,7 +1303,15 @@ export function Profile() {
                       >
                         {career?.rating ?? 0}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
+                        }}
+                      >
                         <div
                           style={{
                             fontSize: '11px',
@@ -1314,6 +1327,29 @@ export function Profile() {
                         >
                           {t('profile.currentElo')}
                         </div>
+                        {lastDelta !== 0 && (
+                          <div
+                            title={t('profile.ratingDeltaHint')}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              color: lastDelta > 0 ? '#00ff88' : '#ff0055',
+                              background:
+                                lastDelta > 0
+                                  ? 'rgba(0, 255, 136, 0.12)'
+                                  : 'rgba(255, 0, 85, 0.12)',
+                              border: `1px solid ${
+                                lastDelta > 0 ? 'rgba(0, 255, 136, 0.5)' : 'rgba(255, 0, 85, 0.5)'
+                              }`,
+                              borderRadius: 4,
+                              padding: '3px 10px',
+                              letterSpacing: '1px',
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {t('profile.ratingDeltaChip', { delta: lastDeltaLabel })}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1381,11 +1417,11 @@ export function Profile() {
                     </div>
                   </div>
 
-                  {/* **2. HORIZONTAL CAREER STATS SHOWCASE STRIP (4 Columns)** */}
+                  {/* **2. HORIZONTAL CAREER STATS SHOWCASE STRIP (as many cards as fit)** */}
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                       gap: 12,
                       flexShrink: 0,
                     }}
@@ -1576,6 +1612,96 @@ export function Profile() {
                         }}
                       >
                         {t('profile.currentStreakCount', { count: career?.winStreak ?? 0 })}
+                      </div>
+                    </div>
+
+                    {/* Human Wins: the half of `wins` taken off another pilot */}
+                    <div
+                      style={{
+                        background: 'rgba(12, 4, 30, 0.9)',
+                        border: '1.5px solid rgba(157, 0, 255, 0.4)',
+                        boxShadow: '0 0 14px rgba(157, 0, 255, 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.humanWinsStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-purple)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.humanWins ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.humanOpponentNote')}
+                      </div>
+                    </div>
+
+                    {/* Bot Wins: the other half, counted the same way (a rank-1 finish in a PvE room) */}
+                    <div
+                      style={{
+                        background: 'rgba(12, 4, 30, 0.9)',
+                        border: '1.5px solid rgba(255, 0, 127, 0.4)',
+                        boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.botWinsStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-pink)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.botWins ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.botOpponentNote')}
                       </div>
                     </div>
                   </div>
