@@ -49,6 +49,7 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
 | `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
+| `bot-profile.ts` | A bot seat's personality: `botProfileHashFields(slot)` rolls a signed 0-5 modifier with mulberry32 and returns the four `player<N>_bot*` fields, written by the creator beside the seat's id and flag. Mulberry32 is repeated here rather than shared, the same way `room-rules.ts` repeats the rule clamp; only this copy ever rolls |
 | `match.module.ts` | NestJS module — registers all services, PrismaService |
 
 
@@ -88,7 +89,7 @@ request (`color`), and the claim is final: `joinMatch` resolves that colour's sl
 `HSETNX`, so one of two racing joiners gets the seat and the other gets `MATCH_COLOR_TAKEN`. There is no
 default corner and no in-room swap.
 
-`botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity, and the hash's `player{n}_isBot = 'true'` is what marks it as a bot. An empty or missing entry leaves the seat showing its plain id.
+`botNames` names the bot on each `botColors` slot. The backend stores each one as `player{n}_displayName = bot-<color> (<assistant>)`, which the engine copies to that seat's `displayName`; the seat keeps its `bot-<color>` identity, and the hash's `player{n}_isBot = 'true'` is what marks it as a bot. An empty or missing entry leaves the seat showing its plain id. The same hset carries the seat's personality, four numbers from `botProfileHashFields(n)`: `player{n}_botFastRate` (25 plus a signed 0-5 modifier), `player{n}_botSlowRate` (`100 - fastRate`), `player{n}_botRiskLastToken` (30 plus the modifier) and `player{n}_botRiskReserve` (60 plus the modifier). The engine copies all four onto the seat at PvE auto-start and reads them verbatim for the bot's wall-break pricing and its clash pace, so nothing is recomputed in play and no client ever sees them.
 
 ### MatchResponse
 

@@ -15,6 +15,7 @@ import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { findSeatedMatch } from './active-game';
 import { GUEST_TOKEN_TTL_S, GuestLimitService, guestIpHash } from './guest-limit.service';
 import { guestTokenKey, guestUserId, mintGuestToken } from './guest-token.util';
+import { botProfileHashFields } from './bot-profile';
 import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
 import {
   normalizeRoomRules,
@@ -329,6 +330,12 @@ export class MatchCreatorService {
         // the bot scheduler, the rejoin path and the post-game report. Nothing
         // tests the id's shape, so a room without the flag seats no bot.
         updates[`player${slot}_isBot`] = 'true';
+        // The seat's personality: four numbers rolled once here, on the same hset
+        // as the seat itself, so a room never exists with a bot and no profile.
+        // The engine copies them onto the seat at PvE auto-start and reads them
+        // verbatim for its pricing and its clash pace, which is why nothing is
+        // recomputed in play and no client ever sees them.
+        Object.assign(updates, botProfileHashFields(slot));
         // Display label only: the bot's identity stays `bot-<color>`. `botNames`
         // is index-aligned with `botColors`, so it carries the name the lobby
         // assigned each seat. A blank or missing name leaves the key out.

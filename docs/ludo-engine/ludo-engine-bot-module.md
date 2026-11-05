@@ -16,11 +16,11 @@
 
 ## Overview
 
-The Bot AI module provides an automated opponent for single-player (PvE) games. The bot is created per game and per color, and it picks its moves using a simple scoring heuristic. It:
+The Bot AI module provides an automated opponent for single-player (PvE) games. The bot is created per game and per color, and it picks its moves using one scoring scale:
 
-1. **Always takes captures** — if any legal move captures an opponent piece, it takes the first one.
-2. **Frees pieces from jail on a 6** — if the dice is 6, it prefers moving a piece out of the base.
-3. **Scores the remaining moves** — otherwise it ranks each move and picks the highest score.
+1. **Scores every legal move on one scale** — a free capture, a token-priced wall break, a home entry and a plain advance are all just numbers, and the highest wins. There is no priority list.
+2. **Never passes a turn it can play** — with a legal move on the board it plays the best of them, even when that spends its last Wall Breaker token.
+3. **Prices the token by its own appetite** — a wall break is worth a percentage of a fixed base, stored per seat when the bot seat is created, so a cautious bot and a reckless one sit at the same table.
 4. **Paces its moves** — it waits about 1.2 seconds before moving so the dice animation can play.
 
 Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot turns never overlap. If a bot holds the turn when the engine restarts, the wake pass re-arms the turn from the persisted state, so no client has to rejoin.
@@ -48,47 +48,58 @@ Bot turns are scheduled by the `SocketServer` (not by the bot itself) so two bot
 ```typescript
 // selectBestMove(legalMoves, state, diceValue)
 // ONE scale for every candidate, captures included. The highest score wins, so
-// there is no priority list to fall off the end of. Skip is the fallback at 0: a
-// list whose best score is not positive comes back as null, which is how a bot
-// declines a wall break whose odds do not cover the token's price and
-// passes the held turn instead of stalling it.
-// A capture scores CAPTURE_CREDIT x p ** captureCount (see below) and takes no
-// positional bonus; every other move is scored by scoreMove.
+// there is no priority list to fall off the end of, and with a legal move on the
+// board the answer is NEVER null: a seat that has something to play always plays
+// the best of it, even when that spends its last token. That guarantee is what
+// removed the old `null` return plus `skipArmedWallBreak`, which passed turns the
+// bot was allowed to take.
+// A capture takes no positional bonus. A FREE capture (a lone defender, a mixed
+// pair, or any capture without clash mode) scores CAPTURE_CREDIT; a landing that
+// spends a Wall Breaker token scores the seat's appetite instead (see below).
 ```
 
-The credit is discounted by the odds the bot wins the clash the capture starts,
-which is what stops a bot from walking into a wall it will probably lose. `p` is
-the odds of DRAWING THE FAST PACE PROFILE (38 presses vs 33, `clash-pace.ts`),
-which against a defender who does not press is also the odds of winning the round:
+**The appetite is a credit, not a probability.** A wall break is worth a fixed
+percentage of `BOT_WALL_BREAK_VALUE` (2000), stored per seat and read verbatim, so
+a token is spent when a wall is worth more to this bot than anything else it can
+do that turn:
 
 ```typescript
-// captureOdds(state, move):
-//   no clash mode (the capture just applies)            → 1
-//   one round against a bot seat  (p = 0.5)             → 0.5 ** captureCount
-//   one round against a human seat (p = 0.25)           → 0.25 ** captureCount
-// captureCount is the number of defenders on the landing square, i.e. one clash
-// round each (see move-validator.ts). The defender's seat comes from isBotSeat,
-// and its colour from the landing square via MoveValidator.findPiecesAtPosition.
-// One round vs a human: 7000 x 0.25 = 1750. A wall of 2: 437. Already beaten:
-// no positional score reaches 1560, so a sure capture still ranks first.
-// A human who presses well beats even the fast profile, so these are upper
-// bounds on the real odds, not a hidden handicap.
+// wallBreakCredit(state) = BOT_WALL_BREAK_VALUE x pct / 100     (integers only)
+//   pct by the hand it is holding:
+//     1 token                        → the last token      30%  →  600
+//     2 tokens                       → the reserve         60%  → 1200
+//     3 tokens (the cap)             → reserve + 18        78%  → 1560
+//   every number is the baseline plus the seat's signed 0-5
+//   personality modifier, rolled once when the seat was created
 ```
+
+The band it is weighed against is the positional score below: a plain advance tops
+out at 570, a safe-zone entry at 980, a jail exit on a six at 1160 and a home entry
+at 1560. So one token still breaks a wall when shuffling forward is the only
+alternative (600 against 570), two tokens also beat a safe-zone entry and a jail
+exit, and at the cap the credit lands exactly on a home entry (1560), which the
+tie rule below resolves in favour of the token-free move. No depth term exists:
+`captureCount` is not a factor, because a wall can shrink before the bot's next
+turn, and depth still matters to the *outcome* one clash per defender.
 
 ### Move scoring (`scoreMove`)
 
 | Condition | Score added |
 |---|---|
-| `move.isCapture` (takes the whole credit, no positional bonus) | `7000 × captureOdds` |
+| `move.isCapture` and `spendsWallBreakerToken` (takes the whole score, no positional bonus) | `2000 × pct / 100` |
+| `move.isCapture` and free (lone defender, mixed pair, clash mode off) | `7000` |
 | `move.isHomeEntry` (entering goal) | +1000 |
 | `move.to` lands on a safe zone | +500 |
 | `move.from === 0` (leaving jail) | +100 |
 | `move.from === 0` on a 6 (the old jail priority, kept as a bonus) | +1000 |
 | `move.to * 10` (progress along the track) | +10 per step |
 
-Ties keep the validator's order (`Array.prototype.sort` is stable), which
-reproduces the old "first capture" choice whenever the credits are equal — every
-capture in a room without clash mode, since the odds are then 1.
+Ties are total and explicit, in this order: no token spent, then the higher
+`to`, then the lower piece index. The first rule is what resolves the deliberate
+1560-against-1560 tie between a cap-tier wall break and a home entry; the token is
+the scarce resource the appetite exists to protect, and the conservative arm is the
+one that cannot read as a bug. No RNG is involved, so a replay makes the same
+decision twice.
 
 ### Bot identity
 
@@ -145,7 +156,7 @@ sequenceDiagram
     alt No piece can move
         Bot-->>Game: Pass the turn
     else Moves available
-        Bot->>Bot: Pick the best move (one scale: clash odds x credit, jail on 6, then score)
+        Bot->>Bot: Pick the best move (one scale: positional score, or the appetite credit for a token-priced wall)
         Bot->>Bot: Wait about 1.2 seconds (so the dice animation shows)
         Bot->>Engine: Make the move
         Engine-->>Bot: result
@@ -159,19 +170,22 @@ sequenceDiagram
 
 ### Choosing Between Several Moves
 
-When there are multiple options, the bot checks them in order — the first rule that fits wins. There is no deeper evaluation than these rules.
+Every legal move is scored on one scale and the highest wins. There is no priority
+list to fall off the end of: a capture, a home entry and a plain advance are all
+just numbers, and the largest number is played. The only two special cases are a
+capture on a landing that costs a Wall Breaker token, which scores the seat's
+appetite instead of the flat credit, and a tie, which the documented order breaks.
 
 ```mermaid
 flowchart TD
-    A["The bot can move more than one piece"] --> B{"Can it capture an opponent piece?"}
-    B -- "Yes" --> C["Capture it: a capture is always the best move"]
-    B -- "No" --> D{"Did it roll a 6?"}
-    D -- "Yes" --> E{"Is any piece still in the base?"}
-    E -- "Yes" --> F["Move a piece out of the base"]
-    E -- "No" --> G["Score each possible move and pick the highest"]
-    D -- "No" --> G
-    C --> H["Move the chosen piece"]
-    F --> H
+    A["The bot has one or more legal moves"] --> B{"Score each move, captures included"}
+    B --> C["capture, free → 7000<br/>capture, token-priced → 2000 × pct / 100"]
+    B --> D["home entry +1000, safe zone +500,<br/>base exit +100, +1000 more on a 6,<br/>progress +10 per step"]
+    C --> E["Highest score wins (strict >)"]
+    D --> E
+    E --> F{"Exact tie?"}
+    F -- "yes" --> G["No token spent, then higher to,<br/>then lower piece index"]
+    F -- "no" --> H["Move the chosen piece"]
     G --> H
 ```
 
@@ -198,7 +212,7 @@ flowchart LR
 | 2 | G0 piece `10 → 14` | safe zone (★) | `14×10 + 500 = 640` |
 | 3 | G1 piece `20 → 24` | plain square | `24×10 = 240` |
 
-The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same scale decides, captures included: a capture the bot is sure of scores `7000` and a lone defender `1750`, both above option 2, while a wall of two (a clash round each, `7000 × 0.25² = 437`) ranks below it — which is the point, a chain the bot probably loses is not worth walking into. A wall break pays that same credit minus the held token's shadow (`WALL_BREAK_TOKEN_SHADOW`, `0.2 × 7000 = 1400`): the same wall with a mirror bot defending (`7000 × 0.5² - 1400 = 350`) is worth the attempt, while against a human (`437 - 1400`) the bot declines and keeps the token.
+The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In real games the same scale decides, captures included: a free capture scores a flat `7000` and outbids everything, because a bot never spends a token when the capture costs nothing. A token-priced wall break scores the seat's appetite instead, so the same board answers differently by hand size: `600` at one token (above option 2, which is why a bot still breaks a wall when shuffling forward is the only alternative), `1200` at two, and `1560` at the cap, where it ties a home entry and the tie rule keeps the token. The defender's kind never enters the price, and neither does the wall's depth: a four-defender wall is worth exactly the same as a two-defender one.
 
 
 ---
@@ -210,32 +224,52 @@ The bot picks **option 2** (highest score, `640`) and moves G0 to step 14. In re
 ### Bot Move Selection Path
 ```
 selectBestMove(legalMoves, state, diceValue)
-  ├── No legal moves → return null (pass turn)
-  └── Otherwise score each move and return the highest, or null when the best
-      score is not positive (Skip scores 0, and only a wall break can
-      fall below it):
-      ├── isCapture → 7000 × captureOdds (1 with no clash, else 0.5 or 0.25 per round, ^ rounds); nothing else added
-      │   └── a wall break subtracts WALL_BREAK_TOKEN_SHADOW (0.2 × 7000) for the
-      │       token it spends, so a coin-flip wall is taken and a long-odds one is not
+  ├── No legal moves → return null (nothing to play; the engine advanced the turn)
+  └── Otherwise score each move and return the highest. Never null with a move:
+      ├── isCapture and spendsWallBreakerToken → BOT_WALL_BREAK_VALUE × pct / 100
+      │   (pct = 30 at the last token, 60 at the reserve, 78 at the cap, plus the
+      │    seat's stored modifier; nothing else is added)
+      ├── isCapture and free → CAPTURE_CREDIT (7000), nothing else added
       ├── +1000 if isHomeEntry
       ├── +500 if lands on a safe zone
       ├── +100 if from === 0, and +1000 more of those on a 6 (the old jail priority)
       ├── +10 per step (move.to * 10)
-      └── Ties keep the validator's order (a stable sort → the old "first capture")
+      └── Ties: no token spent, then higher to, then lower piece index
 ```
 
 ### Bot Turn Path
 takeTurn()
 ```
   ├── loadGameState → must be active, bot's turn, WAITING_FOR_ROLL
+  ├── arm the Wall Breaker when clash mode is on and the hand is not empty
   ├── engine.rollDice(gameId)
   ├── Re-check state.currentTurn (may have changed on disconnect)
-  ├── selectBestMove → null means the bot declines the armed wall break:
-  │   engine.skipArmedWallBreak() passes the held turn with the token in hand, then return
+  ├── selectBestMove, falling back to legalMoves[0] if it ever came back null:
+  │   the bot always plays. There is no skip and no passed turn.
   ├── Wait 1.2s
   ├── engine.movePiece(gameId, pieceId, move.to)
   └── Return whether the game is still active
 ```
+
+### Bot Personality
+
+Four numbers, rolled once when the backend creates the bot seat and written into
+the match hash beside `player<N>_isBot`. The engine copies them onto the seat at
+PvE auto-start, and both readers (the decision and the clash pace) read the seat,
+never a second copy.
+
+| Field | Example | What it decides |
+|---|---|---|
+| `player<N>_botFastRate` | 28 | the speed in a clash against a human (`fastRate / 100`) |
+| `player<N>_botSlowRate` | 72 | `100 - fastRate`: derived, recorded so the profile reads at a glance |
+| `player<N>_botRiskLastToken` | 33 | the appetite at exactly one token |
+| `player<N>_botRiskReserve` | 63 | the appetite at two or more tokens, before the surplus uplift |
+
+The modifier is a signed 0 to 5, so 0 is twice as likely as any other value, and it
+is added to all three baselines at once (25 / 30 / 60). It is sampled with
+mulberry32, the project's generator, in `backend/src/match/bot-profile.ts`. An
+absent field falls back to the baseline, so a state, replay or harness written
+before the fields existed behaves exactly as it did and no migration exists.
 
 
 ---
@@ -246,9 +280,8 @@ takeTurn()
 
 | Dependency | Purpose |
 |-----------|---------|
-| `MoveValidator` | Provides the legal moves for a roll, and `findPiecesAtPosition` names the defenders a capture would fight |
 | `LudoEngine` | Rolls the dice and executes moves |
 | `RedisGameStore` | Loads/saves game state |
-| `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the defender's colour |
-| `clash.ts` | `CLASH_BOT_FAST_VS_HUMAN` / `CLASH_BOT_FAST_VS_BOT`: the odds the clash draws the FAST pace profile (38 presses vs 33, `clash-pace.ts`), which is what a passive defender turns into a win |
+| `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the tie order's piece index |
+| `common/src/wall-breaker.constants.ts` | `WALL_BREAKER_TOKEN_CAP`, via `WALL_BREAKER_TOKEN_CAP` re-export: the cap that opens the surplus appetite band |
 | `socket/auth.ts` | `BOT_PREFIX`: the namespace a bot seat's id is minted in; a seat's kind is never read from it |

@@ -107,7 +107,7 @@ input/output. Each event is documented in full below; see
 | `socket/allowed-origins.ts` | Parses `CORS_ORIGIN` into the Socket.IO CORS allow-list (comma-split, trimmed, blanks dropped) |
 | `socket/event-rate-limiter.ts` | `EventRateLimiter` — per-socket token bucket that meters inbound events |
 | `socket/socket-handlers.ts` | All client→server event handlers (join, roll, move, etc.) |
-| `socket/join-manager.ts` | `JoinManager` — seat resolution, game creation, reconnect vs fresh join, PvE/hotseat auto-start |
+| `socket/join-manager.ts` | `JoinManager` — seat resolution, game creation, reconnect vs fresh join, PvE/hotseat auto-start (which also copies the four `player<N>_bot*` personality fields off the room hash onto the seat, so the bot's pricing and clash pace read one place) |
 | `socket/bot-scheduler.ts` | One timer per game that drives bot turns |
 | `socket/room-context.ts` | `RoomContext` + `RoomRegistry`: the in-memory owner of one awake room (that room's human seat bindings plus its idle-lobby and post-game timers) |
 | `socket/idle-lobby.ts` | `IdleLobbyWatcher`: aborts a WAITING room below quorum once its persisted `idleSince` stamp is `IDLE_LOBBY_TIMEOUT_MS` old |

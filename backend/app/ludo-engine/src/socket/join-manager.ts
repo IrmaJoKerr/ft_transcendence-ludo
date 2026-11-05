@@ -7,7 +7,7 @@ import { firstActiveColor } from '../player-handler';
 import type { GameSocket } from './auth';
 import { BOT_PREFIX } from './auth';
 import type { RoomRegistry } from './room-context';
-import type { PlayerColor } from '../types';
+import type { PlayerColor, PlayerMeta } from '../types';
 
 // Shared seat order : used by the join flow to map slots to colors and to
 // auto-fill bot seats (the seat order must match the original match).
@@ -20,6 +20,32 @@ export const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 function isBotMatchSeat(matchData: Record<string, string>, color: PlayerColor): boolean {
   const slot = SLOT_COLORS.indexOf(color) + 1;
   return matchData[`player${slot}_isBot`] === 'true';
+}
+
+// The four personality numbers the backend rolled for one bot seat, read back out
+// of the room hash. A field that is absent or unreadable stays absent, so the engine
+// falls back to its baseline: a room created before the profile existed plays the
+// standard bot rather than refusing to seat it.
+function botProfileOfMatch(
+  matchData: Record<string, string>,
+  slot: number,
+): Pick<PlayerMeta, 'botFastRate' | 'botSlowRate' | 'botRiskLastToken' | 'botRiskReserve'> {
+  const read = (field: string): number | undefined => {
+    const raw = matchData[`player${slot}_${field}`];
+    if (raw === undefined) return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const profile: ReturnType<typeof botProfileOfMatch> = {};
+  const fast = read('botFastRate');
+  const slow = read('botSlowRate');
+  const last = read('botRiskLastToken');
+  const reserve = read('botRiskReserve');
+  if (fast !== undefined) profile.botFastRate = fast;
+  if (slow !== undefined) profile.botSlowRate = slow;
+  if (last !== undefined) profile.botRiskLastToken = last;
+  if (reserve !== undefined) profile.botRiskReserve = reserve;
+  return profile;
 }
 
 // JoinManager owns the join_game flow: serializes each game's join critical
@@ -318,6 +344,10 @@ export class JoinManager {
           // A bot has no photo; hasAvatarPhoto stays false so the client renders
           // the generated avatar instead of requesting one.
           player.hasAvatarPhoto = false;
+          // The personality the backend rolled for this seat, copied from the room
+          // hash onto the seat so both readers (the decision and the clash pace)
+          // read one place. Absent fields stay absent and the baselines apply.
+          Object.assign(player, botProfileOfMatch(matchData, i));
         }
 
         // The persisted `seatUser_<color>` field is what the result submitter

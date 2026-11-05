@@ -138,6 +138,18 @@ export interface PlayerMeta {
   // per token-bought exit, one earned per clash won against exactly one defender
   // (see WALL_BREAKER_TOKEN_CAP). Absent reads as 0.
   wallBreakerTokens?: number;
+  // The bot's personality, rolled once when the seat is created (the backend writes
+  // the same four numbers into the room hash) and read verbatim by both the decision
+  // and the clash. `fastRate` is its speed in a clash against a human, `slowRate` is
+  // `100 - fastRate` recorded so the profile reads at a glance, and the two appetites
+  // are the percentage of BOT_WALL_BREAK_VALUE a wall break is worth at the last token
+  // and at the reserve (the cap tier adds the surplus uplift on top). All four are
+  // absent on a human seat, and an absent field falls back to the baseline, so a state,
+  // replay or harness written before they existed behaves exactly as it did.
+  botFastRate?: number;
+  botSlowRate?: number;
+  botRiskLastToken?: number;
+  botRiskReserve?: number;
   // The seat's departure, captured while the room's tallies still exist (parking its
   // pieces zeroes them) and posted to the backend as this seat's own row. It stays on
   // the seat so a delivery that failed is retried by the wake pass and by a reconnect;

@@ -253,8 +253,11 @@ turn is comparable.
 
 | Constant | Value | What it decides |
 |---|---|---|
-| `CAPTURE_CREDIT` | 7000 | a capture scores this × its clash odds; no positional bonus is added on top |
-| `WALL_BREAK_TOKEN_SHADOW` | 1400 (0.2 × `CAPTURE_CREDIT`) | the token a wall break spends; a break whose odds fall short of the shadow is declined |
+| `CAPTURE_CREDIT` | 7000 | a FREE capture (a lone defender, a mixed pair, or any capture with clash mode off); no positional bonus is added on top |
+| `BOT_WALL_BREAK_VALUE` | 2000 | the base a token-priced wall break is priced against: `2000 × pct / 100`, an integer because the base is a multiple of 100 |
+| `BOT_RISK_LAST_TOKEN` | 30 | the appetite at exactly one token: 600, just above the 570 a plain advance tops out at |
+| `BOT_RISK_RESERVE` | 60 | the appetite at two tokens: 1200, above a safe-zone entry (980) and a jail exit (1160) |
+| `BOT_SURPLUS_UPLIFT` | 18 | added to the reserve at the cap: 78% is 1560, exactly a home entry, which the tie rule resolves towards the token-free move |
 | `JAIL_EXIT_BONUS` | 1000 | extra on a 6 that leaves the base, so that exit outranks every positional move except a home entry |
 | Home entry (inline) | +1000 | landing in the home lane |
 | Safe-zone landing (inline) | +500 | only when entering a safe square from the track |
@@ -262,8 +265,11 @@ turn is comparable.
 | Base exit (inline) | +100 | any move out of the base |
 | Move delay (inline) | 1200 ms | the pause after the roll before the bot moves, so the client's dice spin has finished |
 
-No positional move scores above 1560, which is why a 2+-defender wall (odds-discounted credit at
-`CLASH_BOT_FAST_VS_HUMAN ** rounds`) can fall below the best safe move and be declined. The worked
+No positional move scores above 1560, which is why a token-priced wall break is a decision rather than
+a formality: 600 beats a plain advance, 1200 also beats a safe zone and a jail exit, and 1560 only ties
+a home entry. The personality is added to the three baselines at once: `BOT_FAST_RATE_BASE` 25 and a
+signed 0-5 modifier, rolled once per bot seat in `backend/src/match/bot-profile.ts` and stored on the
+seat as `player<N>_botFastRate` / `_botSlowRate` / `_botRiskLastToken` / `_botRiskReserve`. The worked
 values are in [`ludo-engine/ludo-engine-bot-module.md`](ludo-engine/ludo-engine-bot-module.md).
 
 

@@ -104,6 +104,20 @@ export class ClashEngine {
     // (inside the manager), the switch schedule and the bot presses, so a round's
     // whole random shape replays from a single seed.
     const rng = createRng(seedFrom(this.random));
+    // The pace profile is the seat's, not a global: the backend rolls it once when
+    // the bot seat is created, so one table's bots are not three clones of each
+    // other and the same game behaves the same way twice. `botFastRate` is the
+    // speed against a human; an absent field (a state written before the profile
+    // existed) falls back to the baseline, so nothing needs a migration. Bot
+    // against bot keeps its 50/50 assignment below: that draw decides which of the
+    // two runs fast, not how fast either one is.
+    const state = await this.store.loadGameState(gameId);
+    const fastRateOf = (color: PlayerColor): number => {
+      const rate = state?.players.find((p) => p.color === color)?.botFastRate;
+      return typeof rate === 'number' && Number.isFinite(rate)
+        ? rate / 100
+        : CLASH_BOT_FAST_VS_HUMAN;
+    };
     await this.clashManager.startClash(gameId, attacker, defender, info, rng);
     this.armClashPhaseTimers(gameId, (pressStartAt) => {
       if (!attackerIsBot && !defenderIsBot) return;
@@ -131,7 +145,7 @@ export class ClashEngine {
         );
       } else {
         const botSide = attackerIsBot ? attacker : defender;
-        const fast = rng() < CLASH_BOT_FAST_VS_HUMAN;
+        const fast = rng() < fastRateOf(botSide);
         this.simulateBotPressers(
           gameId,
           botSide,

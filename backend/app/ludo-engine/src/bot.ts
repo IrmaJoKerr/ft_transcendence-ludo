@@ -1,8 +1,7 @@
 import type { LudoEngine } from './engine';
 import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
-import { MoveValidator } from './move-validator';
-import { CLASH_BOT_FAST_VS_BOT, CLASH_BOT_FAST_VS_HUMAN } from './clash';
+import { WALL_BREAKER_TOKEN_CAP } from './__shared__/wall-breaker.constants';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
 const botMap = new Map<string, Map<PlayerColor, LudoBot>>();
@@ -33,17 +32,26 @@ export function isBotSeat(state: GameState | null | undefined, color: PlayerColo
   return player?.isBot === true;
 }
 
-// Move-selection scale: no positional move scores above 1560 and a capture is
-// worth CAPTURE_CREDIT times its clash odds. A 2+ defender wall falls below the
-// best positional move, so the bot declines it. The bot doc has the worked values.
+// Move-selection scale: no positional move scores above 1560 and a free capture
+// is worth CAPTURE_CREDIT. A token-priced wall break pays the seat's appetite
+// instead: `BOT_WALL_BREAK_VALUE x pct / 100`, an exact integer because the base
+// is a multiple of 100. The bot doc and the Constant list carry the worked values.
 const CAPTURE_CREDIT = 7000;
-// Value of a Wall Breaker token kept in hand. A wall break scores its capture
-// credit minus this shadow, so the bot spends the token only when the attack
-// still clears that value.
-const WALL_BREAK_TOKEN_SHADOW = 0.2 * CAPTURE_CREDIT;
+// What one Wall Breaker token is worth to the decision, before the seat's
+// appetite is applied. 2000 keeps the one-token credit (600) just above the 570
+// a plain advance tops out at, so a seat with its last token still breaks a wall
+// rather than shuffling forward.
+export const BOT_WALL_BREAK_VALUE = 2000;
+// Baseline appetite per token band, before the seat's signed 0-5 modifier: the
+// last token, the reserve, and the surplus. Only the last band is a tilt: at the
+// cap a fourth token has no future value, so the top band is the reserve plus a
+// flat uplift (78 = 60 + 18, which is 1560 at a 2000 base: home entry, exactly,
+// so the tie rule keeps the token in hand).
+export const BOT_RISK_LAST_TOKEN = 30;
+export const BOT_RISK_RESERVE = 60;
+export const BOT_SURPLUS_UPLIFT = 18;
 // A jail exit on a 6 keeps the old tempo priority: with every other bonus it
-// scores 1670, above the best positional move and below the cheapest capture the
-// bot takes.
+// scores 1670, above the best positional move and above the cheapest wall break.
 const JAIL_EXIT_BONUS = 1000;
 
 // Server-side Ludo Bot with heuristic move selection. One instance per
@@ -62,9 +70,12 @@ export class LudoBot {
     this.store = store;
   }
 
-  // Rank captures on the same scale and include their clash odds, so a chain the
-  // bot expects to lose ranks below a safe move. Skip scores 0; a null result
-  // means the bot declined a token-priced wall break.
+  // Rank every legal move on the one scale. Never null while a move exists: a
+  // seat that has something legal to play always plays the best of it, even when
+  // that move spends its last token. That guarantee is what removes the old
+  // `null` plus `skipArmedWallBreak` path, which passed turns the bot was allowed
+  // to take. Ties resolve in a total order: no token spent, then further along,
+  // then the lower piece index.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
 
@@ -73,24 +84,34 @@ export class LudoBot {
       score: this.scoreMove(move, state, diceValue),
     }));
 
-    // Array.prototype.sort is stable, so equal scores keep the validator's order
-    // (the tie-break the old `captures[0]` return used: pool captures, then the
-    // furthest along).
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0].score > 0 ? scored[0].move : null;
+    scored.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      // An exact tie keeps the token: it is the scarce resource this pricing
+      // exists to protect, and the conservative arm cannot read as a bug. The
+      // 78% cap lands exactly on a home entry (1560), so this is the rule that
+      // resolves the one deliberate tie in the ladder.
+      const spendA = a.move.spendsWallBreakerToken ? 1 : 0;
+      const spendB = b.move.spendsWallBreakerToken ? 1 : 0;
+      if (spendA !== spendB) return spendA - spendB;
+      if (b.move.to !== a.move.to) return b.move.to - a.move.to;
+      return (
+        BoardMapper.parsePieceId(a.move.pieceId).index -
+        BoardMapper.parsePieceId(b.move.pieceId).index
+      );
+    });
+    return scored[0].move;
   }
 
   // Score a move on one scale. Higher score = better move.
   private scoreMove(move: LegalMove, state: GameState, diceValue: number): number {
-    // A capture scores its odds-weighted credit and no positional bonus: adding
-    // progress back would undo the chain discount (a 4-deep wall against a human
-    // is worth 219, while plain progress alone pays up to 570).
+    // A capture takes its square, so it pays no positional bonus. What it pays
+    // depends on what it costs: a landing that spends a Wall Breaker token is
+    // worth the seat's appetite, and a free capture (a lone defender, a mixed
+    // pair, or any capture in a room without clash mode) keeps the flat credit.
+    // Free captures outbid every wall break at every appetite, which is the
+    // reading that a bot never spends a token when the capture costs nothing.
     if (move.isCapture) {
-      const credit = CAPTURE_CREDIT * this.captureOdds(state, move);
-      // A token-priced wall break is a capture that also spends a token, so it
-      // pays the token's shadow price: a break whose odds do not cover it drops
-      // below Skip (0) and the bot declines.
-      return move.spendsWallBreakerToken ? credit - WALL_BREAK_TOKEN_SHADOW : credit;
+      return move.spendsWallBreakerToken ? this.wallBreakCredit(state) : CAPTURE_CREDIT;
     }
 
     let score = 0;
@@ -121,27 +142,29 @@ export class LudoBot {
     return score;
   }
 
-  // Odds the bot takes the landing square. With clash mode off the capture always
-  // applies. Under clash mode the bot's pace profile is drawn per round, and only
-  // the FAST profile (38 presses) beats a defender who does not press at all, so
-  // for a passive seat the draw chance is also the win chance: one round scores
-  // `p`, a wall of R defenders scores `p ** R`. See the bot doc for p per seat.
-  private captureOdds(state: GameState, move: LegalMove): number {
-    if (!state.clashMode) return 1;
-    // The defender colour comes from the landing square, the only square the move
-    // fights, read through the same helper the validator uses. The wall depth is
-    // already in `move.captureCount`, one round per defender.
-    const defenders = MoveValidator.findPiecesAtPosition(state, this.color, move.to);
-    const defenderColor =
-      defenders.length > 0 ? BoardMapper.parsePieceId(defenders[0]).color : null;
-    const perRound =
-      defenderColor && isBotSeat(state, defenderColor)
-        ? CLASH_BOT_FAST_VS_BOT
-        : CLASH_BOT_FAST_VS_HUMAN;
-    // A capture always has at least one defender; the `> 0` guard is for a move
-    // list written before `captureCount` existed, where the field is undefined.
-    const rounds = move.captureCount > 0 ? move.captureCount : 1;
-    return perRound ** rounds;
+  // The seat's appetite for the hand it is holding: 30% at the last token, the
+  // reserve below the cap, and the reserve plus the surplus uplift at the cap. The
+  // cap is `WALL_BREAKER_TOKEN_CAP` from the shared constants, so the band cannot
+  // drift from the token economy the client draws. The four seat fields are rolled
+  // once when the bot seat is created, so the same game behaves the same way twice
+  // and no RNG runs in the decision path. An absent profile falls back to the
+  // baselines, which is why no state written before the fields existed needs a
+  // migration.
+  private appetite(state: GameState): number {
+    const seat = state.players.find((p) => p.color === this.color);
+    const tokens = seat?.wallBreakerTokens ?? 0;
+    const reserve = seat?.botRiskReserve ?? BOT_RISK_RESERVE;
+    if (tokens >= WALL_BREAKER_TOKEN_CAP) return reserve + BOT_SURPLUS_UPLIFT;
+    if (tokens >= 2) return reserve;
+    return seat?.botRiskLastToken ?? BOT_RISK_LAST_TOKEN;
+  }
+
+  // What a wall break is worth to this seat, on the same scale as every
+  // positional move: the base times its stored percentage, divided by 100. Both
+  // factors are integers and the base is a multiple of 100, so the comparison
+  // never involves a float and a tie is a tie.
+  private wallBreakCredit(state: GameState): number {
+    return (BOT_WALL_BREAK_VALUE * this.appetite(state)) / 100;
   }
 
   // Execute bot turn: roll dice, make the best move. Does NOT schedule
@@ -170,7 +193,7 @@ export class LudoBot {
 
     // The bot arms whenever it holds a token: an unarmed seat is blocked by a wall,
     // so it would never see the wall landings its pricing exists for. Arming costs
-    // nothing; selectBestMove still declines a wall break whose odds miss the shadow price.
+    // nothing, and the appetite decides whether a priced landing is worth taking.
     const botSeat = state.players.find((p) => p.color === this.color);
     if (
       state.clashMode === true &&
@@ -188,14 +211,11 @@ export class LudoBot {
       const afterRoll = await this.store.loadGameState(this.gameId);
       if (afterRoll?.currentTurn !== this.color) return false;
 
-      // Select the best move by heuristic. Null means the bot declines an armed
-      // wall break whose odds miss the token's shadow price: it passes the turn
-      // instead of stalling, and the token stays in hand.
-      const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue);
-      if (!bestMove) {
-        await this.engine.skipArmedWallBreak(this.gameId);
-        return true;
-      }
+      // Select the best move by heuristic. With a legal move on the board this is
+      // never null: the bot plays on, even when the best move spends its last
+      // token. The `?? legalMoves[0]` is the belt to that brace, so a comparator
+      // bug can cost the bot a good move but never a turn.
+      const bestMove = this.selectBestMove(legalMoves, afterRoll, diceValue) ?? legalMoves[0];
 
       // Delay piece movement so frontend dice roll animation finishes first and displays the number
       await new Promise((resolve) => setTimeout(resolve, 1200));

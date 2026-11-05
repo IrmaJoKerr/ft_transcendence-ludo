@@ -107,6 +107,15 @@ export interface PlayerMeta {
   };
   wallBreakerTokens?: number;      // Wall Breaker tokens in hand (absent on a state written before the token = 0)
   wallBreakerArmed?: boolean;      // Wall Breaker arm switch for THIS turn (absent = disarmed, which is the safe default)
+  // The bot's personality, on a bot seat only: rolled once by the backend when the room
+  // was created, copied off the match hash at PvE auto-start, read verbatim by the
+  // decision (bot.ts) and the clash pace (clash-engine.ts). Absent = the baseline
+  // (25 fast / 30 last token / 60 reserve), which is what a human seat and a state
+  // written before the profile existed both read as.
+  botFastRate?: number;
+  botSlowRate?: number;
+  botRiskLastToken?: number;
+  botRiskReserve?: number;
   lastRoll?: number | null;    // The face this seat's die last landed on, stamped by the true roller (absent = never rolled)
 }
 ```
