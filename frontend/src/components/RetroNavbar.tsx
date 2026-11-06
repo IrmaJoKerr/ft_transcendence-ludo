@@ -26,6 +26,14 @@ const REJOIN_EDGE = {
   boxShadow: '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.25)',
 };
 
+// The one room the rejoin row speaks for: a PvE or PvP seat the account still holds.
+// A hotseat room writes no match row, seats one device and belongs to no account, so
+// it never reaches the row; picking by mode rather than by `rooms[0]` also means a
+// hotseat row cannot hide a live simulation behind it.
+function rejoinableRoom(rooms: MyRoom[]): MyRoom | null {
+  return rooms.find((room) => room.gameType === 'PVE' || room.gameType === 'PVP') ?? null;
+}
+
 // The rejoin banner rides the session socket (`rooms:mine`); the one REST read is
 // first paint and every reconnect, because the push carries only a diff.
 const NAV_LABEL_BASE_PX = 13.6; // ≈ 0.85rem; used before the first measurement
@@ -177,11 +185,9 @@ export function RetroNavbar({
     }
     getApi<MyRoom[]>('/api/games/mine')
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setActiveGame(data[0]);
-        } else {
-          setActiveGame(null);
-        }
+        // One row speaks for one seat: the hotseat room (if any) is not the dock's
+        // business, so it is filtered here rather than only at the draw.
+        setActiveGame(Array.isArray(data) ? rejoinableRoom(data) : null);
       })
       .catch(() => setActiveGame(null));
   }, [user]);
@@ -194,7 +200,7 @@ export function RetroNavbar({
   // seats, so the banner appears and disappears without a request.
   useEffect(() => {
     if (!sessionSocket) return;
-    const onMine = (rooms: MyRoom[]) => setActiveGame(rooms.length > 0 ? rooms[0] : null);
+    const onMine = (rooms: MyRoom[]) => setActiveGame(rejoinableRoom(rooms));
     const onConnect = () => fetchActiveGame();
     sessionSocket.on('rooms:mine', onMine);
     sessionSocket.on('connect', onConnect);
@@ -626,22 +632,26 @@ export function RetroNavbar({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {isRejoining ? t('navbar.rejoining') : t('navbar.rejoinActiveBtn')}
+                  {isRejoining
+                    ? t('navbar.rejoining')
+                    : t('navbar.rejoinModeLabel', { mode: activeGame.gameType })}
                 </span>
-                <span
-                  style={{
-                    fontSize: '0.62rem',
-                    color: 'var(--accent-cyan)',
-                    fontFamily: 'var(--font-mono)',
-                    whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {activeGame.roomCode
-                    ? `${t('navbar.rejoinRoomLabel')} ${activeGame.roomCode}`
-                    : `${t('navbar.rejoinStatusLabel')} ${activeGame.status}`}
-                </span>
+                {/* The room line is PvP's alone. A PvE simulation mints no invite code,
+                    so the line has nothing to say there and is not drawn at all. */}
+                {activeGame.roomCode && (
+                  <span
+                    style={{
+                      fontSize: '0.62rem',
+                      color: 'var(--accent-cyan)',
+                      fontFamily: 'var(--font-mono)',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {`${t('navbar.rejoinRoomLabel')} ${activeGame.roomCode}`}
+                  </span>
+                )}
               </div>
             </div>
             <span style={{ fontSize: '0.85rem', color: 'var(--accent-pink)', flexShrink: 0 }}>

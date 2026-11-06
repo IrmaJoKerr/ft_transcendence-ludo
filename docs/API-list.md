@@ -1539,9 +1539,15 @@ List rooms (WAITING/ACTIVE) the current user is seated in — used to rejoin aft
 the first-paint read now**: the same list is pushed as `rooms:mine` over the session socket whenever
 it changes (the navbar's rejoin banner subscribes to it). A room whose seat the engine has
 **finalized** (grace expired / End Game — `PlayerMeta.status` is `exited`) is filtered out via the
-snapshot's `finalizedIds`, so a departed player is not offered a REJOIN MATCH button they can no
+snapshot's `finalizedIds`, so a departed player is not offered a rejoin button they can no
 longer use. The seat is checked whatever the stored hash status says: a room whose hash still reads
 `WAITING` can have live engine state behind it.
+
+Every mode's seat is listed, including a PvE simulation's. The dock's banner draws the row for
+`PVE` and `PVP` only (a hotseat room writes no match row, seats one device and belongs to no
+account), picks by mode rather than by the first row so a hotseat row cannot hide a live
+simulation, and fills its first line from the row's own `gameType` (`REJOIN PVE MATCH` /
+`REJOIN PVP MATCH`). The `ROOM:` line is PvP's alone: a simulation mints no invite code.
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:** Array of the user's room summaries.
@@ -2940,7 +2946,7 @@ socket.emit('end_game');
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleDisconnect`)
 
-Automatically handled when the WebSocket connection drops. Opens a reconnect grace window (45 s in PvP, 1 h in single-instance modes) for a **live, unfinished** seat and broadcasts `player_disconnected`; no window is opened for an exited/finished seat. `player_reconnected` fires if the player returns inside the window, carrying the name the client reports so a rename survives the reconnect. If the window expires the seat is pruned for good (`player_exited`, pieces parked at `step = -1`), and a later `join_game` for it is answered with `seat_expired` instead of being treated as a reconnect.
+Automatically handled when the WebSocket connection drops. Opens a reconnect grace window (45 s in PvP and in hotseat, 1 h in a PvE simulation) for a **live, unfinished** seat and broadcasts `player_disconnected`; no window is opened for an exited/finished seat. `player_reconnected` fires if the player returns inside the window, carrying the name the client reports so a rename survives the reconnect. If the window expires the seat is pruned for good (`player_exited`, pieces parked at `step = -1`), and a later `join_game` for it is answered with `seat_expired` instead of being treated as a reconnect.
 
 ```js
 // Socket.IO handles this automatically on connection loss

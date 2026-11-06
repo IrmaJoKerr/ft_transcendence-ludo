@@ -874,11 +874,10 @@ export const fr = {
     enabledBadge: 'ACTIVÉ',
     disabledBadge: 'DÉSACTIVÉ',
     logoutBtn: 'DÉCONNEXION // LOGOUT',
-    rejoinActiveBtn: 'REJOINDRE PARTIE',
+    rejoinModeLabel: 'REJOINDRE PARTIE {{mode}}',
     rejoinActiveTooltip: 'Rejoindre votre partie active en cours',
     rejoining: 'RECONNEXION...',
     rejoinRoomLabel: 'SALLE :',
-    rejoinStatusLabel: 'STATUT :',
   },
   profileExtra: {
     editProfileBtn: 'MODIFIER LE PROFIL',

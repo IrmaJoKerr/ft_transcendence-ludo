@@ -54,11 +54,16 @@ function writesMatchRows(matchData: Record<string, string> | null | undefined): 
 }
 
 // How long an away seat may stay away, decided by the room it is in: one hour for
-// a single-socket room (the browser tab is the game), 45 s for a live PvP seat,
-// and five minutes for a waiting-room seat. The waiting room is deliberately more
-// relaxed (R12/R17): returning to the lobby never costs the seat, so the window is
-// there to notice a player who is not coming back, not to punish a quick look away.
+// a PvE simulation (the browser tab is the game), 45 s for a live PvP seat, and
+// five minutes for a waiting-room seat. Hotseat takes the live 45 s as well: it
+// writes no match row and holds no account's seat, so its hour bought nothing but
+// an hour of lobby lock-out. It still never pauses and still closes itself at
+// expiry, because `isSingleSocketGame` is unchanged; only the window it waits is.
+// The waiting room is deliberately more relaxed (R12/R17): returning to the lobby
+// never costs the seat, so the window is there to notice a player who is not
+// coming back, not to punish a quick look away.
 function reconnectWindowMs(state: GameState, gameType: string | undefined): number {
+  if (gameType === 'HOTSEAT') return DISCONNECT_GRACE_MS;
   if (isSingleSocketGame(gameType)) return SINGLE_SOCKET_DISCONNECT_GRACE_MS;
   return state.status === 'waiting' ? WAITING_SEAT_GRACE_MS : DISCONNECT_GRACE_MS;
 }

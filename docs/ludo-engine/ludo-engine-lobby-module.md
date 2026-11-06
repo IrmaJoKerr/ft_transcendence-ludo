@@ -103,7 +103,7 @@ returns to the same colour on rejoin. Only an explicit Abort frees a corner.
 | A participant's waiting window expires | `clearMatchSeat()` frees the corner | seat parked as `inactive` | seat hidden |
 | The host's waiting window expires | the room is closed, whoever else is seated | room closed | room closed |
 | Player leaves a live game via End Game | `clearMatchSeat()` deletes `player<N>_id`, `player<N>_color`, `player<N>_isBot` and `seatUser_<color>` | seat parked as `exited` | seat shows as gone |
-| Player drops a live game (page closed, or "RETURN TO LOBBY") | the seat row is left untouched, so the id and colour stay reserved | `disconnected` for the 45 s grace window, then `exited` with every piece parked at `step = -1` | seat greyed out, then gone |
+| Player drops a live game (page closed, or "RETURN TO LOBBY") | the seat row is left untouched, so the id and colour stay reserved | `disconnected` for the 45 s grace window (one hour in a PvE simulation), then `exited` with every piece parked at `step = -1` | seat greyed out, then gone |
 | Backend abort (`POST /api/game/:id/abort`, host only, `WAITING` only) | the match is marked `ABORTED`; individual seats are not cleared | — | room drops out of the listings |
 | Player rejoins | the backend's `joinMatch` userId lookup finds the reserved slot and returns the same colour | seat back to `active` | seat returns |
 | Idle-abort timer fires | the room is gone | — | room closed |

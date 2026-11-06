@@ -3144,8 +3144,13 @@ export function Game() {
                 </section>
               )}
 
-              {/* RETURN TO LOBBY BUTTON (Shown whenever game has ended across all modes, or in online PvP) */}
-              {(isGameEnded || (activeMatch.mode !== 'pve' && activeMatch.mode !== 'hotseat')) && (
+              {/* RETURN TO LOBBY BUTTON (every ended game, a live online PvP, and a live PvE that
+                  holds an account's seat: the seat and the board stay, so the lobby's rejoin
+                  banner has a door out of the room to answer. A guest PvE has no account to list,
+                  and a live hotseat keeps QUIT TO MENU as its only exit.) */}
+              {(isGameEnded ||
+                activeMatch.mode === 'pvp' ||
+                (activeMatch.mode === 'pve' && !isGuest)) && (
                 <button
                   className={RETRO_BTN}
                   onClick={() => {

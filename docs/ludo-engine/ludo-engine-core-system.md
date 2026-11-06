@@ -159,8 +159,9 @@ not freeze anything — play continues, and the wait only lands when the turn re
 (`startReconnectGrace`), the game also sets `state.paused` / `state.pauseTurnOwner` so clients can
 render a "waiting to reconnect" banner immediately. PvE and hotseat never pause: they are
 single-instance games with one human and no remote opponent, so the only two states are *running*
-and *aborted* — their disconnect still arms the long (1h) single-instance window, and expiry closes
-the room. The pause is cleared in three places: `restoreSeatOnReconnect` (seat restored, same turn
+and *aborted* — their disconnect still arms a single-instance window (an hour for a PvE simulation,
+the live 45 s for hotseat, which writes no match row and holds no seat worth an hour), and expiry
+closes the room. The pause is cleared in three places: `restoreSeatOnReconnect` (seat restored, same turn
 resumes with its pending dice/moves), `departSeat` (seat pruned, turn advances to the next playable
 seat), and the re-arm check in `join-manager` (defensive, owner-only). While paused, `rollDice`,
 `movePiece`, and bot turns are all rejected, so nobody can act on a frozen board.
@@ -523,9 +524,9 @@ Module-level constants in the engine's support files — edit at the top of each
 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
-| `DISCONNECT_GRACE_MS` | `timing.ts` | 45 s | Live PvP reconnect window before a disconnected player is pruned |
+| `DISCONNECT_GRACE_MS` | `timing.ts` | 45 s | Live PvP and hotseat reconnect window before a disconnected player is pruned |
 | `WAITING_SEAT_GRACE_MS` | `timing.ts` | 5 min | Waiting-room window: a participant's expiry releases the seat, the host's closes the room |
-| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `timing.ts` | 1 h | Single-instance (PvE/hotseat) reconnect window before the game auto-aborts |
+| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `timing.ts` | 1 h | PvE simulation reconnect window before the game auto-aborts. Hotseat keeps `isSingleSocketGame` (it still never pauses and still closes itself at expiry) but reads the 45 s window, so a closed tab releases the lobby rather than locking it for an hour |
 
 > `startReconnectGrace` arms its timer one second past the deadline, so an early fire re-reads the
 > deadline and waits instead of pruning a seat a client is still reconnecting to.

@@ -864,11 +864,10 @@ export const ms = {
     enabledBadge: 'DIAKTIFKAN',
     disabledBadge: 'DINYAHAKTIFKAN',
     logoutBtn: 'PUTUS SAMBUNGAN // LOG KELUAR',
-    rejoinActiveBtn: 'SERTAI PERLAWANAN',
+    rejoinModeLabel: 'SERTAI PERLAWANAN {{mode}}',
     rejoinActiveTooltip: 'Sertai semula perlawanan aktif anda',
     rejoining: 'MENYERTAI SEMULA...',
     rejoinRoomLabel: 'BILIK:',
-    rejoinStatusLabel: 'STATUS:',
   },
   profileExtra: {
     editProfileBtn: 'EDIT PROFIL',

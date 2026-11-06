@@ -878,11 +878,10 @@ export const en = {
     enabledBadge: 'ENABLED',
     disabledBadge: 'DISABLED',
     logoutBtn: 'DISCONNECT // LOGOUT',
-    rejoinActiveBtn: 'REJOIN MATCH',
+    rejoinModeLabel: 'REJOIN {{mode}} MATCH',
     rejoinActiveTooltip: 'Rejoin your active game in progress',
     rejoining: 'REJOINING...',
     rejoinRoomLabel: 'ROOM:',
-    rejoinStatusLabel: 'STATUS:',
   },
   profileExtra: {
     editProfileBtn: 'EDIT PROFILE',

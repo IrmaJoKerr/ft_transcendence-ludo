@@ -162,8 +162,8 @@ action fires.
 |---|---|---|
 | `IDLE_LOBBY_TIMEOUT_MS` | 300000 (5 min) | an empty PvP lobby is aborted after this |
 | `POST_GAME_TIMEOUT_MS` | 60000 (1 min) | a finished room is torn down after this |
-| `DISCONNECT_GRACE_MS` | 45000 | PvP reconnect window before the seat is pruned |
-| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | 3600000 (1 h) | bot-mode reconnect window (solo-seat game, nothing to hold up) |
+| `DISCONNECT_GRACE_MS` | 45000 | live PvP and hotseat reconnect window before the seat is pruned |
+| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | 3600000 (1 h) | PvE reconnect window (bot-mode, solo seat, nothing to hold up). Hotseat reads the 45 s above, so an abandoned local game releases the lobby's lock in under a minute |
 
 `player-handler.ts` arms the disconnect timer at `DISCONNECT_GRACE_MS + 1000` so the deadline is
 already past when the callback fires; the stored `reconnectDeadline` still uses the bare constant.
