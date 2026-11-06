@@ -17,6 +17,7 @@ import { ChatNameCard } from './ChatNameCard';
 import type { ChatNameCardTarget } from './ChatNameCard';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
+import { CHAT_SURFACE } from './chatSurface';
 import { useChallenges } from '../hooks/useChallenges';
 import { retroAudio } from '../utils/audio';
 
@@ -475,25 +476,16 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
             tabIndex={-1}
             className="chat-card"
             style={{
+              ...CHAT_SURFACE,
               position: 'fixed',
               left: box.left,
               top: box.top,
               width: box.width,
               height: box.height,
               zIndex: 10004,
-              boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
-              gap: 10,
-              padding: 14,
-              borderRadius: 10,
               outline: 'none',
-              // The account popover's recipe rather than `--bg-card`: this card has
-              // no scrim behind it, so 85% opaque over a lit lobby pass is mush.
-              background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.97), rgba(10, 2, 28, 0.985))',
-              backdropFilter: 'blur(24px) saturate(180%)',
-              border: '1px solid rgba(0, 240, 255, 0.45)',
-              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 240, 255, 0.22)',
             }}
           >
             <ChatCardHead onClose={closeCard} />

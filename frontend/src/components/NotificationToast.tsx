@@ -762,15 +762,23 @@ export function NotificationDigest({
     return () => window.clearTimeout(timer);
   }, [count]);
 
+  // One press, two ways in: the strip is a `role="button"` div, so a click and Enter are
+  // the same gesture and get the same note — the one the bell plays when it opens (720),
+  // because this opens that bell.
+  const openPanel = () => {
+    retroAudio.playUiBeep(720, 0.05);
+    onOpen();
+  };
+
   if (count <= 0) return null;
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      onClick={openPanel}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') onOpen();
+        if (e.key === 'Enter' || e.key === ' ') openPanel();
       }}
       style={{
         position: 'fixed',
@@ -810,6 +818,7 @@ export function NotificationDigest({
       <button
         onClick={(e) => {
           e.stopPropagation();
+          retroAudio.playUiBeep(400, 0.05);
           onDismiss();
         }}
         aria-label={t('notifications.dismiss')}

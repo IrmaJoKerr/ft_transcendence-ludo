@@ -451,7 +451,9 @@ function BlockedProfileCard({
                     <button
                       className={RETRO_BTN}
                       onClick={() => {
-                        if (!unblocking) onUnblock();
+                        if (unblocking) return;
+                        retroAudio.playUiBeep(520, 0.05);
+                        onUnblock();
                       }}
                       disabled={unblocking}
                       style={{
@@ -1048,7 +1050,11 @@ export function Profile() {
 
                         {isOwnProfile && (
                           <div
-                            onClick={() => !uploading && fileInputRef.current?.click()}
+                            onClick={() => {
+                              if (uploading) return;
+                              retroAudio.playUiBeep(640, 0.05);
+                              fileInputRef.current?.click();
+                            }}
                             style={{
                               position: 'absolute',
                               inset: 0,
@@ -1166,7 +1172,10 @@ export function Profile() {
                               >
                                 <button
                                   className={RETRO_BTN}
-                                  onClick={() => fileInputRef.current?.click()}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    fileInputRef.current?.click();
+                                  }}
                                   style={{
                                     padding: '3px 9px',
                                     fontSize: '0.68rem',
@@ -1181,6 +1190,10 @@ export function Profile() {
                                 <button
                                   className={RETRO_BTN}
                                   onClick={() => {
+                                    // warn, 360 on a triangle: entering a destructive
+                                    // flow says so, and the 440 after `res.ok` stays the
+                                    // confirmation, so a failed reset now says something.
+                                    retroAudio.playUiBeep(360, 0.07, 'triangle');
                                     void handleRemoveAvatar();
                                   }}
                                   style={{
@@ -1196,7 +1209,10 @@ export function Profile() {
                                 </button>
                                 <button
                                   className={RETRO_BTN}
-                                  onClick={() => setShowEdit(true)}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    setShowEdit(true);
+                                  }}
                                   style={{
                                     padding: '3px 9px',
                                     fontSize: '0.68rem',
@@ -2100,7 +2116,10 @@ export function Profile() {
                               {hasMoreMatches && (
                                 <button
                                   type="button"
-                                  onClick={loadMoreMatches}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    loadMoreMatches();
+                                  }}
                                   disabled={gamesLoading}
                                   className={RETRO_BTN}
                                   style={{ marginTop: 4, alignSelf: 'center', fontSize: '0.8rem' }}
@@ -2332,7 +2351,10 @@ export function Profile() {
                           {isOwnProfile && (
                             <button
                               className={RETRO_BTN}
-                              onClick={() => navigate('/friends')}
+                              onClick={() => {
+                                retroAudio.playUiBeep(640, 0.05);
+                                navigate('/friends');
+                              }}
                               style={{
                                 padding: '3px 9px',
                                 fontSize: '0.68rem',

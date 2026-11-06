@@ -813,6 +813,7 @@ files. Every sound is a small oscillator/noise graph; the master gain multiplies
 | `playIgnitionSound()` | 140 → 360 Hz, 140 ms | ignition |
 | `playExplosionSound()` | white noise, 250 ms, lowpass 1000 → 100 Hz | explosion |
 | `playPrinterSound()` | 14 pulses 110 ms apart, pitch `350 + (i % 4) × 110` Hz, closing beep 1200 Hz | the results receipt printing |
+| `playChatSend()` | squelch 35 ms at 2200 Hz (bandpass), then `.-` at 900 Hz sine (70 ms dot, 60 ms gap, 210 ms dash), `volume × 0.5` | a chat line leaving the composer (23.7). The quietest tone in the engine, since it fires per line, and the only one that ramps in and out from a 0.0001 floor rather than using `playUiBeep`'s exponential tail |
 
 The results modal drives its own print cadence on top of these: steps at `0, 80, 180, 290, 410, 540` ms
 (`340 + (i % 3) × 60` Hz) and a final `880` Hz at `720` ms.

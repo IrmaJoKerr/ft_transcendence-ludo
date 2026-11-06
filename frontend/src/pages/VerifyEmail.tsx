@@ -11,6 +11,7 @@ import {
   RETRO_AUTH_SUBTITLE,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 /** Landing route for an emailed link: `/verify-email#token=<token>`. The token
  * is in the URL fragment, which browsers never send to the server, so it cannot
@@ -82,6 +83,7 @@ export function VerifyEmail() {
           <div className={RETRO_AUTH_MUTED} style={{ fontSize: '13px' }}>
             <a
               onClick={() => {
+                retroAudio.playUiBeep(400, 0.05);
                 navigate('/login');
               }}
               className={RETRO_AUTH_LINK}
@@ -105,7 +107,14 @@ export function VerifyEmail() {
         <div className={RETRO_AUTH_MUTED} style={{ lineHeight: 1.5, fontSize: '14px' }}>
           {t('auth.verifyUnreachableDesc')}
         </div>
-        <button type="button" onClick={() => void attempt()} className={RETRO_AUTH_BTN}>
+        <button
+          type="button"
+          onClick={() => {
+            retroAudio.playUiBeep(880, 0.05);
+            void attempt();
+          }}
+          className={RETRO_AUTH_BTN}
+        >
           {t('auth.tryAgainBtn')}
         </button>
       </div>

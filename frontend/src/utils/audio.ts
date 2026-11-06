@@ -426,6 +426,45 @@ export class RetroAudioEngine {
     }
   }
 
+  // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A
+  // in morse on a 900 Hz sine. It fires per line, so it is the quietest tone the engine
+  // owns: half of `volume`. The two tones ramp in over 8 ms and out over 12 ms from a
+  // 0.0001 floor rather than riding `playUiBeep`'s exponential tail, which clicks when
+  // two tones are this close together.
+  playChatSend() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+
+      // The squelch: 35 ms of bandpassed white noise at 2200 Hz, the carrier dropping in.
+      this.noiseBurst(0.035, 2200, 2200, 0.35, 'bandpass');
+
+      const tone = (at: number, seconds: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(900, at);
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.linearRampToValueAtTime(this.volume * 0.5, at + 0.008);
+        gain.gain.setValueAtTime(this.volume * 0.5, at + seconds - 0.012);
+        gain.gain.linearRampToValueAtTime(0.0001, at + seconds);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + seconds);
+      };
+
+      // A dot then a dash, 60 ms apart: `.-`.
+      tone(now + 0.06, 0.07);
+      tone(now + 0.19, 0.21);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
   setVolume(vol: number) {
     this.volume = Math.max(0, Math.min(1, vol));
   }

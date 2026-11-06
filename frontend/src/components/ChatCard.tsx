@@ -15,6 +15,7 @@ import { retroAudio } from '../utils/audio';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import { systemLineText } from './chatCardTypes';
 import type { ChatCardLine, ChatCardStatus, ChatHeadGlyph } from './chatCardTypes';
+import { CHAT_SURFACE } from './chatSurface';
 
 // The chat card, in one place (M3/R8). The lobby dock and the board's left column
 // both render this: the lobby anchors it to its plate as an overlay, the board mounts
@@ -354,7 +355,10 @@ function FeedLine({
             type="button"
             style={nameStyle}
             title={line.senderName}
-            onClick={(event) => onOpenName(line, event.currentTarget.getBoundingClientRect())}
+            onClick={(event) => {
+              retroAudio.playUiBeep(640, 0.05);
+              onOpenName(line, event.currentTarget.getBoundingClientRect());
+            }}
           >
             {line.senderName}
           </button>
@@ -717,13 +721,20 @@ export function ChatCard({
       event.preventDefault();
       const text = draft.trim();
       if (!text) {
+        retroAudio.playUiBeep(300, 0.07);
         setStatus({ tone: 'error', text: t('chat.error.CHAT_EMPTY') });
         return;
       }
       if (chatLength(text) > CHAT_MAX_CHARS) {
+        retroAudio.playUiBeep(300, 0.07);
         setStatus({ tone: 'error', text: t('chat.error.CHAT_TOO_LONG', { max: CHAT_MAX_CHARS }) });
         return;
       }
+      // The transmission (23.7), fired between the last validation and the send: one
+      // call here covers all three composers, since they all submit through this. The two
+      // refusals above get `deny` instead, so the press is answered before the band's
+      // words are read.
+      retroAudio.playChatSend();
       setStatus(null);
       send(text, (reply) => {
         if (reply.ok) {
@@ -838,23 +849,16 @@ export function ChatCard({
             tabIndex={-1}
             className="chat-card"
             style={{
+              ...CHAT_SURFACE,
               position: 'fixed',
               left: box.left,
               top: box.top,
               width: box.width,
               height: box.height,
               zIndex: 10004,
-              boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
-              gap: 10,
-              padding: 14,
-              borderRadius: 10,
               outline: 'none',
-              background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.97), rgba(10, 2, 28, 0.985))',
-              backdropFilter: 'blur(24px) saturate(180%)',
-              border: '1px solid rgba(0, 240, 255, 0.45)',
-              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 24px rgba(0, 240, 255, 0.22)',
             }}
           >
             <ChatCardHead
@@ -917,7 +921,10 @@ export function ChatCard({
               left: box.panelLeft,
               top: box.top,
               width: PANEL_WIDTH,
-              maxHeight: box.height,
+              // The card's height, not a ceiling (24.3): the panel reads as the second
+              // half of one pair, so an empty room gets a card-shaped panel that says
+              // so rather than a short one beside a tall card.
+              height: box.height,
               zIndex: 10004,
               boxSizing: 'border-box',
               display: 'flex',

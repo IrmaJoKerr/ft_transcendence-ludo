@@ -8,6 +8,7 @@ import { PasswordInfo } from './PasswordInfo';
 import { useApp } from '../store';
 import { navigate } from '../router';
 import { RETRO_BTN } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 type Step = 'confirm' | 'setPassword';
 
@@ -135,7 +136,13 @@ export function DeleteAccountModal({
   };
 
   return (
-    <div style={overlay} onClick={onClose}>
+    <div
+      style={overlay}
+      onClick={() => {
+        retroAudio.playUiBeep(400, 0.05);
+        onClose();
+      }}
+    >
       <div style={panel} onClick={(e) => e.stopPropagation()}>
         <div
           style={{
@@ -152,8 +159,15 @@ export function DeleteAccountModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (step === 'setPassword') void handleSetPassword();
-            else void handleDelete();
+            // One form carries both submits, so the step decides the tone (23.5): setting
+            // a password commits, the final delete is the longest warn in the pass.
+            if (step === 'setPassword') {
+              retroAudio.playUiBeep(880, 0.05);
+              void handleSetPassword();
+            } else {
+              retroAudio.playUiBeep(360, 0.09, 'triangle');
+              void handleDelete();
+            }
           }}
         >
           {step === 'setPassword' ? (
@@ -319,7 +333,10 @@ export function DeleteAccountModal({
           className={RETRO_BTN}
           type="button"
           disabled={busy}
-          onClick={onClose}
+          onClick={() => {
+            retroAudio.playUiBeep(400, 0.05);
+            onClose();
+          }}
           style={{
             width: '100%',
             padding: '8px',

@@ -15,6 +15,7 @@ import {
   RETRO_AUTH_SUBTITLE,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 /**
  * Reset step 1: request a link; the confirmation is unconditional (no enumeration).
@@ -53,6 +54,7 @@ export function ForgotPassword() {
             {t('auth.rememberedIt')}{' '}
             <a
               onClick={() => {
+                retroAudio.playUiBeep(400, 0.05);
                 navigate('/login');
               }}
               className={RETRO_AUTH_LINK}
@@ -69,6 +71,7 @@ export function ForgotPassword() {
     <RetroAuthLayout tag={t('auth.forgotYourPasswordTag')}>
       <form
         onSubmit={(e) => {
+          retroAudio.playUiBeep(880, 0.05);
           void onSubmit(e);
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}
@@ -100,6 +103,7 @@ export function ForgotPassword() {
           {t('auth.rememberedIt')}{' '}
           <a
             onClick={() => {
+              retroAudio.playUiBeep(400, 0.05);
               navigate('/login');
             }}
             className={RETRO_AUTH_LINK}

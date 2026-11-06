@@ -18,6 +18,7 @@ import {
   RETRO_AUTH_SUBTITLE,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 // Errors are held as locale keys, not translated strings: switching language
 // then re-renders a live message instead of leaving the previous language on
@@ -69,6 +70,7 @@ export function ResetPassword() {
           <div className={RETRO_AUTH_MUTED} style={{ fontSize: '13px' }}>
             <a
               onClick={() => {
+                retroAudio.playUiBeep(640, 0.05);
                 navigate('/forgot-password');
               }}
               className={RETRO_AUTH_LINK}
@@ -101,6 +103,7 @@ export function ResetPassword() {
     <RetroAuthLayout tag={t('auth.chooseNewPasswordTag')}>
       <form
         onSubmit={(e) => {
+          retroAudio.playUiBeep(880, 0.05);
           void onSubmit(e);
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}

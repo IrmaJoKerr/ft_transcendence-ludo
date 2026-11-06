@@ -488,7 +488,14 @@ export const en = {
     placeholder: 'TRANSMIT A MESSAGE',
     inputLabel: 'Message this room',
     inviteTitle: 'INVITE COMMS',
+    // The panel's second head line (24.4): the room's occupancy, `seated` of `capacity`.
+    // It is the one fact the list cannot show, since the list is the free pilots, and it
+    // needs no plural forms.
+    inviteScope: '{{seated}} / {{capacity}} SEATS TAKEN',
     inviteEmpty: 'NO FREE PILOTS ONLINE',
+    // The empty state's second line, true of both its cases: a full room, and a room
+    // where every online friend is already sitting in it.
+    inviteEmptyDesc: 'Every pilot online is already seated here.',
     inviteAction: 'INVITE',
     inviteSentShort: 'SENT',
     inviteSent: 'Invite sent.',

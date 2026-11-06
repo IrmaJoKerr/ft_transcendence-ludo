@@ -9,6 +9,7 @@ import { DeleteAccountModal } from './DeleteAccountModal';
 import { PasswordInfo } from './PasswordInfo';
 import { FieldError } from './FieldError';
 import { RETRO_BTN } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 const OTP = { '42': '/forty_two.png', github: '/github.png', google: '/google.png' } as const;
 const PROVIDERS = ['google', 'github', '42'] as const;
@@ -358,7 +359,9 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
     <div
       style={overlay}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target !== e.currentTarget) return;
+        retroAudio.playUiBeep(400, 0.05);
+        onClose();
       }}
     >
       <div style={panel}>
@@ -382,7 +385,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           </div>
           <button
             className={RETRO_BTN}
-            onClick={onClose}
+            onClick={() => {
+              retroAudio.playUiBeep(400, 0.05);
+              onClose();
+            }}
             style={{ padding: '3px 9px', fontSize: '0.66rem', color: 'var(--text-muted)' }}
           >
             {t('common.close')}
@@ -392,6 +398,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            retroAudio.playUiBeep(880, 0.05);
             void handleSave();
           }}
         >
@@ -494,7 +501,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
                 type="button"
                 className={RETRO_BTN}
                 disabled={busy}
-                onClick={() => void resendEmailChange()}
+                onClick={() => {
+                  retroAudio.playUiBeep(880, 0.05);
+                  void resendEmailChange();
+                }}
                 style={{ padding: '2px 8px', fontSize: '0.62rem', color: 'var(--accent-cyan)' }}
               >
                 {t('profileEdit.resend')}
@@ -529,7 +539,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
             <button
               className={RETRO_BTN}
               type="button"
-              onClick={() => setTwoFactorEnabled((v) => !v)}
+              onClick={() => {
+                retroAudio.playUiBeep(520, 0.05);
+                setTwoFactorEnabled((v) => !v);
+              }}
               style={{ padding: '2px 9px', fontSize: '0.66rem', color: 'var(--accent-cyan)' }}
             >
               {twoFactorEnabled ? 'ON' : 'OFF'}
@@ -663,8 +676,13 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
                     type="button"
                     disabled={busy}
                     onClick={() => {
-                      if (linked) void removeOAuth(p);
-                      else addOAuth(p);
+                      if (linked) {
+                        retroAudio.playUiBeep(360, 0.07, 'triangle');
+                        void removeOAuth(p);
+                      } else {
+                        retroAudio.playUiBeep(880, 0.05);
+                        addOAuth(p);
+                      }
                     }}
                     style={{
                       padding: '2px 8px',
@@ -699,7 +717,10 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           className={RETRO_BTN}
           type="button"
           disabled={busy}
-          onClick={() => setDeleteOpen(true)}
+          onClick={() => {
+            retroAudio.playUiBeep(360, 0.07, 'triangle');
+            setDeleteOpen(true);
+          }}
           style={{
             width: '100%',
             padding: '10px',

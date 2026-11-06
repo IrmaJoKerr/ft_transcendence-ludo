@@ -15,6 +15,7 @@ import {
   RETRO_AUTH_SUBTITLE,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 /**
  * Second login factor: ?token=<pendingToken> from password login or OAuth callback.
@@ -57,6 +58,7 @@ export function TwoFactor() {
     <RetroAuthLayout tag={t('auth.oneMoreStep')}>
       <form
         onSubmit={(e) => {
+          retroAudio.playUiBeep(880, 0.05);
           void onSubmit(e);
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}
@@ -97,7 +99,10 @@ export function TwoFactor() {
           type="button"
           className={RETRO_AUTH_BTN_OUTLINE}
           disabled={resending || !pendingToken}
-          onClick={() => void onResend()}
+          onClick={() => {
+            retroAudio.playUiBeep(880, 0.05);
+            void onResend();
+          }}
         >
           {resending ? t('auth.sendingBtn') : t('auth.resendCode')}
         </button>

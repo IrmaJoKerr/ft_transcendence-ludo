@@ -725,6 +725,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                     ) : (
                                       <div
                                         onClick={() => {
+                                          retroAudio.playUiBeep(520, 0.05);
                                           setEditingSeat(i);
                                           setEditName(localizedPilotName(t, seat.name));
                                         }}

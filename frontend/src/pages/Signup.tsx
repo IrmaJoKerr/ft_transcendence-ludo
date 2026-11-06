@@ -23,6 +23,7 @@ import {
   RETRO_AUTH_SUBTITLE,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 // Errors are held as locale keys, not translated strings: switching language
 // then re-renders a live message instead of leaving the previous language on
@@ -104,6 +105,7 @@ export function Signup() {
             {t('auth.doneVerifying')}{' '}
             <a
               onClick={() => {
+                retroAudio.playUiBeep(640, 0.05);
                 navigate('/login');
               }}
               className={RETRO_AUTH_LINK}
@@ -120,6 +122,7 @@ export function Signup() {
     <RetroAuthLayout tag={t('auth.signupTag')}>
       <form
         onSubmit={(e) => {
+          retroAudio.playUiBeep(880, 0.05);
           void onSubmit(e);
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}
@@ -235,6 +238,7 @@ export function Signup() {
             onClick={(e) => {
               // The label wraps this button, so stop the click toggling the box.
               e.stopPropagation();
+              retroAudio.playUiBeep(640, 0.05);
               setLegalOpen(true);
             }}
           >
@@ -263,6 +267,7 @@ export function Signup() {
               key={p.name}
               type="button"
               onClick={() => {
+                retroAudio.playUiBeep(640, 0.05);
                 window.location.href = p.path;
               }}
               className={RETRO_AUTH_BTN_OUTLINE}
@@ -281,6 +286,7 @@ export function Signup() {
           {t('auth.alreadyHaveSeat')}{' '}
           <a
             onClick={() => {
+              retroAudio.playUiBeep(640, 0.05);
               navigate('/login');
             }}
             className={RETRO_AUTH_LINK}

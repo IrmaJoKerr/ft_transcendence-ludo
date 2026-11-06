@@ -20,6 +20,7 @@ import {
   RETRO_AUTH_SUCCESS,
   RETRO_AUTH_TITLE,
 } from '../styles/tw';
+import { retroAudio } from '../utils/audio';
 
 export function Login() {
   const { t } = useTranslation();
@@ -90,6 +91,7 @@ export function Login() {
     >
       <form
         onSubmit={(e) => {
+          retroAudio.playUiBeep(880, 0.05);
           void onSubmit(e);
         }}
         style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}
@@ -129,7 +131,10 @@ export function Login() {
             type="button"
             className={RETRO_AUTH_BTN_OUTLINE}
             disabled={resending || !identifier.includes('@')}
-            onClick={() => void onResend()}
+            onClick={() => {
+              retroAudio.playUiBeep(880, 0.05);
+              void onResend();
+            }}
           >
             {resending ? t('auth.sendingBtn') : t('auth.resendVerification')}
           </button>
@@ -144,6 +149,7 @@ export function Login() {
         >
           <a
             onClick={() => {
+              retroAudio.playUiBeep(640, 0.05);
               navigate('/forgot-password');
             }}
             className={RETRO_AUTH_LINK}
@@ -162,6 +168,7 @@ export function Login() {
             type="button"
             className={RETRO_AUTH_BTN_OUTLINE}
             onClick={() => {
+              retroAudio.playUiBeep(640, 0.05);
               navigate('/guest');
             }}
           >
@@ -190,6 +197,7 @@ export function Login() {
               key={p.name}
               type="button"
               onClick={() => {
+                retroAudio.playUiBeep(640, 0.05);
                 window.location.href = p.path;
               }}
               className={RETRO_AUTH_BTN_OUTLINE}
@@ -208,6 +216,7 @@ export function Login() {
           {t('auth.newToTable')}{' '}
           <a
             onClick={() => {
+              retroAudio.playUiBeep(640, 0.05);
               navigate('/signup');
             }}
             className={RETRO_AUTH_LINK}

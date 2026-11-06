@@ -328,7 +328,10 @@ export function ChatNameCard({
           type="button"
           className={RETRO_BTN}
           style={{ ...actionStyle, color: 'var(--text-muted)' }}
-          onClick={onClose}
+          onClick={() => {
+            retroAudio.playUiBeep(520, 0.05);
+            onClose();
+          }}
         >
           {t('chat.close')}
         </button>
