@@ -346,11 +346,11 @@ export const fr = {
     badgeLossText: 'DÉFAITE',
     badgeAbandonedText: 'ABANDONNÉ',
     noRatingChange: 'AUCUN CHANGEMENT DE CLASSEMENT',
-    transcriptLabel: 'TRANSCRIPTION :',
+    transcriptLabel: 'JOURNAUX DE COMMS :',
     transcriptNa: 'N/A',
-    transcriptShow: 'AFFICHER LA TRANSCRIPTION ({{count}})',
-    transcriptHide: 'MASQUER LA TRANSCRIPTION',
-    transcriptTruncated: 'TRANSCRIPTION TRONQUÉE',
+    transcriptShow: 'AFFICHER LES JOURNAUX DE COMMS ({{count}})',
+    transcriptHide: 'MASQUER LES JOURNAUX DE COMMS',
+    transcriptTruncated: 'JOURNAUX DE COMMS TRONQUÉS',
     friendsBoxTitle: 'AMIS ({{count}})',
     manageBtn: 'GÉRER ↗',
     noFriendsLinkedText: 'AUCUN AMI LIÉ POUR LE MOMENT.',
@@ -479,9 +479,9 @@ export const fr = {
   // Le canal de la salle (M3). Les refus réutilisent `chat.error.*`, les quatre mêmes
   // codes que le salon.
   gameChat: {
-    title: '# COMMS DE SALLE',
+    title: '# COMMS CHIFFRÉS',
     scope: 'CE MATCH UNIQUEMENT',
-    slotTitle: 'COMMS',
+    slotTitle: 'COMMS CHIFFRÉS',
     openHint: 'OUVRIR ⤢',
     emptyTitle: 'AUCUNE TRANSMISSION',
     emptyDesc:

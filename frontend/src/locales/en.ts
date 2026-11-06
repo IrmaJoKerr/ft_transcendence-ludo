@@ -342,11 +342,11 @@ export const en = {
     badgeLossText: 'LOSS',
     badgeAbandonedText: 'ABANDONED',
     noRatingChange: 'NO RATING CHANGE',
-    transcriptLabel: 'TRANSCRIPT:',
+    transcriptLabel: 'COMMS LOGS:',
     transcriptNa: 'N/A',
-    transcriptShow: 'SHOW TRANSCRIPT ({{count}})',
-    transcriptHide: 'HIDE TRANSCRIPT',
-    transcriptTruncated: 'TRANSCRIPT TRUNCATED',
+    transcriptShow: 'SHOW COMMS LOGS ({{count}})',
+    transcriptHide: 'HIDE COMMS LOGS',
+    transcriptTruncated: 'COMMS LOGS TRUNCATED',
     friendsBoxTitle: 'FRIENDS ({{count}})',
     manageBtn: 'MANAGE ↗',
     noFriendsLinkedText: 'NO FRIENDS LINKED YET.',
@@ -474,9 +474,14 @@ export const en = {
   // The room's channel (M3). The panel copy; the refusals reuse `chat.error.*`, which
   // is the same four codes the lobby answers with.
   gameChat: {
-    title: '# ROOM COMMS',
+    // The room's channel is the private one: only the seats in the room read it and the
+    // transcript is stored with the match, so its name says so and the lobby's public
+    // `chat.title` stays the contrast. The plate's header says the same two words as the
+    // card's own title: at `--font-heading`'s 0.75rem they fit the plate's track with room
+    // to spare, and a shut card that names itself is worth more than the four characters.
+    title: '# ENCRYPTED COMMS',
     scope: 'THIS MATCH ONLY',
-    slotTitle: 'COMMS',
+    slotTitle: 'ENCRYPTED COMMS',
     openHint: 'OPEN ⤢',
     emptyTitle: 'NO TRANSMISSIONS YET',
     emptyDesc: 'Only the pilots in this room read this channel. It is saved with the match.',

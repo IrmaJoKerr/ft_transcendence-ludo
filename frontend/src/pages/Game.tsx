@@ -50,7 +50,6 @@ import {
   APP_WRAPPER,
   HERO_SECTION,
   HERO_TITLE,
-  BADGE_BAR,
   RETRO_BADGE,
   RETRO_WINDOW,
   WINDOW_HEADER,
@@ -214,6 +213,12 @@ const WALL_BREAKER_GLYPH = '🧨';
 // How long the composer waits for the engine's ack before it says the line did not go:
 // an ack that never arrives is a dead socket, not a slow one.
 const CHAT_ACK_TIMEOUT_MS = 4000;
+
+// How long the turn-swap notice stays in the banner's band (20.5). 700 ms was long enough
+// to catch the eye and too short to read a 60-character upper-case line, so it flicked
+// away mid-sentence. It stays a notice and not a standing line — the pill already says
+// whose turn it is — so it clears itself once the swap has been read.
+const TURN_SWAP_NOTICE_MS = 1500;
 
 /**
  * Where a capture's burst belongs on screen: the viewport centre of the cell the mover
@@ -408,6 +413,11 @@ export function Game() {
   const beginRollRef = useRef<() => void>(() => {});
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
+  // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that
+  // effect also re-runs for a roster or locale update, and a cleanup on the path that
+  // changes no turn would cancel the clear without rescheduling it, leaving the notice up
+  // until the next swap. Same shape as `engineErrorTimerRef` and `captureFxTimerRef`.
+  const turnSwapNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
   // Reserved engine-error banner: localized text of the last engine socket error
   // (see the 'error' handler below), auto-cleared after a short delay.
@@ -492,8 +502,7 @@ export function Game() {
           .sort((a, b) => SEAT_COLORS.indexOf(a.color) - SEAT_COLORS.indexOf(b.color))
           .map((p) => p.color)
       : SEAT_COLORS.slice(0, activeMatch?.playerCount || SEAT_COLORS.length);
-  const railColors: PlayerColor[] =
-    view.status === 'waiting' ? waitingRailColors : SEAT_COLORS;
+  const railColors: PlayerColor[] = view.status === 'waiting' ? waitingRailColors : SEAT_COLORS;
   // How far the roster box reaches past its grid track: the panel's span in clash mode,
   // plus the same extra room for the display names in every room, so the cards are
   // equally wide either way.
@@ -511,6 +520,23 @@ export function Game() {
     const mq = window.matchMedia('(min-width: 1024px)');
     setDesktopLayout(mq.matches);
     const sync = () => setDesktopLayout(mq.matches);
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  // The banner's corner cluster needs room on *both* sides of the title: each flank has to
+  // hold the 240px-capped cluster beside a ~395px title, which the banner (the viewport
+  // minus the 365px nav gutter) only has from ~1250px up. That is a wider threshold than
+  // the page's own three-column grid, so it gets its own query rather than moving
+  // `desktopLayout`: below it the banner stacks — title, cluster, pill, marquee — while the
+  // page keeps its columns.
+  const [cornerBanner, setCornerBanner] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1250px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 1250px)');
+    setCornerBanner(mq.matches);
+    const sync = () => setCornerBanner(mq.matches);
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
@@ -554,13 +580,17 @@ export function Game() {
 
       retroAudio.playUiBeep(640, 0.08, 'sine');
       setTurnSwapNotice(t('game.turnSwapNotice', { name: nextName, color: translatedColor }));
-
-      const timer = setTimeout(() => {
+      // Restarted, not merely scheduled: a bot can hand the turn on inside the window, and
+      // the second swap's line is the one worth reading. `TURN_SWAP_NOTICE_MS` (not 700) is
+      // the dwell — the line is 60 characters at 0.82rem and was leaving mid-sentence.
+      if (turnSwapNoticeTimerRef.current) clearTimeout(turnSwapNoticeTimerRef.current);
+      turnSwapNoticeTimerRef.current = setTimeout(() => {
+        turnSwapNoticeTimerRef.current = null;
         setTurnSwapNotice(null);
-      }, 700);
+      }, TURN_SWAP_NOTICE_MS);
 
       prevTurnRef.current = effectiveTurn;
-      return () => clearTimeout(timer);
+      return;
     }
     prevTurnRef.current = effectiveTurn;
   }, [effectiveTurn, view.status, view.players, localNames, t]);
@@ -849,8 +879,7 @@ export function Game() {
           // Wait out what is LEFT of the spin rather than the whole constant: a
           // braked roll is shorter, and the walk starts on the landed face.
           const landAt = rollLandAtRef.current;
-          const wait =
-            landAt == null ? DICE_ROLL_ANIM_MS : Math.max(0, landAt - performance.now());
+          const wait = landAt == null ? DICE_ROLL_ANIM_MS : Math.max(0, landAt - performance.now());
           setTimeout(runStepAnimation, wait);
         } else {
           runStepAnimation();
@@ -952,8 +981,8 @@ export function Game() {
 
       return {
         // No champion: a room that did not finish has none, and naming the seat that
-      // held the turn crowned the player who had left.
-      winner: viewRef.current.winner ?? null,
+        // held the turn crowned the player who had left.
+        winner: viewRef.current.winner ?? null,
         resultDetail: 'abandoned',
         mode: matchNow?.mode ?? 'pvp',
         playerCount: matchNow?.playerCount ?? players.length,
@@ -1021,6 +1050,8 @@ export function Game() {
       captureFxTimerRef.current = null;
       if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
       engineErrorTimerRef.current = null;
+      if (turnSwapNoticeTimerRef.current) clearTimeout(turnSwapNoticeTimerRef.current);
+      turnSwapNoticeTimerRef.current = null;
       if (rollLandTimerRef.current) clearTimeout(rollLandTimerRef.current);
       rollLandTimerRef.current = null;
       if (rollAnswerGuardRef.current) clearTimeout(rollAnswerGuardRef.current);
@@ -1290,7 +1321,8 @@ export function Game() {
   // engine forces 0 when clash is off, so the view cannot remember the count for us).
   const [clashShiftCount, setClashShiftCount] = useState<1 | 2>(1);
   useEffect(() => {
-    if (view.clashKeyShift === 1 || view.clashKeyShift === 2) setClashShiftCount(view.clashKeyShift);
+    if (view.clashKeyShift === 1 || view.clashKeyShift === 2)
+      setClashShiftCount(view.clashKeyShift);
   }, [view.clashKeyShift]);
 
   // A rule toggle replaces the whole object, so the field it moved is the only one
@@ -1516,7 +1548,8 @@ export function Game() {
   // Skip exists for one situation: every legal move is token-priced, so the turn is
   // stuck unless the player spends a token. With an ordinary move available the
   // button stays inert. It is always visible in a clash room and greyed when false.
-  const allMovesPriced = view.legalMoves.length > 0 && wallBreakMoves.length === view.legalMoves.length;
+  const allMovesPriced =
+    view.legalMoves.length > 0 && wallBreakMoves.length === view.legalMoves.length;
   const canSkipWallBreak =
     view.status === 'active' && !isPausedForReconnect && isMyTurn && !view.clash && allMovesPriced;
   const turnLabel =
@@ -1529,6 +1562,64 @@ export function Game() {
           : t('game.botTurn', { name: localizedColor(t, effectiveTurn) }).toUpperCase();
   const turnAccent =
     view.status === 'waiting' ? 'var(--accent-cyan)' : SEAT_HUES[effectiveTurn] || '#00f0ff';
+  // The status marquee only speaks when the pill cannot (20.5 step 1, settling
+  // 20.7 item 2): the pill already names WAITING ROOM, YOUR TURN, a colour's turn and
+  // the paused seat, and the board column prints the phase hint under the die, so those
+  // marquee rows said nothing new. What is left is the turn swap notice and whose turn
+  // the reconnect pause is holding.
+  const statusMarquee =
+    turnSwapNotice ??
+    (isPausedForReconnect && pausedOwnerName
+      ? t('game.pausedForReconnectDetail', { name: pausedOwnerName })
+      : null);
+  // The notice's one box, placed differently in the two layouts (20.5). In the corner
+  // layout it is absolute inside the band the floor opens *between* the title and the
+  // pill, so a notice can speak for a whole turn without changing the card's height and
+  // without taking the pill's 5px anchor off the bottom border: the band is an empty flex
+  // item, and an absolutely placed box inside it costs the layout nothing. In the stacked
+  // layout there is no band — the cluster sits between those two — and nothing is anchored
+  // to a frame there, so the notice follows the pill in flow.
+  const statusMarqueeBox =
+    statusMarquee == null ? null : (
+      <div
+        style={{
+          minHeight: 38,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '8px 14px',
+          background: turnSwapNotice ? `${turnAccent}38` : `${turnAccent}18`,
+          border: `1.5px solid ${turnAccent}`,
+          boxShadow: turnSwapNotice ? `0 0 22px ${turnAccent}` : `0 0 12px ${turnAccent}66`,
+          borderRadius: 4,
+          textAlign: 'center',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '0.82rem',
+          fontWeight: 'bold',
+          color: turnAccent,
+          transition:
+            'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease',
+          boxSizing: 'border-box',
+          ...(cornerBanner
+            ? {
+                // `max-content` up to 640, not `100%`: the band is only as wide as the
+                // title column, and a box that shrank to it would wrap a two-word notice
+                // at the narrowest corner width. The band is centred on the page, so the
+                // box is too, and it may overrun the band into the flanks — the middle of
+                // those is empty, the cluster keeping to the top and bottom of its flank.
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 'max-content',
+                maxWidth: 640,
+              }
+            : { margin: '0 auto', width: '100%', maxWidth: 740 }),
+        }}
+      >
+        {statusMarquee}
+      </div>
+    );
 
   // One recon line, painted here: the entry stores colours and values, never text, so a
   // language switch (or a rejoin in another language) re-renders every line instead of
@@ -1579,201 +1670,295 @@ export function Game() {
           className={`${APP_WRAPPER} app-wrapper game-page`}
           style={{ marginLeft: 'auto', marginRight: 'auto', maxWidth: 1440, width: '100%' }}
         >
-          {/* Hero Telemetry & Badge Bar */}
-          <header className={HERO_SECTION} style={{ padding: '12px 0 10px', textAlign: 'center' }}>
+          {/* Hero Telemetry & Badge Bar. One flex row since 20.5: the title centred on the
+              page with the room's own clock and code in its right corner, the turn pill
+              under the title, and the marquee *between* those two when it has something to
+              say, so a notice costs the card no height. The header's own padding is the
+              frame anchor — 5px over the title, 5px under the pill — and every gap inside
+              is relative to those two, so nothing grows into the border. The row also
+              carries a floor that scales with the viewport height, and spends what the floor
+              leaves over *between* the anchors rather than under them. */}
+          <header
+            className={HERO_SECTION}
+            style={{
+              // A flex column so the notice can follow the row in the stacked layout, and
+              // the frame anchor for both ends of it: 5px over the title, 5px under the
+              // pill — the same 5px whether or not a turn notice is up.
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '5px 0 5px',
+              textAlign: 'center',
+            }}
+          >
             <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-              }}
+              style={
+                cornerBanner
+                  ? {
+                      display: 'flex',
+                      // `1 1 auto` so the row can take what the floor leaves over, and the
+                      // floor itself in the axis the board is already measured on
+                      // (`min(650px, 66vh)`): the row's content is 72px (title, 8, pill) and
+                      // 82 with the frame's 5/5, and the floor opens that to 129..185 — 40%
+                      // over the first pass (92/11vh/132, which measured 99 at 900 and still
+                      // read cramped against the 94 this block was before 20.5). The 10px is
+                      // the header's padding, so the floor is border to border. It sits on
+                      // the row rather than on the card so the slack lands *between* the
+                      // anchors — the title keeps its 5px, the pill its 5px, and the band
+                      // between them takes the rest, which is also the only place a turn
+                      // notice can speak without moving either anchor.
+                      flex: '1 1 auto',
+                      minHeight: 'calc(clamp(129px, 15.4vh, 185px) - 10px)',
+                      // Two empty `1fr` flanks around the title keep it centred on the page
+                      // whatever the cluster weighs on the right, which `justify-content:
+                      // center` cannot promise once one side is wider. `stretch` also makes
+                      // the row as tall as the title column, and that height is what the
+                      // cluster in the right flank takes, so its last line can end on the
+                      // pill's lower border instead of floating above it.
+                      alignItems: 'stretch',
+                    }
+                  : {
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 8,
+                    }
+              }
             >
-              <h1
-                className={HERO_TITLE}
-                style={{ fontSize: '1.5rem', marginBottom: 2, textAlign: 'center' }}
-              >
-                {t('game.heroTitle')}
-              </h1>
+              {cornerBanner && <div style={{ flex: '1 1 0', minWidth: 0 }} aria-hidden="true" />}
 
-              {/* Live Turn Announcement Pill */}
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '8px 20px',
-                  borderRadius: 4,
-                  background: `${turnAccent}25`,
-                  border: `1.5px solid ${turnAccent}`,
-                  boxShadow: `0 0 15px ${turnAccent}66`,
-                  animation: isMyTurn ? 'pulse 1.6s infinite' : 'none',
-                  boxSizing: 'border-box',
-                  transition:
-                    'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
-                }}
-              >
-                <span
+              {/* The title, the band and the pill share one column: the title hangs off the
+                  header's top padding, the pill off the bottom of this column, so the cluster
+                  between them cannot push either one into the frame, and the band between the
+                  two is where a turn notice speaks without joining the stack. */}
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <h1
+                  className={HERO_TITLE}
                   style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: turnAccent,
-                    boxShadow: `0 0 8px ${turnAccent}`,
-                    transition: 'background 0.25s ease, box-shadow 0.25s ease',
-                  }}
-                />
-                <span
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontSize: '0.75rem',
-                    color: '#ffffff',
-                    letterSpacing: '0.5px',
+                    minWidth: 0,
+                    fontSize: '1.5rem',
+                    // 0, not the class's `mb-2`: gaps here are the band's own flex and the
+                    // pill's 8px, so the column is the title's line box plus the band plus
+                    // the pill, and nothing else measures into the pill's anchor.
+                    marginBottom: 0,
+                    textAlign: 'center',
                   }}
                 >
-                  {turnLabel}
-                </span>
-              </div>
+                  {t('game.heroTitle')}
+                </h1>
 
-              {/* Game Status Marquee Bar */}
-              <div
-                style={{
-                  width: '100%',
-                  maxWidth: 740,
-                  minHeight: 38,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '8px 14px',
-                  background: turnSwapNotice ? `${turnAccent}38` : `${turnAccent}18`,
-                  border: `1.5px solid ${turnAccent}`,
-                  boxShadow: turnSwapNotice ? `0 0 22px ${turnAccent}` : `0 0 12px ${turnAccent}66`,
-                  borderRadius: 4,
-                  textAlign: 'center',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.82rem',
-                  fontWeight: 'bold',
-                  color: turnAccent,
-                  transition:
-                    'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, color 0.25s ease',
-                  boxSizing: 'border-box',
-                }}
-              >
-                {turnSwapNotice ??
-                  (view.status === 'waiting'
-                    ? t('game.readyNeedsOpponent')
-                    : isPausedForReconnect && pausedOwnerName
-                      ? t('game.pausedForReconnectDetail', { name: pausedOwnerName })
-                      : isRolling
-                        ? t('game.statusRolling')
-                        : isMyTurn && view.turnPhase === 'WAITING_FOR_ROLL'
-                          ? t('game.statusRollNow')
-                          : isMyTurn && view.turnPhase === 'WAITING_FOR_MOVE'
-                            ? t('game.statusSelectPiece')
-                            : t('game.statusRivalTurn', {
-                                name: localizedColor(t, effectiveTurn).toUpperCase(),
-                              }))}
-              </div>
+                {/* The band the floor opens between the title and the pill, which is where
+                    the turn announcement speaks (20.5): an empty flex item that takes the
+                    row's slack, so the notice is placed *inside* it rather than laid out in
+                    it and the card measures the same with or without one. It is also what
+                    holds the pill down on its 5px anchor now — the slack `marginTop: 'auto'`
+                    used to take — so the announcement can never push the pill off the frame. */}
+                {cornerBanner && (
+                  <div style={{ position: 'relative', flex: '1 1 auto', minHeight: 0 }}>
+                    {statusMarqueeBox}
+                  </div>
+                )}
 
-              {/* The room's own countdown: the label sits above the counter and the
-                  number is read off the deadline the room published, so a client that
-                  reconnects mid-window shows the remainder instead of a fresh five
-                  minutes. Only a waiting PvP room below quorum has one. */}
-              {roomClosesLabel && (
-                <div
-                  style={{
-                    width: '100%',
-                    maxWidth: 740,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 2,
-                    marginTop: 6,
-                    fontFamily: 'var(--font-mono)',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <span
+                {/* Live Turn Announcement Pill, in the title's own column: its lower border
+                    is the banner's baseline, and the corner cluster's code is pushed down to
+                    it rather than measured off it. The 8px is the air under the band, and the
+                    band (not this wrapper) is what drops the pill when a wrapped cluster
+                    makes the row taller than its floor; `auto` stays as the fallback for a
+                    branch that renders no band. */}
+                <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+                  <div
                     style={{
-                      fontSize: '0.62rem',
-                      letterSpacing: '0.5px',
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 20px',
+                      borderRadius: 4,
+                      background: `${turnAccent}25`,
+                      border: `1.5px solid ${turnAccent}`,
+                      boxShadow: `0 0 15px ${turnAccent}66`,
+                      animation: isMyTurn ? 'pulse 1.6s infinite' : 'none',
+                      boxSizing: 'border-box',
+                      transition:
+                        'background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
                     }}
                   >
-                    {t('game.roomClosesLabel')}
-                  </span>
-                  <span
-                    role="timer"
-                    aria-live="off"
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 'bold',
-                      color: 'var(--accent-yellow)',
-                      textShadow: '0 0 10px var(--accent-yellow)',
-                    }}
-                  >
-                    {roomClosesLabel}
-                  </span>
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: turnAccent,
+                        boxShadow: `0 0 8px ${turnAccent}`,
+                        transition: 'background 0.25s ease, box-shadow 0.25s ease',
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-heading)',
+                        fontSize: '0.75rem',
+                        color: '#ffffff',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      {turnLabel}
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
 
-              {/* Reserved engine-error banner: localized socket `error` text. */}
+              {/* The right flank takes the leftover width and the cluster sits at its end.
+                  The row stretches its items, so the flank is as tall as the title column
+                  and the cluster takes that full height: its last line then hangs on the
+                  pill's lower border by `marginTop: 'auto'` on the code below, rather than
+                  on a gap measured to land there. The `min(240px, 100%)` cap on the cluster
+                  is what keeps a 56-character French label out of the title: past 240px the
+                  label wraps instead of widening the cluster, and at 100% of the flank it
+                  can never overrun it. */}
               <div
-                role="alert"
-                aria-live="assertive"
                 style={{
-                  minHeight: 22,
+                  flex: cornerBanner ? '1 1 0' : undefined,
+                  minWidth: 0,
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ff0055',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.8rem',
-                  fontWeight: 'bold',
-                  letterSpacing: '0.5px',
-                  textShadow: '0 0 8px #ff0055',
-                  boxSizing: 'border-box',
+                  justifyContent: 'flex-end',
                 }}
               >
-                {engineError ?? ''}
+                {(roomClosesLabel != null || activeMatch.inviteCode) && (
+                  <div
+                    style={{
+                      marginRight: cornerBanner ? 38 : 0,
+                      maxWidth: 'min(240px, 100%)',
+                      // (1.5rem × 1.25 − 0.62rem × 1.2) / 2: half the difference between
+                      // the title's line box and the label's, which lands the label's middle
+                      // on the title's. Both are sized in rem, so it holds at any zoom, and
+                      // only the label's first line counts here — wrapping under the 240px
+                      // cap adds lines below it without moving it.
+                      paddingTop: cornerBanner ? 'calc((1.875rem - 0.744rem) / 2)' : 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {roomClosesLabel && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 2,
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '0.62rem',
+                            // 1.2, not `normal`: the cluster's padding is arithmetic on this
+                            // label's line box, so it has to be a known multiple of the font
+                            // size. Not 1 — `fr` and `ms` wrap at the 240px cap and would run
+                            // their two lines together.
+                            lineHeight: 1.2,
+                            letterSpacing: '0.5px',
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {t('game.roomClosesLabel')}
+                        </span>
+                        <span
+                          role="timer"
+                          aria-live="off"
+                          style={{
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            color: 'var(--accent-yellow)',
+                            textShadow: '0 0 10px var(--accent-yellow)',
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {roomClosesLabel}
+                        </span>
+                      </div>
+                    )}
+                    {activeMatch.inviteCode && (
+                      <button
+                        className={RETRO_BADGE}
+                        style={{
+                          // `auto`, not a fixed gap: the cluster is stretched to the height
+                          // of the title column, so the code lands on the pill's lower border
+                          // whatever the countdown's line box measures in this browser.
+                          marginTop: 'auto',
+                          cursor: 'pointer',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--accent-cyan)',
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                          outline: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                        onClick={copyRoomCode}
+                        title={t('game.copyRoomCodeTooltip')}
+                      >
+                        {t('game.roomLabel', {
+                          code: activeMatch.inviteCode,
+                          status: codeCopied ? t('game.roomCopiedOk') : t('game.roomCopy'),
+                        })}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Badge Bar with Room Code */}
-            {activeMatch.inviteCode && (
-              <div className={BADGE_BAR} style={{ marginTop: 14, justifyContent: 'center' }}>
-                <button
-                  className={RETRO_BADGE}
-                  style={{
-                    cursor: 'pointer',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--accent-cyan)',
-                    color: 'var(--accent-cyan)',
-                    fontFamily: 'var(--font-mono)',
-                    outline: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                  onClick={copyRoomCode}
-                  title={t('game.copyRoomCodeTooltip')}
-                >
-                  {t('game.roomLabel', {
-                    code: activeMatch.inviteCode,
-                    status: codeCopied ? t('game.roomCopiedOk') : t('game.roomCopy'),
-                  })}
-                </button>
-              </div>
-            )}
+            {/* The stacked layout has no band to speak in — the cluster sits between the
+                title and the pill — and anchors nothing to a frame, so the notice follows
+                the pill in flow there, centred on the card. */}
+            {!cornerBanner && statusMarqueeBox}
+
+            {/* The engine's last error, drawn over the title rather than reserving a row
+                (20.5 step 4): an error is the one line here worth seeing at once and rare
+                enough to overlay the banner for. It stays mounted so the assertive live
+                region exists before its text does, and takes no room while it is empty. */}
+            <div
+              role="alert"
+              aria-live="assertive"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                display: 'block',
+                padding: engineError ? '4px 14px' : 0,
+                background: engineError ? 'rgba(13, 2, 33, 0.95)' : 'transparent',
+                borderBottom: engineError ? '1px solid #ff0055' : 'none',
+                color: '#ff0055',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8rem',
+                fontWeight: 'bold',
+                lineHeight: 1.4,
+                letterSpacing: '0.5px',
+                textAlign: 'center',
+                textShadow: '0 0 8px #ff0055',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                pointerEvents: 'none',
+                boxSizing: 'border-box',
+                zIndex: 3,
+              }}
+            >
+              {engineError ?? ''}
+            </div>
           </header>
 
-          {/* Main Tactical Grid Layout */}
+          {/* Main Tactical Grid Layout. The columns stretch to the row's height rather
+              than starting at the top (20.4): the board column is the tall one, and its
+              CONTROLS & SETTINGS row is what the left column's feed now reaches, so the
+              room ends on one line instead of two. */}
           <main
             className="game-tactical-grid grid grid-cols-1 gap-3 lg:grid-cols-[250px_1fr_250px] lg:gap-2.5 xl:grid-cols-[285px_1fr_285px] 2xl:grid-cols-[310px_1fr_310px]"
             style={{
-              alignItems: 'start',
+              alignItems: 'stretch',
               width: '100%',
               margin: '0 auto',
             }}
@@ -1781,7 +1966,9 @@ export function Game() {
             {/* COLUMN 1: PILOT ROSTER // TACTICAL STATUS & SYSTEM CONTROL */}
             <div
               className="order-2 lg:order-none"
-              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+              // `minHeight: 0` lets the column be shorter than its content, which is what
+              // hands the slack to the feed below rather than overrunning the grid (20.4).
+              style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}
             >
               {/* Pilot Roster Window */}
               <section
@@ -2371,27 +2558,43 @@ export function Game() {
                   CLOSE: off until the switch asks for it, and gone at the start, while
                   the card stays put. */}
               {activeMatch.mode === 'pvp' && (
-                <ChatCard
-                  lines={chatLines}
-                  send={sendChatLine}
-                  connected={chatConnected}
-                  inert={Boolean(view.clash)}
-                  status={chatStatus}
-                  onStatus={setChatStatus}
-                  onOpenName={(id, name, anchor) => setNameTarget({ id, name, anchor })}
-                  sidePanel={
-                    view.status === 'waiting' ? (
-                      <InviteComms
-                        gameId={activeMatch.gameId}
-                        seatUserIds={view.players
-                          .map((player) => player.userId)
-                          .filter((id): id is string => typeof id === 'string' && id !== '')}
-                        playerCount={activeMatch.playerCount ?? 4}
-                        friends={friends}
-                      />
-                    ) : undefined
-                  }
-                />
+                // The feed's right border is the roster's: the window above overhangs its
+                // track by `rosterOverhang` to make room for the display names (and, in a
+                // clash, the Wall Breaker column), so the slot is given the same overhang
+                // instead of the track's own width — two windows stacked in one column have
+                // to end on one edge. The wrapper takes over the slot's job as the column's
+                // last child, so it is the wrapper that absorbs the stretched column's slack
+                // and the plate still grows inside it (20.4).
+                <div
+                  style={{
+                    width: `calc(100% + ${rosterOverhang}px)`,
+                    display: 'flex',
+                    flex: '1 1 auto',
+                    minHeight: 0,
+                  }}
+                >
+                  <ChatCard
+                    lines={chatLines}
+                    send={sendChatLine}
+                    connected={chatConnected}
+                    inert={Boolean(view.clash)}
+                    status={chatStatus}
+                    onStatus={setChatStatus}
+                    onOpenName={(id, name, anchor) => setNameTarget({ id, name, anchor })}
+                    sidePanel={
+                      view.status === 'waiting' ? (
+                        <InviteComms
+                          gameId={activeMatch.gameId}
+                          seatUserIds={view.players
+                            .map((player) => player.userId)
+                            .filter((id): id is string => typeof id === 'string' && id !== '')}
+                          playerCount={activeMatch.playerCount ?? 4}
+                          friends={friends}
+                        />
+                      ) : undefined
+                    }
+                  />
+                </div>
               )}
 
               {/* View Results Button below Pilot Roster */}
@@ -2675,7 +2878,6 @@ export function Game() {
                         </div>
                       </div>
                     )}
-
                   </div>
                 </section>
               ) : (
@@ -2773,11 +2975,7 @@ export function Game() {
                           cursor: isRolling || canRoll ? 'pointer' : 'default',
                         }}
                       >
-                        <Die
-                          value={view.diceValue ?? 0}
-                          rolling={isRolling}
-                          brakeTo={brakeTo}
-                        />
+                        <Die value={view.diceValue ?? 0} rolling={isRolling} brakeTo={brakeTo} />
                       </button>
                     </div>
 
@@ -3015,7 +3213,11 @@ export function Game() {
               {view.clashMode === true && !isGameEnded && view.status !== 'waiting' && (
                 <span
                   style={{ display: 'block', width: '100%' }}
-                  title={canSkipWallBreak ? t('game.skipWallBreakTitle') : t('game.skipWallBreakDisabledTitle')}
+                  title={
+                    canSkipWallBreak
+                      ? t('game.skipWallBreakTitle')
+                      : t('game.skipWallBreakDisabledTitle')
+                  }
                 >
                   <CyberButton
                     label={t('game.skipWallBreakBtn')}
@@ -3124,10 +3326,15 @@ export function Game() {
               maxWidth: 520,
             }}
           >
-            {/* Page Navigation Tabs: Compact 1-row layout */}
+            {/* Page Navigation Tabs: the pill is the label plus a 6px border of air on every
+                side (20.5), so it sizes to its label and the strip wraps instead of sharing a
+                `flex: 1` that is narrower than "10. WALL BREAKER" — the share squeezed the
+                text out of its own pill, which is what made the distance read as 2 to 6px. */}
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
                 gap: 6,
                 borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
                 paddingBottom: 10,
@@ -3153,8 +3360,11 @@ export function Game() {
                     setRulesPage(p.id);
                   }}
                   style={{
-                    flex: 1,
-                    padding: '6px 2px',
+                    // Natural width, so the 6px padding on all four sides is a distance the
+                    // eye can see: `flex: 1` divided a 380–520px deck by ten and gave every
+                    // pill less than its own label.
+                    flex: '0 0 auto',
+                    padding: 6,
                     fontSize: '0.68rem',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 'bold',

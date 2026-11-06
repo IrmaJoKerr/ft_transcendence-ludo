@@ -4,7 +4,13 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { translateErrorCode } from '../api';
 import { useApp } from '../store';
-import { RETRO_BTN, RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, GAME_WINDOW_HEADER_EXTRA } from '../styles/tw';
+import {
+  RETRO_BTN,
+  RETRO_WINDOW,
+  WINDOW_HEADER,
+  WINDOW_BODY,
+  GAME_WINDOW_HEADER_EXTRA,
+} from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
 import { systemLineText } from './chatCardTypes';
@@ -284,9 +290,7 @@ export function ChatCardFeed({
       {lines.length === 0 ? (
         <FeedEmpty titleKey={emptyTitleKey} descKey={emptyDescKey} />
       ) : (
-        lines.map((line) => (
-          <FeedLine key={line.id} line={line} onOpenName={onOpenName} />
-        ))
+        lines.map((line) => <FeedLine key={line.id} line={line} onOpenName={onOpenName} />)
       )}
     </div>
   );
@@ -737,7 +741,16 @@ export function ChatCard({
 
   return (
     <>
-      <div ref={slotRef} style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+      {/* The slot is the last child of whatever column hosts it — the lobby's own, or the
+          room's wrapper, which is where the room puts the roster's overhang — so the slot
+          is what absorbs the slack the stretched column has (20.4): `flex: 1 1 auto` takes
+          it and `minHeight: 0` lets the plate shrink with the column instead of pushing
+          past the grid. The plate's own body grows inside it, which is what pins OPEN ⤢ to
+          the bottom. */}
+      <div
+        ref={slotRef}
+        style={{ display: 'flex', gap: 10, alignItems: 'stretch', flex: '1 1 auto', minHeight: 0 }}
+      >
         <section
           className={RETRO_WINDOW}
           style={{ flex: '1 1 auto', minWidth: 0, cursor: 'pointer' }}

@@ -343,11 +343,11 @@ export const ms = {
     badgeLossText: 'KALAH',
     badgeAbandonedText: 'DITINGGALKAN',
     noRatingChange: 'TIADA PERUBAHAN PENILAIAN',
-    transcriptLabel: 'TRANSKRIP:',
+    transcriptLabel: 'LOG KOM:',
     transcriptNa: 'N/A',
-    transcriptShow: 'TUNJUK TRANSKRIP ({{count}})',
-    transcriptHide: 'SEMBUNYI TRANSKRIP',
-    transcriptTruncated: 'TRANSKRIP DIPOTONG',
+    transcriptShow: 'TUNJUK LOG KOM ({{count}})',
+    transcriptHide: 'SEMBUNYI LOG KOM',
+    transcriptTruncated: 'LOG KOM DIPOTONG',
     friendsBoxTitle: 'KAWAN ({{count}})',
     manageBtn: 'URUS ↗',
     noFriendsLinkedText: 'TIADA KAWAN DIHUBUNGKAN LAGI.',
@@ -475,9 +475,9 @@ export const ms = {
   // Saluran bilik (M3). Penolakan menggunakan semula `chat.error.*`, empat kod yang sama
   // seperti lobi.
   gameChat: {
-    title: '# KOM BILIK',
+    title: '# KOM DISULITKAN',
     scope: 'PERLAWANAN INI SAHAJA',
-    slotTitle: 'KOM',
+    slotTitle: 'KOM DISULITKAN',
     openHint: 'BUKA ⤢',
     emptyTitle: 'TIADA TRANSMISI',
     emptyDesc: 'Hanya juruterbang dalam bilik ini membaca saluran ini. Ia disimpan dengan perlawanan.',
