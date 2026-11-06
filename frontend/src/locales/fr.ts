@@ -315,7 +315,7 @@ export const fr = {
     usernameCopy: 'COPIER',
     usernameCopiedOk: 'COPIÉ OK',
     editAvatar: 'MODIFIER L\'AVATAR',
-    resetAvatar: 'RÉINITIALISER',
+    resetAvatar: "RÉINITIALISER L'AVATAR",
     returnToMyProfileBtn: '◄ RETOURNER À MON PROFIL',
     blockedCardTitle: 'CONTACT INDISPONIBLE',
     blockedByYou:

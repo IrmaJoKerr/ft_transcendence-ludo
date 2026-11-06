@@ -387,6 +387,13 @@ revalidated normally: the stamp is only needed once a change happens inside a se
 ## Verification
 
 ```bash
+# 0. The multipart route belongs to multer, not to a JSON parser
+curl -sk -o /dev/null -w '%{http_code}\n' -X POST https://localhost:8443/api/user/avatar \
+  -F avatar=@/tmp/avatar.png
+#    expect 403 (CSRF), never 400 or 413: both body parsers in main.ts answer a real
+#    content-type test, so the multipart request is skipped and the middleware chain
+#    answers it instead of a JSON parse of the boundary line
+
 # 1. Headers + ETag on a user who has a photo
 curl -skI https://localhost:8443/api/user/id/<userId>/avatar
 #    expect 200, Content-Type: image/*, Cache-Control: public, no-cache, no-transform, ETag
@@ -414,6 +421,11 @@ docker exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
    from \"User\" where username = '\''<username>'\''"'
 #    expect: the original's size, a much smaller thumbnail, image/webp
 ```
+
+Step 0 is the one that would have caught the 2026-11-06 regression: the upload answered `400` (a JSON parse of
+the multipart boundary) or `413` (the 100 kB parser) for two days, because a `type` function in `main.ts` answered
+with the string `'application/json'` and body-parser reads a function's answer as a boolean, so every bodied request
+was parsed as JSON. A `400` or a `413` on this route is that fault until proven otherwise.
 
 Then in the browser, with DevTools open:
 

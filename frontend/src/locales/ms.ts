@@ -312,7 +312,7 @@ export const ms = {
     usernameCopy: 'SALIN',
     usernameCopiedOk: 'DISALIN OK',
     editAvatar: 'EDIT AVATAR',
-    resetAvatar: 'SET SEMULA',
+    resetAvatar: 'SET SEMULA AVATAR',
     returnToMyProfileBtn: '◄ KEMBALI KE PROFIL SAYA',
     blockedCardTitle: 'KONTAK TIDAK BOLEH DIHUBUNGI',
     blockedByYou:

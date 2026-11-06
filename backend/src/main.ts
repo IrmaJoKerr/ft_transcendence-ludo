@@ -56,10 +56,29 @@ function validationExceptionFactory(errors: ValidationError[]): BadRequestExcept
 // game's channel is a few hundred kilobytes: Express's 100 kB default would refuse the
 // very report that writes the rows. Two json parsers split the URL space instead of one
 // global cap, so the raised limit is the two engine routes' own and an ordinary request
-// can never grow. `type` is body-parser's own predicate — false skips a request without
-// touching its stream, so the second parser still reads it.
+// can never grow.
+//
+// What a `type` function answers is load-bearing, and it is not a media type: body-parser
+// takes a function `type` as its own `shouldParse` test and reads the answer as a boolean,
+// so a truthy return parses the body whatever Content-Type it carries. Answering with the
+// string 'application/json' therefore parsed every bodied request, multipart included, in
+// the 100 kB parser, which refused the avatar upload before multer ever saw the file. Both
+// predicates are content-type tests instead: `false` skips a request without touching its
+// stream, so the other parser still gets to read it.
 const ENGINE_BODY_LIMIT = '2mb';
 const DEFAULT_BODY_LIMIT = '100kb';
+
+// What a `type` predicate is handed: the request as it arrives, before routing. `is` is
+// Express's content-type test, always there at runtime but absent from Node's own
+// IncomingMessage type, which is the shape the option is declared with.
+type BodyParserRequest = {
+  url?: string;
+  is?: (contentType: string) => string | false | null;
+};
+
+// `is()` answers the matched media type ('application/json' for `application/json;
+// charset=utf-8`), false for another one, and null when the request has no body at all.
+const isJsonRequest = (req: BodyParserRequest) => !!req.is?.('application/json');
 
 // The two routes the engine posts a result to. Matched on the URL alone, before
 // routing, because a body parser never learns which handler will answer.
@@ -76,15 +95,16 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // The raised cap first, for the engine's two result routes only, then the default for
-  // everything else. The order is the whole mechanism: a parser that refuses a request
-  // leaves the body unread for the next one.
+  // everything else. Each predicate names its own half of the URL space and takes JSON
+  // only, so a multipart body reaches multer with its stream intact. The order is the rest
+  // of the mechanism: a parser that refuses a request leaves the body unread for the next.
   app.useBodyParser('json', {
     limit: ENGINE_BODY_LIMIT,
-    type: (req: { url?: string }) => (engineResultRoute(req.url) ? 'application/json' : false),
+    type: (req: BodyParserRequest) => engineResultRoute(req.url) && isJsonRequest(req),
   });
   app.useBodyParser('json', {
     limit: DEFAULT_BODY_LIMIT,
-    type: (req: { url?: string }) => (engineResultRoute(req.url) ? false : 'application/json'),
+    type: (req: BodyParserRequest) => !engineResultRoute(req.url) && isJsonRequest(req),
   });
 
   // Trust internal hops (localhost/LAN/tunnel) by address, so req.ip is the

@@ -311,7 +311,7 @@ export const en = {
     usernameCopy: 'COPY',
     usernameCopiedOk: 'COPIED OK',
     editAvatar: 'EDIT AVATAR',
-    resetAvatar: 'RESET',
+    resetAvatar: 'RESET AVATAR',
     returnToMyProfileBtn: '◄ RETURN TO MY PROFILE',
     blockedCardTitle: 'CONTACT UNAVAILABLE',
     blockedByYou:

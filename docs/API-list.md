@@ -1658,7 +1658,9 @@ the rows, so every row keeps exactly what its own player was shown. `chat.trunca
 the engine had to re-post only the newest 400 lines (a 413 from this route's 2 MB cap), and the
 row then carries `chatTruncated: true` so a cut transcript never renders as a complete one. A room
 with no channel (PvE, hotseat, guest) or one that never spoke sends neither field and its rows keep
-`chat` null. This route parses up to **2 MB**; every other route keeps Express's 100 kB default.
+`chat` null. This route parses up to **2 MB**; every other route keeps Express's 100 kB default. Both parsers
+take JSON only, because each answers body-parser with a real content-type test, so the one multipart route
+(`POST /api/user/avatar`) is untouched by either and multer applies the upload's own 2 MB cap.
 
 **Response:**
 
