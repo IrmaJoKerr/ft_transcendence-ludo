@@ -659,6 +659,10 @@ export const fr = {
     // plus mince même si l'attaque a échoué. Parler de « la case » reste exact dans
     // les deux cas.
     clashChainRepulsed: 'Attaque repoussée — la case reste aux défenseurs.',
+    // La bannière de brèche totale sur la dernière couche du mur (D7). Un mot
+    // d'affichage, pas une phrase : il se lit dans la même fenêtre de 1000 ms que
+    // le titre du vainqueur.
+    clashWallBroken: 'MUR BRISÉ',
     clashOver: 'CLASH TERMINÉ',
     clashYouWon: '⚔️ Vous avez gagné !',
     clashWins: '{{color}} gagne',

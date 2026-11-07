@@ -53,6 +53,11 @@ export const CLASH_BOT_CASUAL_REACTION_MS = 500; // choice reaction: 400..600 ba
 // `common/src/timing.constants.ts`. These two are the engine's own pacing.
 export const BOT_MOVE_STEP_MS = 220; // the engine's slack over MOVE_STEP_ANIM_MS
 export const BOT_THINK_MS = 500; // flat pause before a bot acts
+// A non-clash capture may paint the opt-in flash card on the clients (25.6). The bot is
+// paced to wait the card out so it never plays into a caption the human is reading: the
+// card's own ~1400 ms plus the same 150 ms the client's roll guard uses (25.9).
+export const CAPTURE_CARD_MS = 1400; // the flash card's length, mirrored for pacing
+export const CAPTURE_CARD_GRACE_MS = 150; // matches the client's roll-guard grace
 
 // --- transport ----------------------------------------------------------------
 export const PING_INTERVAL_MS = 10 * 1000;

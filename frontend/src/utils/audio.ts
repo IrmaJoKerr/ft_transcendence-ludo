@@ -192,6 +192,7 @@ export class RetroAudioEngine {
     toHz: number,
     peak = 1.5,
     mode: 'lowpass' | 'bandpass' = 'lowpass',
+    attack = 0,
   ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -213,8 +214,16 @@ export class RetroAudioEngine {
     else filter.frequency.linearRampToValueAtTime(toHz, ctx.currentTime + seconds);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(this.volume * peak, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + seconds);
+    const now = ctx.currentTime;
+    if (attack > 0) {
+      // A swell: ramp up over `attack`, then run the same decay. Callers that want the
+      // old instant hit keep it, because the default attack is 0.
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(this.volume * peak, now + attack);
+    } else {
+      gain.gain.setValueAtTime(this.volume * peak, now);
+    }
+    gain.gain.exponentialRampToValueAtTime(0.01, now + seconds);
 
     whiteNoise.connect(filter);
     filter.connect(gain);
@@ -235,158 +244,234 @@ export class RetroAudioEngine {
     }
   }
 
-  // Clash result FX — the loser is tied up: two ratchet clicks (the old handcuff click
-  // recipe, re-purposed), then a short bandpassed rustle as the rope bites.
-  playRopeBind() {
+  // Clash result FX — the beam leaves the attacker's side: a bright sawtooth zap that
+  // falls from 1100 Hz to 260 Hz with a square sizzle riding above it. Before this the
+  // beam had no sound of its own.
+  playLaserBeam() {
     if (this.muted) return;
     try {
       this.initContext();
       if (!this.ctx) return;
       const ctx = this.ctx;
+      const now = ctx.currentTime;
+      const body = ctx.createOscillator();
+      const bodyGain = ctx.createGain();
+      body.type = 'sawtooth';
+      body.frequency.setValueAtTime(1100, now);
+      body.frequency.exponentialRampToValueAtTime(260, now + 0.2);
+      bodyGain.gain.setValueAtTime(this.volume, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      body.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
+      body.start(now);
+      body.stop(now + 0.2);
+
+      const sizzle = ctx.createOscillator();
+      const sizzleGain = ctx.createGain();
+      sizzle.type = 'square';
+      sizzle.frequency.setValueAtTime(2200, now);
+      sizzle.frequency.exponentialRampToValueAtTime(600, now + 0.14);
+      sizzleGain.gain.setValueAtTime(this.volume * 0.35, now);
+      sizzleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      sizzle.connect(sizzleGain);
+      sizzleGain.connect(ctx.destination);
+      sizzle.start(now);
+      sizzle.stop(now + 0.14);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // Clash result FX — the beam meets the wall: a 20 ms noise crack (the impact) under a
+  // triangle ping that drops 1400 → 400 Hz, plus a high square shard. This replaces the
+  // old brick hit, so the same beat now reads as a puncture rather than a brick leaving.
+  playBarrierPuncture() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+      this.noiseBurst(0.02, 6000, 2500, 1.3);
+
+      const ping = ctx.createOscillator();
+      const pingGain = ctx.createGain();
+      ping.type = 'triangle';
+      ping.frequency.setValueAtTime(1400, now);
+      ping.frequency.exponentialRampToValueAtTime(400, now + 0.12);
+      pingGain.gain.setValueAtTime(this.volume * 0.9, now);
+      pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      ping.connect(pingGain);
+      pingGain.connect(ctx.destination);
+      ping.start(now);
+      ping.stop(now + 0.12);
+
+      const shard = ctx.createOscillator();
+      const shardGain = ctx.createGain();
+      shard.type = 'square';
+      shard.frequency.setValueAtTime(2600, now);
+      shardGain.gain.setValueAtTime(this.volume * 0.4, now);
+      shardGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      shard.connect(shardGain);
+      shardGain.connect(ctx.destination);
+      shard.start(now);
+      shard.stop(now + 0.06);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // Clash result FX — a layer goes out and the cage slams: two ratchet clicks, a
+  // bandpassed rustle, then a low triangle thunk as the barrier loses a course. The
+  // clicks keep the old rope bind's body; the thunk is new, so the beat reads as a snap.
+  playCageSnap() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
       const click = (at: number, freq: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';
         osc.frequency.setValueAtTime(freq, at);
-        gain.gain.setValueAtTime(this.volume * 1.1, at);
+        gain.gain.setValueAtTime(this.volume, at);
         gain.gain.exponentialRampToValueAtTime(0.001, at + 0.008);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(at);
         osc.stop(at + 0.008);
       };
-      click(ctx.currentTime, 900);
-      click(ctx.currentTime + 0.06, 1400);
-      this.noiseBurst(0.12, 2400, 2400, 0.9, 'bandpass');
+      click(now, 760);
+      click(now + 0.05, 1120);
+      this.noiseBurst(0.05, 3000, 3000, 0.8, 'bandpass');
+
+      const thunk = ctx.createOscillator();
+      const thunkGain = ctx.createGain();
+      thunk.type = 'triangle';
+      thunk.frequency.setValueAtTime(190, now + 0.02);
+      thunk.frequency.exponentialRampToValueAtTime(80, now + 0.16);
+      thunkGain.gain.setValueAtTime(this.volume * 0.7, now + 0.02);
+      thunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      thunk.connect(thunkGain);
+      thunkGain.connect(ctx.destination);
+      thunk.start(now + 0.02);
+      thunk.stop(now + 0.16);
     } catch (e) {
       console.debug('Audio error:', e);
     }
   }
 
-  // Clash result FX — the sword snaps on the shield: a 900 Hz metallic clang (with a
-  // 1340 Hz square partial, which is what makes it read as metal), then a 2.2 kHz square
-  // shard with a fast decay.
-  playSwordBreak() {
+  // Clash result FX — the total breach: the wall's fall, but it SWELLS first. The noise
+  // now ramps in over 300 ms (the helper's new attack) instead of landing at full peak,
+  // so the collapse reads as a bloom rising then bursting rather than a flat bang.
+  playBreachBloom() {
     if (this.muted) return;
     try {
       this.initContext();
       if (!this.ctx) return;
       const ctx = this.ctx;
+      const now = ctx.currentTime;
+      this.noiseBurst(1.0, 1200, 70, 1.4, 'lowpass', 0.3);
+
+      const sub = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(55, now);
+      sub.frequency.exponentialRampToValueAtTime(34, now + 0.9);
+      subGain.gain.setValueAtTime(0.0001, now);
+      subGain.gain.linearRampToValueAtTime(this.volume * 1.1, now + 0.25);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      sub.connect(subGain);
+      subGain.connect(ctx.destination);
+      sub.start(now);
+      sub.stop(now + 0.9);
+
+      // The bloom's bright edge: a sine rising through the swell, then gone.
+      const shine = ctx.createOscillator();
+      const shineGain = ctx.createGain();
+      shine.type = 'sine';
+      shine.frequency.setValueAtTime(300, now);
+      shine.frequency.exponentialRampToValueAtTime(900, now + 0.28);
+      shineGain.gain.setValueAtTime(0.0001, now);
+      shineGain.gain.linearRampToValueAtTime(this.volume * 0.5, now + 0.28);
+      shineGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      shine.connect(shineGain);
+      shineGain.connect(ctx.destination);
+      shine.start(now);
+      shine.stop(now + 0.42);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // Clash result FX — the defender holds: the old sword-on-shield clang (a triangle at
+  // 820 with a square partial at 1240, which is what reads as metal), then the beam
+  // RICOCHETS up and away as a square sweeping 1400 → 3400 Hz. The rise is the deflect.
+  playBarrierDeflect() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
       const clang = [
-        { freq: 900, type: 'triangle' as OscillatorType, gain: 1 },
-        { freq: 1340, type: 'square' as OscillatorType, gain: 0.25 },
+        { freq: 820, type: 'triangle' as OscillatorType, gain: 1 },
+        { freq: 1240, type: 'square' as OscillatorType, gain: 0.25 },
       ];
       for (const partial of clang) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = partial.type;
-        osc.frequency.setValueAtTime(partial.freq, ctx.currentTime);
-        gain.gain.setValueAtTime(this.volume * partial.gain, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+        osc.frequency.setValueAtTime(partial.freq, now);
+        gain.gain.setValueAtTime(this.volume * partial.gain, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
       }
 
-      const shardAt = ctx.currentTime + 0.06;
-      const shard = ctx.createOscillator();
-      const shardGain = ctx.createGain();
-      shard.type = 'square';
-      shard.frequency.setValueAtTime(2200, shardAt);
-      shardGain.gain.setValueAtTime(this.volume * 0.6, shardAt);
-      shardGain.gain.exponentialRampToValueAtTime(0.001, shardAt + 0.1);
-      shard.connect(shardGain);
-      shardGain.connect(ctx.destination);
-      shard.start(shardAt);
-      shard.stop(shardAt + 0.1);
+      const deflect = ctx.createOscillator();
+      const deflectGain = ctx.createGain();
+      deflect.type = 'square';
+      deflect.frequency.setValueAtTime(1400, now + 0.05);
+      deflect.frequency.exponentialRampToValueAtTime(3400, now + 0.17);
+      deflectGain.gain.setValueAtTime(this.volume * 0.5, now + 0.05);
+      deflectGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+      deflect.connect(deflectGain);
+      deflectGain.connect(ctx.destination);
+      deflect.start(now + 0.05);
+      deflect.stop(now + 0.17);
     } catch (e) {
       console.debug('Audio error:', e);
     }
   }
 
-  // Clash result FX — a round won on a wall: the shot lands (a 12 ms crack), then the
-  // brick goes (a square falling 620 → 180 Hz).
-  playBrickHit() {
-    if (this.muted) return;
-    try {
-      this.initContext();
-      if (!this.ctx) return;
-      this.noiseBurst(0.012, 5000, 3000, 1.2);
-      const ctx = this.ctx;
-      const at = ctx.currentTime + 0.01;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(620, at);
-      osc.frequency.exponentialRampToValueAtTime(180, at + 0.26);
-      gain.gain.setValueAtTime(this.volume * 0.9, at);
-      gain.gain.exponentialRampToValueAtTime(0.001, at + 0.26);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(at);
-      osc.stop(at + 0.26);
-    } catch (e) {
-      console.debug('Audio error:', e);
-    }
-  }
-
-  // Clash result FX — the wall comes down: the explosion recipe stretched to a
-  // collapse, over a 60 Hz sub that carries the weight.
-  playWallCrumble() {
-    if (this.muted) return;
-    try {
-      this.initContext();
-      if (!this.ctx) return;
-      this.noiseBurst(0.9, 800, 90);
-      const ctx = this.ctx;
-      const sub = ctx.createOscillator();
-      const gain = ctx.createGain();
-      sub.type = 'sine';
-      sub.frequency.setValueAtTime(60, ctx.currentTime);
-      sub.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.8);
-      gain.gain.setValueAtTime(this.volume * 1.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      sub.connect(gain);
-      gain.connect(ctx.destination);
-      sub.start();
-      sub.stop(ctx.currentTime + 0.8);
-    } catch (e) {
-      console.debug('Audio error:', e);
-    }
-  }
-
-  // Clash result FX — taunt: a sawtooth blown through an ~18 Hz amplitude wobble,
-  // which is what makes it read as a raspberry rather than a bass note.
-  playRaspberry() {
+  // Clash result FX — the attacker fails: the old comedy sting is retired for a deflated
+  // power-down, a square falling 520 → 120 Hz under a low dust rustle. Not a taunt; the
+  // sound of the attacker's piece being dragged off the square.
+  playAttackFailed() {
     if (this.muted) return;
     try {
       this.initContext();
       if (!this.ctx) return;
       const ctx = this.ctx;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const wobble = ctx.createOscillator();
-      const wobbleDepth = ctx.createGain();
+      const now = ctx.currentTime;
+      const fall = ctx.createOscillator();
+      const fallGain = ctx.createGain();
+      fall.type = 'square';
+      fall.frequency.setValueAtTime(520, now);
+      fall.frequency.exponentialRampToValueAtTime(120, now + 0.32);
+      fallGain.gain.setValueAtTime(this.volume * 0.8, now);
+      fallGain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+      fall.connect(fallGain);
+      fallGain.connect(ctx.destination);
+      fall.start(now);
+      fall.stop(now + 0.32);
 
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(140, ctx.currentTime);
-      gain.gain.setValueAtTime(this.volume * 0.55, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-
-      wobble.type = 'sine';
-      wobble.frequency.setValueAtTime(18, ctx.currentTime);
-      wobbleDepth.gain.setValueAtTime(this.volume * 0.5, ctx.currentTime);
-
-      wobble.connect(wobbleDepth);
-      wobbleDepth.connect(gain.gain);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-      wobble.start();
-      wobble.stop(ctx.currentTime + 0.5);
+      this.noiseBurst(0.2, 900, 120, 0.6);
     } catch (e) {
       console.debug('Audio error:', e);
     }

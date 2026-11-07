@@ -197,6 +197,7 @@ export function ResultFx({
   n,
   totalRounds,
   banner,
+  card = 'clash',
 }: {
   kind: ResultFxKind;
   attacker: PlayerColor;
@@ -204,20 +205,15 @@ export function ResultFx({
   n: number;
   totalRounds: number;
   banner?: string;
+  // Where the card lives, which only changes its SOUND palette (25.5 item 5): the clash
+  // card owns all six beats, while a flash card is silent except one cage, because the
+  // board's own capture burst already played the hit at the cell.
+  card?: 'clash' | 'flash';
 }) {
   useEffect(ensureKeyframes, []);
   const reduced = useReducedMotion();
   const attackerColor = COL[attacker].base;
   const defenderColor = COL[defender].base;
-
-  // The sound is the gesture's first frame, once per mounted card. This is a
-  // placeholder mapping onto the recipes that exist today; the six-recipe schedule
-  // (m3) replaces this whole effect with one timer table.
-  useEffect(() => {
-    if (kind === 'repulse') retroAudio.playSwordBreak();
-    else if (totalRounds > 1) retroAudio.playWallCrumble();
-    else retroAudio.playRopeBind();
-  }, [kind, totalRounds]);
 
   // One clock for the whole gesture: an element that starts `delayMs` late gets exactly
   // RESULT_FX_MS - delayMs of animation, so its last frame IS the last frame of the
@@ -255,6 +251,34 @@ export function ResultFx({
   const cageTopY = isOneOnOne ? ONE_ON_ONE_PIECE_Y - 30 : DOME_BASE_Y - outerR - 6;
   const cageBars = 5;
   const steel = '#cfc9e6';
+
+  // Six sounds, one per beat, on one table (25.5). Armed once per mounted card and
+  // cleared on unmount, so a chain round that unmounts early leaves no timer behind.
+  // Every offset lands by 1120 ms, so the 1900-2900 read window is silent under the
+  // banner. The capture path plays beam → puncture → a layer out → (bloom, breach only)
+  // → the cage; a repulse swaps the puncture for the parry and ends on the failure.
+  useEffect(() => {
+    // A flash card adds only the cage (~1000 ms): the board's own burst already fired the
+    // hit at the cell, so the rest of the palette stays the clash's (25.5 item 5).
+    if (card === 'flash') {
+      const timer = window.setTimeout(() => retroAudio.playCageSnap(), 1000);
+      return () => window.clearTimeout(timer);
+    }
+    const beats: Array<{ at: number; play: () => void }> = [
+      { at: 0, play: () => retroAudio.playLaserBeam() },
+    ];
+    if (kind === 'repulse') {
+      beats.push({ at: 260, play: () => retroAudio.playBarrierDeflect() });
+      beats.push({ at: 420, play: () => retroAudio.playAttackFailed() });
+    } else {
+      beats.push({ at: 260, play: () => retroAudio.playBarrierPuncture() });
+      beats.push({ at: 420, play: () => retroAudio.playCageSnap() });
+      if (isBreach) beats.push({ at: 700, play: () => retroAudio.playBreachBloom() });
+      beats.push({ at: 1120, play: () => retroAudio.playCageSnap() });
+    }
+    const timers = beats.map(({ at, play }) => window.setTimeout(play, at));
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [kind, isBreach, card]);
 
   return (
     <svg
@@ -320,7 +344,7 @@ export function ResultFx({
           </g>
           <g style={{ ...pivot, animation: fx('fxPieceFall') }}>
             <g
-              transform={`translate(${ONE_ON_ONE_PIECE_X - 14} ${ONE_ON_ONE_PIECE_Y - 10}) scale(2.5)`}
+              transform={`translate(${ONE_ON_ONE_PIECE_X - 16} ${ONE_ON_ONE_PIECE_Y - 12}) scale(3)`}
               shapeRendering='crispEdges'
             >
               <path d={PIECE_GLYPH[defender]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />

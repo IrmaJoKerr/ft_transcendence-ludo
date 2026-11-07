@@ -8,6 +8,7 @@ import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../game/types';
 import { ClashOverlay } from '../game/ClashOverlay';
+import { ResultFx } from '../game/ResultFx';
 import { stepToCell } from '../game/boardGeometry';
 import {
   CLASH_RESULT_MS,
@@ -15,6 +16,8 @@ import {
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
 import {
+  CAPTURE_CARD_GRACE_MS,
+  CAPTURE_CARD_MS,
   CAPTURE_FX_AFTER_CARD_MS,
   CAPTURE_FX_CARD_OPACITY,
   CAPTURE_FX_MS,
@@ -468,6 +471,20 @@ export function Game() {
     x: number;
     y: number;
   } | null>(null);
+  // The opt-in capture flash card (25.6): a non-clash capture, when the room rule is on,
+  // paints the capture gesture top-centre over the board. It is derived from the move
+  // event, never reducer state, and the next piece_moved/dice_rolled unmounts it. `id`
+  // forces a fresh mount (and its one sound) for a repeat capture of the same colours.
+  const [flashCard, setFlashCard] = useState<{
+    id: number;
+    attacker: PlayerColor;
+    defender: PlayerColor;
+  } | null>(null);
+  const flashCardSeq = useRef(0);
+  // The roll guard is TIME-bounded, not tied to the card's state: the state lingers until
+  // the next event (25.6 item 3), but a roll must reopen once the card has visually gone,
+  // or the capturer's own bonus re-roll would deadlock behind a card nothing else clears.
+  const flashCardGuardUntilRef = useRef(0);
   // Wall Breaker: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
   // (`PlayerMeta.wallBreakerArmed`), and the engine blocks an unarmed seat at a wall.
@@ -758,6 +775,8 @@ export function Game() {
       }
 
       if (type === 'dice_rolled') {
+        // A roll ends the beat the flash card explains (25.6 item 3).
+        setFlashCard(null);
         const e = state as {
           value: number;
           bonusRoll: boolean;
@@ -799,6 +818,9 @@ export function Game() {
       }
 
       if (type === 'piece_moved') {
+        // A move ends the beat the previous card explained (25.6 item 3); this move's own
+        // capture re-mounts it below once the walk finishes.
+        setFlashCard(null);
         pendingMoveRef.current = false;
         isMovingPieceRef.current = true;
         setIsMovingPiece(true);
@@ -839,6 +861,21 @@ export function Game() {
               setCardCaptureFx(captureBurstAnchor(e.color, e.to));
             } else {
               setCaptureFx({ color: e.color, to: e.to });
+              // The opt-in flash card rides above the board's own burst (25.6). Only the
+              // non-clash path paints it, and only when the room turned the rule on. The
+              // victim colour is the captured piece's, read before the dispatch removes it.
+              if (view.captureFx) {
+                const victim =
+                  view.pieces.find((p) => (e.capturedPieceIds ?? []).includes(p.id))?.color ??
+                  e.color;
+                setFlashCard({
+                  id: ++flashCardSeq.current,
+                  attacker: e.color,
+                  defender: victim,
+                });
+                flashCardGuardUntilRef.current =
+                  performance.now() + CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS;
+              }
             }
           }
           const settleMs = e.captured ? 600 : 350;
@@ -1059,6 +1096,7 @@ export function Game() {
       setAnimatingPiece(null);
       setCaptureFx(null);
       setCardCaptureFx(null);
+      setFlashCard(null);
       pendingCardBurstRef.current = null;
     };
     // Keyed on identity fields only, never the whole activeMatch object, so
@@ -1144,7 +1182,14 @@ export function Game() {
   // Start a roll this device owns. The clock starts at the tap, not at the server's
   // answer, so the brake window is the same length whatever the round trip is.
   const beginRoll = () => {
-    if (!canRoll || isRolling || isRollingRef.current || isMovingPieceRef.current) return;
+    if (
+      !canRoll ||
+      isRolling ||
+      isRollingRef.current ||
+      isMovingPieceRef.current ||
+      performance.now() < flashCardGuardUntilRef.current
+    )
+      return;
     clearRollTimers();
     rollStartRef.current = performance.now();
     rollBrakeAtRef.current = null;
@@ -2636,6 +2681,8 @@ export function Game() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 width: '100%',
+                // Anchor the opt-in flash card (below) over the board, not the screen.
+                position: 'relative',
                 // Desktop: the board yields the roster panel's overhang and then biases right
                 // (see boardMaxWidth / boardMarginRight); the stacked layout stays centred.
                 maxWidth: boardMaxWidth,
@@ -2643,6 +2690,35 @@ export function Game() {
                 marginRight: boardMarginRight,
               }}
             >
+              {/* The opt-in capture flash card (25.6): top centre of the board column, over
+                  the board and not the screen, no scrim, pointerEvents none. Event-driven:
+                  a capture mounts it, the next move or roll unmounts it, and the wrapper
+                  fades it out so an idle board never keeps a stale cage. */}
+              {flashCard && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 'min(64%, 300px)',
+                    aspectRatio: '240 / 180',
+                    zIndex: 30,
+                    pointerEvents: 'none',
+                    animation: `flash-card-out 260ms ease-in ${CAPTURE_CARD_MS - 260}ms both`,
+                  }}
+                >
+                  <ResultFx
+                    key={`flash-${flashCard.id}`}
+                    kind="capture"
+                    attacker={flashCard.attacker}
+                    defender={flashCard.defender}
+                    n={1}
+                    totalRounds={1}
+                    card="flash"
+                  />
+                </div>
+              )}
               {(() => {
                 const currentTurnPlayer = view.players.find((p) => p.color === view.currentTurn);
                 const isBotTurn = currentTurnPlayer?.isBot ?? false;

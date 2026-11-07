@@ -685,6 +685,14 @@ export function ClashOverlay({
   const showDefenderPad = touchMode && iAmInClash && (allowBothSides || defenderIsMe);
   const showAttackerPad = touchMode && iAmInClash && (allowBothSides || attackerIsMe);
 
+  // The stage never outgrows the room the pads leave (25.13): one pad online, two in
+  // hotseat (the branch is `allowBothSides`). This is the same 420 px stage that used to
+  // letterbox a phone beside a fixed width, now capped by what the pads leave over. The
+  // height follows the width through the viewBox's 4:3, so a wider stage is a taller one.
+  const padCount = touchMode ? (allowBothSides ? 2 : 1) : 0;
+  const padsCss = padCount ? `calc(${padCount} * ${TOUCH_BUTTON})` : '0px';
+  const stageWidth = `min(60vw, 420px, calc(100vw - ${padsCss} - 2 * ${TOUCH_EDGE_BUFFER}))`;
+
   // Persistent "who's fighting" header: Defender LEFT / Attacker RIGHT,
   // mirroring the split the key sets already use.
   const plates = (
@@ -746,8 +754,8 @@ export function ClashOverlay({
                 stage box, which retires the need for a per-group clipPath. */}
             <div
               style={{
-                width: 'min(60vw, 420px)',
-                height: 'clamp(120px, 24vmin, 240px)',
+                width: stageWidth,
+                aspectRatio: '240 / 180',
                 margin: '0 auto 4px',
                 overflow: 'hidden',
               }}

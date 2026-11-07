@@ -48,8 +48,9 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the eight both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1300, `RESULT_HEADLINE_READ_MS` 1300, `CLASH_RESULT_MS` 2600 (added from the two), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/timing.constants.ts` | the eight both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1900, `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (added from the two), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
+| `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
 **The test for the folder** is "would someone tune it, and does a second build read it?" Three answers:
 
@@ -673,6 +674,7 @@ against the live letter on its own clock.
 | `DICE_BRAKE_SETTLE_MS` | 150 | near-miss face, then the true one |
 | `RESULTS_MODAL_DELAY_MS` | 900 | beat after the last move before the results modal |
 | `PENDING_MOVE_GUARD_MS` | 3000 | safety net for a move that never answers |
+| `CAPTURE_CARD_GRACE_MS` | 150 | the opt-in flash card's tail: a roll press landing inside it is dropped (the engine paces bots by the same value) |
 | `CARD_HOLD_MARGIN_MS` | 200 | the receipt's one-way trip: card hold = `CLASH_RESULT_MS + this` |
 | `CAPTURE_FX_MS` | 600 | the capture burst's own length; interpolated into both copies' inline `animation` so the keyframes hold no 600 |
 | `CAPTURE_FX_CARD_OPACITY` | 0.7 | the burst as it reads over the clash result card |

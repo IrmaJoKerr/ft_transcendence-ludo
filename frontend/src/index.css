@@ -182,3 +182,11 @@ a:hover {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* The opt-in capture flash card fades itself out over its last beat (25.6). The card's
+   UNMOUNT is the next board event, but a board that then sits idle must not keep a stale
+   cage floating over the top of the board, so the wrapper carries this fade. */
+@keyframes flash-card-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
