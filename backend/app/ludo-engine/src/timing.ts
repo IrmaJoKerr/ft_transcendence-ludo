@@ -22,7 +22,12 @@ export const CLASH_SWITCH_GAP_MAX_MS = 1100; // longest gap between two switches
 // next-round timer, so it reads the same `CLASH_RESULT_MS` the client draws from.
 export const CLASH_RESULT_FREEZE_MS = 4000; // input freeze CEILING: a card hold only shortens it
 export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
-export const CLASH_SWEEP_GRACE_MS = 15000; // outer cleanup bound from clash start
+// The key-shift mutator widens the press window: each switch adds this to the base
+// `CLASH_PRESS_MS` (see `startClash` in clash.ts), so the sweep's outer bound has to
+// cover the longest window. 18000 keeps the headroom 15000 gave the 5000 ms window:
+// the two-switch clash runs 4500 ms of announce + countdown plus 8000 ms of presses.
+export const CLASH_KEYSHIFT_EXTRA_MS = 1500; // press-window extension per key shift
+export const CLASH_SWEEP_GRACE_MS = 18000; // outer cleanup bound from clash start
 export const CLASH_SWEEP_INTERVAL_MS = 5000; // orphaned-clash sweep cadence
 export const CLASH_PRESS_CAP_MS = 110; // min ms between accepted presses per side (~9 Hz)
 // Bot presser bases: one per pacing profile. The profile decides how many presses

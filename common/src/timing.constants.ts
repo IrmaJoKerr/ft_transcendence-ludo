@@ -16,10 +16,10 @@ export const CLASH_PRESS_MS = 5000; // press race window
 // the gesture the card plays, then the headline's read time. Both sides keep the
 // parts, not just the sum, because the sum is also the engine's input freeze and the
 // chain's next-round timer: re-timing a gesture moves the card on both sides at once
-// instead of leaving a hand-computed 2600 to update.
-export const RESULT_FX_MS = 1300; // how long the gesture lasts (1.2 s was the floor)
-export const RESULT_HEADLINE_READ_MS = 1300; // the headline after the gesture stops
-export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.6 s
+// instead of leaving a hand-computed 2900 to update.
+export const RESULT_FX_MS = 1900; // how long the gesture lasts (1.2 s was the floor)
+export const RESULT_HEADLINE_READ_MS = 1000; // the headline after the gesture stops
+export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.9 s
 
 // --- the turn animation --------------------------------------------------------
 // The client owns the pixels. The engine keeps the SAME two numbers because bot turns

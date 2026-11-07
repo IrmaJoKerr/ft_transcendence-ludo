@@ -622,12 +622,19 @@ export class LudoEngine {
 
   // Settle a mid-clash disconnect by meters, tie to the attacker, as on timeout. In a
   // chain this settles the round: a win continues, a loss repels the attack. Called
-  // after the disconnect lock releases, so it cannot re-enter it.
-  async resolveClashOnDisconnect(gameId: string): Promise<void> {
+  // after the disconnect lock releases, so it cannot re-enter it. `goneColor` is the
+  // seat that left: R1, the tie-break (and any lead the leaver was ahead on) may not
+  // hand the round to the side that abandoned it, so a winner equal to `goneColor` is
+  // dropped and the other side takes it. The sweep and the timeout pass no colour and
+  // keep the plain tie-to-attacker rule.
+  async resolveClashOnDisconnect(gameId: string, goneColor?: PlayerColor): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state?.clash) return;
     const clash = state.clash;
-    const winner = clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
+    let winner = clash.attackerPresses >= clash.defenderPresses ? clash.attacker : clash.defender;
+    if (goneColor && winner === goneColor) {
+      winner = clash.attacker === goneColor ? clash.defender : clash.attacker;
+    }
     await this.clashEngine.resolveClashOutcome(gameId, winner);
   }
 

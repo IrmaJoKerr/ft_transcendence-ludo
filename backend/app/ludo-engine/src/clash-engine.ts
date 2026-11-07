@@ -27,7 +27,6 @@ import type {
 } from './types';
 
 // Cadence of the clash recovery sweep (re-arms stale phase timers).
-import { CLASH_PRESS_MS } from './__shared__/timing.constants';
 import { CLASH_SWEEP_INTERVAL_MS } from './timing';
 
 // The chain ledger, read from a deferred capture as plain arrays so one round
@@ -245,9 +244,11 @@ export class ClashEngine {
           countdownDeadline: st.clash.countdownDeadline,
           pressDeadline: st.clash.pressDeadline,
         });
-        // The window opens exactly at the deadline the state carries, so that is
-        // the anchor handed to the pressers (a bot pays its reaction from here).
-        onPressStart?.(st.clash.pressDeadline - CLASH_PRESS_MS);
+        // The window opens exactly at the countdown deadline the state carries (the
+        // press window is countdownDeadline .. pressDeadline), so that is the anchor
+        // handed to the pressers (a bot pays its reaction from here). Reading
+        // `pressDeadline - CLASH_PRESS_MS` would be early by the key-shift extension.
+        onPressStart?.(st.clash.countdownDeadline);
       });
       // press -> resolve
       scheduleUnlocked(Math.max(0, clash.pressDeadline - now), () =>
@@ -375,8 +376,9 @@ export class ClashEngine {
     );
   }
 
-  // Locked press recorder for humans and bots. Reaching CLASH_TARGET schedules
-  // the resolve OUTSIDE the lock: a re-entrant self-lock would deadlock.
+  // Locked press recorder for humans and bots. Reaching the ROUND's target (42, or
+  // the scaled 55/67 of a key-shift room) schedules the resolve OUTSIDE the lock: a
+  // re-entrant self-lock would deadlock.
   async recordClashPress(
     gameId: string,
     color: PlayerColor,
@@ -385,8 +387,10 @@ export class ClashEngine {
     count = 1,
   ): Promise<number> {
     return this.withGameLock(gameId, async () => {
-      const meter = await this.clashManager.recordPress(gameId, color, key ?? '', isBot, count);
-      if (meter >= CLASH_TARGET) {
+      const { meter, target } = await this.clashManager.recordPress(gameId, color, key ?? '', isBot, count);
+      // Compare against the round's target, not the base constant: a shifted room
+      // needs 55 or 67 presses, so a fixed 42 would end it early.
+      if (meter > 0 && meter >= target) {
         setTimeout(() => void this.resolveClashOutcome(gameId, color), 0);
       }
       return meter;
@@ -813,7 +817,7 @@ export class ClashEngine {
             // Broadcast so every client's bars advance live (the store does not
             // publish; human presses get there via ClashManager).
             this.emit({ type: 'clash_press', gameId, color: botColor, presses: count });
-            if (count >= CLASH_TARGET) {
+            if (count >= (cur.clash.target ?? CLASH_TARGET)) {
               // Early win: schedule outside any lock (resolveClashOutcome self-locks).
               setTimeout(() => void this.resolveClashOutcome(gameId, botColor), 0);
               return;

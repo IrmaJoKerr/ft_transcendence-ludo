@@ -171,7 +171,7 @@ export class SocketHandlers {
 
   // 'clash_input' event: one keypress in the capture QTE. The key picks the side,
   // then the seat binding proves ownership (hotseat owns both). `count` is the tablet
-  // tap weight, clamped to CLASH_TAP_COUNT_MAX; the per-side cap gates events.
+  // tap weight, clamped to CLASH_TAP_COUNT; the per-side cap gates events.
   handleClashInput(socket: GameSocket, key: string, count = 1): void {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;
@@ -290,9 +290,10 @@ export class SocketHandlers {
       try {
         await this.engine.startReconnectGrace(gameId, color, this.notifyAbort);
         // Settle a mid-clash disconnect at once (higher meter wins, ties go to the
-        // attacker) instead of freezing the QTE for the grace window. This runs after
-        // startReconnectGrace released the lock; the resolve takes it again.
-        await this.engine.resolveClashOnDisconnect(gameId);
+        // attacker) instead of freezing the QTE for the grace window. `color` is the
+        // seat that left, so R1 keeps the abandoned round from going to it. This runs
+        // after startReconnectGrace released the lock; the resolve takes it again.
+        await this.engine.resolveClashOnDisconnect(gameId, color);
       } catch (error) {
         console.error('Disconnect handler error:', error);
       }

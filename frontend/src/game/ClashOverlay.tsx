@@ -11,6 +11,7 @@ import {
   CLASH_PRESS_MS,
   CLASH_RESULT_MS,
 } from '../__shared__/timing.constants';
+import { CLASH_TAP_COUNT } from '../__shared__/clash.constants';
 import {
   CLASH_FIGHT_FLASH_MS,
   CLASH_UI_TICK_MS,
@@ -23,7 +24,9 @@ import {
 
 // Clash timing lives in ./timing, shared with the engine and pinned by the
 // `timing-contract` harness. Phase transitions come from server deadlines, so these
-// values only drive presentation. The bar is 168px for 42 presses: 4px per press.
+// values only drive presentation. The bar is 168px wide; its fill is rounded,
+// because the target is scaled per room (42/55/67) and no longer divides it into
+// whole pixels.
 const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
@@ -32,9 +35,8 @@ const CLASH_BAR_WIDTH_PX = 168;
 const TOUCH_BUTTON = '3cm';
 const TOUCH_GAP = '1cm';
 const TOUCH_EDGE_BUFFER = '1cm';
-// One tap is worth this many presses (the engine clamps it to CLASH_TAP_COUNT_MAX):
+// A tap is worth `CLASH_TAP_COUNT`, shared with the engine's clamp (imported above):
 // tapping is slower than holding a key, and the per-side cap still gates the rate.
-const TOUCH_TAP_COUNT = 2;
 
 // The two key sets, mirrored from the engine (clash.ts ATTACKER_KEYS /
 // DEFENDER_KEYS). The touch pad draws its decoys from the side's OWN set, and
@@ -118,7 +120,7 @@ type Props = {
 function Bar({ color, presses, target }: { color: PlayerColor; presses: number; target: number }) {
   const fullAt = Math.max(1, target);
   const safe = Number.isFinite(presses) ? presses : 0;
-  const widthPx = Math.min(CLASH_BAR_WIDTH_PX, (safe / fullAt) * CLASH_BAR_WIDTH_PX);
+  const widthPx = Math.min(CLASH_BAR_WIDTH_PX, Math.round((safe / fullAt) * CLASH_BAR_WIDTH_PX));
   return (
     <div
       style={{
@@ -393,9 +395,9 @@ function TouchPad({
     flashRef.current = setTimeout(() => setPressed(null), TOUCH_FLASH_MS);
     // Cheap extra, not a requirement: Android honours this, iOS ignores it.
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8);
-    // A pad tap is worth TOUCH_TAP_COUNT presses: the engine clamps the weight
+    // A pad tap is worth CLASH_TAP_COUNT presses: the engine clamps the weight
     // and still caps the event rate, so this is a heavier press, not a faster one.
-    onPress(key, TOUCH_TAP_COUNT);
+    onPress(key, CLASH_TAP_COUNT);
   };
 
   // The buffer is additive to the safe area, so the visible gap is never

@@ -603,8 +603,8 @@ export class SocketServer {
       });
 
       // One QTE press. The optional second argument is the tablet's tap weight
-      // (clamped inside the press rule), so a pad tap is worth 2 presses while a
-      // keyboard press stays 1.
+      // (clamped inside the press rule to the shared CLASH_TAP_COUNT), so a pad tap
+      // is heavier than a keyboard press, which stays 1.
       socket.on('clash_input', (key: string, count?: number) => {
         this.handlers.handleClashInput(socket, key, count ?? 1);
       });

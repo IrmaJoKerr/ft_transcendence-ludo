@@ -39,18 +39,19 @@ import {
   CLASH_COUNTDOWN_MS,
   CLASH_PRESS_MS,
 } from './__shared__/timing.constants';
+import { CLASH_TAP_COUNT } from './__shared__/clash.constants';
 import {
+  CLASH_KEYSHIFT_EXTRA_MS,
   CLASH_PRESS_CAP_MS,
   CLASH_SWITCH_FIRST_MIN_MS,
   CLASH_SWITCH_FIRST_MAX_MS,
   CLASH_SWITCH_GAP_MIN_MS,
   CLASH_SWITCH_GAP_MAX_MS,
 } from './timing';
-export const CLASH_TARGET = 42; // presses needed to win the race
-// The most one accepted press may be worth. The touch pad sends 2, because a tap
-// on a circle is slower and less repeatable than a held key; the clamp keeps the
-// wire from asking for more, so the cap's ceiling stays 2x and no further.
-export const CLASH_TAP_COUNT_MAX = 2;
+export const CLASH_TARGET = 42; // the base presses to win the race (a key-shift room scales it)
+// The most one accepted press may be worth is `CLASH_TAP_COUNT`, shared with the
+// client so a pad tap and the clamp are the same number; the clamp in `recordPress`
+// keeps the wire from asking for more, so the ceiling stays 2x and no further.
 // Bot pacing draws: which profile a bot side runs at. The profile decides the
 // press count (38 fast, 33 casual, see clash-pace.ts), so these are the odds of
 // DRAWING the fast profile, not a handicap multiplier. Against a passive human
@@ -160,6 +161,12 @@ export class ClashManager {
     const startedAt = Date.now();
     const countdownDeadline = startedAt + CLASH_ANNOUNCE_MS + CLASH_COUNTDOWN_MS;
     const switchAt = switchInstants(rng, countdownDeadline, shift);
+    // The key-shift mutator widens the race so presses-per-second holds at every
+    // shift, and the target scales with the window for the same reason: widening it
+    // under a fixed 42 would hand a shifted round to whoever presses fastest and make
+    // a two-shift room easier than a plain one. 42 / 5000, 55 / 6500, 67 / 8000.
+    const pressMs = CLASH_PRESS_MS + CLASH_KEYSHIFT_EXTRA_MS * shift;
+    const target = Math.round((CLASH_TARGET * pressMs) / CLASH_PRESS_MS);
     // The chain's seam for the next round: what this one ends on, per seat.
     if (state?.pendingCapture) {
       state.pendingCapture.lastKeys = {
@@ -176,12 +183,12 @@ export class ClashManager {
       // Absent rather than empty when the mutator is off: a room that never turns it
       // on carries the same record it always did.
       ...(shift > 0 ? { attackerKeys, defenderKeys, switchAt } : {}),
-      target: CLASH_TARGET,
-      duration: CLASH_PRESS_MS / 1000,
+      target,
+      duration: pressMs / 1000,
       startedAt,
       announceDeadline: startedAt + CLASH_ANNOUNCE_MS,
       countdownDeadline,
-      pressDeadline: countdownDeadline + CLASH_PRESS_MS,
+      pressDeadline: countdownDeadline + pressMs,
       phase: 'announce',
       attackerPresses: 0,
       defenderPresses: 0,
@@ -202,8 +209,8 @@ export class ClashManager {
       // Stamped once, so every client derives its offset from the same instant the
       // deadlines below were measured from.
       serverNow: startedAt,
-      target: CLASH_TARGET,
-      duration: CLASH_PRESS_MS / 1000,
+      target,
+      duration: pressMs / 1000,
       attacker,
       defender,
       phase: 'announce',
@@ -224,39 +231,48 @@ export class ClashManager {
     });
   }
 
-  // Record one press. Return 0 and store nothing when the press phase has not
-  // started, the deadline has passed, the key is not this player's or the press
-  // falls inside the per-side cap. Bots skip the key check.
+  // Record one press. Return meter 0 and store nothing when the press phase has not
+  // started, the deadline has passed, the key is not this player's or the press falls
+  // inside the per-side cap. Bots skip the key check. On success it also returns the
+  // round's `target`, so the caller can fire the instant win against the scaled
+  // threshold (42/55/67) instead of the base constant.
   async recordPress(
     gameId: string,
     color: PlayerColor,
     key: string,
     isBot = false,
     count = 1,
-  ): Promise<number> {
+  ): Promise<{ meter: number; target: number }> {
     const clash = await this.store.loadClashState(gameId);
-    if (!clash) return 0;
+    if (!clash) return { meter: 0, target: 0 };
 
     // Only presses during the press phase count: before it, the keys are hidden.
-    if (clash.phase !== 'pressing') return 0;
-    if (Date.now() > clash.pressDeadline) return 0;
+    if (clash.phase !== 'pressing') return { meter: 0, target: 0 };
+    if (Date.now() > clash.pressDeadline) return { meter: 0, target: 0 };
 
     if (!isBot) {
       // The key must match the letter this seat is being asked for RIGHT NOW: the
       // schedule's live element, not the round's opening letter.
-      if (key !== keyFor(clash, color)) return 0;
+      if (key !== keyFor(clash, color)) return { meter: 0, target: 0 };
     }
 
     // Server-side press cap: a minimum gap between accepted presses per side. The
     // cap gates the EVENT, so the tablet's tap weight (below) cannot buy a faster
     // event stream, only a heavier press once one is accepted.
     const last = clash.lastPressAt?.[color];
-    if (typeof last === 'number' && Date.now() - last < CLASH_PRESS_CAP_MS) return 0;
+    if (typeof last === 'number' && Date.now() - last < CLASH_PRESS_CAP_MS) {
+      return { meter: 0, target: 0 };
+    }
 
-    // Tablet tap weight: one tap counts as several presses because tapping is
-    // slower than holding a key. Clamp it here, on the server, so the wire cannot
-    // ask for more than the documented weight.
-    const weight = Math.min(CLASH_TAP_COUNT_MAX, Math.max(1, Math.floor(count) || 1));
+    // Tablet tap weight: one tap counts as several presses because tapping is slower
+    // than holding a key. Clamp it here, on the server, to the shared `CLASH_TAP_COUNT`
+    // so the wire cannot ask for more than the pad sends. The clamp is finite-guarded
+    // and ROUNDS, so a NaN reads as 1 by intent (not an accident of `||`) and a
+    // fractional weight never truncates to 0.
+    const weight = Math.min(
+      CLASH_TAP_COUNT,
+      Math.max(1, Math.round(Number.isFinite(count) ? count : 1)),
+    );
     const meter = await this.store.recordClashPress(gameId, color, weight);
     // Broadcast the live count to the whole room so both HUDs stay in step. The
     // caller (clash-engine / socket-handlers) separately receives `meter`.
@@ -266,6 +282,6 @@ export class ClashManager {
       color,
       presses: meter,
     });
-    return meter;
+    return { meter, target: clash.target };
   }
 }
