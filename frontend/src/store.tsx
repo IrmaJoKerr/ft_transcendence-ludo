@@ -92,6 +92,7 @@ export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
 
 const LANG_KEY = 'lr.lang';
 const THEME_KEY = 'retro_theme';
+const NOTIF_AUTOCLOSE_KEY = 'lr.notifAutoClose';
 const ACTIVE_MATCH_KEY = 'lr.activeMatch';
 const SEATS_KEY = 'lr.seats';
 
@@ -102,6 +103,17 @@ function storedLang(): Lang {
 
 function storedTheme(): ThemeType {
   return 'synthwave';
+}
+
+// A popup setting that forgets on reload is not a setting (22.5). Absent or
+// unreadable means on, which is what both cards already did.
+function storedAutoClose(): boolean {
+  try {
+    return localStorage.getItem(NOTIF_AUTOCLOSE_KEY) !== 'off';
+  } catch {
+    // Storage blocked (private modes): the default is on.
+    return true;
+  }
 }
 
 // Refresh 1 minute early: access tokens expire at 15 minutes, so this keeps
@@ -252,6 +264,11 @@ type AppState = {
   setTheme: (t: ThemeType) => void;
   lang: Lang;
   setLang: (l: Lang) => void;
+  /** True when a notification card closes itself (22.5). Off means it stays until
+   * its `x`, and it governs the boot report as well as the live cards. Stored
+   * under `lr.notifAutoClose`, on when the key is absent. */
+  notifAutoClose: boolean;
+  setNotifAutoClose: (on: boolean) => void;
   setPlaying: (playing: boolean) => void;
   /** The session socket, or null while signed out (a guest never opens one).
    * Presence rides on it; screens subscribe to its pushes. */
@@ -654,7 +671,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [turn, setTurn] = useState(0);
   const [settings, setSettings] = useState<Record<string, boolean>>({});
   const [lang, setLangState] = useState<Lang>(storedLang);
+  const [notifAutoClose, setNotifAutoCloseState] = useState<boolean>(storedAutoClose);
   const rollingRef = useRef(false);
+
+  // One field, both homes (22.5): the dock's popover and the game's controls modal
+  // read and write this, so the setting cannot disagree with itself.
+  const setNotifAutoClose = useCallback((on: boolean) => {
+    setNotifAutoCloseState(on);
+    try {
+      localStorage.setItem(NOTIF_AUTOCLOSE_KEY, on ? 'on' : 'off');
+    } catch {
+      // Ignore: it still holds for this page load.
+    }
+  }, []);
 
   // Persist the language locally, and (when signed in) on the account so
   // transactional email is sent in the user's language.
@@ -825,6 +854,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleSetting,
       lang,
       setLang,
+      notifAutoClose,
+      setNotifAutoClose,
       setPlaying,
       sessionSocket,
       onlineCount,
@@ -872,6 +903,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleSetting,
       lang,
       setLang,
+      notifAutoClose,
+      setNotifAutoClose,
       setPlaying,
       sessionSocket,
       onlineCount,

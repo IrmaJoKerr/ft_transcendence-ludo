@@ -309,12 +309,12 @@ in a single place; `app.module.ts` installs the guard.
 | Guest mint (`POST /api/match/guest`) | 20 per minute |
 | Match actions (`join`, `invite`, `exit`, `abort`) | 20–30 per minute |
 | Match ready / rejoin | 60 per minute |
-| Notification writes (`markRead`) / `read-all` | 120 / 30 per minute |
+| Notification writes (`markRead`) / `read-all` + batch `read` | 120 / 30 per minute |
 | Avatar upload / delete | 10 per hour each |
 | `POST /api/achievements/check` | 30 per hour |
 
 Notifications are no longer a separate connection, so the old per-user stream cap (F-11) is gone:
-the frames ride the one session socket each tab already holds, and the bell is a 150 entry, 14 day
+the frames ride the one session socket each tab already holds, and the bell is a 60 entry, 14 day
 Redis structure per account (D12), trimmed inside the write itself. One account cannot grow its
 store past that bound, and deletion (`read`) is what empties it.
 

@@ -54,9 +54,11 @@ export type SentChallenge = {
   sentAt: number;
 };
 
-// What the invitee holds in `invite:<userId>`: one offer, either kind. Every field
-// is optional because the record is read back off Redis, where each value is a
-// claim to verify rather than a value to trust.
+// One field of `invite:<userId>`: one offer from one sender, either kind. Every
+// field is optional because the record is read back off Redis, where each value is
+// a claim to verify rather than a value to trust. The field's own `expiresAt` is its
+// real life: the key's TTL is only the newest entry's, and a field past its stamp is
+// dropped on read (22.6).
 type PendingInvite = {
   kind?: 'challenge' | 'room';
   fromUserId?: string;
@@ -65,7 +67,12 @@ type PendingInvite = {
   gameId?: string;
   inviteCode?: string;
   playerCount?: number;
-  createdAt?: number;
+  /** When the sender pressed: the strip's order, newest first. */
+  sentAt?: number;
+  /** `sentAt + CHALLENGE_TTL_MS`: this field's own life. */
+  expiresAt?: number;
+  /** The bell row that announced it, so accept or decline can delete that row. */
+  notificationId?: string;
 };
 
 // How long an accept waits for the challenger to become free, and how often it
@@ -139,18 +146,24 @@ export class FriendsService {
       });
 
     const fromUsername = await this.username(userId);
-    await this.notificationService.notify(friendId, 'game_invite', {
+    const sentAt = Date.now();
+    const expiresAt = sentAt + CHALLENGE_TTL_MS;
+    const notificationId = await this.notificationService.notify(friendId, 'game_invite', {
       kind: 'challenge',
       fromUserId: userId,
       fromUsername,
       hostColor,
+      // The row can print [EXPIRED] without asking anything (22.7 item 2).
+      expiresAt,
     });
-    await this.rememberPending(friendId, {
+    await this.rememberPending(friendId, userId, {
       kind: 'challenge',
       fromUserId: userId,
       fromUsername,
       hostColor,
-      createdAt: Date.now(),
+      sentAt,
+      expiresAt,
+      notificationId,
     });
     await this.recordChallenge(userId, friendId, { kind: 'challenge' });
 
@@ -177,23 +190,32 @@ export class FriendsService {
     // the caller must be one of its players.
     const room = await this.matchService.assertInvitableRoom(gameId, userId);
     const fromUsername = await this.username(userId);
+    const sentAt = Date.now();
+    const expiresAt = sentAt + CHALLENGE_TTL_MS;
 
     // The friend is NOT seated here: a seat owns a colour, so they claim one from
     // the palette when they join. The invite carries the room only.
-    await this.notificationService.notify(friendId, 'game_invite', {
+    const notificationId = await this.notificationService.notify(friendId, 'game_invite', {
       kind: 'room',
+      // The sender, in every offer: the strip dismisses one field by its author, so
+      // a room invite needs the id as much as a challenge does (22.6).
+      fromUserId: userId,
       gameId: room.gameId,
       inviteCode: room.inviteCode,
       fromUsername,
       playerCount: room.playerCount,
+      expiresAt,
     });
-    await this.rememberPending(friendId, {
+    await this.rememberPending(friendId, userId, {
       kind: 'room',
+      fromUserId: userId,
       gameId: room.gameId,
       inviteCode: room.inviteCode,
       fromUsername,
       playerCount: room.playerCount,
-      createdAt: Date.now(),
+      sentAt,
+      expiresAt,
+      notificationId,
     });
     await this.recordChallenge(userId, friendId, {
       kind: 'room',
@@ -211,7 +233,7 @@ export class FriendsService {
   // the corner they named when they sent, then the invitee, and answers with the
   // credentials that put the invitee at that table.
   async acceptChallenge(userId: string, fromUserId: string) {
-    const pending = await this.readPending(userId);
+    const pending = await this.readPending(userId, fromUserId);
     if (pending?.kind !== 'challenge' || pending.fromUserId !== fromUserId)
       throw new NotFoundException({
         code: 'CHALLENGE_NOT_PENDING',
@@ -267,11 +289,14 @@ export class FriendsService {
     }
 
     // The accepter's own ladder resets: they answered, which is what a streak
-    // measures the absence of. The pending record and the challenger's entry are
-    // spent either way.
+    // measures the absence of. The offer's field and the challenger's entry are
+    // spent either way, and so is the bell row that announced it: a duel accepted on
+    // one device leaves nothing behind on another (22.6 item 5).
     await this.resetRefusalStreak(userId, fromUserId);
-    await this.redis.del(`invite:${userId}`);
+    await this.redis.hdel(`invite:${userId}`, fromUserId);
     await this.redis.hdel(`challenge:${fromUserId}`, userId);
+    if (pending.notificationId)
+      await this.notificationService.markRead(pending.notificationId, userId);
 
     // The challenger is already seated in that room, so the frame carries the code
     // the lobby rejoins by, not a second handoff.
@@ -292,15 +317,19 @@ export class FriendsService {
   // costs nothing: ignoring one is not the same as answering it, so a player who was
   // not looking at the screen is never locked out of the next one.
   async declineChallenge(userId: string, fromUserId: string) {
-    const pending = await this.readPending(userId);
+    const pending = await this.readPending(userId, fromUserId);
     if (pending?.kind !== 'challenge' || pending.fromUserId !== fromUserId)
       throw new NotFoundException({
         code: 'CHALLENGE_NOT_PENDING',
         message: 'That challenge is no longer pending',
       });
 
-    await this.redis.del(`invite:${userId}`);
+    // One field, not the key: another challenger's offer is not this refusal's to
+    // spend. The announce row goes with the answer (22.6 item 5).
+    await this.redis.hdel(`invite:${userId}`, fromUserId);
     await this.redis.hdel(`challenge:${fromUserId}`, userId);
+    if (pending.notificationId)
+      await this.notificationService.markRead(pending.notificationId, userId);
     const ladder = await this.recordRefusal(userId, fromUserId);
     return { ok: true, ...ladder };
   }
@@ -359,43 +388,82 @@ export class FriendsService {
 
   // The invitee's own record of one offer, whichever act sent it. Written with the
   // notification, so the bell that re-reads after a reload and the accept that
-  // answers it read the same facts.
-  private async rememberPending(userId: string, record: PendingInvite) {
-    await this.redis.set(
-      `invite:${userId}`,
-      JSON.stringify(record),
-      'EX',
-      Math.ceil(CHALLENGE_TTL_MS / 1000),
+  // answers it read the same facts. One field per sender, exactly the shape
+  // `challenge:<userId>` has had since 19.6: two live offers coexist, and a newer
+  // sender can no longer overwrite an older offer's slot (22.6).
+  private async rememberPending(userId: string, fromUserId: string, record: PendingInvite) {
+    const key = `invite:${userId}`;
+    await this.redis.hset(key, fromUserId, JSON.stringify(record));
+    // One hash per invitee, so the key's own life is the newest entry's. Each field
+    // carries its own `expiresAt`, which is the real expiry.
+    await this.redis.expire(key, Math.ceil(CHALLENGE_TTL_MS / 1000) + 60);
+  }
+
+  // One field. A field past its own `expiresAt` is dropped here, so the hash cannot
+  // accumulate lapsed offers between expiries.
+  private async readPending(userId: string, fromUserId: string): Promise<PendingInvite | null> {
+    const key = `invite:${userId}`;
+    const raw = await this.redis.hget(key, fromUserId);
+    if (!raw) return null;
+    let parsed: PendingInvite;
+    try {
+      parsed = JSON.parse(raw) as PendingInvite;
+    } catch {
+      await this.redis.hdel(key, fromUserId);
+      return null;
+    }
+    if (typeof parsed.expiresAt !== 'number' || Date.now() > parsed.expiresAt) {
+      await this.redis.hdel(key, fromUserId);
+      return null;
+    }
+    return { ...parsed, fromUserId };
+  }
+
+  // Every live offer, newest first: the strip's list (22.9). Lapsed fields are swept
+  // as they are read, and an unreadable one is dropped rather than shown blank.
+  private async readPendingAll(userId: string): Promise<PendingInvite[]> {
+    const key = `invite:${userId}`;
+    const raw = await this.redis.hgetall(key);
+    const now = Date.now();
+    const rows: PendingInvite[] = [];
+    for (const [fromUserId, json] of Object.entries(raw)) {
+      let parsed: PendingInvite;
+      try {
+        parsed = JSON.parse(json) as PendingInvite;
+      } catch {
+        await this.redis.hdel(key, fromUserId);
+        continue;
+      }
+      if (typeof parsed.expiresAt !== 'number' || now > parsed.expiresAt) {
+        await this.redis.hdel(key, fromUserId);
+        continue;
+      }
+      rows.push({ ...parsed, fromUserId });
+    }
+    return rows.sort((a, b) => (b.sentAt ?? 0) - (a.sentAt ?? 0));
+  }
+
+  // The invitee's side of every open offer: each staged record, plus the one fact that
+  // cannot be stored — whether the room still waits. `expired` is computed on read
+  // because a stored flag would need a writer on every way a room can start or end, and
+  // the record itself stays until its TTL so the reader sees EXPIRED rather than
+  // nothing at all. A challenge has no room yet, so it cannot be stale: its own TTL is
+  // the whole of its life (19.6).
+  async getPendingInvites(userId: string) {
+    const rows = await this.readPendingAll(userId);
+    return Promise.all(
+      rows.map(async (offer) => ({
+        ...offer,
+        expired:
+          typeof offer.gameId === 'string' && !(await this.matchService.isWaitingRoom(offer.gameId)),
+      })),
     );
   }
 
-  private async readPending(userId: string): Promise<PendingInvite | null> {
-    const raw = await this.redis.get(`invite:${userId}`);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as PendingInvite;
-    } catch {
-      return null;
-    }
-  }
-
-  // The invitee's side of an offer: the staged record, plus the one fact that cannot
-  // be stored — whether the room still waits. `expired` is computed on read because a
-  // stored flag would need a writer on every way a room can start or end, and the
-  // record itself stays until its TTL so the invitee reads EXPIRED rather than
-  // nothing at all. A challenge has no room yet, so it cannot be stale: its own TTL
-  // is the whole of its life, and an expiry costs nothing (19.6).
-  async getPendingInvite(userId: string) {
-    const parsed = await this.readPending(userId);
-    if (!parsed) return null;
-    const expired =
-      typeof parsed.gameId === 'string' && !(await this.matchService.isWaitingRoom(parsed.gameId));
-    return { ...parsed, expired };
-  }
-
-  // Hiding an offer is not answering it: the record goes, the ladder does not move.
-  async dismissInvite(userId: string) {
-    await this.redis.del(`invite:${userId}`);
+  // Hiding an offer is not answering it: that field goes, the others stay, and the
+  // ladder does not move.
+  async dismissInvite(userId: string, fromUserId: string) {
+    await this.redis.hdel(`invite:${userId}`, fromUserId);
     return { ok: true };
   }
 

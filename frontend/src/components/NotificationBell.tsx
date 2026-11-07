@@ -5,216 +5,11 @@ import { useTranslation } from 'react-i18next';
 import type { Notification } from '../hooks/useNotifications';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
-import { postApi } from '../api';
-import { useApp, type ActiveMatch } from '../store';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 import { railButtonStyle, railHoverHandlers } from './railButton';
-
-// **Helpers**
-
-function getNotificationTypeBadge(type: string): {
-  tagKey: string;
-  defaultTag: string;
-  color: string;
-} {
-  switch (type) {
-    case 'game_invite':
-      return {
-        tagKey: 'notifications.matchChallengeTag',
-        defaultTag: '[MATCH_INVITE]',
-        color: 'var(--accent-cyan, #00f0ff)',
-      };
-    case 'challenge_accepted':
-      return {
-        tagKey: 'notifications.matchAcceptedTag',
-        defaultTag: '[CHALLENGE_ACCEPTED]',
-        color: 'var(--accent-cyan, #00f0ff)',
-      };
-    case 'friend_request':
-      return {
-        tagKey: 'notifications.linkReqTag',
-        defaultTag: '[FRIEND_REQ]',
-        color: 'var(--accent-pink, #ff007f)',
-      };
-    case 'friend_accepted':
-      return {
-        tagKey: 'notifications.linkEstablishedTag',
-        defaultTag: '[FRIEND_ACK]',
-        color: 'var(--accent-yellow, #ffe600)',
-      };
-    case 'achievement':
-      return {
-        tagKey: 'notifications.achievementTag',
-        defaultTag: '[ACHIEVEMENT]',
-        color: '#00ff88',
-      };
-    case 'match_finished':
-      return {
-        tagKey: 'notifications.matchEndTag',
-        defaultTag: '[MATCH_COMPLETE]',
-        color: '#00ff88',
-      };
-    case 'match_cancelled':
-      return {
-        tagKey: 'notifications.matchCancelledTag',
-        defaultTag: '[MATCH_ABORTED]',
-        color: 'var(--accent-yellow, #ffe600)',
-      };
-    case 'match_abandoned':
-      return {
-        tagKey: 'notifications.matchAbandonedTag',
-        defaultTag: '[MATCH_LEFT]',
-        color: 'var(--accent-yellow, #ffe600)',
-      };
-    case 'friend_removed':
-      return {
-        tagKey: 'notifications.friendRemovedTag',
-        defaultTag: '[LINK_SEVERED]',
-        color: 'var(--accent-pink, #ff007f)',
-      };
-    case 'friend_declined':
-      return {
-        tagKey: 'notifications.friendDeclinedTag',
-        defaultTag: '[LINK_REJECTED]',
-        color: 'var(--accent-yellow, #ffe600)',
-      };
-    case 'friend_online':
-      return {
-        tagKey: 'notifications.friendOnlineTag',
-        defaultTag: '[PILOT_ONLINE]',
-        color: '#00ff88',
-      };
-    case 'friend_offline':
-      return {
-        tagKey: 'notifications.friendOfflineTag',
-        defaultTag: '[PILOT_OFFLINE]',
-        color: 'var(--accent-yellow, #ffe600)',
-      };
-    case 'profile_updated':
-      return {
-        tagKey: 'notifications.profileUpdatedTag',
-        defaultTag: '[PROFILE_UPDATED]',
-        color: 'var(--accent-cyan, #00f0ff)',
-      };
-    case 'display_name_changed':
-      return {
-        tagKey: 'notifications.displayNameChangedTag',
-        defaultTag: '[CALLSIGN_CHANGED]',
-        color: 'var(--accent-cyan, #00f0ff)',
-      };
-    default:
-      return {
-        tagKey: 'notifications.sysBroadcastTag',
-        defaultTag: '[SYS_MSG]',
-        color: 'var(--accent-cyan, #00f0ff)',
-      };
-  }
-}
-
-// Notification.payload is typed as an object, but the backend historically sent
-// a JSON string for some rows. Keep the defensive parse for old/streamed rows.
-function parseNotificationPayload(raw: Record<string, unknown>): Record<string, unknown> {
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  return raw;
-}
-
-function renderNotificationBody(
-  n: Notification,
-  t: (key: string, options?: Record<string, unknown>) => string,
-) {
-  const payload = parseNotificationPayload(n.payload);
-  const from = payload.fromUsername ? String(payload.fromUsername) : 'UNKNOWN';
-
-  switch (n.type) {
-    case 'friend_request':
-      return <span>{t('notifications.friendRequestText', { username: from })}</span>;
-    case 'friend_accepted':
-      return <span>{t('notifications.friendAcceptedText', { username: from })}</span>;
-    case 'game_invite':
-      return <span>{t('notifications.matchChallengeText', { username: from })}</span>;
-    case 'challenge_accepted':
-      return <span>{t('notifications.matchAcceptedText', { username: from })}</span>;
-    case 'achievement': {
-      const nameKey = payload.nameKey as string | undefined;
-      const name = nameKey ? t(nameKey) : '';
-      return name ? <span>{name}!</span> : <span>{t('notifications.achievementUnlocked')}</span>;
-    }
-    case 'friend_removed':
-      return <span>{t('notifications.friendRemovedText', { username: from })}</span>;
-    case 'friend_declined':
-      return <span>{t('notifications.friendDeclinedText', { username: from })}</span>;
-    case 'friend_online':
-      return (
-        <span>
-          {t('notifications.friendOnlineText', { displayName: payload.displayName ?? from })}
-        </span>
-      );
-    case 'friend_offline':
-      return (
-        <span>
-          {t('notifications.friendOfflineText', { displayName: payload.displayName ?? from })}
-        </span>
-      );
-    case 'match_cancelled':
-      return <span>{t('notifications.matchCancelledText', { username: from })}</span>;
-    case 'match_abandoned':
-      return <span>{t('notifications.matchAbandonedText')}</span>;
-    case 'match_finished': {
-      const rank = payload.rank;
-      const winner = payload.winnerUsername ? String(payload.winnerUsername) : 'A rival';
-      return rank === 1 ? (
-        <span>{t('notifications.matchEndWonText')}</span>
-      ) : (
-        <span>{t('notifications.matchEndLostText', { winner })}</span>
-      );
-    }
-    case 'profile_updated': {
-      const items = Array.isArray(payload.items) ? (payload.items as string[]) : [];
-      const labels = items
-        .map((i) => t(`notifications.profileItem${i.charAt(0).toUpperCase()}${i.slice(1)}`))
-        .join(', ');
-      return (
-        <span>
-          {t('notifications.profileUpdatedText', { item: labels || t('notifications.unknown') })}
-        </span>
-      );
-    }
-    case 'display_name_changed': {
-      const oldName = payload.oldDisplayName ? String(payload.oldDisplayName) : from;
-      const newName = payload.displayName ? String(payload.displayName) : 'UNKNOWN';
-      return (
-        <span>
-          {t('notifications.displayNameChangedText', {
-            displayName: oldName,
-            newDisplayName: newName,
-          })}
-        </span>
-      );
-    }
-    default:
-      return <span>{t('notifications.systemTransmissionText')}</span>;
-  }
-}
-
-function timeAgo(
-  iso: string,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return t('notifications.justNow');
-  if (mins < 60) return t('notifications.minsAgo', { count: mins });
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return t('notifications.hoursAgo', { count: hrs });
-  return t('notifications.daysAgo', { count: Math.floor(hrs / 24) });
-}
+import { destinationFor } from './notificationDestination';
+import { NotificationRow } from './NotificationRow';
 
 // **Component**
 
@@ -243,10 +38,7 @@ export function NotificationBell({
   const { t } = useTranslation();
   // The panel's open state lives in the notification context: the digest toast at
   // the app root has to be able to open it (Phase 4).
-  const { bellOpen, setBellOpen, unavailable } = useNotifications();
-  // The accept's handoff is applied like any other room entry: the seat the server
-  // wrote is what the game page reads.
-  const { setActiveMatch } = useApp();
+  const { bellOpen, setBellOpen, unavailable, markReadMany } = useNotifications();
   const open = bellOpen;
   const setOpen = setBellOpen;
   const ref = useRef<HTMLDivElement>(null);
@@ -309,69 +101,27 @@ export function NotificationBell({
     setOpen(!open);
   };
 
-  // Same contract as the toast's accept: abort, then hand the code to the lobby.
-  // A notification only reports an event; it never ends a game. Accepting an invite
-  // carries the code to the lobby, where the seat is claimed. A seat already held
-  // elsewhere is the player's to abort there, which is what the lobby's lock says.
-  const acceptInvite = (p: Record<string, unknown>) => {
-    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
-    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
-  };
-
-  // The two answers a challenge has (19.6). The bell is a log, so a refused accept has
-  // nowhere here to be read: the toast is where the four named failures are printed,
-  // and a press that fails leaves the row where it was rather than guessing.
-  const acceptChallenge = async (p: Record<string, unknown>) => {
-    const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
-    if (!fromId) return;
-    try {
-      const seat = await postApi<NonNullable<ActiveMatch>>(
-        `/api/friends/challenges/${fromId}/accept`,
-        {},
-      );
-      setActiveMatch(seat);
-      navigate(`/game?gameId=${seat.gameId}`);
-    } catch (error) {
-      console.error('[notifications] challenge accept failed:', error);
-    }
-  };
-
-  // The challenger's way in: the accept already seated them in the room, so the
-  // lobby's own rejoin is what opens it.
-  const enterTable = (p: Record<string, unknown>) => {
-    const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
-    navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
-  };
-
+  // A row routes or acknowledges (22.7). A router takes the reader to the page that
+  // holds the state and clears every row that would land them in the same place; a
+  // stamp clears itself and stays where it is, because no page shows it.
   const handleItemClick = (n: Notification) => {
-    if (n.id) {
-      onMarkRead(n.id);
-    }
     try {
       retroAudio.playUiBeep(640, 0.05);
     } catch {
       // Audio can be blocked before a user gesture: never fail the UI for it.
     }
 
-    const p = parseNotificationPayload(n.payload);
-
-    if (n.type === 'game_invite' && p.kind === 'challenge') {
-      // A challenge names no room: the accept is the request that makes one, and the
-      // answer is the seat that opens the game page.
-      void acceptChallenge(p);
-      setOpen(false);
-    } else if (n.type === 'game_invite') {
-      // The invite carries the room, not a seat: accepting lands in the lobby with
-      // the code filled in, where the invitee claims one of the room's free corners.
-      acceptInvite(p);
-      setOpen(false);
-    } else if (n.type === 'challenge_accepted') {
-      enterTable(p);
-      setOpen(false);
-    } else if (n.type === 'friend_request' || n.type === 'friend_accepted') {
-      navigate('/friends');
-      setOpen(false);
+    const to = destinationFor(n);
+    if (!to) {
+      onMarkRead(n.id);
+      return;
     }
+
+    const ids = list.filter((row) => destinationFor(row) === to).map((row) => row.id);
+    if (ids.length > 1) markReadMany(ids);
+    else onMarkRead(n.id);
+    setOpen(false);
+    navigate(to);
   };
 
   const handleClearAll = (e: React.MouseEvent) => {
@@ -646,95 +396,11 @@ export function NotificationBell({
                   : t('notifications.noTransmissions')}
               </div>
             ) : (
-              list.slice(0, 30).map((n) => {
-                const badge = getNotificationTypeBadge(n.type);
-                return (
-                  <div
-                    key={n.id}
-                    onClick={() => handleItemClick(n)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 10,
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                      background: n.read ? 'transparent' : 'rgba(0, 240, 255, 0.08)',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = 'rgba(0, 240, 255, 0.15)')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = n.read
-                        ? 'transparent'
-                        : 'rgba(0, 240, 255, 0.08)')
-                    }
-                  >
-                    {/* Unread diamond indicator */}
-                    <span
-                      style={{
-                        marginTop: 3,
-                        fontSize: '0.65rem',
-                        color: n.read ? 'transparent' : 'var(--accent-pink, #ff007f)',
-                      }}
-                    >
-                      ◆
-                    </span>
-
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 3,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 6,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            color: badge.color,
-                            fontFamily: 'var(--font-mono, monospace)',
-                            fontWeight: 'bold',
-                          }}
-                        >
-                          {t(badge.tagKey, badge.defaultTag)}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.62rem',
-                            color: 'var(--text-muted, #8a7a64)',
-                            fontFamily: 'var(--font-mono, monospace)',
-                          }}
-                        >
-                          {timeAgo(n.createdAt, t)}
-                        </span>
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '0.78rem',
-                          fontWeight: n.read ? 'normal' : 'bold',
-                          color: n.read ? 'var(--text-muted, #aaa)' : '#ffffff',
-                          lineHeight: 1.35,
-                          fontFamily: 'var(--font-mono, monospace)',
-                        }}
-                      >
-                        {renderNotificationBody(n, t)}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              // Sixty rows, sixty unread: the store's cap and the render's bound
+              // are one number, so nothing a client can receive is hidden (22.8).
+              list.slice(0, 60).map((n) => (
+                <NotificationRow key={n.id} notification={n} onActivate={() => handleItemClick(n)} />
+              ))
             )}
           </div>
         </div>,

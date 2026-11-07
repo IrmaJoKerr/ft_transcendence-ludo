@@ -9,6 +9,7 @@ import { UserAvatar } from './UserAvatar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { NotificationBell } from './NotificationBell';
 import { LobbyChat } from './LobbyChat';
+import { AutoCloseToggle } from './AutoCloseToggle';
 import { useNotifications, type Notification } from '../hooks/useNotifications';
 import { getApi, postApi } from '../api';
 import type { ActiveMatch } from '../store';
@@ -468,7 +469,13 @@ export function RetroNavbar({
                   <LanguageSwitcher variant="tabs" value={lang} onChange={setLang} />
                 </div>
 
-                {/* 2. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),
+                {/* 2. Auto-close alerts: one preference, two homes (22.5). It sits
+                above the master audio block because the running order is 1 language,
+                2 auto-close, 3 master audio, 4 logout — the stack this panel had
+                before f43ffb9 deleted its old block 2. */}
+                <AutoCloseToggle />
+
+                {/* 3. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),
                 same retroAudio.muted flag as the in-game audio toggle. */}
                 <div
                   style={{
@@ -521,7 +528,7 @@ export function RetroNavbar({
                   </span>
                 </div>
 
-                {/* 3. Logout / Disconnect Button */}
+                {/* 4. Logout / Disconnect Button */}
                 <button
                   className={RETRO_BTN}
                   onClick={() => {

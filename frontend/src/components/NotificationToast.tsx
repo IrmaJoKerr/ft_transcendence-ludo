@@ -1,27 +1,22 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Notification } from '../hooks/useNotifications';
+import type { DigestReport, Notification, ToastDismissReason } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { apiFetch, postApi } from '../api';
 import { useApp, type ActiveMatch } from '../store';
 import { retroAudio } from '../utils/audio';
 import { RETRO_BTN } from '../styles/tw';
+import { NotificationRow } from './NotificationRow';
+import { offerMechanism, offerMechanismLabel, parseNotificationPayload } from './notificationParts';
+
+// **The clock**
+// One window for every card (22.4): the live card, the boot report, and any card
+// added later. The entrance (30 ms) and the exit (350 ms) are transitions, not
+// windows, and stay where they are.
+export const TOAST_AUTOCLOSE_MS = 8_000;
 
 // **Helpers**
-
-// Notification.payload is typed as an object, but the backend historically sent
-// a JSON string for some rows. Keep the defensive parse for old/streamed rows.
-function parseNotificationPayload(raw: Record<string, unknown>): Record<string, unknown> {
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  return raw;
-}
 
 function getToastInfo(
   n: Notification,
@@ -57,14 +52,27 @@ function getToastInfo(
         actionMessage: t('notifications.actionFriendAccepted'),
       };
     case 'game_invite':
-      return {
-        tag: t('notifications.matchChallengeTag'),
-        badgeLabel: payload.playerCount === 4 ? '4P' : '1v1',
-        badgeColor: 'var(--accent-cyan, #00f0ff)',
-        badgeBg: 'rgba(0, 240, 255, 0.18)',
-        fromUser: from,
-        actionMessage: t('notifications.actionMatchChallenge'),
-      };
+      // Two mechanisms, one type (22.9): a challenge asks for a duel, a room
+      // invite offers a seat in a table that already exists. The row says which
+      // one it is, and the badge no longer guesses at a headcount the room will
+      // decide at kickoff.
+      return offerMechanism(payload) === 'room'
+        ? {
+            tag: t('notifications.matchInviteTag'),
+            badgeLabel: offerMechanismLabel('room'),
+            badgeColor: 'var(--accent-cyan, #00f0ff)',
+            badgeBg: 'rgba(0, 240, 255, 0.18)',
+            fromUser: from,
+            actionMessage: t('notifications.actionMatchInvite'),
+          }
+        : {
+            tag: t('notifications.matchChallengeTag'),
+            badgeLabel: offerMechanismLabel('challenge'),
+            badgeColor: 'var(--accent-cyan, #00f0ff)',
+            badgeBg: 'rgba(0, 240, 255, 0.18)',
+            fromUser: from,
+            actionMessage: t('notifications.actionMatchChallenge'),
+          };
     case 'achievement': {
       const nameKey = payload.nameKey as string | undefined;
       const name = nameKey ? t(nameKey) : '';
@@ -227,14 +235,14 @@ function Toast({
   index,
 }: {
   notification: Notification;
-  onDismiss: (id: string) => void;
+  onDismiss: (id: string, reason: ToastDismissReason) => void;
   index: number;
 }) {
   const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   // The accepted challenge's handoff is applied like any other room entry: the seat
   // the server just wrote is what the game page reads.
-  const { setActiveMatch } = useApp();
+  const { setActiveMatch, notifAutoClose } = useApp();
   // The band's sentence when an answer is refused. The four named failures
   // (`CHALLENGER_OFFLINE`, `CHALLENGER_BUSY`, `CHALLENGEE_OFFLINE`, `CHALLENGEE_BUSY`)
   // exist to be read, so the toast stays up and prints one instead of vanishing.
@@ -255,15 +263,19 @@ function Toast({
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-dismiss after 9 seconds.
+  // Auto-dismiss on the shared clock, unless the preference is off (22.5): then the
+  // card stays until its `x`. The clock only hides either way: the entry stays
+  // unread in the bell, because nobody was looking (22.3).
   useEffect(() => {
+    if (!notifAutoClose) return;
     const t = setTimeout(() => {
       setVisible(false);
-      setTimeout(() => onDismiss(notification.id), 350);
-    }, 9000);
+      setTimeout(() => onDismiss(notification.id, 'timeout'), 350);
+    }, TOAST_AUTOCLOSE_MS);
     return () => clearTimeout(t);
-  }, [notification.id, onDismiss]);
+  }, [notification.id, onDismiss, notifAutoClose]);
 
+  // The `x`: the entry is dealt with, so it goes with the card.
   const dismiss = () => {
     try {
       retroAudio.playUiBeep(400, 0.04);
@@ -271,7 +283,7 @@ function Toast({
       // Ignore: a sound failure should never break the UI.
     }
     setVisible(false);
-    setTimeout(() => onDismiss(notification.id), 350);
+    setTimeout(() => onDismiss(notification.id, 'read'), 350);
   };
 
   // Accept an invitation. A room invite carries the room, so the lobby claims a corner
@@ -284,7 +296,7 @@ function Toast({
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
-    if (p.kind === 'challenge') {
+    if (offerMechanism(p) === 'challenge') {
       const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
       if (!fromId) {
         dismiss();
@@ -296,7 +308,7 @@ function Toast({
           {},
         );
         setActiveMatch(seat);
-        onDismiss(notification.id);
+        onDismiss(notification.id, 'read');
         navigate(`/game?gameId=${seat.gameId}`);
       } catch (error) {
         setActionError(error instanceof Error ? error.message : t('friends.genericError'));
@@ -306,7 +318,7 @@ function Toast({
     // The invite carries the room, not a seat: accepting lands in the lobby with the
     // code filled in and the corner claimed there. A seat held elsewhere is left
     // alone: the lobby's lock refuses the claim and the player aborts it themselves.
-    onDismiss(notification.id);
+    onDismiss(notification.id, 'read');
     const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
   };
@@ -321,7 +333,7 @@ function Toast({
     }
     const p = parseNotificationPayload(notification.payload);
     const fromId = typeof p.fromUserId === 'string' ? p.fromUserId : '';
-    if (p.kind === 'challenge' && fromId) {
+    if (offerMechanism(p) === 'challenge' && fromId) {
       try {
         await postApi(`/api/friends/challenges/${fromId}/decline`, {});
       } catch {
@@ -340,7 +352,7 @@ function Toast({
       // Ignore: a sound failure should never break the UI.
     }
     const p = parseNotificationPayload(notification.payload);
-    onDismiss(notification.id);
+    onDismiss(notification.id, 'read');
     const code = typeof p.inviteCode === 'string' ? p.inviteCode : '';
     navigate(code ? `/gamelobby?join=${encodeURIComponent(code)}` : '/gamelobby');
   };
@@ -718,7 +730,7 @@ export function NotificationToasts({
   onDismiss,
 }: {
   toasts: Notification[];
-  onDismiss: (id: string) => void;
+  onDismiss: (id: string, reason: ToastDismissReason) => void;
 }) {
   // Show at most 3 toasts at once: oldest ones get pushed off.
   const visible = toasts.slice(0, 3);
@@ -734,52 +746,54 @@ export function NotificationToasts({
 
 // **Digest Toast**
 
-// A burst of stored notifications is announced once instead of one toast each
-// (Phase 4). Clicking it opens the bell panel, which holds the detail; transient
-// types (presence, display name, avatar) never enter this count.
+// The boot report (22.2): one card, once per page load, drawn from the unread
+// snapshot the handshake delivered and then frozen. It counts every stored type
+// except `profile_updated`, which is the user confirming their own act. Its `x`
+// wipes the report and deletes nothing: the entries stay in the bell, which is
+// where the detail lives. A report is not a row.
 export function NotificationDigest({
-  count,
+  report,
   bottom,
   onOpen,
   onDismiss,
 }: {
-  count: number;
+  report: DigestReport | null;
   /** Clearance from the viewport bottom, so it stacks above any live toasts. */
   bottom: number;
   onOpen: () => void;
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
+  const { notifAutoClose } = useApp();
   const [visible, setVisible] = useState(false);
 
+  // The entrance is the live card's one tick (30 ms), awaited rather than synchronous
+  // so it is a transition, not an extra render pass.
   useEffect(() => {
-    if (count <= 0) {
-      setVisible(false);
-      return;
-    }
-    setVisible(true);
-    const timer = window.setTimeout(() => setVisible(false), 8000);
-    return () => window.clearTimeout(timer);
-  }, [count]);
+    const t = window.setTimeout(() => setVisible(true), 30);
+    return () => window.clearTimeout(t);
+  }, [report]);
 
-  // One press, two ways in: the strip is a `role="button"` div, so a click and Enter are
-  // the same gesture and get the same note — the one the bell plays when it opens (720),
-  // because this opens that bell.
+  // The report obeys the same two rules as a live card (22.4 item 3): the shared
+  // clock, or its `x`; and with the preference off it waits for the `x` alone.
+  useEffect(() => {
+    if (!report || !notifAutoClose) return;
+    const timer = window.setTimeout(() => setVisible(false), TOAST_AUTOCLOSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [report, notifAutoClose]);
+
+  // One press, two ways in: the header is a `role="button"` div, so a click and Enter
+  // are the same gesture and get the same note — the one the bell plays when it opens
+  // (720), because this opens that bell.
   const openPanel = () => {
     retroAudio.playUiBeep(720, 0.05);
     onOpen();
   };
 
-  if (count <= 0) return null;
+  if (!report) return null;
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={openPanel}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') openPanel();
-      }}
       style={{
         position: 'fixed',
         right: 28,
@@ -791,10 +805,8 @@ export function NotificationDigest({
         boxShadow: '0 0 24px rgba(0, 240, 255, 0.35), 0 20px 48px rgba(0, 0, 0, 0.95)',
         borderRadius: 4,
         display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '12px 14px',
-        cursor: 'pointer',
+        flexDirection: 'column',
+        overflow: 'hidden',
         backdropFilter: 'blur(12px)',
         transform: visible ? 'translateX(0)' : 'translateX(120%)',
         opacity: visible ? 1 : 0,
@@ -802,41 +814,65 @@ export function NotificationDigest({
         pointerEvents: 'auto',
       }}
     >
-      <span
-        style={{
-          flex: 1,
-          minWidth: 0,
-          fontFamily: 'var(--font-mono, monospace)',
-          fontSize: '0.78rem',
-          fontWeight: 'bold',
-          color: '#ffffff',
-          letterSpacing: 0.5,
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={openPanel}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') openPanel();
         }}
-      >
-        {t('notifications.digestToast', { count })}
-      </span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          retroAudio.playUiBeep(400, 0.05);
-          onDismiss();
-        }}
-        aria-label={t('notifications.dismiss')}
         style={{
-          background: 'transparent',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          color: 'var(--text-muted, #8a7a64)',
-          fontFamily: 'var(--font-mono, monospace)',
-          fontSize: '0.7rem',
-          lineHeight: 1,
-          padding: '3px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '12px 14px',
           cursor: 'pointer',
-          borderRadius: 2,
+          borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
         }}
       >
-        ×
-      </button>
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '0.78rem',
+            fontWeight: 'bold',
+            color: '#ffffff',
+            letterSpacing: 0.5,
+          }}
+        >
+          {t('notifications.digestToast', { count: report.total })}
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            retroAudio.playUiBeep(400, 0.05);
+            onDismiss();
+          }}
+          aria-label={t('notifications.dismiss')}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            color: 'var(--text-muted, #8a7a64)',
+            fontFamily: 'var(--font-mono, monospace)',
+            fontSize: '0.7rem',
+            lineHeight: 1,
+            padding: '3px 6px',
+            borderRadius: 3,
+            cursor: 'pointer',
+          }}
+        >
+          x
+        </button>
+      </div>
+
+      {/* The newest first, and scrollable: the report never grows, so the list is
+          as long as the load was. */}
+      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+        {report.rows.map((n) => (
+          <NotificationRow key={n.id} notification={n} />
+        ))}
+      </div>
     </div>
   );
 }
-

@@ -62,7 +62,7 @@ const ACCOUNT_ACTION_ROUTES = new Set(['/verify-email', '/reset-password']);
 function Screen() {
   const { path, query } = useRoute();
   const { user, authReady, activeMatch } = useApp();
-  const { toasts, dismissToast, digestCount, dismissDigest, openBell } = useNotifications();
+  const { toasts, dismissToast, digest, dismissDigest, openBell } = useNotifications();
   const known = path in FULL_ROUTES;
   // /game is public only for a guest handoff held in memory. A guest has no
   // session, so the usual "must be signed in" gate would bounce them to /login
@@ -92,7 +92,7 @@ function Screen() {
       {user && <NotificationToasts toasts={toasts} onDismiss={dismissToast} />}
       {user && (
         <NotificationDigest
-          count={digestCount}
+          report={digest}
           // Above whichever transient toasts are on screen (they stack from 28).
           bottom={28 + Math.min(toasts.length, 3) * 150}
           onOpen={openBell}

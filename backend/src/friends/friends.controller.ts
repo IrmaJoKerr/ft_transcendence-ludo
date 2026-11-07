@@ -142,14 +142,17 @@ export class FriendsController {
 
   @UseGuards(JwtAuthGuard)
   @Get('api/friends/invites/pending')
-  getPendingInvite(@Request() req: { user: { id: string } }) {
-    return this.friends.getPendingInvite(req.user.id);
+  // Every live offer, newest first. It answered one object until 22.6; the strip is
+  // its first caller, and one challenger can no longer hide another.
+  getPendingInvites(@Request() req: { user: { id: string } }) {
+    return this.friends.getPendingInvites(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Throttle(FRIENDS_THROTTLE.dismissInvite)
-  @Post('api/friends/invites/dismiss')
-  dismissInvite(@Request() req: { user: { id: string } }) {
-    return this.friends.dismissInvite(req.user.id);
+  @Post('api/friends/invites/dismiss/:fromUserId')
+  // The field is named because hiding one offer must not hide the others (22.6).
+  dismissInvite(@Request() req: { user: { id: string } }, @Param('fromUserId') fromUserId: string) {
+    return this.friends.dismissInvite(req.user.id, fromUserId);
   }
 }

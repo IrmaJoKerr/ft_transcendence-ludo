@@ -42,8 +42,10 @@ export interface NotificationPayload {
 // the rooms, so the hub only names the target.
 type Deliver = (target: string | 'all', event: NotificationPayload) => void;
 
-// D12: at most 150 unread per account, and both keys idle out after 14 days.
-const UNREAD_CAP = 150;
+// D12 (22.8): at most 60 unread per account, and both keys idle out after 14
+// days. Sixty is what the bell renders, so the store, the panel and the batch
+// read's id list are one bound.
+const UNREAD_CAP = 60;
 const NOTIFICATION_TTL_S = 14 * 24 * 60 * 60;
 
 // One write: the entry, its unread index, both TTLs and the trim, in one round
@@ -147,12 +149,15 @@ export class NotificationService implements OnModuleDestroy {
   }
   // Emit a notification
   // Store a notification for a user (D12) and push it live over Redis Pub/Sub to
-  // every socket that account has open.
+  // every socket that account has open. Returns the row's id so the caller can keep
+  // it: an offer stores the id of its own announce row, and the accept or decline
+  // deletes that row from the bell whichever surface answered it (22.6). Undefined
+  // when nothing was stored, which is exactly when there is no row to delete.
   async notify(
     userId: string,
     type: NotificationType,
     payload: Record<string, unknown>,
-  ): Promise<void> {
+  ): Promise<string | undefined> {
     // Failure contract: this method NEVER throws. A notification is a
     // non-critical side effect, the stored entry is authoritative for the bell,
     // and failures are only logged.
@@ -179,7 +184,7 @@ export class NotificationService implements OnModuleDestroy {
       );
     } catch (err) {
       console.error(`[notifications] write failed for ${type} -> user ${userId}:`, err);
-      return;
+      return undefined;
     }
 
     // 2. Publish: the subscriber handler routes it to the account's room.
@@ -193,6 +198,7 @@ export class NotificationService implements OnModuleDestroy {
         err,
       );
     }
+    return event.id;
   }
 
   // SHORT-LIVED/TRANSIENT global broadcast (toast only, never stored): offline
@@ -271,10 +277,18 @@ export class NotificationService implements OnModuleDestroy {
   // Reading an entry deletes it: the nudge is spent. A missing id (trimmed,
   // expired, another account's) is a no-op, as updateMany was.
   async markRead(notificationId: string, userId: string): Promise<void> {
+    await this.markMany([notificationId], userId);
+  }
+
+  // Many ids, one round trip: a row click that prunes its siblings (22.3) and
+  // any action whose card spoke for more than one entry. Both keys go together,
+  // so the badge is its ZCARD the moment the call returns.
+  async markMany(notificationIds: string[], userId: string): Promise<void> {
+    if (notificationIds.length === 0) return;
     await this.pub
       .multi()
-      .hdel(this.hashKey(userId), notificationId)
-      .zrem(this.unreadKey(userId), notificationId)
+      .hdel(this.hashKey(userId), ...notificationIds)
+      .zrem(this.unreadKey(userId), ...notificationIds)
       .exec();
   }
 

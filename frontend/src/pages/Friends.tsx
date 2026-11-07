@@ -5,7 +5,8 @@ import { ColorPaletteModal } from '../components/ColorPaletteModal';
 import { ConfirmActionModal } from '../components/ConfirmActionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
-import { navigate } from '../router';
+import { PendingOffers } from '../components/PendingOffers';
+import { navigate, useRoute } from '../router';
 import { useChallenges } from '../hooks/useChallenges';
 import { useFriendships } from '../hooks/useFriendships';
 import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '../theme';
@@ -64,7 +65,20 @@ export function Friends() {
       }),
     [friendRows],
   );
-  const [activeTab, setActiveTab] = useState<'friends' | 'blocked'>('friends');
+  // The bell's destinations name the tab (22.7 item 3): `?tab=friends` is the initial
+  // value, and a later change is adjusted during render because the bell is a portal —
+  // a second click while already here changes only the query, not the page. Clicking
+  // the tab by hand changes the state and not the URL: the param is a destination, not
+  // a mirror of the page.
+  const { query } = useRoute();
+  const tabParam = query.get('tab');
+  const wantedTab = tabParam === 'friends' || tabParam === 'blocked' ? tabParam : null;
+  const [activeTab, setActiveTab] = useState<'friends' | 'blocked'>(wantedTab ?? 'friends');
+  const [seenTab, setSeenTab] = useState(wantedTab);
+  if (wantedTab !== seenTab) {
+    setSeenTab(wantedTab);
+    if (wantedTab) setActiveTab(wantedTab);
+  }
   const [filterQuery, setFilterQuery] = useState('');
   const [searchUsername, setSearchUsername] = useState('');
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
@@ -398,6 +412,15 @@ export function Friends() {
                     minHeight: 0,
                   }}
                 >
+                  {/* **LIVE OFFERS** — above the search field inside the friends tab
+                      (22.9): the surface where an offer is chosen deliberately, with
+                      the refusal band the bell could not have. */}
+                  {activeTab === 'friends' && (
+                    <div style={{ padding: '10px 14px 0', flexShrink: 0 }}>
+                      <PendingOffers />
+                    </div>
+                  )}
+
                   {/* Tab Switcher Header */}
                   <div
                     style={{

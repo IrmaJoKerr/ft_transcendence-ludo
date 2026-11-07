@@ -425,9 +425,8 @@ unthrottled here)
 
 | Key | Limit | Window |
 |---|---|---|
-| `notifications.stream` | 60 | 1 min |
 | `notifications.markRead` | 120 | 1 min |
-| `notifications.markAllRead` | 30 | 1 min |
+| `notifications.markAllRead` (also the batch `POST /api/notifications/read`) | 30 | 1 min |
 | `user.avatarUpload` / `avatarDelete` | 10 | 1 h |
 | `achievements.check` | 30 | 1 h |
 
@@ -496,7 +495,7 @@ counter below zero.
 | `PRESENCE_TTL_S` | 45 | how long `presence:<userId>` and `presence:conns:<userId>` live without a refresh; the session socket refreshes both every 20 s, and the socket's own ping/pong (20 s + 20 s) detects a dead peer first |
 | `PRESENCE_REFRESH_MS` | 20000 | the server-side refresh of one live connection's row and set membership |
 | `PRESENCE_COUNT_COALESCE_MS` | 5000 | `presence:count` publishes at most once per window (the count is a SCAN) |
-| `UNREAD_CAP` | 150 | unread entries per account; the write trims the oldest past it, in the same Lua script |
+| `UNREAD_CAP` | 60 | unread entries per account; the write trims the oldest past it, in the same Lua script, and the client's panel and its batch-read id list use the same bound |
 | `NOTIFICATION_TTL_S` | 1209600 (14 days) | TTL on `notif:<userId>` and `notif:<userId>:unread`, refreshed on every write |
 | Avatar upload | 2 MiB (`2 * 1024 * 1024`) | largest accepted avatar; nginx allows 3 MiB so the API, not the proxy, answers |
 | Avatar signatures | PNG, JPEG, GIF, WebP | the magic bytes checked at offset 0 (and 8 for WebP) before a byte is stored |
@@ -704,14 +703,13 @@ the session socket, so the only client timers left are the client rows below.
 | `ROOMS_DEBOUNCE_MS` | 500 (backend) | how long a burst of `rooms:changed` publishes is folded into one snapshot read before the diff is emitted |
 | `ROOMS_REPAIR_TICK_MS` | 30000 (backend) | recompute-and-emit-on-change, and count the diffs it emits (a steady non-zero count is a missed publish) |
 | Room code and `[COPY]` badge (inline) | 1500 | how long the confirmation holds: `[COPIED OK]` beside a copied room code (`Game.tsx`) and beside the copied handle in the profile header (`Profile.tsx`) |
-| Notification toast | 9000 visible, 350 exit, 30 entrance | how long a toast stays, then its slide-out and the one-frame delay before sliding in |
+| `TOAST_AUTOCLOSE_MS` | 8000 | one clock for every notification card — the live arrival and the boot digest alike — switchable off by the `notifAutoClose` preference; the entrance (30) and the exit (350) are transitions, not windows |
 | `LOCK_TTL_MS` | 10000 | the cross-tab refresh lock in `lr.authRefreshLock`; a dead holder cannot wedge the other tabs |
 | `RESULT_WAIT_MS` | 3000 | how long a losing tab waits for the winning tab's refresh result over the `BroadcastChannel` |
 | `RESULT_POLL_MS` | 100 | how often it re-checks for that result |
 | `PROBE_ATTEMPTS` | 3 | `/me` probes after a lost refresh race before treating the session as ended |
 | `PROBE_GAP_MS` | 250 | gap between those probes |
 | `CHANNEL_NAME` | `lr.authRefresh` | the BroadcastChannel name the tabs share |
-| `DIGEST_WINDOW_MS` | 2000 | live stored arrivals buffered into one digest toast; shown once per tab (`sessionStorage`) |
 | `ACTIVE_MATCH_KEY` / `SEATS_KEY` | `lr.activeMatch`, `lr.seats` | §17 |
 
 

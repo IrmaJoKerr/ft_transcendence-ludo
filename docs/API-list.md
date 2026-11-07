@@ -240,13 +240,14 @@ itself is listed under *Friends* with the other block codes.
 15. **[Friends — Challenges and room invites](#15-friends--challenges-and-room-invites)** — Challenge a friend, accept or decline it, offer a seat, read the sent list, pending/dismiss
    - [`POST /api/friends/:friendId/invite`](#post-apifriendsfriendidinvite) — Challenge a friend, in one call with two shapes
    - [`GET /api/friends/challenges/sent`](#get-apifriendschallengessent) — The challenges you have out, which is what the CHALLENGE buttons grey themselves from
-   - [`GET /api/friends/invites/pending`](#get-apifriendsinvitespending) — Check whether you have a pending game invite
-   - [`POST /api/friends/invites/dismiss`](#post-apifriendsinvitesdismiss) — Dismiss your pending game invite
+   - [`GET /api/friends/invites/pending`](#get-apifriendsinvitespending) — Every live offer you have, one row per sender
+   - [`POST /api/friends/invites/dismiss/:fromUserId`](#post-apifriendsinvitesdismissfromuserid) — Hide one sender's offer, without answering it
 
 16. **[Presence](#16-presence)** — No REST routes (D11): presence rides the session socket
 
-17. **[Notifications](#17-notifications)** — Socket frames + a Redis bell, two write routes
+17. **[Notifications](#17-notifications)** — Socket frames + a Redis bell, three write routes
    - [`PATCH /api/notifications/:id/read`](#patch-apinotificationsidread) — Read one notification (the entry is deleted)
+   - [`POST /api/notifications/read`](#post-apinotificationsread) — Read many in one round trip (a bell row prunes its family)
    - [`POST /api/notifications/read-all`](#post-apinotificationsread-all) — Read everything (both keys are deleted)
 
 18. **[Health](#18-health)** — Backend/database health check
@@ -2418,28 +2419,32 @@ from this list, so no client constant mirrors the window.
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Get the current user's pending offer (if any): a challenge from a friend, or a seat in a room.
-`expired` is computed on read and only means something for the room kind (whether the room still
-waits); a challenge's own five-minute TTL is its whole life.
+Every live offer to the current user, one entry per sender, newest first: a challenge from a friend, or a
+seat in a room. `invite:<inviteeId>` is a hash, so two challengers coexist instead of overwriting each
+other. A field past its own `expiresAt` is dropped on read; `expired` is computed on read and means the
+room an invite points at is no longer waiting (started or ended), so the row keeps its place and loses
+its verb.
 
 **Headers:** 🔒 (requires `token` cookie)  
-**Response:** `null` or a pending-offer object (`kind`, `fromUserId`, `fromUsername`, `hostColor` for
-a challenge; `kind`, `gameId`, `inviteCode`, `playerCount` for a room).
+**Response:** `PendingInvite[]` — each entry carries `kind` (`'challenge'` or `'room'`), `fromUserId`,
+`fromUsername`, `sentAt`, `expiresAt`, `notificationId` (the bell row that announced it), `hostColor` for
+a challenge, `gameId` / `inviteCode` / `playerCount` for a room, and `expired`.
 
 
 ---
 ---
 
 
-#### `POST /api/friends/invites/dismiss`
+#### `POST /api/friends/invites/dismiss/:fromUserId`
 
 **Source:** `backend/src/friends/friends.controller.ts` — FriendsModule
 
-Dismiss the current user's pending offer without answering it. A dismissal is **not** a refusal: the
-record goes and the refusal ladder does not move (only `POST /api/friends/challenges/:friendId/decline`
-writes a rung).
+Dismiss **one sender's** pending offer without answering it. The field is named because the record is a
+hash now: hiding one offer must not hide the others. A dismissal is **not** a refusal — the field goes and
+the refusal ladder does not move (only `POST /api/friends/challenges/:friendId/decline` writes a rung).
 
 **Headers:** 🔒 (requires `token` cookie)  
+**Path:** `:fromUserId` = the friend whose offer is hidden  
 **Body:** None  
 **Response:**
 
@@ -2554,11 +2559,12 @@ Types: `friend_request` | `friend_accepted` | `friend_removed` | `friend_decline
 
 **Storage:** the bell is two Redis keys per account (D12): `notif:<userId>` (hash of
 id to frame JSON) and `notif:<userId>:unread` (zset of unread ids scored by
-`createdAt`), both with a 14 day TTL and a 150 entry cap. Reading an entry deletes
-it, so `read` is always `false` on the wire.
+`createdAt`), both with a 14 day TTL and a 60 entry cap (`UNREAD_CAP`, the same bound
+the panel renders and the batch read takes). Reading an entry deletes it, so `read`
+is always `false` on the wire.
 
 **Reasoning:** a client that cannot open the socket cannot receive a notification
-either, so a REST snapshot would only ever be a list that never updates. The two
+either, so a REST snapshot would only ever be a list that never updates. The three
 write routes stay on HTTP, where the JWT refresh, the throttle and the error
 surface already are.
 
@@ -2581,6 +2587,36 @@ unknown id, or one belonging to another account, is a no-op.
 
 
 ---
+---
+
+
+#### `POST /api/notifications/read`
+
+**Source:** `backend/src/notification/notification.controller.ts` — NotificationModule
+
+Read many entries in one round trip: one `MULTI` of `HDEL notif:<uid> <id…>` + `ZREM
+notif:<uid>:unread <id…>`, so the badge is its `ZCARD` the moment the call returns. This is what a bell
+row click uses to clear the rows it speaks for, and what a toast uses when its action answered several.
+Delete-on-read (D12) means there is nothing to flag: the entries go.
+
+The route has no cap of its own. `UNREAD_CAP` is 60, the bell renders 60, so the client cannot hand it more
+than 60 ids; anything that is not a non-empty string is filtered out at the boundary and an empty list is a
+no-op. It shares the `markAllRead` throttle bucket with `read-all`, because both are one-shot clears.
+
+**Headers:** 🔒 (requires `token` cookie)  
+**Body:**
+
+```json
+{ "ids": ["notif-id-1", "notif-id-2"] }
+```
+
+**Response:**
+
+```json
+{ "ok": true }
+```
+
+
 ---
 
 

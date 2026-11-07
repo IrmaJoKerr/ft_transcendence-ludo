@@ -22,7 +22,7 @@
 
 The Notification module delivers notifications to users and keeps their bell. It combines two mechanisms:
 
-1. **Storage** — the bell is a Redis structure per account (D12): a `notif:<userId>` hash of id → frame JSON plus a `notif:<userId>:unread` sorted set of the unread ids. Both expire after 14 days, hold at most 150 entries, and lose an entry the moment it is read.
+1. **Storage** — the bell is a Redis structure per account (D12): a `notif:<userId>` hash of id → frame JSON plus a `notif:<userId>:unread` sorted set of the unread ids. Both expire after 14 days, hold at most 60 entries (`UNREAD_CAP`), and lose an entry the moment it is read — the bell's render bound and the batch-read route's id list are the same 60.
 2. **Real-time push** — `notify()` publishes on Redis Pub/Sub (`notify:<userId>`) and the session socket delivers the frame to every tab that account has open (`notification`). The unread list is re-sent on every connect (`notifications:unread`), which is the bell's only read path: there is no SSE stream and no REST list route.
 
 Notification types: `friend_request`, `friend_accepted`, `friend_removed`, `friend_declined`, `game_invite`, `challenge_accepted`, `achievement`, `match_finished`, `match_cancelled`, `profile_updated`, `display_name_changed`, `friend_online`, `friend_offline`, `avatar_changed`.
@@ -91,9 +91,10 @@ therefore two bounded, self-cleaning keys per account:
 
 | Step | Redis |
 | --- | --- |
-| write (`notify`) | one `EVAL`: `HSET notif:<uid> <id> <json>`, `ZADD notif:<uid>:unread <createdAt ms> <id>`, `EXPIRE` both at 14 days, then while the set is past 150 `ZPOPMIN` the oldest id and `HDEL` it |
+| write (`notify`) | one `EVAL`: `HSET notif:<uid> <id> <json>`, `ZADD notif:<uid>:unread <createdAt ms> <id>`, `EXPIRE` both at 14 days, then while the set is past `UNREAD_CAP` (60) `ZPOPMIN` the oldest id and `HDEL` it |
 | unread read (`getUnread`) | `ZREVRANGE notif:<uid>:unread 0 -1`, `HMGET notif:<uid> ...`, dropping ids whose field has gone |
 | `markRead` | `HDEL notif:<uid> <id>` + `ZREM notif:<uid>:unread <id>`: reading deletes |
+| `markMany` | the same pair as `markRead` in one `MULTI`, for a row click that prunes the rows it speaks for |
 | `markAllRead` | `DEL notif:<uid> notif:<uid>:unread` |
 | account deletion | `DEL notif:<uid> notif:<uid>:unread` (replaces the old `onDelete: Cascade`) |
 
@@ -201,6 +202,7 @@ export interface NotificationPayload {
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `PATCH` | `/api/notifications/:id/read` | JWT | Read one notification: the server deletes it (idempotent, a missing id is a no-op) |
+| `POST` | `/api/notifications/read` | JWT | Read many: `{ ids: string[] }`, one `MULTI` for all of them (a bell row click prunes its family). No cap of its own — the store never holds more than `UNREAD_CAP` |
 | `POST` | `/api/notifications/read-all` | JWT | Read everything: both `notif:` keys are deleted |
 
 The frames themselves (`notification`) and the unread list (`notifications:unread`)
@@ -260,15 +262,6 @@ socket connect (cookie handshake)
   └── emit notifications:unread ← getUnread(userId)
 ```
 
-### Mark Read
-```
-PATCH /api/notifications/:id/read (JWT)
-  └── MULTI: HDEL notif:<uid> <id> + ZREM notif:<uid>:unread <id>
-
-POST /api/notifications/read-all (JWT)
-  └── DEL notif:<uid> notif:<uid>:unread
-```
-
 ### List Unread / Mark Read
 ```
 RealtimeGateway.handleConnection
@@ -276,6 +269,10 @@ RealtimeGateway.handleConnection
 
 PATCH /api/notifications/:id/read (JWT)
   └── MULTI: HDEL notif:<uid> <id> + ZREM notif:<uid>:unread <id>
+     (markRead is markMany with one id, so the two flows below are one flow)
+
+POST /api/notifications/read (JWT)   { ids: string[] }
+  └── MULTI: HDEL notif:<uid> <id…> + ZREM notif:<uid>:unread <id…>
 
 POST /api/notifications/read-all (JWT)
   └── DEL notif:<uid> notif:<uid>:unread

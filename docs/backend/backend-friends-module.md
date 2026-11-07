@@ -174,8 +174,8 @@ enum FriendshipStatus {
 | `POST` | `/api/friends/challenges/:friendId/accept` | JWT | Answer a challenge: gate both seats, create the room, seat the challenger then the invitee, answer the invitee's credentials |
 | `POST` | `/api/friends/challenges/:friendId/decline` | JWT | Refuse a challenge: writes one rung of the pair's refusal ladder (`{ ok, streak, until }`) |
 | `GET` | `/api/friends/challenges/sent` | JWT | The offers this caller has out (`SentChallenge[]`), which is what every CHALLENGE button greys itself from |
-| `GET` | `/api/friends/invites/pending` | JWT | Get my pending offer (a challenge, or a seat in a room) |
-| `POST` | `/api/friends/invites/dismiss` | JWT | Dismiss a pending offer without answering it (no ladder write) |
+| `GET` | `/api/friends/invites/pending` | JWT | Every live offer to this caller (`PendingInvite[]`, one entry per sender, newest first). Each carries `kind`, `fromUserId`, `fromUsername`, `sentAt`, `expiresAt`, the `notificationId` that announced it, the room when there is one, and an `expired` flag for a room that has started or ended |
+| `POST` | `/api/friends/invites/dismiss/:fromUserId` | JWT | Dismiss **that sender's** offer without answering it (no ladder write): one field goes, the other offers stay |
 
 > **Two routes, one per act.** A challenge and a room invite are different objects with
 > different lifecycles, and 19.6 split the two shapes that used to share
@@ -207,7 +207,7 @@ next read, and the refusal deadline is compared on the next send.
 | Decline cooldown | 1 h | `DECLINE_COOLDOWN_MS` (`friendship-pair.ts`) | A `declined` direction reads as `none`, so the declined sender may re-request; before it elapses a retry returns `400 FRIEND_REQUEST_COOLDOWN` |
 | Refusal cooldown (challenge) | 2 h → 4 h → 24 h, then 24 h forever | `REFUSAL_LADDER_MS` (`friendship-pair.ts`), stored as `userNRefusalsUntil` | Challenges *toward* the refuser are allowed again; the streak (`userNRefusalStreak`) stays until an accepted challenge on that side resets it, so the next refusal lands on a longer rung |
 | Unblock cooldown | none | — | Unblocking is immediate — contact can restart with a fresh request, no waiting period |
-| Pending offer record | 5 min | Redis `invite:<userId>`, set `EX 300` by either send | `GET /api/friends/invites/pending` stops returning the offer and Redis drops the key. A challenge that lapses this way costs **nothing**: a timeout is not a refusal |
+| Pending offer record | 5 min | Redis hash `invite:<inviteeId>` (`EX 360` on the key, one `expiresAt` per field) | One field per sender, so two live offers coexist and a newer sender cannot overwrite an older offer's slot. `GET /api/friends/invites/pending` drops a field past its stamp, and a room invite whose room is no longer waiting is returned with `expired: true` instead of vanishing. A challenge that lapses this way costs **nothing**: a timeout is not a refusal |
 | Sent-offer record | 5 min | Redis hash `challenge:<senderId>` (`EX 360` on the key, one stamp per entry) | `GET /api/friends/challenges/sent` skips the entry, so the friend may be challenged again; an accept or a decline deletes it earlier, and so does a room invite whose room is no longer `WAITING` |
 
 > The two friendship timeouts are per-direction and independent: each side's
@@ -592,8 +592,8 @@ sequenceDiagram
     alt the sender already holds a seat
         Server-->>Sender: 403 MATCH_ALREADY_SEATED
     end
-    Server->>B: notification game_invite { kind: 'challenge', fromUserId, hostColor }
-    Server->>Redis: SET invite:{friendId} = { kind: 'challenge', fromUserId, hostColor, sentAt } (5 min)
+    Server->>B: notification game_invite { kind: 'challenge', fromUserId, fromUsername, hostColor, expiresAt }
+    Server->>Redis: HSET invite:{B} {friendId} -> { kind: 'challenge', fromUserId, fromUsername, hostColor, sentAt, expiresAt, notificationId } (EX 360)
     Server->>Redis: HSET challenge:{sender} {friendId} -> { kind: 'challenge', sentAt }
     Server-->>Sender: { ok: true, kind: 'challenge' } — no room exists yet
 
@@ -607,7 +607,7 @@ sequenceDiagram
     Server->>Match: joinMatch(gameId, B, firstFreeColor(hostColor))
     Match-->>Server: B's credentials
     Server->>Server: reset B's own rung on the pair row
-    Server->>Redis: DEL invite:{B}; HDEL challenge:{sender} {B}
+    Server->>Redis: HDEL invite:{B} {sender}; HDEL challenge:{sender} {B}
     Server->>A: notification challenge_accepted { gameId, inviteCode }
     Server-->>B: credentials — B enters the room
 ```
@@ -784,5 +784,5 @@ POST /api/friends/unblock/{userId} (JWT required)
 | `FriendshipEventsService` | The `friendship:changed` publisher called after every membership mutation |
 
 | `friendship-pair.ts` | Shared pure predicates (`pairKey`, `isFriendPair`, `isBlockedPair`) reused by match + presence, plus the refusal ladder (`REFUSAL_LADDER_MS`, `refusalSide`, `nextRefusal`) that only this module reads |
-| `Redis` (ioredis) | Pending offer records (`invite:<userId>`, either kind) and the sent-offer hash (`challenge:<senderId>`) that `GET /api/friends/challenges/sent` reads and the 409 is decided on |
+| `Redis` (ioredis) | Pending offer records (`invite:<inviteeId>`, one field per sender, either kind) and the sent-offer hash (`challenge:<senderId>`) that `GET /api/friends/challenges/sent` reads and the 409 is decided on |
 | `JwtAuthGuard` | Protects all friend endpoints |

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { retroAudio } from '../utils/audio';
+import { AutoCloseToggle } from './AutoCloseToggle';
 import {
   RETRO_WINDOW,
   WINDOW_HEADER,
@@ -159,6 +160,12 @@ export function ControlsSettingsModal({
           </div>
 
           <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+
+          {/* The second home of the auto-close preference (22.5): the same row as the
+              dock's, reading and writing the same store field. It sits directly above
+              the full-width audio button, which is the stack this popover inherited
+              from #sectorControlWindow: divider, audio, rules, one under another. */}
+          <AutoCloseToggle />
 
           <button
             className={RETRO_BADGE}

@@ -24,6 +24,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 4. **Two places to offer a game** (19.6). **CHALLENGE** posts `POST /api/friends/:friendId/challenge` with `{ hostColor }`, the corner the challenger will host in: it creates nothing, answers `{ ok, kind: 'challenge' }`, and the page says the challenge is out (`friends.challengeSent`) rather than navigating. The room appears when the friend accepts — the server sends `challenge_accepted`, and the challenger enters it from the toast, the bell, or the dock's rejoin banner. A **room invite** (`POST /api/friends/:friendId/invite` with `{ gameId }`) is the other act and belongs to the surfaces that already sit in a room: the lobby's name card and the waiting room's INVITE COMMS column.
 5. **The grey state is the server's**, not a client TTL: `useChallenges` reads `GET /api/friends/challenges/sent` (on mount, and again on window focus) and adds the echo of its own presses. A greyed CHALLENGE stays pressable; the press asks, and the 409 prints in the page's band — `errors.CHALLENGE_ALREADY_SENT`, or `errors.CHALLENGE_COOLDOWN` while a refusal of the friend's still runs.
 6. **BLOCK and REMOVE confirm** through `ConfirmActionModal` (the same gate both name cards block through), because neither can be undone from this screen: `friends.block*` and `friends.remove*` carry the two questions.
+7. **The live offers strip** (22.9), above the search field inside the friends tab: one row per offer still open, newest first — `@name`, the mechanism word (`DUEL` for a challenge, `INVITE` for a seat), the age, and one verb — ten rows before it scrolls, and `EXPIRED` where a verb was. ACCEPT posts `/api/friends/challenges/:fromUserId/accept`, takes the seat and lands on `/game?gameId=<id>` through `setActiveMatch`, exactly as the toast does; JOIN is `navigate('/gamelobby?join=<code>')` and nothing else, because a room invite is an address. The four named refusals print in one band above the rows, and the strip recomputes on mount, on window focus and once at the nearest `expiresAt` — no poll, no Redis event, no push.
 
 > **Note:** The Friends page reads its data from the backend API (Application Programming Interface) once, for first paint. Every later change arrives as a `friendship:changed` record on the session socket, so no list is polled.
 
@@ -36,7 +37,8 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 
 | File | Role |
 |------|------|
-| `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the two confirms |
+| `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the live offers strip, the two confirms |
+| `src/components/PendingOffers.tsx` | The offers strip the page mounts: `GET /api/friends/invites/pending` as rows, ACCEPT/JOIN, the refusal band, and the three recomputes (mount, focus, nearest `expiresAt`) |
 | `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
 | `src/hooks/useChallenges.ts` | The two send routes (challenge and room invite): the server's sent list, the press, and the 409s, with no client window |
 | `src/components/ConfirmActionModal.tsx` | The shared confirm for BLOCK and REMOVE (and both name cards) |

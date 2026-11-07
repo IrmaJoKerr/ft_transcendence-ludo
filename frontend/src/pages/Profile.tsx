@@ -528,7 +528,22 @@ export function Profile() {
   // The backend only returns entries for achievements the user has touched, so
   // a missing key must read as "no report yet" even though the map type is dense.
   const getAchievementReport = (key: string): AchievementReport | undefined => achievements[key];
-  const [mainTab, setMainTab] = useState<'history' | 'achievements'>('history');
+  // The bell's destinations name the tab (22.7 item 3): `?tab=` is the initial value,
+  // and later changes are followed in an effect because the bell is a portal — a second
+  // click while already here changes only the query, not the page. Clicking the tab by
+  // hand changes the state and not the URL: the param is a destination, not a mirror.
+  const [mainTab, setMainTab] = useState<'history' | 'achievements'>(() =>
+    query.get('tab') === 'achievements' ? 'achievements' : 'history',
+  );
+  const tab = query.get('tab');
+  const wantedTab = tab === 'achievements' || tab === 'history' ? tab : null;
+  const [seenTab, setSeenTab] = useState(wantedTab);
+  if (wantedTab !== seenTab) {
+    // Adjusted during render rather than in an effect, so the page never paints the
+    // old tab for a frame on the way to the new destination.
+    setSeenTab(wantedTab);
+    if (wantedTab) setMainTab(wantedTab);
+  }
   const [loading, setLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);

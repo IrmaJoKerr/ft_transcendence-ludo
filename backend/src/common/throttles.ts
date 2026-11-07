@@ -63,10 +63,11 @@ export const MATCH_THROTTLE = {
   abort: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;
 
-// notification.controller.ts : the bell's two write routes (the stream and the
+// notification.controller.ts : the bell's three write routes (the stream and the
 // unread read moved to the session socket in Phase 4).
 export const NOTIFICATION_THROTTLE = {
   markRead: { default: { limit: 120, ttl: MINUTE } },
+  // The batch read and ACK ALL share one bucket: both are one-shot clears.
   markAllRead: { default: { limit: 30, ttl: MINUTE } },
 } satisfies RouteLimits;
 
