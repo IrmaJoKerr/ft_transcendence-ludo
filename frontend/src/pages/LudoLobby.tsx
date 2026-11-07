@@ -117,11 +117,18 @@ function RoomModes({ room }: { room: Room }) {
     ? active.map((mode) => t(mode.label)).join(' · ')
     : t('ludoLobbyPasses.modeBase');
 
+  // All four mutators would otherwise wrap 3 + 1 in the wide MODES column; a
+  // two-column grid lays them out 2 + 2 instead, which reads more symmetric.
+  // Rooms with fewer mutators keep a single wrapping line, so a pair is shown
+  // side by side and a lone chip is never split off onto its own row.
+  const twoColumns = active.length === 4;
+
   return (
     <div
       title={summary}
       style={{
-        display: 'flex',
+        display: twoColumns ? 'grid' : 'flex',
+        gridTemplateColumns: twoColumns ? 'repeat(2, max-content)' : undefined,
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: 4,

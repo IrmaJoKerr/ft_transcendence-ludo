@@ -4,7 +4,8 @@ import { retroAudio } from '../utils/audio';
 // One room-rule row of the create screen's rules panel and of the host's in-game
 // one. The caller owns the ORDER, so a panel writes its rules in reading order
 // instead of hiding them inside a mapped array: clash, the mid-clash key shift it
-// owns, free exit, then no safe zones (the hardest, so it goes last).
+// owns, free exit, no safe zones (the hardest gameplay rule), then the purely
+// cosmetic attack animations last.
 const ROW: CSSProperties = {
   display: 'flex',
   alignItems: 'center',

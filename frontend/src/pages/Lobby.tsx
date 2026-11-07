@@ -1006,12 +1006,13 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       </span>
                     </div>
 
-                    {/* Room rules: the four toggles this room is created with, in
+                    {/* Room rules: the five toggles this room is created with, in
                         reading order — clash, the mid-clash key shift it owns, free
-                        exit, then no safe zones last because it is the hardest. They
-                        travel in the create body, so the room is made with them in
-                        one call, and the host can still flip them from the game's
-                        room-rules panel once the room exists. */}
+                        exit, then no safe zones (the hardest), and the cosmetic
+                        attack animations last because they change only the look, not
+                        the game. They travel in the create body, so the room is made
+                        with them in one call, and the host can still flip them from
+                        the game's room-rules panel once the room exists. */}
                     <div
                       style={{
                         borderTop: '1px solid rgba(0, 240, 255, 0.25)',
@@ -1040,10 +1041,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       />
                       {/* The key-shift mutator sits directly under the clash toggle
                           it depends on, so the panel reads clash → mid-clash key
-                          shift → free exit → no safe zones: a checkbox and its 1 / 2
-                          count. Both are disabled unless clash mode is on, because
-                          the engine forces the count to 0 there. The count is kept
-                          apart so re-enabling restores it. */}
+                          shift → free exit → no safe zones → attack animations: a
+                          checkbox and its 1 / 2 count. Both are disabled unless clash
+                          mode is on, because the engine forces the count to 0 there.
+                          The count is kept apart so re-enabling restores it. */}
                       <label
                         style={{
                           display: 'flex',
@@ -1112,14 +1113,6 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         </span>
                       </label>
                       <RoomRuleToggle
-                        icon="💥"
-                        label={t('game.captureFx')}
-                        desc={t('game.captureFxDesc')}
-                        checked={captureFx}
-                        accent="#00ff88"
-                        onToggle={setCaptureFx}
-                      />
-                      <RoomRuleToggle
                         icon="🚪"
                         label={t('game.freeExit')}
                         desc={t('game.freeExitDesc')}
@@ -1134,6 +1127,17 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         checked={noSafeZones}
                         accent="var(--accent-cyan)"
                         onToggle={setNoSafeZones}
+                      />
+                      {/* The one purely cosmetic rule: capture FX only changes what
+                          you see when a piece is taken, never the game, so it sits
+                          after every gameplay rule instead of inside their ramp. */}
+                      <RoomRuleToggle
+                        icon="💥"
+                        label={t('game.captureFx')}
+                        desc={t('game.captureFxDesc')}
+                        checked={captureFx}
+                        accent="#00ff88"
+                        onToggle={setCaptureFx}
                       />
                     </div>
 

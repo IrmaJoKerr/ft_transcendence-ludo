@@ -2777,12 +2777,12 @@ export function Game() {
                           />
                           {/* The key-shift mutator sits directly under the clash
                               toggle it depends on, so the panel reads clash → mid-clash
-                              key shift → free exit → no safe zones: a checkbox and its
-                              1 / 2 count. Both are disabled unless clash mode is on,
-                              because the engine forces the count to 0 there. The count
-                              lives in local state so re-enabling restores it instead of
-                              resetting to 1. A native <select> is the first in the app,
-                              so it carries its own dark styling. */}
+                              key shift → free exit → no safe zones → attack animations:
+                              a checkbox and its 1 / 2 count. Both are disabled unless
+                              clash mode is on, because the engine forces the count to 0
+                              there. The count lives in local state so re-enabling
+                              restores it instead of resetting to 1. A native <select> is
+                              the first in the app, so it carries its own dark styling. */}
                           <label
                             style={{
                               display: 'flex',
@@ -2852,14 +2852,6 @@ export function Game() {
                             </span>
                           </label>
                           <RoomRuleToggle
-                            icon="💥"
-                            label={t('game.captureFx')}
-                            desc={t('game.captureFxDesc')}
-                            checked={view.captureFx}
-                            accent="#00ff88"
-                            onToggle={(next) => emitRule({ captureFx: next })}
-                          />
-                          <RoomRuleToggle
                             icon="🚪"
                             label={t('game.freeExit')}
                             desc={t('game.freeExitDesc')}
@@ -2874,6 +2866,18 @@ export function Game() {
                             checked={view.noSafeZones}
                             accent="var(--accent-cyan)"
                             onToggle={(next) => emitRule({ noSafeZones: next })}
+                          />
+                          {/* The one purely cosmetic rule: capture FX only changes
+                              what you see when a piece is taken, never the game, so
+                              it sits after every gameplay rule instead of inside
+                              their ramp. */}
+                          <RoomRuleToggle
+                            icon="💥"
+                            label={t('game.captureFx')}
+                            desc={t('game.captureFxDesc')}
+                            checked={view.captureFx}
+                            accent="#00ff88"
+                            onToggle={(next) => emitRule({ captureFx: next })}
                           />
                         </div>
                         <div
