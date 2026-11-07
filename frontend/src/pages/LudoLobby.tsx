@@ -73,11 +73,11 @@ const ROOM_GRID_COLUMNS =
   'minmax(0, 0.95fr) minmax(0, 1.45fr) minmax(0, 0.7fr) minmax(0, 0.85fr) minmax(0, 1.55fr) 104px';
 
 // The room rules, in the same order and with the same icons/accents as the
-// create-screen toggles (clash, capture card, free exit, no safe zones), so a chip
+// create-screen toggles (clash, attack animations, free exit, no safe zones), so a chip
 // in the list reads as the switch that made it.
 const ROOM_MODES = [
   { key: 'clashEnabled', icon: '⚔️', label: 'game.clashMode', hue: '#ff007f' },
-  { key: 'captureFx', icon: '📸', label: 'game.captureFx', hue: '#00ff88' },
+  { key: 'captureFx', icon: '💥', label: 'game.captureFx', hue: '#00ff88' },
   { key: 'freeExit', icon: '🚪', label: 'game.freeExit', hue: '#ffe600' },
   { key: 'noSafeZones', icon: '💀', label: 'game.noSafeZones', hue: '#00f0ff' },
 ] as const;

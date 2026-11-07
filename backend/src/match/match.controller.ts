@@ -39,7 +39,7 @@ export class MatchController {
     @Body('freeExit') freeExit?: boolean,
     // Clamped in room-rules.ts: 0 (off), 1 or 2, and 0 unless clash mode is on.
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
-    // The non-clash capture card: a positive flag, ON only for a literal `true`.
+    // The non-clash attack animations: a positive flag, ON only for a literal `true`.
     @Body('captureFx') captureFx?: boolean,
     // The host's own corner. The room browser asks for it before the room exists,
     // so the host's colour is theirs before anybody can claim another one; the
@@ -119,7 +119,7 @@ export class MatchController {
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
-    // The non-clash capture card: a positive flag, ON only for a literal `true`.
+    // The non-clash attack animations: a positive flag, ON only for a literal `true`.
     @Body('captureFx') captureFx?: boolean,
   ) {
     if (mode !== 'pvp' && mode !== 'pve' && mode !== 'hotseat') {

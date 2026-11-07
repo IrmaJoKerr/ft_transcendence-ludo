@@ -213,7 +213,7 @@ export interface GameState {
   // Key-shift mutator: 0, 1 or 2 switches per clash (absent reads as 0, and it is
   // always 0 while clash mode is off).
   clashKeyShift?: 0 | 1 | 2;
-  // Room rule: the non-clash capture card (positive flag, independent of clash;
+  // Room rule: the non-clash attack animations (positive flag, independent of clash;
   // absent reads as false: no card).
   captureFx?: boolean;
   pendingCapture?: PendingCapture; // capture held until its clash resolves

@@ -646,13 +646,13 @@ export const en = {
     noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
     freeExit: 'Free Exit',
     freeExitDesc: 'Any roll leaves prison, not just a 6',
-    captureFx: 'Capture Card',
-    captureFxDesc: 'Show a flash card over the board when you capture a piece',
+    captureFx: 'Attack Animations',
+    captureFxDesc: 'Play an attack animation when you take a piece',
     // The key-shift mutator. "Letter", not "key": on a tablet there is no key at
     // all and the pad shows letters. The wording says switch/change/bertukar
     // throughout and keeps "flip" for the animation, so the copy survives a change
     // of animation.
-    clashKeyShift: 'Mid-Clash Surprise Change',
+    clashKeyShift: 'Clash Multi-Spectrum Hop',
     clashKeyShiftDesc: 'The required letter switches once or twice mid-clash',
     clashKeyShiftCount: 'Switches',
     clashKeyShiftWarn: 'LETTER SWITCHING!',
@@ -1016,7 +1016,7 @@ export const en = {
     // (the two things the player actually has to react to), and never claims the
     // switch is announced in advance of the warning itself.
     rulesPage6KeyShift:
-      'The host can also turn on a mid-clash surprise: the required letter switches once or twice during the race. A warning flashes before each switch and the pad re-draws its letters, so keep reading — a thumb parked on the old letter only fills the bar until the switch.',
+      'The host can also turn on the Clash Multi-Spectrum Hop: the required letter switches once or twice during the race. A warning flashes before each switch and the pad re-draws its letters, so keep reading — a thumb parked on the old letter only fills the bar until the switch.',
     rulesPage7Header: '// NO SAFE ZONES (HARDCORE)',
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:

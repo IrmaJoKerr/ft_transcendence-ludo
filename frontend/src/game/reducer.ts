@@ -63,7 +63,7 @@ export type GameViewState = {
   noSafeZones: boolean;
   /** Any roll leaves prison instead of only a 6; false until the engine sends it. */
   freeExit: boolean;
-  /** Room rule: the non-clash capture card (positive flag, independent of clash). */
+  /** Room rule: the non-clash attack animations (positive flag, independent of clash). */
   captureFx: boolean;
   /** Engine timestamp until which the clash result card freezes input. */
   resultCardUntil?: number;

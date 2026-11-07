@@ -1,7 +1,7 @@
 // The five room rules in one place: the wire names (`clashEnabled`, `noSafeZones`,
 // `freeExit`, `clashKeyShift`, `captureFx`), the `match:*` hash keys the engine
 // reads, the defaulting rule and the polarity. A standard room is clash off, free
-// exit off, safe zones on, no key switch, no capture card.
+// exit off, safe zones on, no key switch, no attack animations.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
@@ -9,7 +9,7 @@ export type RoomRules = {
   // How many times the required letter changes mid-clash (0, 1 or 2). Forced to 0
   // whenever clash mode is off, so the two can never disagree.
   clashKeyShift: 0 | 1 | 2;
-  // The non-clash capture card: a positive flag, ON only for a literal `true`, and
+  // The non-clash attack animations: a positive flag, ON only for a literal `true`, and
   // independent of clash mode (a plain room may want it, and a clash room's
   // captures outside a clash still show it). No clamp: a boolean has no edges.
   captureFx: boolean;

@@ -283,7 +283,7 @@ export type RoomRules = {
   // or 2). Clamped at every boundary and forced to 0 whenever `clashEnabled` is
   // false, so "the mutator is on but clash is off" cannot be stored or read.
   clashKeyShift: 0 | 1 | 2;
-  // The non-clash capture card: a positive flag, ON only for a literal `true`, and
+  // The non-clash attack animations: a positive flag, ON only for a literal `true`, and
   // independent of clash mode. No clamp (a boolean has no edges).
   captureFx: boolean;
 };
@@ -321,7 +321,7 @@ export interface GameState {
   // Key-shift mutator: 0, 1 or 2 switches of the required letter per clash. Always 0
   // while clash mode is off, and the default for a state written before it existed.
   clashKeyShift: 0 | 1 | 2;
-  // The non-clash capture card: a positive flag, independent of clash mode, and the
+  // The non-clash attack animations: a positive flag, independent of clash mode, and the
   // default (false) for a state written before it existed.
   captureFx: boolean;
   pendingCapture?: PendingCapture; // capture held until the clash resolves

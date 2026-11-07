@@ -63,7 +63,7 @@ function withWallBreakerDefaults(state: GameState): GameState {
     if (stats.clashWallsDefended === undefined) stats.clashWallsDefended = 0;
   }
   if (state.clashKeyShift !== 1 && state.clashKeyShift !== 2) state.clashKeyShift = 0;
-  // A room written before the capture card existed has no flag: it reads as off, the
+  // A room written before the attack animations existed has no flag: it reads as off, the
   // standard room (a positive flag, so an absent field is plain).
   if (state.captureFx !== true) state.captureFx = false;
   // A room written before the channel existed has no ledger: no blocks reads as
@@ -137,7 +137,7 @@ export class RedisGameStore {
     // key-shift mutator's switch count for this room.
     clashKeyShift: 0 | 1 | 2 = 0,
     // Seventh rule, also last and defaulting off (the standard room): the non-clash
-    // capture card, independent of clash mode.
+    // attack animations, independent of clash mode.
     captureFx = false,
   ): Promise<void> {
     const pieces: Piece[] = [];

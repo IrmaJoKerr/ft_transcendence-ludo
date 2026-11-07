@@ -32,7 +32,7 @@ export class LobbyManager {
       // Flat hash string; written even when 0 so the hash describes its own room,
       // and the engine treats absence as the standard room all the same.
       clashKeyShift: String(rules.clashKeyShift),
-      // The non-clash capture card: written even when false, same reasoning.
+      // The non-clash attack animations: written even when false, same reasoning.
       captureFx: String(rules.captureFx),
     });
     const state = await this.store.loadGameState(gameId);

@@ -1225,7 +1225,7 @@ Create a PvP invite game with a shareable code.
 - Share `inviteCode` via chat/friend list.
 - Recipient joins via `POST /api/match/join/:code`.
 - Follows the same create-or-reuse path as `POST /api/match/create`: if you already sit in one of your own `WAITING` PvP rooms, that room (and its existing invite code) is handed back instead of a second room being created.
-- `clashEnabled` turns the clash QTE on, `noSafeZones` makes star squares capture-able, `freeExit` lets any roll leave prison (the exit square counts as part of the roll), and `captureFx` shows a capture card when you take a piece (a positive flag, independent of clash mode). The rules are frozen when the room is created; the host can still change them from the lobby panel while the room is `WAITING` (`update_modifiers`, see §20).
+- `clashEnabled` turns the clash QTE on, `noSafeZones` makes star squares capture-able, `freeExit` lets any roll leave prison (the exit square counts as part of the roll), and `captureFx` plays an attack animation when you take a piece (a positive flag, independent of clash mode). The rules are frozen when the room is created; the host can still change them from the lobby panel while the room is `WAITING` (`update_modifiers`, see §20).
 
 
 ---
@@ -2939,7 +2939,7 @@ socket.emit('update_modifiers', { clashEnabled: true, noSafeZones: false, freeEx
 | `noSafeZones` | boolean | `true` = star squares no longer protect a piece |
 | `freeExit` | boolean | `true` = any roll leaves prison (the exit square counts as part of the roll) |
 | `clashKeyShift` | `0 \| 1 \| 2` | Switches of the required letter per clash (clamped; forced to 0 unless `clashEnabled`) |
-| `captureFx` | boolean | `true` = show a capture card when a piece is taken (positive flag, independent of clash) |
+| `captureFx` | boolean | `true` = play an attack animation when a piece is taken (positive flag, independent of clash) |
 
 **Response:** `modifiers_updated` broadcast (`{ gameId, clashEnabled, noSafeZones, freeExit, clashKeyShift, captureFx }`).
 

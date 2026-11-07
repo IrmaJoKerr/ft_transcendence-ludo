@@ -1332,7 +1332,7 @@ export function Game() {
       clashEnabled: view.clashMode,
       noSafeZones: view.noSafeZones,
       freeExit: view.freeExit,
-      // The non-clash capture card rides every payload like the other rules.
+      // The non-clash attack-animations flag rides every payload like the other rules.
       captureFx: view.captureFx,
       // The mutator's count rides every payload; the engine forces it to 0 while
       // clash mode is off.
@@ -2852,7 +2852,7 @@ export function Game() {
                             </span>
                           </label>
                           <RoomRuleToggle
-                            icon="📸"
+                            icon="💥"
                             label={t('game.captureFx')}
                             desc={t('game.captureFxDesc')}
                             checked={view.captureFx}
