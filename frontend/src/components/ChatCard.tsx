@@ -36,13 +36,14 @@ import { CHAT_SURFACE } from './chatSurface';
 // dock now imports these instead of keeping a copy. Neither host may grow the card —
 // the head and the band are drawn inside its height and the transcript gives up rows.
 
-/** The card's budget, one home for both hosts (19.3): 440 wide, 560 tall, 16 off the
+/** The card's budget, one home for both hosts (19.3): 480 wide (was 440 until queue
+ *  item 6's m4), 560 tall, 16 off the
  *  window's edges. The height is the card's own rather than a ceiling it may grow
  *  into: the head and the composer — the reserved band included — are drawn inside
  *  it and the transcript gives up the rows, so nothing a channel has to say can make
  *  the card taller than it was when it opened. Only the window — or a dock whose own
  *  rows leave less — can shorten it. */
-export const CHAT_CARD_WIDTH = 440;
+export const CHAT_CARD_WIDTH = 480;
 export const CHAT_CARD_HEIGHT = 560;
 export const CHAT_CARD_MARGIN = 16;
 
