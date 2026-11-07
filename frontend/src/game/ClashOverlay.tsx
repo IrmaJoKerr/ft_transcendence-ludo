@@ -598,28 +598,20 @@ export function ClashOverlay({
           ? t('game.clashChainBroken')
           : t('game.clashChainRepulsed');
 
-  // Which gesture the result card plays (game/ResultFx.tsx). Five outcomes, all read
-  // from fields the frame already carries: `winner === attacker` splits a won round
-  // from a lost one, `totalRounds > 1` says the square is a wall, and `continues` says
-  // the wall still stands. A 1v1 is therefore the ropes or the shield, a wall is the
-  // raspberry, one brick out, or the crumble.
+  // Which gesture the result card plays (game/ResultFx.tsx). Two gestures, read from
+  // fields the frame already carries: `winner === attacker` splits a won round from a
+  // lost one (capture vs repulse), and `n` (remaining defenders + 1) parameterises a
+  // wall — a four-defender wall draws 4, 3, 2 and 1 layer across its rounds (D4).
   const fxAttacker = result?.attacker ?? clash.attacker;
   const fxAttackerWon = result ? result.winner === fxAttacker : false;
-  const fxIsWall = (result?.totalRounds ?? 1) > 1;
+  const fxKind: ResultFxKind = fxAttackerWon ? 'capture' : 'repulse';
+  const fxTotalRounds = result?.totalRounds ?? 1;
+  const fxN = (result?.remainingDefenderIds?.length ?? 0) + 1;
   const fxDefender = !result
     ? clash.defender
     : result.winner === fxAttacker
       ? result.loser
       : result.winner;
-  const fxKind: ResultFxKind = !fxAttackerWon
-    ? fxIsWall
-      ? 'raspberry'
-      : 'shield'
-    : fxIsWall
-      ? result?.continues
-        ? 'brick'
-        : 'crumble'
-      : 'ropes';
 
   // The overlay swallows every tap: a stray tap must not emit a roll or a move and
   // spend rate-limit tokens. A native non-passive listener is required, because
@@ -750,11 +742,14 @@ export function ClashOverlay({
             {/* The gesture the card is about, above the headline it explains. Keyed on
                 the card id so a chain's next round remounts it: new animation, new
                 sound, same card. */}
+            {/* overflow: hidden (D6): the beam and the bloom are clipped by the
+                stage box, which retires the need for a per-group clipPath. */}
             <div
               style={{
                 width: 'min(60vw, 420px)',
                 height: 'clamp(120px, 24vmin, 240px)',
                 margin: '0 auto 4px',
+                overflow: 'hidden',
               }}
             >
               <ResultFx
@@ -762,6 +757,9 @@ export function ClashOverlay({
                 kind={fxKind}
                 attacker={fxAttacker}
                 defender={fxDefender}
+                n={fxN}
+                totalRounds={fxTotalRounds}
+                banner={t('game.clashWallBroken')}
               />
             </div>
             <div

@@ -671,6 +671,9 @@ export const en = {
     // round has already sent earlier defenders home, so the wall is thinner even
     // though the attack failed. "The square" stays true either way.
     clashChainRepulsed: 'Repulsed — the defenders hold the square.',
+    // The total-breach banner over the wall's last layer (D7). A display word, not a
+    // sentence: it reads in the same 1000 ms window as the winner headline.
+    clashWallBroken: 'WALL BROKEN',
     clashYouWon: '⚔️ You won!',
     clashWins: '{{color}} wins',
     clashVersus: 'VS',
