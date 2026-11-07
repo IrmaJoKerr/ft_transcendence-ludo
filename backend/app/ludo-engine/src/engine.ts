@@ -40,6 +40,8 @@ function normalizeRoomRules(raw: unknown): RoomRules {
     noSafeZones: input.noSafeZones === true,
     freeExit: input.freeExit === true,
     clashKeyShift: clampClashKeyShift(input.clashKeyShift, clashEnabled),
+    // The non-clash capture card: positive flag, independent of clash mode.
+    captureFx: input.captureFx === true,
   };
 }
 
@@ -778,7 +780,7 @@ export class LudoEngine {
     await this.emitModifiersUpdate(gameId);
   }
 
-  // Broadcast the room's current rules (one object, all four) to the room. Read
+  // Broadcast the room's current rules (one object, all five) to the room. Read
   // back out of the state, never echoed from the caller: the clients mirror the
   // room itself, so a stored value and a broadcast value cannot disagree.
   async emitModifiersUpdate(gameId: string): Promise<void> {
@@ -791,6 +793,7 @@ export class LudoEngine {
       noSafeZones: state.noSafeZones,
       freeExit: state.freeExit,
       clashKeyShift: state.clashKeyShift,
+      captureFx: state.captureFx,
     });
   }
 

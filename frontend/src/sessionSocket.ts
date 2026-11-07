@@ -24,6 +24,8 @@ export type LobbyRoom = {
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift?: 0 | 1 | 2;
+  /** The non-clash capture card: positive flag, independent of clash mode. */
+  captureFx?: boolean;
 };
 
 // One row of `rooms:mine`: the account's own seats (rejoin banner, "has a game").

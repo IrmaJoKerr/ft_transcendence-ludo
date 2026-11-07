@@ -78,6 +78,7 @@ type RoomRules = {
   noSafeZones?: boolean;
   freeExit?: boolean;
   clashKeyShift?: number;
+  captureFx?: boolean;
   playerCount?: number;
 };
 
@@ -1905,6 +1906,7 @@ export function Profile() {
                                 if (g.gameModes?.noSafeZones)
                                   chips.push(t('game.noSafeZones'));
                                 if (g.gameModes?.freeExit) chips.push(t('game.freeExit'));
+                                if (g.gameModes?.captureFx) chips.push(t('game.captureFx'));
                                 const keyShift = g.gameModes?.clashKeyShift ?? 0;
                                 if (keyShift > 0)
                                   chips.push(t('profile.chipKeyShift', { count: keyShift }));

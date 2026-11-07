@@ -84,6 +84,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const [clashEnabled, setClashEnabled] = useState(false);
   const [noSafeZones, setNoSafeZones] = useState(false);
   const [freeExit, setFreeExit] = useState(false);
+  // The non-clash capture card: a positive flag, independent of clash mode.
+  const [captureFx, setCaptureFx] = useState(false);
   // The mutator's count, kept apart from whether it is on, so re-enabling restores
   // 1 or 2 instead of resetting: `clashKeyShift` is the value that ships.
   const [clashShiftCount, setClashShiftCount] = useState<1 | 2>(1);
@@ -177,6 +179,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
           clashEnabled,
           noSafeZones,
           freeExit,
+          // The non-clash capture card: a positive flag, independent of clash mode.
+          captureFx,
           // The mutator only exists with clash mode on; the engine clamps it too.
           clashKeyShift: clashEnabled ? clashKeyShift : 0,
         };
@@ -238,6 +242,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
         clashEnabled,
         noSafeZones,
         freeExit,
+        // The non-clash capture card: a positive flag, independent of clash mode.
+        captureFx,
         clashKeyShift: clashEnabled ? clashKeyShift : 0,
       });
       setActiveMatch(res);
@@ -1105,6 +1111,14 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           />
                         </span>
                       </label>
+                      <RoomRuleToggle
+                        icon="📸"
+                        label={t('game.captureFx')}
+                        desc={t('game.captureFxDesc')}
+                        checked={captureFx}
+                        accent="#00ff88"
+                        onToggle={setCaptureFx}
+                      />
                       <RoomRuleToggle
                         icon="🚪"
                         label={t('game.freeExit')}

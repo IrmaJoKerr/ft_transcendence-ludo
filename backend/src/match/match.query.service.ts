@@ -31,6 +31,7 @@ export type RoomSnapshotRow = {
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift: 0 | 1 | 2;
+  captureFx: boolean;
   /** Seat slots in order; empty strings for free slots. */
   seatIds: string[];
   /** Each slot's colour, slot order (blue, red, green, yellow): the claim's address book. */
@@ -65,6 +66,7 @@ export type LobbyRoom = {
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift: 0 | 1 | 2;
+  captureFx: boolean;
 };
 
 /** One row of `rooms:mine` — the rejoin banner and "has an active game". */
@@ -119,6 +121,7 @@ export function lobbyRoomsFor(
       noSafeZones: room.noSafeZones,
       freeExit: room.freeExit,
       clashKeyShift: room.clashKeyShift,
+      captureFx: room.captureFx,
     });
   }
   return rooms;

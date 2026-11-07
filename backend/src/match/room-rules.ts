@@ -1,7 +1,7 @@
-// The four room rules in one place: the wire names (`clashEnabled`, `noSafeZones`,
-// `freeExit`, `clashKeyShift`), the `match:*` hash keys the engine reads, the
-// defaulting rule and the polarity. A standard room is clash off, free exit off,
-// safe zones on, no key switch.
+// The five room rules in one place: the wire names (`clashEnabled`, `noSafeZones`,
+// `freeExit`, `clashKeyShift`, `captureFx`), the `match:*` hash keys the engine
+// reads, the defaulting rule and the polarity. A standard room is clash off, free
+// exit off, safe zones on, no key switch, no capture card.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
@@ -9,6 +9,10 @@ export type RoomRules = {
   // How many times the required letter changes mid-clash (0, 1 or 2). Forced to 0
   // whenever clash mode is off, so the two can never disagree.
   clashKeyShift: 0 | 1 | 2;
+  // The non-clash capture card: a positive flag, ON only for a literal `true`, and
+  // independent of clash mode (a plain room may want it, and a clash room's
+  // captures outside a clash still show it). No clamp: a boolean has no edges.
+  captureFx: boolean;
 };
 
 // The key-shift count, clamped. Same body as the engine's `clampClashKeyShift`
@@ -34,6 +38,7 @@ export function normalizeRoomRules(input?: Partial<RoomRules> | null): RoomRules
     noSafeZones: input?.noSafeZones === true,
     freeExit: input?.freeExit === true,
     clashKeyShift: clampClashKeyShift(input?.clashKeyShift, clashEnabled),
+    captureFx: input?.captureFx === true,
   };
 }
 
@@ -46,6 +51,7 @@ export function roomRuleHashFields(rules: RoomRules): Record<string, string> {
     noSafeZones: String(rules.noSafeZones),
     freeExit: String(rules.freeExit),
     clashKeyShift: String(rules.clashKeyShift),
+    captureFx: String(rules.captureFx),
   };
 }
 
@@ -59,5 +65,6 @@ export function readRoomRules(data: Record<string, string>): RoomRules {
     noSafeZones: data.noSafeZones === 'true',
     freeExit: data.freeExit === 'true',
     clashKeyShift: clampClashKeyShift(data.clashKeyShift, clashEnabled),
+    captureFx: data.captureFx === 'true',
   };
 }

@@ -636,6 +636,8 @@ export const fr = {
     noSafeZonesDesc: 'Les cases étoilées ne protègent plus (hardcore)',
     freeExit: 'Sortie libre',
     freeExitDesc: 'Tout lancer libère la prison, pas seulement un 6',
+    captureFx: 'Carte de capture',
+    captureFxDesc: 'Affiche une carte sur le plateau quand vous capturez une pièce',
     // Le mutateur de changement de lettre. « Lettre », pas « touche » : sur
     // tablette il n'y a pas de touche du tout et le pad affiche des lettres.
     clashKeyShift: 'Changement surprise en plein clash',

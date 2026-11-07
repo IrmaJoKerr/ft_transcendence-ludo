@@ -63,6 +63,8 @@ export type GameViewState = {
   noSafeZones: boolean;
   /** Any roll leaves prison instead of only a 6; false until the engine sends it. */
   freeExit: boolean;
+  /** Room rule: the non-clash capture card (positive flag, independent of clash). */
+  captureFx: boolean;
   /** Engine timestamp until which the clash result card freezes input. */
   resultCardUntil?: number;
   /**
@@ -96,6 +98,7 @@ export function initialView(myColor: PlayerColor): GameViewState {
     clashKeyShift: 0,
     noSafeZones: false,
     freeExit: false,
+    captureFx: false,
     resultCardUntil: undefined,
   };
 }
@@ -155,6 +158,7 @@ export function applyEvent(
         clashKeyShift: s.clashKeyShift ?? state.clashKeyShift,
         noSafeZones: s.noSafeZones ?? state.noSafeZones,
         freeExit: s.freeExit ?? state.freeExit,
+        captureFx: s.captureFx ?? state.captureFx,
         resultCardUntil: s.resultCardUntil ?? state.resultCardUntil,
       };
     }
@@ -224,6 +228,7 @@ export function applyEvent(
           event.clashKeyShift === 1 || event.clashKeyShift === 2 ? event.clashKeyShift : 0,
         noSafeZones: Boolean(event.noSafeZones),
         freeExit: Boolean(event.freeExit),
+        captureFx: Boolean(event.captureFx),
       };
     case 'my_color_changed':
       return { ...state, myColor: event.color as PlayerColor };

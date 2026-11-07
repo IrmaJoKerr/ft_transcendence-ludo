@@ -92,6 +92,7 @@ Every route here is `JwtAuthGuard`-protected. The profile gate is the pair, not 
     noSafeZones?: boolean;
     freeExit?: boolean;
     clashKeyShift?: number;
+    captureFx?: boolean;
     playerCount?: number;
   } | null;
   color: 'RED' | 'GREEN' | 'YELLOW' | 'BLUE';  // Seat color

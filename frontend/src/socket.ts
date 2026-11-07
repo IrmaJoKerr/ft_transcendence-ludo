@@ -13,6 +13,10 @@ export type RoomRules = {
   // 0 off, 1 or 2 switches of the required letter per clash; the engine forces 0
   // whenever clash mode is off, and echoes back what it stored.
   clashKeyShift: 0 | 1 | 2;
+  // The non-clash capture card: a positive flag, ON only when the host turns it on,
+  // independent of clash mode. Same one-object shape, a fifth field not a fifth
+  // positional boolean.
+  captureFx: boolean;
 };
 
 // The clash frames the engine emits. The chain fields (round / totalRounds /

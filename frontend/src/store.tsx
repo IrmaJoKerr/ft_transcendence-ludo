@@ -205,6 +205,8 @@ export type GuestSetup = {
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
+  // The non-clash capture card: positive flag, independent of clash mode.
+  captureFx: boolean;
 };
 
 type AppState = {

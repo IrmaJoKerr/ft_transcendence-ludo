@@ -64,6 +64,12 @@ export class CreateGuestMatchDto {
   @IsBoolean()
   freeExit?: boolean;
 
+  // The non-clash capture card: a positive flag, ON only for a literal `true`,
+  // independent of clash mode.
+  @IsOptional()
+  @IsBoolean()
+  captureFx?: boolean;
+
   // Key-shift mutator: 0 off, 1 or 2 switches. Validated here because this route
   // takes a DTO class; the other create routes rely on room-rules.ts's clamp, which
   // also forces 0 whenever clash mode is off.

@@ -234,7 +234,7 @@ the row carries its own counters and its own company line.
 | `playedAt` | DateTime | | Start of the match: the sort key and the printed date |
 | `durationMs` | Int | Default: 0 | End minus start (what `achSpeedDemon` reads) |
 | `gameType` | GameType | | PvP or PvE |
-| `gameModes` | JSON | | The room as played (`clashEnabled`, `noSafeZones`, `freeExit`, `clashKeyShift`, `playerCount`) |
+| `gameModes` | JSON | | The room as played (`clashEnabled`, `noSafeZones`, `freeExit`, `clashKeyShift`, `captureFx`, `playerCount`) |
 | `color` | PlayerColor | | Seat colour |
 | `rank` | Int | | Final placement: `1` is the winner, and an abandoned seat holds the room's player count (last, never a podium) |
 | `status` | MatchStatus | Default: `COMPLETED` | `COMPLETED` or `ABANDONED`: the one user-facing state of the row |

@@ -205,7 +205,7 @@ export interface GameState {
   pausedReason?: string;
   clash?: ClashState; // live clash QTE, absent when none is running
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
-  // Safe zones, stored inverted so the three room rules are uniform (false = the
+  // Safe zones, stored inverted so the boolean room rules are uniform (false = the
   // variant is off). A standard room is false/false/false, and an absent key reads
   // as false: safe zones on.
   noSafeZones: boolean; // star squares capture-immune when false
@@ -213,6 +213,9 @@ export interface GameState {
   // Key-shift mutator: 0, 1 or 2 switches per clash (absent reads as 0, and it is
   // always 0 while clash mode is off).
   clashKeyShift?: 0 | 1 | 2;
+  // Room rule: the non-clash capture card (positive flag, independent of clash;
+  // absent reads as false: no card).
+  captureFx?: boolean;
   pendingCapture?: PendingCapture; // capture held until its clash resolves
   resultCardUntil?: number; // engine timestamp: input freeze while the card shows
   // The narrative the recon panel renders, newest last. Shipped in `game_joined` only

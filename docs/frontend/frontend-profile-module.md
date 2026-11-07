@@ -134,6 +134,7 @@ page branches on `visibility` before reading any of them.
       noSafeZones?: boolean;
       freeExit?: boolean;
       clashKeyShift?: number;
+      captureFx?: boolean;
       playerCount?: number;
     } | null;
     color: string;  // Seat color

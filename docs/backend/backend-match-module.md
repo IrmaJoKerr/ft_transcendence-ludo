@@ -486,9 +486,10 @@ GET /api/games/rooms
   │   │   (a started room is visible only to its own reclaimable seats)
   │   └── room full → skip
   └── Every row carries mySeat, so the lobby knows to rejoin instead of join,
-      plus readRoomRules(hash): clashEnabled, noSafeZones, freeExit and
-      clashKeyShift, which the browser shows as the MODES cell (absent fields read
-      as the standard room; the switch count is 0 unless clash mode is on)
+      plus readRoomRules(hash): clashEnabled, noSafeZones, freeExit,
+      clashKeyShift and captureFx, which the browser shows as the MODES cell
+      (absent fields read as the standard room; the switch count is 0 unless clash
+      mode is on, and captureFx is a plain positive flag, independent of clash)
 ```
 
 

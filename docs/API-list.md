@@ -1037,6 +1037,7 @@ Get a user's game history.
         "noSafeZones": false,
         "freeExit": false,
         "clashKeyShift": 1,
+        "captureFx": false,
         "playerCount": 4
       },
       "color": "RED | GREEN | YELLOW | BLUE",
@@ -1193,13 +1194,14 @@ const socket = io(window.location.origin, { // same-origin → nginx → ludo-en
 Create a PvP invite game with a shareable code.
 
 **Headers:** 🔒 (requires `token` cookie)  
-**Body:** all fields optional — the three room rules, defaulting to a standard room:
+**Body:** all fields optional — the room rules, defaulting to a standard room:
 
 ```json
 {
   "clashEnabled": false,
   "noSafeZones": false,
-  "freeExit": false
+  "freeExit": false,
+  "captureFx": false
 }
 
 ```
@@ -1223,7 +1225,7 @@ Create a PvP invite game with a shareable code.
 - Share `inviteCode` via chat/friend list.
 - Recipient joins via `POST /api/match/join/:code`.
 - Follows the same create-or-reuse path as `POST /api/match/create`: if you already sit in one of your own `WAITING` PvP rooms, that room (and its existing invite code) is handed back instead of a second room being created.
-- `clashEnabled` turns the clash QTE on, `noSafeZones` makes star squares capture-able, and `freeExit` lets any roll leave prison (the exit square counts as part of the roll). The rules are frozen when the room is created; the host can still change them from the lobby panel while the room is `WAITING` (`update_modifiers`, see §20).
+- `clashEnabled` turns the clash QTE on, `noSafeZones` makes star squares capture-able, `freeExit` lets any roll leave prison (the exit square counts as part of the roll), and `captureFx` shows a capture card when you take a piece (a positive flag, independent of clash mode). The rules are frozen when the room is created; the host can still change them from the lobby panel while the room is `WAITING` (`update_modifiers`, see §20).
 
 
 ---
@@ -1323,7 +1325,8 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
   "seatColors": ["yellow", "blue"],
   "clashEnabled": false,
   "noSafeZones": false,
-  "freeExit": false
+  "freeExit": false,
+  "captureFx": false
 }
 
 ```
@@ -1350,7 +1353,7 @@ Unified match creation — supports PvP, PvE, and hotseat modes.
 - `botNames` (optional string array) is index-aligned with `botColors`. Each entry is the name the lobby gave that bot: the backend stores it as `player{n}_displayName` in the form `bot-<color> (<assistant>)`, so every client shows the lobby's own assistant name. An entry that is missing, blank or unusable is dropped, and the seat then shows its plain `bot-<color>` id. The stored label is not translated, so clients re-localize the colour word with the `lobby.color*` keys and keep the assistant name as sent.
 - **Reuse:** creating a `pvp` room while you already sit in one of your own still-`WAITING` PvP rooms hands that room back — the response carries its `gameId`, `inviteCode` and your existing seat colour, and nothing in the stored room is modified. A room whose game has already started (engine state is anything but `waiting`, or your seat in it is finalized) is never reused: a fresh room is created instead, so a player who left a live game can start or join another one while their old seat stays ghosted.
 - `pve`/`hotseat` always create a fresh room (they start `ACTIVE` and are never reused).
-- `clashEnabled`, `noSafeZones` and `freeExit` are the three room rules (all optional, default `false` = standard room). They are written in the same call that creates the room, so no room ever exists without its rules; `room-rules.ts` coerces the raw body values to booleans. While the room is `WAITING`, the host can change them from the lobby panel (`update_modifiers`, see §20).
+- `clashEnabled`, `noSafeZones`, `freeExit` and `captureFx` are the boolean room rules (all optional, default `false` = standard room); `clashKeyShift` is the numeric fifth rule. They are written in the same call that creates the room, so no room ever exists without its rules; `room-rules.ts` coerces the raw body values to booleans. While the room is `WAITING`, the host can change them from the lobby panel (`update_modifiers`, see §20).
 
 
 ---
@@ -1373,7 +1376,8 @@ Start an anonymous PvE game. This is the public door behind the login screen's *
   "botNames": ["Siri", "Alexa"],
   "clashEnabled": false,
   "noSafeZones": false,
-  "freeExit": false
+  "freeExit": false,
+  "captureFx": false
 }
 ```
 
@@ -1387,7 +1391,7 @@ Start an anonymous PvE game. This is the public door behind the login screen's *
   "color": "blue",
   "mode": "pve",
   "playerCount": 3,
-  "rules": { "clashEnabled": false, "noSafeZones": false, "freeExit": false },
+  "rules": { "clashEnabled": false, "noSafeZones": false, "freeExit": false, "captureFx": false },
   "isGuest": true
 }
 ```
@@ -1521,11 +1525,11 @@ decides whether a game has started (see `isEngineGameStarted` in `backend-match-
 
 **Headers:** 🔒 (requires `token` cookie)  
 **Response:** Array of room summaries — `id`, `roomCode`, `hostId`, `host`, `hostUsername`,
-`hasAvatarPhoto`, `seats`, `maxSeats`, `mode`, `mySeat`, and the room's three rules as
-`clashEnabled`, `noSafeZones`, and `freeExit`. The rules are read from the same `match:*` hash fields
+`hasAvatarPhoto`, `seats`, `maxSeats`, `mode`, `mySeat`, and the room's rules as
+`clashEnabled`, `noSafeZones`, `freeExit`, `clashKeyShift` and `captureFx`. The rules are read from the same `match:*` hash fields
 the create route wrote (`readRoomRules`), so a room created before the fields existed reads as the
 standard room: `false`, `false`, `false` (clash off, free exit off, safe zones protecting — the
-safe-zone flag is stored inverted). The lobby renders them as the room browser's MODES cell.
+safe-zone flag is stored inverted) and `captureFx` off. The lobby renders them as the room browser's MODES cell.
 
 
 ---
@@ -2922,10 +2926,10 @@ socket.emit('player_ready');
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleUpdateModifiers`)
 
-Host-only live update of the three room rules while the room is still `WAITING`. The payload is one object, never positional booleans; the engine normalizes it and broadcasts back what it actually persisted (so the room mirrors stored state).
+Host-only live update of the room rules while the room is still `WAITING`. The payload is one object, never positional booleans; the engine normalizes it and broadcasts back what it actually persisted (so the room mirrors stored state).
 
 ```js
-socket.emit('update_modifiers', { clashEnabled: true, noSafeZones: false, freeExit: false });
+socket.emit('update_modifiers', { clashEnabled: true, noSafeZones: false, freeExit: false, captureFx: true });
 
 ```
 
@@ -2934,8 +2938,10 @@ socket.emit('update_modifiers', { clashEnabled: true, noSafeZones: false, freeEx
 | `clashEnabled` | boolean | Turn the clash QTE on/off |
 | `noSafeZones` | boolean | `true` = star squares no longer protect a piece |
 | `freeExit` | boolean | `true` = any roll leaves prison (the exit square counts as part of the roll) |
+| `clashKeyShift` | `0 \| 1 \| 2` | Switches of the required letter per clash (clamped; forced to 0 unless `clashEnabled`) |
+| `captureFx` | boolean | `true` = show a capture card when a piece is taken (positive flag, independent of clash) |
 
-**Response:** `modifiers_updated` broadcast (`{ gameId, clashEnabled, noSafeZones, freeExit }`).
+**Response:** `modifiers_updated` broadcast (`{ gameId, clashEnabled, noSafeZones, freeExit, clashKeyShift, captureFx }`).
 
 **Errors:** `error` when the caller is not the host or the room is no longer `WAITING`; malformed fields are coerced to booleans rather than trusted.
 
@@ -3053,7 +3059,7 @@ both result routes store on the row.
 | `seat_expired` | `{ gameId, color }` | Your `join_game` was refused because the seat was already removed (left, or the grace window expired) — sent to that socket only |
 | `lobby_update` | `{ players: [{ userId, username, avatarStyle, color, ready }] }` | Lobby seats changed (join/leave/ready/colour) |
 | `color_selected` | `{ gameId, userId, color }` | A player selected a color in the lobby |
-| `modifiers_updated` | `{ gameId, clashEnabled, noSafeZones, freeExit }` | The host changed the room rules while the room was `WAITING` |
+| `modifiers_updated` | `{ gameId, clashEnabled, noSafeZones, freeExit, clashKeyShift, captureFx }` | The host changed the room rules while the room was `WAITING` |
 | `state_update` | full `GameState` (includes `paused`, `pauseTurnOwner`, `players[].wallBreakerArmed`, `players[].wallBreakerTokens`, `resultCardUntil`) | A live exit moved the turn, a PvP disconnect paused/unpaused the game, or a wall/clash change landed; also the SPA's catch-all for any other pub/sub frame |
 | `error` | `string` | On invalid action / failed authentication. The string is a localization code (`errors.<CODE>`); unmapped strings stay console-only |
 

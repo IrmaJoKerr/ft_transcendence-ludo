@@ -147,6 +147,8 @@ export class JoinManager {
             matchData.noSafeZones === 'true',
             matchData.freeExit === 'true',
             clampClashKeyShift(matchData.clashKeyShift, matchData.clashEnabled === 'true'),
+            // The non-clash capture card: a positive flag, independent of clash mode.
+            matchData.captureFx === 'true',
           );
           state = await this.store.loadGameState(effectiveGameId);
         }

@@ -646,6 +646,8 @@ export const en = {
     noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
     freeExit: 'Free Exit',
     freeExitDesc: 'Any roll leaves prison, not just a 6',
+    captureFx: 'Capture Card',
+    captureFxDesc: 'Show a flash card over the board when you capture a piece',
     // The key-shift mutator. "Letter", not "key": on a tablet there is no key at
     // all and the pad shows letters. The wording says switch/change/bertukar
     // throughout and keeps "flip" for the animation, so the copy survives a change

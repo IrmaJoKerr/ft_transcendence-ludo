@@ -613,8 +613,9 @@ export class SocketServer {
         this.handlers.handlePlayerReady(socket);
       });
 
-      // One object each way: the host's rules panel sends the four rules as
-      // `{clashEnabled, noSafeZones, freeExit}`, never as positional booleans.
+      // One object each way: the host's rules panel sends the five rules as
+      // `{clashEnabled, noSafeZones, freeExit, clashKeyShift, captureFx}`, never as
+      // positional booleans.
       socket.on('update_modifiers', (rules: unknown) => {
         this.handlers.handleUpdateModifiers(socket, rules);
       });

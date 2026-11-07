@@ -39,6 +39,8 @@ export class MatchController {
     @Body('freeExit') freeExit?: boolean,
     // Clamped in room-rules.ts: 0 (off), 1 or 2, and 0 unless clash mode is on.
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
+    // The non-clash capture card: a positive flag, ON only for a literal `true`.
+    @Body('captureFx') captureFx?: boolean,
     // The host's own corner. The room browser asks for it before the room exists,
     // so the host's colour is theirs before anybody can claim another one; the
     // remaining three corners stay free for joiners. Required at runtime, never
@@ -52,6 +54,7 @@ export class MatchController {
         noSafeZones,
         freeExit,
         clashKeyShift,
+        captureFx,
       },
       hostColor,
     );
@@ -116,6 +119,8 @@ export class MatchController {
     @Body('noSafeZones') noSafeZones?: boolean,
     @Body('freeExit') freeExit?: boolean,
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
+    // The non-clash capture card: a positive flag, ON only for a literal `true`.
+    @Body('captureFx') captureFx?: boolean,
   ) {
     if (mode !== 'pvp' && mode !== 'pve' && mode !== 'hotseat') {
       throw new BadRequestException({
@@ -138,7 +143,7 @@ export class MatchController {
       botNames,
       seatColors,
       hostColor,
-      { clashEnabled, noSafeZones, freeExit, clashKeyShift },
+      { clashEnabled, noSafeZones, freeExit, clashKeyShift, captureFx },
     );
   }
 

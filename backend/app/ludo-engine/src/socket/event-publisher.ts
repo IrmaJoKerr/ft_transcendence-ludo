@@ -210,6 +210,7 @@ export class EventPublisher {
             noSafeZones: event.noSafeZones,
             freeExit: event.freeExit,
             clashKeyShift: event.clashKeyShift,
+            captureFx: event.captureFx,
           }),
         );
         break;

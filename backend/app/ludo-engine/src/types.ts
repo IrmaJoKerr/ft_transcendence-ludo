@@ -272,7 +272,7 @@ export interface DisconnectState {
   reconnectDeadline: number;
 }
 
-// The four room rules as one object, in both directions of the wire: the host's
+// The five room rules as one object, in both directions of the wire: the host's
 // rules panel sends them and `modifiers_updated` broadcasts them, in the shape the
 // create body, match hash and full `state_update` all carry.
 export type RoomRules = {
@@ -283,6 +283,9 @@ export type RoomRules = {
   // or 2). Clamped at every boundary and forced to 0 whenever `clashEnabled` is
   // false, so "the mutator is on but clash is off" cannot be stored or read.
   clashKeyShift: 0 | 1 | 2;
+  // The non-clash capture card: a positive flag, ON only for a literal `true`, and
+  // independent of clash mode. No clamp (a boolean has no edges).
+  captureFx: boolean;
 };
 
 // The complete server-side state of one Ludo game, persisted to Redis.
@@ -309,7 +312,7 @@ export interface GameState {
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
   pausedReason?: string; // rationale for the pause (e.g. 'disconnect_grace')
   clash?: ClashState; // live clash QTE, absent when none is running
-  // The four room rules, frozen when the room is created (lobby.ts can still
+  // The five room rules, frozen when the room is created (lobby.ts can still
   // change them while it is WAITING), all phrased so that false is the standard
   // game: clash in the QTE, star squares protecting, prison exits needing a 6.
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
@@ -318,6 +321,9 @@ export interface GameState {
   // Key-shift mutator: 0, 1 or 2 switches of the required letter per clash. Always 0
   // while clash mode is off, and the default for a state written before it existed.
   clashKeyShift: 0 | 1 | 2;
+  // The non-clash capture card: a positive flag, independent of clash mode, and the
+  // default (false) for a state written before it existed.
+  captureFx: boolean;
   pendingCapture?: PendingCapture; // capture held until the clash resolves
   resultCardUntil?: number; // input freeze while the clash result card shows
   // The narrative the recon panel renders: the newest LOG_CAP lines, written by the
@@ -527,6 +533,7 @@ export type GameEvent =
       noSafeZones: boolean;
       freeExit: boolean;
       clashKeyShift: 0 | 1 | 2;
+      captureFx: boolean;
     }
   // One line the ENGINE wrote to the room's channel (M3): "Game started", and the
   // universal "X has left". A player's own line never travels this way — it is

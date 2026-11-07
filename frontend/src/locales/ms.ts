@@ -630,6 +630,8 @@ export const ms = {
     noSafeZonesDesc: 'Petak bintang tidak lagi melindungi (hardcore)',
     freeExit: 'Keluar Bebas',
     freeExitDesc: 'Sebarang guling membebaskan penjara, bukan hanya 6',
+    captureFx: 'Kad Tangkapan',
+    captureFxDesc: 'Tunjuk kad di atas papan apabila anda menangkap buah',
     // Mutator pertukaran huruf. "Huruf", bukan "kekunci": pada tablet memang tiada
     // kekunci dan pad memaparkan huruf.
     clashKeyShift: 'Perubahan Mengejut Semasa Clash',
