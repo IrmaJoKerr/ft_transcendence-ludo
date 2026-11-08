@@ -26,8 +26,6 @@ import { ConnectionCounter } from './connection-counter';
 import {
   BOT_MOVE_STEP_MS,
   BOT_THINK_MS,
-  CAPTURE_CARD_GRACE_MS,
-  CAPTURE_CARD_MS,
   CLASH_EVENT_WINDOW_MS,
   EVENT_WINDOW_MS,
   IDLE_LOBBY_TIMEOUT_MS,
@@ -35,7 +33,11 @@ import {
   PING_TIMEOUT_MS,
   POST_GAME_TIMEOUT_MS,
 } from '../timing';
-import { DICE_ROLL_ANIM_MS } from '../__shared__/timing.constants';
+import {
+  CAPTURE_CARD_GRACE_MS,
+  CAPTURE_CARD_MS,
+  DICE_ROLL_ANIM_MS,
+} from '../__shared__/timing.constants';
 
 // Every delay lives in ../timing; these are socket-wiring limits, exported for the
 // contract harness. MAX_EVENT_BYTES is the largest inbound event socket.io buffers
@@ -195,17 +197,19 @@ export class SocketServer {
             this.botScheduler.schedule(event.gameId, baseDelay);
           } else {
             // A capture may paint the opt-in flash card on the clients. When the room turned
-            // that rule on, the bot waits the card out (plus a grace) so it never plays into
-            // a caption the human is still reading (25.9). The read is async and this frame
-            // is hot, so a store miss falls back to the plain delay rather than holding the
-            // bot forever.
+            // that rule on, the bot waits the walk out and THEN the card, so it never plays
+            // into a caption the human is still reading (25.9, amended in 25.17 item 7): the
+            // card is mounted in `finishMove()`, after the walk, so the two delays are added
+            // rather than maxed — a max fired the bot by the whole walk before the card even
+            // opened. The read is async and this frame is hot, so a store miss falls back to
+            // the plain delay rather than holding the bot forever.
             void this.store
               .loadGameState(event.gameId)
               .then((state) => {
                 const cardWait = state?.captureFx
                   ? CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS
                   : 0;
-                this.botScheduler.schedule(event.gameId, Math.max(baseDelay, cardWait));
+                this.botScheduler.schedule(event.gameId, baseDelay + cardWait);
               })
               .catch(() => this.botScheduler.schedule(event.gameId, baseDelay));
           }

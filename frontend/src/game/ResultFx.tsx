@@ -7,19 +7,36 @@ import { RESULT_FX_MS, RESULT_HEADLINE_READ_MS } from '../__shared__/timing.cons
 import { retroAudio } from '../utils/audio';
 
 /**
- * The two gestures a clash round can end on, named for what the round was about:
+ * The clash card's scene, played once for each outcome. Both are the SAME picture with
+ * the roles swapped, so `kind` chooses only whose colour is on the ink:
  *
- *   capture  the attacker won — the beam punctures the defender's dome and a layer
- *            goes out (a wall) or the captured piece falls (a 1v1). At n === 1 on a
- *            wall it is the total breach: the last layer collapses and the bloom fires.
- *   repulse  the defender won — the beam meets the dome, the barrier flares, the beam
- *            deflects and the attacker's piece is dragged off. One shape at any n,
- *            because the wall is not what the round was about.
+ *   capture  the attacker won — the attacker's beam strikes the defender, then the
+ *            attacker's cell closes on it.
+ *   repulse  the defender won — the defender's beam strikes the attacker, then the
+ *            defender's cell closes on it.
  *
- * A single `n` (the layer count) parameterises the whole set, so the five object
- * animations of the first cut collapse into two readable gestures.
+ * The cast never changes: the attacker stands in the lane on the left, the defender on
+ * its square on the right, and both are drawn whichever way the round went, because a
+ * clip stops being one clip if the cast changes. A wall's defender is its dome instead
+ * of a piece, so a wall draws the attacker and the rings, and the loser is the dome on a
+ * capture but the attacker on a repulse.
+ *
+ * A single `n` (the layer count) parameterises the wall, so the five object animations of
+ * the first cut stay collapsed into one scene.
  */
 export type ResultFxKind = 'capture' | 'repulse';
+
+// The cell's two beats as percentages of the gesture. They are declared here and
+// interpolated into the keyframes below, so the sound table's snap can be DERIVED from
+// the instant the bars actually land instead of agreeing with it by hand: the cell is
+// down at 59 % of 1900 ms, i.e. 1121 ms, 589 ms after the beam's 247 ms impact.
+const CAGE_START_PCT = 44;
+const CAGE_LAND_PCT = 59;
+const CAGE_LAND_AT_MS = Math.round((RESULT_FX_MS * CAGE_LAND_PCT) / 100);
+// How far the cell travels: its own width, so it starts clear of the piece it closes on.
+const CAGE_TRAVEL_PX = 52;
+// The beam starts a full stage clear of its own tail, on the shooter's side.
+const BEAM_TRAVEL_PX = 150;
 
 // The keyframes, injected once for however many cards render them. Durations are NOT
 // written in here: `fx()` builds each `animation` string from RESULT_FX_MS minus that
@@ -41,9 +58,10 @@ function ensureKeyframes() {
         from { opacity: 0; }
         to   { opacity: 1; }
       }
-      /* capture: the beam leaves the attacker and reaches the dome (0-260 ms). */
+      /* the strike: the beam leaves the winner and crosses the lane (0-260 ms). It
+         enters from the shooter's side, so the tail direction is per-instance. */
       @keyframes fxBeam {
-        0%   { transform: translateX(-150px); opacity: 0; }
+        0%   { transform: translateX(var(--beamFrom, -${BEAM_TRAVEL_PX}px)); opacity: 0; }
         4%   { opacity: 1; }
         13%  { transform: translateX(0); opacity: 1; }
         20%  { transform: translateX(0); opacity: 0; }
@@ -89,41 +107,33 @@ function ensureKeyframes() {
         50%      { transform: scale(1); opacity: .85; }
         58%,100% { transform: scale(1); opacity: .72; }
       }
-      /* the cage slams down over a capture (1120-1320). */
+      /* the cell closes on the loser, slamming in from the winner's side, and holds
+         (${CAGE_START_PCT}-${CAGE_LAND_PCT} %, i.e. ${Math.round((RESULT_FX_MS * CAGE_START_PCT) / 100)}-${CAGE_LAND_AT_MS} ms —
+         ~600 ms after the 247 ms strike). */
       @keyframes fxCage {
-        0%, 54%  { transform: translateY(-52px); opacity: 0; }
-        58%      { opacity: 1; }
-        69%      { transform: translateY(0); opacity: 1; }
-        100%     { transform: translateY(0); opacity: 1; }
+        0%, ${CAGE_START_PCT}% { transform: translateX(var(--cageFrom, -${CAGE_TRAVEL_PX}px)); opacity: 0; }
+        ${CAGE_START_PCT + 4}%      { opacity: 1; }
+        ${CAGE_LAND_PCT}%      { transform: translateX(0); opacity: 1; }
+        100%     { transform: translateX(0); opacity: 1; }
       }
-      /* repulse: the barrier flares (260-420), the beam deflects (420-700). */
-      @keyframes fxBarrierFlare {
-        0%, 13% { opacity: 0; }
-        17%     { opacity: .9; }
-        22%     { opacity: 0; }
-        100%    { opacity: 0; }
+      /* the bars are energy, not steel: an irregular flicker as the cell holds its
+         prisoner. Opacity only — a filter is the one thing that costs frames here. */
+      @keyframes fxArc {
+        0%, ${CAGE_START_PCT}% { opacity: 0; }
+        ${CAGE_START_PCT + 4}%      { opacity: .82; }
+        52%      { opacity: 1; }
+        56%      { opacity: .7; }
+        ${CAGE_LAND_PCT}%      { opacity: 1; }
+        66%      { opacity: .88; }
+        72%,100% { opacity: 1; }
       }
-      @keyframes fxDeflect {
-        0%, 22%  { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-        25%      { opacity: 1; }
-        36%      { transform: translate(-46px, -40px) rotate(-42deg); opacity: 0; }
-        100%     { opacity: 0; }
-      }
-      @keyframes fxDragOff {
-        0%, 22%  { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        36%      { transform: translate(-120px, 46px) rotate(-22deg); opacity: 0; }
-        100%     { transform: translate(-120px, 46px) rotate(-22deg); opacity: 0; }
-      }
-      /* 1v1 capture: the field cracks and the piece falls (no bloom). */
+      /* the strike lands: the field cracks under the loser and stays cracked (18-28 %).
+         The loser itself never moves — it stands exactly where it was struck until the
+         bars close on it (25.18). */
       @keyframes fxFieldCrack {
         0%, 13%  { opacity: 0; }
         18%      { opacity: .95; }
         28%,100% { opacity: .55; }
-      }
-      @keyframes fxPieceFall {
-        0%, 22%  { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-        36%      { transform: translate(8px, 44px) rotate(72deg); opacity: .15; }
-        100%     { transform: translate(8px, 44px) rotate(72deg); opacity: 0; }
       }
       /* WALL BROKEN reads in the read window (1900-2900): two pulses at most. */
       @keyframes fxBannerPulse {
@@ -172,6 +182,27 @@ const BANNER_Y = 162;
 const BLOOM_R = Math.round(0.85 * LAYER_R[MAX_LAYERS - 1]); // ~60
 const ONE_ON_ONE_PIECE_X = DOME_CX;
 const ONE_ON_ONE_PIECE_Y = 84;
+// The cast: the attacker in the lane, the defender on its square, one line for both.
+// `PIECE_W` is the glyph's own 11 units at the scale the card draws it.
+const GLYPH_SCALE = 3;
+const PIECE_W = 11 * GLYPH_SCALE; // 33
+const ATTACKER_GLYPH_X = 8;
+const DEFENDER_GLYPH_X = ONE_ON_ONE_PIECE_X - 16; // 134
+const GLYPH_Y = ONE_ON_ONE_PIECE_Y - 12; // 72
+// The widest x BOTH cards can show: the flash window's own width. A mark drawn past it
+// would be cut on the small card and kept on the big one, which is the one difference
+// the two cards are not allowed to have (25.18).
+const SHARED_X_MAX = 192;
+
+// The clash stage's own cap, read by `ClashOverlay` so the two cards cannot drift apart.
+export const CLASH_STAGE_MAX_PX = 420;
+// The flash card is the clash stage at 0.8: the same 4:3 and the same pixels per unit
+// (420 / 240 = 336 / 192 = 1.75), showing the side of the frame both pieces stand on.
+// 192 x 144 is 0.8 of the stage in BOTH directions, and the cell's own box (y 54-120)
+// sits dead centre in the 144 units it shows — 39 above, 39 below.
+export const FLASH_CARD_STAGE_MAX_PX = 336;
+export const FLASH_CARD_VIEWBOX = '0 15 192 144';
+export const FLASH_CARD_ASPECT = 192 / 144;
 
 // An eight-point star, centred on the impact, for the puncture flash.
 const starAt = (cx: number, cy: number, r = 9) =>
@@ -181,14 +212,14 @@ const starAt = (cx: number, cy: number, r = 9) =>
 
 
 /**
- * The result card's animation stage: one gesture per outcome, played alongside the
- * text rather than before it. `attacker` and `defender` are the round's two seats and
- * the colours do the explaining — the beam and the bloom are the attacker's, the dome
- * and the barrier are the defender's — so both gestures stay readable with no text.
- * `n` is the layer count (remaining defenders + 1); `totalRounds > 1` says the square
- * is a wall, and gates the bloom and the `banner` to the total breach. Cosmetics only:
- * no input, `aria-hidden`, and under `prefers-reduced-motion` every shape becomes a
- * cross-fade of the same length, so the card's timing never moves.
+ * The result card's animation stage: one scene, played alongside the text rather than
+ * before it. `attacker` and `defender` are the round's two seats, and the winner's colour
+ * is on every mark — the beam, the strike and the bars — so the picture says who won
+ * without a word, and the loser is always the piece inside the cell. `n` is the layer
+ * count (remaining defenders + 1); `totalRounds > 1` says the square is a wall, and gates
+ * the bloom and the `banner` to the total breach. Cosmetics only: no input, `aria-hidden`,
+ * and under `prefers-reduced-motion` every shape becomes a cross-fade of the same length,
+ * so the card's timing never moves.
  */
 export function ResultFx({
   kind,
@@ -198,6 +229,7 @@ export function ResultFx({
   totalRounds,
   banner,
   card = 'clash',
+  viewBox = `0 0 ${VB_W} ${VB_H}`,
 }: {
   kind: ResultFxKind;
   attacker: PlayerColor;
@@ -206,14 +238,24 @@ export function ResultFx({
   totalRounds: number;
   banner?: string;
   // Where the card lives, which only changes its SOUND palette (25.5 item 5): the clash
-  // card owns all six beats, while a flash card is silent except one cage, because the
-  // board's own capture burst already played the hit at the cell.
+  // card owns every beat, while a flash card plays only the cell, because the board's own
+  // capture burst already fired the hit at the cell.
   card?: 'clash' | 'flash';
+  // The visible window into the stage. The clash card shows all of it; the flash card
+  // shows `FLASH_CARD_VIEWBOX`, a 0.8-scaled crop of the same frame at the same pixels
+  // per unit, so the two clips are one clip (25.17 item 3).
+  viewBox?: string;
 }) {
   useEffect(ensureKeyframes, []);
   const reduced = useReducedMotion();
   const attackerColor = COL[attacker].base;
   const defenderColor = COL[defender].base;
+  // Who won, and therefore whose colour is on every mark and whose side the cell slams in
+  // from: `capture` is the attacker's win, `repulse` the defender's. That is the only
+  // thing `kind` decides (25.18).
+  const attackerWon = kind === 'capture';
+  const winnerColor = attackerWon ? attackerColor : defenderColor;
+  const loserColor = attackerWon ? defenderColor : attackerColor;
 
   // One clock for the whole gesture: an element that starts `delayMs` late gets exactly
   // RESULT_FX_MS - delayMs of animation, so its last frame IS the last frame of the
@@ -230,80 +272,113 @@ export function ResultFx({
   const total = Math.max(1, Math.trunc(totalRounds) || 1);
   const isWall = total > 1;
   const layers = Math.min(Math.max(1, Math.trunc(n) || 1), MAX_LAYERS);
-  const isOneOnOne = kind === 'capture' && !isWall;
-  const isBreach = kind === 'capture' && isWall && layers === 1;
-  // The dome is drawn for a wall (or a repulse's intact barrier); a 1v1 has no wall.
-  const domeCount = isOneOnOne ? 0 : kind === 'repulse' ? Math.min(total, MAX_LAYERS) : layers;
+  // A single-defender round is piece-level in EITHER direction: two glyphs, no dome.
+  const isPieceLevel = !isWall;
+  const isBreach = attackerWon && isWall && layers === 1;
+  // A wall's defender is its dome, so the loser is the dome on a capture (the wall is
+  // being broken) and the attacker on a repulse (the wall stood).
+  const loserIsDome = isWall && attackerWon;
+  const domeCount = !isWall ? 0 : attackerWon ? layers : Math.min(total, MAX_LAYERS);
   const outerR = LAYER_R[Math.max(0, domeCount - 1)];
-  // The beam lands on the current outer layer's 45° flank (a wall) or the captured
-  // piece's flank (a 1v1).
-  const impactX = isOneOnOne
-    ? Math.round(ONE_ON_ONE_PIECE_X - 16)
-    : Math.round(DOME_CX - Math.SQRT1_2 * outerR);
-  const impactY = isOneOnOne
-    ? ONE_ON_ONE_PIECE_Y
-    : Math.round(DOME_BASE_Y - Math.SQRT1_2 * outerR);
   const arc = (r: number) =>
     `M ${DOME_CX - r} ${DOME_BASE_Y} A ${r} ${r} 0 0 1 ${DOME_CX + r} ${DOME_BASE_Y}`;
 
-  // Cage footprint: over the dome, or around the captured piece.
-  const cageHalf = isOneOnOne ? 26 : outerR + 6;
-  const cageTopY = isOneOnOne ? ONE_ON_ONE_PIECE_Y - 30 : DOME_BASE_Y - outerR - 6;
-  const cageBars = 5;
-  const steel = '#cfc9e6';
+  // The strike: from the winner's front face to the loser's, both pieces on one line. The
+  // tail sits 6 units inside the shooter's glyph, so the beam leaves a piece instead of
+  // crossing an empty lane (25.17 item 2).
+  const BEAM_INSET = 6;
+  const domeFlankX = Math.round(DOME_CX - Math.SQRT1_2 * outerR);
+  const domeFlankY = Math.round(DOME_BASE_Y - Math.SQRT1_2 * outerR);
+  const beamFrom = attackerWon
+    ? ATTACKER_GLYPH_X + PIECE_W - BEAM_INSET
+    : isWall
+      ? domeFlankX
+      : DEFENDER_GLYPH_X + BEAM_INSET;
+  const impactX = attackerWon
+    ? isWall
+      ? domeFlankX
+      : DEFENDER_GLYPH_X
+    : ATTACKER_GLYPH_X + PIECE_W;
+  const impactY = loserIsDome ? domeFlankY : ONE_ON_ONE_PIECE_Y;
+  const beamX = Math.min(beamFrom, impactX);
+  const beamW = Math.abs(impactX - beamFrom);
+  // The white-hot head sits 12 units behind the impact, i.e. back toward the shooter.
+  const hotX = attackerWon ? impactX - 12 : impactX - 2;
 
-  // Six sounds, one per beat, on one table (25.5). Armed once per mounted card and
-  // cleared on unmount, so a chain round that unmounts early leaves no timer behind.
-  // Every offset lands by 1120 ms, so the 1900-2900 read window is silent under the
-  // banner. The capture path plays beam → puncture → a layer out → (bloom, breach only)
-  // → the cage; a repulse swaps the puncture for the parry and ends on the failure.
+  // The cell: it closes on the LOSER, whatever the loser is — the attacker's glyph on a repulse, the defender's on a
+  // capture, the dome on a wall capture (the wall is being broken) — and it is clamped to x 0, because the left-hand cell
+  // over the attacker (centre 24.5, half-width 26) would otherwise start at -1.5 and be cut by the stage's edge on one card
+  // and not the other.
+  const cageBars = 5;
+  // A capture's cell keeps the footprint the old drop had (centred on DOME_CX, x 124-176), so the clash card's own look is
+  // unchanged there; a repulse's sits over the attacker.
+  const loserCx = attackerWon || loserIsDome ? DOME_CX : ATTACKER_GLYPH_X + PIECE_W / 2;
+  const cageHalf = loserIsDome ? outerR + 6 : 26;
+  const cageCx = loserIsDome ? DOME_CX : Math.max(cageHalf, loserCx);
+  const cageTopY = loserIsDome ? DOME_BASE_Y - outerR - 6 : ONE_ON_ONE_PIECE_Y - 30;
+  const cageH = DOME_BASE_Y - cageTopY;
+  // The bars slam in from the winner's side — the attacker is on the left, the defender on
+  // the right — so the direction is the outcome's own and needs no extra field.
+  const cageFrom = `${attackerWon ? -CAGE_TRAVEL_PX : CAGE_TRAVEL_PX}px`;
+  const beamEntry = `${attackerWon ? -BEAM_TRAVEL_PX : BEAM_TRAVEL_PX}px`;
+  // The floor. A wall's is the stage's own width (a dome is wider than any window); a
+  // piece-level one is the cell's, and it stops at x 192, the widest both cards can show,
+  // so the flash card never cuts a mark the clash card keeps.
+  const floorX1 = isPieceLevel
+    ? Math.max(0, cageCx - cageHalf - 16)
+    : DOME_CX - LAYER_R[MAX_LAYERS - 1] - 18;
+  const floorX2 = isPieceLevel
+    ? Math.min(SHARED_X_MAX, cageCx + cageHalf + 16)
+    : DOME_CX + LAYER_R[MAX_LAYERS - 1] + 18;
+
+  // Four sounds on one table, the same four whichever seat won, because the scene is the
+  // same scene: the beam, the strike, the bloom on a breach, and the cell. The cell's beat
+  // is the instant the bars land, derived from the keyframe's own percentage rather than
+  // counted by hand, so the snap is heard ON the slam instead of 191 ms before it. Armed
+  // once per mounted card and cleared on unmount, so a chain round that unmounts early
+  // leaves no timer behind; nothing is scheduled after the cell, so the read window is
+  // silent under the banner.
   useEffect(() => {
-    // A flash card adds only the cage (~1000 ms): the board's own burst already fired the
-    // hit at the cell, so the rest of the palette stays the clash's (25.5 item 5).
+    // A flash card plays the cell alone: the board's own burst already fired the hit.
     if (card === 'flash') {
-      const timer = window.setTimeout(() => retroAudio.playCageSnap(), 1000);
+      const timer = window.setTimeout(() => retroAudio.playCageSnap(), CAGE_LAND_AT_MS);
       return () => window.clearTimeout(timer);
     }
     const beats: Array<{ at: number; play: () => void }> = [
       { at: 0, play: () => retroAudio.playLaserBeam() },
+      { at: 260, play: () => retroAudio.playBarrierPuncture() },
     ];
-    if (kind === 'repulse') {
-      beats.push({ at: 260, play: () => retroAudio.playBarrierDeflect() });
-      beats.push({ at: 420, play: () => retroAudio.playAttackFailed() });
-    } else {
-      beats.push({ at: 260, play: () => retroAudio.playBarrierPuncture() });
-      beats.push({ at: 420, play: () => retroAudio.playCageSnap() });
-      if (isBreach) beats.push({ at: 700, play: () => retroAudio.playBreachBloom() });
-      beats.push({ at: 1120, play: () => retroAudio.playCageSnap() });
-    }
+    if (isBreach) beats.push({ at: 700, play: () => retroAudio.playBreachBloom() });
+    beats.push({ at: CAGE_LAND_AT_MS, play: () => retroAudio.playCageSnap() });
     const timers = beats.map(({ at, play }) => window.setTimeout(play, at));
     return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [kind, isBreach, card]);
+  }, [isBreach, card]);
 
   return (
     <svg
       aria-hidden='true'
-      viewBox={`0 0 ${VB_W} ${VB_H}`}
+      viewBox={viewBox}
       width='100%'
       height='100%'
       style={{ display: 'block', overflow: 'hidden', pointerEvents: 'none' }}
     >
-      {/* the ground the dome stands on */}
+      {/* the floor the loser stands on */}
       <line
-        x1={DOME_CX - LAYER_R[MAX_LAYERS - 1] - 18}
+        x1={floorX1}
         y1={DOME_BASE_Y}
-        x2={DOME_CX + LAYER_R[MAX_LAYERS - 1] + 18}
+        x2={floorX2}
         y2={DOME_BASE_Y}
-        stroke={defenderColor}
+        stroke={isPieceLevel ? loserColor : defenderColor}
         strokeOpacity='.22'
         strokeWidth='2'
       />
 
-      {/* the dome: a wall's shrinking rings, or a repulse's intact barrier */}
-      {!isOneOnOne &&
+      {/* a wall: its shrinking rings. A repulse leaves all of them standing, because the
+          wall is the defender and the defender won. */}
+      {isWall &&
         Array.from({ length: domeCount }, (_, i) => {
           const r = LAYER_R[i];
-          const isTopLayer = kind === 'capture' && i === domeCount - 1;
+          const isTopLayer = attackerWon && i === domeCount - 1;
           const anim = !isTopLayer ? undefined : isBreach ? fx('fxLayerCollapse') : fx('fxLayerOut');
           return (
             <path
@@ -323,112 +398,92 @@ export function ResultFx({
         })}
 
 
-      {/* a 1v1: the captured piece stands where a dome would be, then falls */}
-      {isOneOnOne && (
-        <>
-          <g style={{ animation: fx('fxFieldCrack') }}>
-            <path
-              d={`M ${ONE_ON_ONE_PIECE_X - 22} ${DOME_BASE_Y} L ${ONE_ON_ONE_PIECE_X - 8} ${DOME_BASE_Y - 8} L ${ONE_ON_ONE_PIECE_X - 2} ${DOME_BASE_Y}`}
-              fill='none'
-              stroke='#e8e2ff'
-              strokeOpacity='.85'
-              strokeWidth='1.5'
-            />
-            <path
-              d={`M ${ONE_ON_ONE_PIECE_X + 4} ${DOME_BASE_Y} L ${ONE_ON_ONE_PIECE_X + 14} ${DOME_BASE_Y - 6} L ${ONE_ON_ONE_PIECE_X + 24} ${DOME_BASE_Y}`}
-              fill='none'
-              stroke='#e8e2ff'
-              strokeOpacity='.85'
-              strokeWidth='1.5'
-            />
-          </g>
-          <g style={{ ...pivot, animation: fx('fxPieceFall') }}>
-            <g
-              transform={`translate(${ONE_ON_ONE_PIECE_X - 16} ${ONE_ON_ONE_PIECE_Y - 12}) scale(3)`}
-              shapeRendering='crispEdges'
-            >
-              <path d={PIECE_GLYPH[defender]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
-              <path d={PIECE_GLYPH[defender]} fill={defenderColor} />
-            </g>
-          </g>
-        </>
+      {/* the cast, at the same two places whichever seat won: the attacker in the lane,
+          the defender on its square. A clip stops being one clip if the cast changes, so
+          neither piece is gated on the outcome (25.17 item 2). A wall's defender is its
+          dome, so only the rings are drawn for it above. */}
+      <g
+        transform={`translate(${ATTACKER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
+        shapeRendering='crispEdges'
+      >
+        <path d={PIECE_GLYPH[attacker]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
+        <path d={PIECE_GLYPH[attacker]} fill={attackerColor} />
+      </g>
+      {isPieceLevel && (
+        <g
+          transform={`translate(${DEFENDER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
+          shapeRendering='crispEdges'
+        >
+          <path d={PIECE_GLYPH[defender]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
+          <path d={PIECE_GLYPH[defender]} fill={defenderColor} />
+        </g>
       )}
 
-      {/* the beam — every gesture starts here */}
-      <g style={{ animation: fx('fxBeam') }}>
-        <rect x='8' y={impactY - 3} width={Math.max(10, impactX - 8)} height='6' rx='3' fill={attackerColor} />
-        <rect x={impactX - 12} y={impactY - 5} width='14' height='10' rx='4' fill='#ffffff' opacity='.7' />
+      {/* the strike lands: the field cracks under the loser. The loser itself never moves
+          — it stands where it was struck until the bars close on it (25.18). */}
+      {isPieceLevel && (
+        <g style={{ animation: fx('fxFieldCrack') }}>
+          <path
+            d={`M ${loserCx - 22} ${DOME_BASE_Y} L ${loserCx - 8} ${DOME_BASE_Y - 8} L ${loserCx - 2} ${DOME_BASE_Y}`}
+            fill='none'
+            stroke='#e8e2ff'
+            strokeOpacity='.85'
+            strokeWidth='1.5'
+          />
+          <path
+            d={`M ${loserCx + 4} ${DOME_BASE_Y} L ${loserCx + 14} ${DOME_BASE_Y - 6} L ${loserCx + 24} ${DOME_BASE_Y}`}
+            fill='none'
+            stroke='#e8e2ff'
+            strokeOpacity='.85'
+            strokeWidth='1.5'
+          />
+        </g>
+      )}
+
+      {/* the strike: the winner's beam, entering from the winner's own side */}
+      <g style={{ animation: fx('fxBeam'), '--beamFrom': beamEntry } as CSSProperties}>
+        <rect x={beamX} y={impactY - 3} width={Math.max(10, beamW)} height='6' rx='3' fill={winnerColor} />
+        <rect x={hotX} y={impactY - 5} width='14' height='10' rx='4' fill='#ffffff' opacity='.7' />
       </g>
 
+      {/* where it lands: the puncture star blooms on the loser, in the winner's colour */}
+      <path
+        d={starAt(impactX, impactY)}
+        fill='#ffffff'
+        stroke={winnerColor}
+        strokeWidth='1.5'
+        style={{ ...pivot, animation: fx('fxPuncture') }}
+      />
 
-      {/* where the beam lands: a puncture starburst (capture) or a barrier flare (repulse) */}
-      {kind === 'capture' && (
-        <path
-          d={starAt(impactX, impactY)}
-          fill='#ffffff'
-          stroke={attackerColor}
-          strokeWidth='1.5'
-          style={{ ...pivot, animation: fx('fxPuncture') }}
-        />
-      )}
-      {kind === 'repulse' && (
-        <>
-          <ellipse
-            cx={impactX}
-            cy={impactY}
-            rx={outerR * 0.5}
-            ry={outerR * 0.5}
-            fill={defenderColor}
-            style={{ ...pivot, animation: fx('fxBarrierFlare') }}
-          />
-          <rect
-            x={impactX}
-            y={impactY - 3}
-            width='40'
-            height='6'
-            rx='3'
-            fill={attackerColor}
-            style={{ ...pivot, animation: fx('fxDeflect') }}
-          />
-          <g style={{ ...pivot, animation: fx('fxDragOff') }}>
-            <g transform={`translate(${impactX - 42} ${impactY + 8}) scale(2)`} shapeRendering='crispEdges'>
-              <path d={PIECE_GLYPH[attacker]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
-              <path d={PIECE_GLYPH[attacker]} fill={attackerColor} />
-            </g>
-          </g>
-        </>
-      )}
-
-      {/* the bloom: the total breach only, two rings + a cap in the victor's colour */}
+      {/* the bloom: the total breach only, two rings + a cap in the winner's colour */}
       {isBreach && (
         <g transform={`translate(${impactX} ${impactY})`}>
-          <circle r={BLOOM_R} fill='none' stroke={attackerColor} strokeWidth='3' style={{ ...pivot, animation: fx('fxBloomRing') }} />
+          <circle r={BLOOM_R} fill='none' stroke={winnerColor} strokeWidth='3' style={{ ...pivot, animation: fx('fxBloomRing') }} />
           <circle r={Math.round(BLOOM_R * 0.62)} fill='none' stroke='#ffffff' strokeWidth='2' style={{ ...pivot, animation: fx('fxBloomRing2') }} />
-          <circle r={Math.round(BLOOM_R * 0.5)} fill={attackerColor} style={{ ...pivot, animation: fx('fxBloomCap') }} />
+          <circle r={Math.round(BLOOM_R * 0.5)} fill={winnerColor} style={{ ...pivot, animation: fx('fxBloomCap') }} />
         </g>
       )}
 
 
-      {/* the cage slams over a capture, never a repulse */}
-      {kind === 'capture' && (
-        <g style={{ animation: fx('fxCage') }}>
-          <rect x={DOME_CX - cageHalf} y={cageTopY} width={cageHalf * 2} height='4' rx='2' fill={steel} />
+      {/* the cell slams closed on the loser — whichever seat won, because this is the
+          scene's ending — and then holds. The bars are the WINNER's colour, which is also
+          why the prisoner can never be lost in them: the prisoner is the loser, so bars
+          and prisoner are always two different seats. Two rects per bar, a core and a
+          glow; no filter, because a filter is the one thing that costs frames here. */}
+      <g style={{ animation: fx('fxCage'), '--cageFrom': cageFrom } as CSSProperties}>
+        <g style={{ animation: fx('fxArc') }}>
+          <rect x={cageCx - cageHalf} y={cageTopY} width={cageHalf * 2} height='4' rx='2' fill={winnerColor} />
           {Array.from({ length: cageBars }, (_, i) => {
-            const bx = DOME_CX - cageHalf + ((cageHalf * 2) / (cageBars - 1)) * i;
+            const bx = cageCx - cageHalf + ((cageHalf * 2) / (cageBars - 1)) * i;
             return (
-              <rect
-                key={`bar-${i}`}
-                x={bx - 1.5}
-                y={cageTopY}
-                width='3'
-                height={DOME_BASE_Y - cageTopY}
-                fill={steel}
-                opacity='.85'
-              />
+              <g key={`bar-${i}`}>
+                <rect x={bx - 3.5} y={cageTopY} width='7' height={cageH} fill={winnerColor} opacity='.2' />
+                <rect x={bx - 1.5} y={cageTopY} width='3' height={cageH} fill={winnerColor} opacity='.95' />
+              </g>
             );
           })}
         </g>
-      )}
+      </g>
 
       {/* WALL BROKEN reads only on the total breach, in the read window (1900-2900) */}
       {isBreach && banner && (
@@ -441,7 +496,7 @@ export function ResultFx({
             fontWeight={900}
             fontFamily='var(--font-display)'
             fill='none'
-            stroke={attackerColor}
+            stroke={winnerColor}
             strokeWidth='6'
             strokeOpacity='.35'
             style={{ animation: readFx('fxBannerPulse') }}
@@ -455,7 +510,7 @@ export function ResultFx({
             fontSize='27'
             fontWeight={900}
             fontFamily='var(--font-display)'
-            fill={attackerColor}
+            fill={winnerColor}
             stroke='#0b0118'
             strokeWidth='0.75'
             paintOrder='stroke'

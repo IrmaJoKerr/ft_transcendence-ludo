@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClashResult, GameViewState } from './reducer';
 import type { ClashPhase, PlayerColor } from './types';
 import { isMobileOS } from '../utils/device';
-import { ResultFx, type ResultFxKind } from './ResultFx';
+import { ResultFx, CLASH_STAGE_MAX_PX, type ResultFxKind } from './ResultFx';
 import {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
@@ -686,12 +686,13 @@ export function ClashOverlay({
   const showAttackerPad = touchMode && iAmInClash && (allowBothSides || attackerIsMe);
 
   // The stage never outgrows the room the pads leave (25.13): one pad online, two in
-  // hotseat (the branch is `allowBothSides`). This is the same 420 px stage that used to
-  // letterbox a phone beside a fixed width, now capped by what the pads leave over. The
-  // height follows the width through the viewBox's 4:3, so a wider stage is a taller one.
+  // hotseat (the branch is `allowBothSides`). The cap is the one the flash card is a
+  // ratio of (`CLASH_STAGE_MAX_PX`, 25.17), so it lives beside the stage rather than here
+  // and the two cards cannot drift apart. The height follows the width through the
+  // viewBox's 4:3, so a wider stage is a taller one.
   const padCount = touchMode ? (allowBothSides ? 2 : 1) : 0;
   const padsCss = padCount ? `calc(${padCount} * ${TOUCH_BUTTON})` : '0px';
-  const stageWidth = `min(60vw, 420px, calc(100vw - ${padsCss} - 2 * ${TOUCH_EDGE_BUFFER}))`;
+  const stageWidth = `min(60vw, ${CLASH_STAGE_MAX_PX}px, calc(100vw - ${padsCss} - 2 * ${TOUCH_EDGE_BUFFER}))`;
 
   // Persistent "who's fighting" header: Defender LEFT / Attacker RIGHT,
   // mirroring the split the key sets already use.

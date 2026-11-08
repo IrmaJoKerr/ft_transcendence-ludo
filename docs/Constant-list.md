@@ -48,7 +48,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the eight both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1900, `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (added from the two), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/timing.constants.ts` | the twelve both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1900, `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (added from the two), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -645,11 +645,23 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 ### **13. Client timing**
 
 **Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
-The eight both builds count (the three clash windows, the result card's three and the two animations)
-are in `common/src/timing.constants.ts` 📦; the SPA reads `../__shared__/timing.constants` and the
-engine reads its own copy, so there is no second declaration to keep in step. The clash windows stay
-**presentation only**: the server sends absolute deadlines and the overlay follows those, so they
-decide the card animation, never the game state.
+The twelve both builds count (the three clash windows, the result card's three, the opt-in capture
+card's four and the two animations) are in `common/src/timing.constants.ts` 📦; the SPA reads
+`../__shared__/timing.constants` and the engine reads its own copy, so there is no second declaration
+to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
+the overlay follows those, so they decide the card animation, never the game state.
+
+**The opt-in capture card's clock** — shared, because three readers count it: the panel's fade, the
+client's roll guard, and the engine's bot pacing (`socket/server.ts`). It is *added* from its parts,
+never a guessed total, and the gesture it wraps is `RESULT_FX_MS` verbatim, so the card can never be
+shorter than the clip it plays.
+
+| Constant | Value | What it times |
+|---|---|---|
+| `CAPTURE_CARD_HOLD_MS` | 210 | the cell, held still AFTER the gesture stops (the gesture's own tail is 780 ms of a still cell) |
+| `CAPTURE_CARD_FADE_MS` | 300 | the panel's own fade out |
+| `CAPTURE_CARD_MS` | 2410 | the whole card: `RESULT_FX_MS` 1900 + the hold + the fade |
+| `CAPTURE_CARD_GRACE_MS` | 150 | the roll guard's slack past the card (a press inside it is dropped; the engine paces bots by it too) |
 
 **Key-shift presentation** — client-only, because the engine sends the absolute switch instants and the
 overlay schedules its own timers against them. Nothing here decides the game; the server judges a press
@@ -674,7 +686,6 @@ against the live letter on its own clock.
 | `DICE_BRAKE_SETTLE_MS` | 150 | near-miss face, then the true one |
 | `RESULTS_MODAL_DELAY_MS` | 900 | beat after the last move before the results modal |
 | `PENDING_MOVE_GUARD_MS` | 3000 | safety net for a move that never answers |
-| `CAPTURE_CARD_GRACE_MS` | 150 | the opt-in flash card's tail: a roll press landing inside it is dropped (the engine paces bots by the same value) |
 | `CARD_HOLD_MARGIN_MS` | 200 | the receipt's one-way trip: card hold = `CLASH_RESULT_MS + this` |
 | `CAPTURE_FX_MS` | 600 | the capture burst's own length; interpolated into both copies' inline `animation` so the keyframes hold no 600 |
 | `CAPTURE_FX_CARD_OPACITY` | 0.7 | the burst as it reads over the clash result card |

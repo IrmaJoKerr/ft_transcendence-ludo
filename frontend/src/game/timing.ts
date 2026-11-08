@@ -1,9 +1,9 @@
-// The delays the client owns and no other build counts. The eight the engine also
-// counts (the three clash windows, the result card's two beats and the step and dice
-// animations) live in `common/src/timing.constants.ts` and reach this tree as
-// `../__shared__/timing.constants`, so there is nothing left to mirror. What stays here
-// is presentation only: the clash windows are still read as fallbacks, but the server
-// sends deadlines, so a wrong number here cannot move a game.
+// The delays the client owns and no other build counts. The twelve the engine also
+// counts (the three clash windows, the result card's two beats, the flash card's four
+// and the step and dice animations) live in `common/src/timing.constants.ts` and reach
+// this tree as `../__shared__/timing.constants`, so there is nothing left to mirror.
+// What stays here is presentation only: the clash windows are still read as fallbacks,
+// but the server sends deadlines, so a wrong number here cannot move a game.
 import { DICE_ROLL_ANIM_MS } from '../__shared__/timing.constants';
 
 export const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
@@ -23,8 +23,6 @@ export const DICE_BRAKE_FLOOR_MS = 450; // shortest braked roll, so nothing tele
 export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
-export const CAPTURE_CARD_MS = 1400; // the opt-in flash card's visible life on the board
-export const CAPTURE_CARD_GRACE_MS = 150; // the flash card's tail: a roll press inside it is dropped
 export const CARD_HOLD_MARGIN_MS = 200; // the receipt's one-way trip
 export const CAPTURE_FX_MS = 600; // the capture burst's own length (its keyframes read it)
 export const CAPTURE_FX_CARD_OPACITY = 0.7; // the burst as it reads over the clash card

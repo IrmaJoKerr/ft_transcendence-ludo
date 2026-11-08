@@ -8,16 +8,17 @@ import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
 import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../game/types';
 import { ClashOverlay } from '../game/ClashOverlay';
-import { ResultFx } from '../game/ResultFx';
+import { ResultFx, FLASH_CARD_ASPECT, FLASH_CARD_STAGE_MAX_PX, FLASH_CARD_VIEWBOX } from '../game/ResultFx';
 import { stepToCell } from '../game/boardGeometry';
 import {
+  CAPTURE_CARD_FADE_MS,
+  CAPTURE_CARD_GRACE_MS,
+  CAPTURE_CARD_MS,
   CLASH_RESULT_MS,
   DICE_ROLL_ANIM_MS,
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
 import {
-  CAPTURE_CARD_GRACE_MS,
-  CAPTURE_CARD_MS,
   CAPTURE_FX_AFTER_CARD_MS,
   CAPTURE_FX_CARD_OPACITY,
   CAPTURE_FX_MS,
@@ -862,11 +863,16 @@ export function Game() {
             } else {
               setCaptureFx({ color: e.color, to: e.to });
               // The opt-in flash card rides above the board's own burst (25.6). Only the
-              // non-clash path paints it, and only when the room turned the rule on. The
-              // victim colour is the captured piece's, read before the dispatch removes it.
-              if (view.captureFx) {
+              // non-clash path paints it, and only when the room turned the rule on. Both
+              // reads go through the ref: this handler is bound once per socket (the effect
+              // is keyed on the match, never on `view`), so its `view` is the mount-time one
+              // and `captureFx` there is `initialView`'s false forever. The ref is also
+              // pre-dispatch at this point, which is what keeps the victim in `pieces` for
+              // the lookup below.
+              const live = viewRef.current;
+              if (live.captureFx) {
                 const victim =
-                  view.pieces.find((p) => (e.capturedPieceIds ?? []).includes(p.id))?.color ??
+                  live.pieces.find((p) => (e.capturedPieceIds ?? []).includes(p.id))?.color ??
                   e.color;
                 setFlashCard({
                   id: ++flashCardSeq.current,
@@ -2690,10 +2696,14 @@ export function Game() {
                 marginRight: boardMarginRight,
               }}
             >
-              {/* The opt-in capture flash card (25.6): top centre of the board column, over
-                  the board and not the screen, no scrim, pointerEvents none. Event-driven:
-                  a capture mounts it, the next move or roll unmounts it, and the wrapper
-                  fades it out so an idle board never keeps a stale cage. */}
+              {/* The opt-in capture flash card (25.6, re-based in 25.17): top centre of the
+                  board column, over the board and not the screen, no scrim, pointerEvents
+                  none. Event-driven: a capture mounts it, the next move or roll unmounts it,
+                  and the wrapper fades it out so an idle board never keeps a stale cell.
+                  It plays the clash card's own scene at the clash stage's own 0.8 — same
+                  pixels per unit, same 4:3, same clock — so no clip is rescaled; only the
+                  window is smaller (the versus columns are cropped away) and the chrome is
+                  the clash card's, with 3 mm of padding instead of 44/56 px. */}
               {flashCard && (
                 <div
                   style={{
@@ -2701,11 +2711,21 @@ export function Game() {
                     top: 0,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    width: 'min(64%, 300px)',
-                    aspectRatio: '240 / 180',
+                    // 92 % of the board column, less the 3 mm padding on both sides, then
+                    // the ratio cap: 48vw is 0.8 of the clash stage's 60vw, so the two
+                    // stages cross 700 px together and are never in different regimes.
+                    width: `min(calc(92% - 2 * 3mm), 48vw, ${FLASH_CARD_STAGE_MAX_PX}px)`,
+                    aspectRatio: FLASH_CARD_ASPECT,
+                    boxSizing: 'content-box',
+                    padding: '3mm',
+                    borderRadius: 12,
+                    background: 'var(--bg-card)',
+                    border: 'var(--card-border-style)',
+                    boxShadow: 'var(--box-shadow)',
+                    overflow: 'hidden',
                     zIndex: 30,
                     pointerEvents: 'none',
-                    animation: `flash-card-out 260ms ease-in ${CAPTURE_CARD_MS - 260}ms both`,
+                    animation: `flash-card-out ${CAPTURE_CARD_FADE_MS}ms ease-in ${CAPTURE_CARD_MS - CAPTURE_CARD_FADE_MS}ms both`,
                   }}
                 >
                   <ResultFx
@@ -2716,6 +2736,7 @@ export function Game() {
                     n={1}
                     totalRounds={1}
                     card="flash"
+                    viewBox={FLASH_CARD_VIEWBOX}
                   />
                 </div>
               )}

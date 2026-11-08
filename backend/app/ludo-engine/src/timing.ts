@@ -1,7 +1,7 @@
-// Every delay the engine owns and no other build counts. The eight both builds count
-// (the three clash windows, the result card's two beats and the step and dice
-// animations) live in `common/src/timing.constants.ts` and reach this tree as
-// `./__shared__/timing.constants`, so there is nothing left to mirror.
+// Every delay the engine owns and no other build counts. The twelve both builds count
+// (the three clash windows, the result card's two beats, the flash card's four and the
+// step and dice animations) live in `common/src/timing.constants.ts` and reach this tree
+// as `./__shared__/timing.constants`, so there is nothing left to mirror.
 
 // --- clash QTE ----------------------------------------------------------------
 // The three clash windows and the result card's two beats are NOT here: both builds
@@ -53,11 +53,8 @@ export const CLASH_BOT_CASUAL_REACTION_MS = 500; // choice reaction: 400..600 ba
 // `common/src/timing.constants.ts`. These two are the engine's own pacing.
 export const BOT_MOVE_STEP_MS = 220; // the engine's slack over MOVE_STEP_ANIM_MS
 export const BOT_THINK_MS = 500; // flat pause before a bot acts
-// A non-clash capture may paint the opt-in flash card on the clients (25.6). The bot is
-// paced to wait the card out so it never plays into a caption the human is reading: the
-// card's own ~1400 ms plus the same 150 ms the client's roll guard uses (25.9).
-export const CAPTURE_CARD_MS = 1400; // the flash card's length, mirrored for pacing
-export const CAPTURE_CARD_GRACE_MS = 150; // matches the client's roll-guard grace
+// The flash card's four beats are shared too (25.17): the engine waits the card out, so
+// the wait is derived from the card's own parts rather than a second hand-counted number.
 
 // --- transport ----------------------------------------------------------------
 export const PING_INTERVAL_MS = 10 * 1000;
