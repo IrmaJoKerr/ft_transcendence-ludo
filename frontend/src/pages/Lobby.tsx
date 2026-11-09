@@ -969,7 +969,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       <span style={{ color: 'var(--text-muted)' }}>
                         {t('lobby.arenaModeLabel')}
                       </span>
-                      <span style={{ color: '#ffe600', fontWeight: 'bold' }}>
+                      <span style={{ color: 'var(--accent-yellow)', fontWeight: 'bold' }}>
                         {isLocal ? t('lobby.localHotseat') : t('lobby.pveArena')}
                       </span>
                     </div>
@@ -1151,7 +1151,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         textAlign: 'center',
                         fontSize: '0.82rem',
                         fontFamily: 'var(--font-mono)',
-                        color: canLaunch ? 'var(--state-on)' : '#ffe600',
+                        color: canLaunch ? 'var(--state-on)' : 'var(--accent-yellow)',
                         marginTop: 12,
                         lineHeight: 1.5,
                       }}

@@ -626,7 +626,7 @@ both specificity 0-1-0, so only source order decides.
 | `--bg-card` | `rgba(25, 10, 56, 0.85)` | card fill |
 | `--accent-cyan` | `#00f0ff` | primary accent (blue seat) |
 | `--accent-pink` | `#ff007f` | secondary accent (red seat), default border |
-| `--accent-yellow` | `#ffe600` | highlight (yellow seat) |
+| `--accent-yellow` | `#ffe600` | highlight (yellow seat), and the third state: a warning, a caution or an in-progress row |
 | `--accent-purple` | `#9d00ff` | gradient partner |
 | `--text-main` | `#ffffff` | body text |
 | `--text-muted` | `#b8a6e4` | secondary text |
@@ -666,7 +666,7 @@ reaches 4.6:1.
 | `--bg-card` | `rgba(43, 30, 21, 0.85)` | card fill |
 | `--accent-cyan` | `#5fb3b0` | primary accent (teal, lifted from `a1` for contrast) |
 | `--accent-pink` | `#e5340b` | secondary accent (hot red), default border |
-| `--accent-yellow` | `#ffb000` | highlight (amber) |
+| `--accent-yellow` | `#ffb000` | highlight (amber), and the third state: 9.05:1 on the card, 29.0° of hue from the avocado |
 | `--accent-purple` | `#0c5679` | gradient partner (deep blue) |
 | `--text-main` | `#ffe7bd` | body text (cream) |
 | `--text-muted` | `#c9b08a` | secondary text (sand) |
@@ -698,6 +698,16 @@ measured above. The pair also retires the two orphan channel tokens this section
 colour is the amber `--accent-yellow`, so it could not be right in both themes. Seat hues (`COL`, the two `SEAT_HUES`,
 `SEAT_COLOR`), the hero art and the mode chrome (the three lobby tickets, the rule chips, the tier badges, the rules
 pages) stay literal: colour is the seat, and a mode's colour is its name.
+
+**The third state (`--accent-yellow`)** 🎨 — added 2026-11-09 (`todo.md` [27](todo.md#warn-colour)). Three conditions,
+not two: on and off report through the pair above, and a caution, a warning or an in-progress row reports through the
+accent that already names the colour, so a `--state-warn` would be a second name for a value the accent owns and would
+drift from it. Synthwave's yellow is unchanged, which makes the 80s theme byte-identical at all 60 lines the pass moved;
+the 70s column is the amber measured above. What stays literal is an inventory rather than a rule of thumb
+(`frontend/scripts/check-theme-literals.mjs`, run by `prebuild` and `lint`): the four seat tables and the two seat maps,
+the mode chrome as whole objects (the amber ticket with its badge, divider and launch pill, whose pink and green
+siblings are literal), the two mode and rank hue tables, the hero art, the 70s piece accent, the theme row's swatch and
+the token block. Everything else that paints reads the token.
 
 **The 1970s piece palette — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four

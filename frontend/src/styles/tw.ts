@@ -287,7 +287,7 @@ export const PAY_TAG_BASE =
   'shrink-0 inline-flex items-center gap-1.5 whitespace-nowrap border-[1.5px] border-[rgba(0,240,255,.4)] rounded-lg py-[0.35em] px-[0.65em] text-[0.78rem] [font-family:var(--font-mono)] font-bold max-[520px]:text-[0.7rem]';
 
 export const PAY_TAG_WIN =
-  'border-[#ffe600] text-[#ffe600] bg-[rgba(255,230,0,.15)] shadow-[0_0_8px_rgba(255,230,0,.3)]';
+  'border-(--accent-yellow) text-(--accent-yellow) bg-[rgb(var(--accent-yellow-rgb)/.15)] shadow-[0_0_8px_rgb(var(--accent-yellow-rgb)/.3)]';
 
 export const PAY_TAG_RUNNER =
   'border-(--accent-cyan) text-(--accent-cyan) bg-[rgba(0,240,255,.15)]';

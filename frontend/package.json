@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "sync:shared": "node scripts/sync-shared.mjs",
+    "check:literals": "node scripts/check-theme-literals.mjs",
     "predev": "npm run sync:shared",
     "dev": "vite",
-    "prebuild": "npm run sync:shared",
+    "prebuild": "npm run sync:shared && npm run check:literals",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "lint": "oxlint && npm run check:literals",
     "preview": "vite preview"
   },
   "supportedArchitectures": {

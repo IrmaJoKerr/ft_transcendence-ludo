@@ -964,7 +964,7 @@ export function LudoLobby() {
                         background: 'rgba(5, 2, 18, 0.92)',
                         border: '1.5px solid var(--accent-cyan)',
                         borderRadius: 6,
-                        color: '#ffe600',
+                        color: 'var(--accent-yellow)',
                         padding: '0 10px',
                         fontSize: roomCodeFontSize,
                         fontWeight: 'bold',
@@ -1129,7 +1129,7 @@ export function LudoLobby() {
                                   style={{
                                     fontWeight: 'bold',
                                     fontSize: '0.82rem',
-                                    color: '#ffe600',
+                                    color: 'var(--accent-yellow)',
                                     fontFamily: 'var(--font-mono)',
                                     letterSpacing: '0.5px',
                                   }}

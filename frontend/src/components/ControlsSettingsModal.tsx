@@ -153,7 +153,7 @@ export function ControlsSettingsModal({
             {/* The goal is a count, not a key, so it stays plain text as it was. */}
             <div style={ROW}>
               <span>{t('gameExtra.goalColonLabel')}</span>
-              <span style={{ color: '#ffe600', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--accent-yellow)', fontFamily: 'var(--font-mono)' }}>
                 {t('gameExtra.goalValue')}
               </span>
             </div>

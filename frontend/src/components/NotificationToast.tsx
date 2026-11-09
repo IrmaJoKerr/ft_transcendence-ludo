@@ -47,7 +47,7 @@ function getToastInfo(
         tag: t('notifications.linkEstablishedTag'),
         badgeLabel: 'SYNC',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionFriendAccepted'),
       };
@@ -105,7 +105,7 @@ function getToastInfo(
         tag: t('notifications.matchCancelledTag'),
         badgeLabel: 'ABRT',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionMatchCancelled'),
       };
@@ -125,7 +125,7 @@ function getToastInfo(
         tag: t('notifications.matchAbandonedTag'),
         badgeLabel: 'LEFT',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: null,
         actionMessage: t('notifications.matchAbandonedText'),
       };
@@ -143,7 +143,7 @@ function getToastInfo(
         tag: t('notifications.friendDeclinedTag'),
         badgeLabel: 'LINK',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionFriendDeclined'),
       };
@@ -163,7 +163,7 @@ function getToastInfo(
         tag: t('notifications.friendOfflineTag'),
         badgeLabel: 'OFF',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: String(payload.displayName ?? from),
         actionMessage: t('notifications.actionFriendOffline', {
           displayName: payload.displayName ?? from,
@@ -176,7 +176,7 @@ function getToastInfo(
         tag: t('notifications.friendPlayingTag'),
         badgeLabel: 'INGAME',
         badgeColor: 'var(--accent-yellow, #ffe600)',
-        badgeBg: 'rgba(255, 230, 0, 0.18)',
+        badgeBg: 'rgb(var(--accent-yellow-rgb) / 0.18)',
         fromUser: String(payload.displayName ?? from),
         actionMessage: t('notifications.actionFriendPlaying', {
           displayName: payload.displayName ?? from,
@@ -509,7 +509,7 @@ function Toast({
                     fontFamily: 'var(--font-heading, monospace)',
                     fontSize: '0.82rem',
                     color: 'var(--accent-yellow, #ffe600)',
-                    textShadow: '0 0 8px rgba(255, 230, 0, 0.6)',
+                    textShadow: '0 0 8px rgb(var(--accent-yellow-rgb) / 0.6)',
                     letterSpacing: 1,
                     fontWeight: 'bold',
                   }}
@@ -707,7 +707,7 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(255, 230, 0, 0.12)',
+                background: 'rgb(var(--accent-yellow-rgb) / 0.12)',
                 border: '2px solid var(--accent-yellow, #ffe600)',
                 color: 'var(--accent-yellow, #ffe600)',
                 boxSizing: 'border-box',

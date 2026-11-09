@@ -107,8 +107,8 @@ function MiniDie({ value }: { value: number }) {
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                background: '#ffe600',
-                boxShadow: '0 0 4px #ffe600',
+                background: 'var(--accent-yellow)',
+                boxShadow: '0 0 4px var(--accent-yellow)',
               }}
             />
           ) : null}
@@ -2568,7 +2568,7 @@ export function Game() {
                                       : 'rgba(255, 255, 255, 0.14)'
                                 }`,
                                 background: armed
-                                  ? 'rgba(255, 230, 0, 0.2)'
+                                  ? 'rgb(var(--accent-yellow-rgb) / 0.2)'
                                   : 'rgba(25, 10, 56, 0.65)',
                                 color: armed ? 'var(--accent-yellow)' : '#ffffff',
                                 boxShadow: armed ? '0 0 14px var(--accent-yellow)' : 'none',
@@ -3064,7 +3064,7 @@ export function Game() {
                       style={{
                         fontFamily: 'var(--font-mono)',
                         fontSize: '0.72rem',
-                        color: isMyTurn ? '#ffe600' : 'var(--text-muted)',
+                        color: isMyTurn ? 'var(--accent-yellow)' : 'var(--text-muted)',
                       }}
                     >
                       {isRolling
@@ -3153,7 +3153,7 @@ export function Game() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           textAlign: 'center',
-                          background: breakerArmed ? 'rgba(255, 230, 0, 0.22)' : 'var(--btn-bg)',
+                          background: breakerArmed ? 'rgb(var(--accent-yellow-rgb) / 0.22)' : 'var(--btn-bg)',
                           borderColor: breakerArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
                           color: breakerArmed ? 'var(--accent-yellow)' : '#ffffff',
                           boxShadow: breakerArmed ? '0 0 18px var(--accent-yellow)' : 'none',
@@ -3645,7 +3645,7 @@ export function Game() {
                     padding: 16,
                     borderRadius: 6,
                     borderLeft: '4px solid var(--accent-yellow)',
-                    border: '1px solid rgba(255, 230, 0, 0.2)',
+                    border: '1px solid rgb(var(--accent-yellow-rgb) / 0.2)',
                   }}
                 >
                   <div
@@ -3853,7 +3853,7 @@ export function Game() {
                   <p
                     style={{
                       margin: 0,
-                      color: '#ffe600',
+                      color: 'var(--accent-yellow)',
                       fontWeight: 'bold',
                       fontSize: '1.05rem',
                       letterSpacing: '0.5px',
@@ -3878,7 +3878,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#ffe600',
+                    color: 'var(--accent-yellow)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -3892,13 +3892,13 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    border: '1px solid rgba(255, 230, 0, 0.2)',
+                    border: '1px solid rgb(var(--accent-yellow-rgb) / 0.2)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                   }}
                 >
-                  <div style={{ color: '#ffe600', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  <div style={{ color: 'var(--accent-yellow)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                     {t('gameExtra.rulesPage6Title')}
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
@@ -3909,7 +3909,7 @@ export function Game() {
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 6,
-                      borderLeft: '3px solid rgba(255, 230, 0, 0.35)',
+                      borderLeft: '3px solid rgb(var(--accent-yellow-rgb) / 0.35)',
                       paddingLeft: 10,
                     }}
                   >

@@ -323,8 +323,8 @@ export function Leaderboard() {
                                 fontSize: '1.5rem',
                                 fontFamily: 'var(--font-display)',
                                 fontWeight: 900,
-                                color: '#ffe600',
-                                textShadow: '0 0 10px rgba(255, 230, 0, 0.6)',
+                                color: 'var(--accent-yellow)',
+                                textShadow: '0 0 10px rgb(var(--accent-yellow-rgb) / 0.6)',
                               }}
                             >
                               #1
@@ -332,7 +332,7 @@ export function Leaderboard() {
                             <span
                               style={{
                                 fontSize: '0.72rem',
-                                color: '#ffe600',
+                                color: 'var(--accent-yellow)',
                                 fontFamily: 'var(--font-display)',
                                 fontWeight: 900,
                                 letterSpacing: '0.5px',
@@ -348,7 +348,7 @@ export function Leaderboard() {
                             style={{
                               padding: 2.5,
                               borderRadius: 8,
-                              background: 'linear-gradient(135deg, #ff1744, #ffe600)',
+                              background: 'linear-gradient(135deg, #ff1744, var(--accent-yellow))',
                               boxShadow: '0 0 16px rgba(255, 23, 68, 0.55)',
                             }}
                           >
@@ -362,7 +362,7 @@ export function Leaderboard() {
                                 height: 62,
                                 borderRadius: 6,
                                 background: 'rgba(10, 2, 28, 0.95)',
-                                color: '#ffe600',
+                                color: 'var(--accent-yellow)',
                                 display: 'grid',
                                 placeItems: 'center',
                                 fontWeight: 'bold',
@@ -676,7 +676,7 @@ export function Leaderboard() {
                                       ? '1.35rem'
                                       : '1rem',
                                   color: isRankOne
-                                    ? '#ffe600'
+                                    ? 'var(--accent-yellow)'
                                     : entry.rank === 2
                                       ? 'var(--accent-cyan)'
                                       : entry.rank === 3

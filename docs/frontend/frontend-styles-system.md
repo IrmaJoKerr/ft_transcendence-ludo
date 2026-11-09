@@ -77,12 +77,15 @@ Two themes ship, and both are token sets in the same stylesheet: **Synthwave '84
 --crt-scanline-opacity, --crt-flicker-opacity
 --window-header-bg, --window-header-text
 --state-on, --state-on-ink, --state-off   /* the pass/fail pair, see below */
+--accent-yellow                          /* the accent that is also the third state, see below */
 --accent-*-rgb, --state-on-rgb, --state-off-rgb, --ink-rgb, --shade-rgb, --bg-primary-rgb   /* `r g b`, read as `rgb(var(--x-rgb) / a)` */
 ```
 
 A component only ever references `var(--accent-cyan)` (and so on), so the colour comes from the stylesheet.
 
 **The state pair.** `--state-on` (`#00ff88` / avocado `#82903f`) and `--state-off` (`#ff0055` / cranberry rose `#e8697d`) are the only two colours that report a condition: on/off, joined/muted, valid/refused, met/missed, in/out. They are not accents, so they are not reused for a seat, a mode or a rule, and the two halves always move together (a row reads "on" by contrast with a row that reads "off"). `--state-on-ink` is the text that sits on a lit pill. Seat hues, the hero art and the mode chrome stay literal, because colour is the seat and a mode's colour is its name. Both halves moved together on 2026-11-09, which is why the accent pink that sat beside a moved green (the profile's defeats card, a lost match, the blocked card, the down delta) moved onto `--state-off` too: `--accent-pink` is the red seat's own hue, so it cannot report a failure. The pair also replaced the two unread channel tokens `--success-rgb` and `--warn-rgb`.
+
+**The third state.** `--accent-yellow` (`#ffe600` / amber `#ffb000`) is the caution: a warning, a caution or an in-progress row (an abandoned match, an empty photo slot, a room that cannot launch, a legal move). It is not a third `--state-*` token, because the accent already names the colour and a second name would drift from it, and it is never a verdict. It needed no new value: the 70s amber reads 9.05:1 on that theme's card and sits 29.0° of hue from the avocado and 50.8° from the rose, so the three conditions stay distinguishable. Seat hues, the hero art and the mode chrome stay literal (`todo.md` [27](todo.md#warn-colour)); everything that paints reads the token, and `scripts/check-theme-literals.mjs` (run by `prebuild` and `lint`) fails the build on a literal outside its named inventory.
 
 
 ---

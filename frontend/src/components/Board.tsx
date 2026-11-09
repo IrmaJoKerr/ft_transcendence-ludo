@@ -31,7 +31,7 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
           height: '100%',
           overflow: 'visible',
           filter: isLegal
-            ? 'drop-shadow(0 0 4px #ffe600) drop-shadow(0 0 8px #ffe600)'
+            ? 'drop-shadow(0 0 4px var(--accent-yellow)) drop-shadow(0 0 8px var(--accent-yellow))'
             : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
         }}
       >
@@ -48,7 +48,7 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
         height: '100%',
         overflow: 'visible',
         filter: isLegal
-          ? 'drop-shadow(0 0 4px #ffe600) drop-shadow(0 0 8px #ffe600)'
+          ? 'drop-shadow(0 0 4px var(--accent-yellow)) drop-shadow(0 0 8px var(--accent-yellow))'
           : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
       }}
       shapeRendering="crispEdges"

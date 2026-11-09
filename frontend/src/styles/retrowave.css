@@ -14,6 +14,9 @@
   --bg-card: rgba(25, 10, 56, 0.85);
   --accent-cyan: #00f0ff;
   --accent-pink: #ff007f;
+  /* The yellow accent and the third state: a caution reports this amber, where on
+     and off report the pair below (27). One value, two jobs, so a warning cannot
+     drift from the accent that names it. */
   --accent-yellow: #ffe600;
   --accent-purple: #9d00ff;
   --text-main: #ffffff;
@@ -103,6 +106,7 @@
   --bg-card: rgba(43, 30, 21, 0.85);
   --accent-cyan: #5fb3b0;
   --accent-pink: #e5340b;
+  /* The same two jobs as the block above: the era's amber, and the caution (27). */
   --accent-yellow: #ffb000;
   --accent-purple: #0c5679;
   --text-main: #ffe7bd;

@@ -45,9 +45,9 @@ const STATUS_STYLE: Record<string, { label: string; color: string; border: strin
   },
   playing: {
     label: 'In Game',
-    color: '#ffe600',
-    border: 'rgba(255, 230, 0, 0.4)',
-    bg: 'rgba(255, 230, 0, 0.12)',
+    color: 'var(--accent-yellow)',
+    border: 'rgb(var(--accent-yellow-rgb) / 0.4)',
+    bg: 'rgb(var(--accent-yellow-rgb) / 0.12)',
   },
   offline: {
     label: 'Offline',

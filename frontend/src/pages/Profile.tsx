@@ -1227,7 +1227,7 @@ export function Profile() {
                                     padding: '3px 9px',
                                     fontSize: '0.68rem',
                                     color: 'var(--accent-yellow)',
-                                    borderColor: 'rgba(255, 230, 0, 0.45)',
+                                    borderColor: 'rgb(var(--accent-yellow-rgb) / 0.45)',
                                     fontFamily: 'var(--font-display)',
                                     borderRadius: 4,
                                   }}
@@ -1249,7 +1249,7 @@ export function Profile() {
                                 {(uploadError || photoWarning) && (
                                   <span
                                     style={{
-                                      color: uploadError ? 'var(--state-off)' : '#ffe600',
+                                      color: uploadError ? 'var(--state-off)' : 'var(--accent-yellow)',
                                       fontSize: '0.66rem',
                                       fontFamily: 'var(--font-mono)',
                                       lineHeight: 1.45,
@@ -1600,8 +1600,8 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgba(12, 4, 30, 0.9)',
-                        border: '1.5px solid rgba(255, 230, 0, 0.4)',
-                        boxShadow: '0 0 14px rgba(255, 230, 0, 0.12)',
+                        border: '1.5px solid rgb(var(--accent-yellow-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-yellow-rgb) / 0.12)',
                         borderRadius: 7,
                         padding: '10px 14px',
                         textAlign: 'center',
@@ -1619,7 +1619,7 @@ export function Profile() {
                       </div>
                       <div
                         style={{
-                          color: '#ffe600',
+                          color: 'var(--accent-yellow)',
                           fontSize: '1.6rem',
                           fontWeight: 900,
                           fontFamily: 'var(--font-display)',
@@ -1631,7 +1631,7 @@ export function Profile() {
                       </div>
                       <div
                         style={{
-                          color: '#ffe600',
+                          color: 'var(--accent-yellow)',
                           fontSize: '0.65rem',
                           fontFamily: 'var(--font-display)',
                           marginTop: 2,
@@ -1809,15 +1809,15 @@ export function Profile() {
                               color: mainTab === 'achievements' ? '#ffffff' : 'var(--text-muted)',
                               background:
                                 mainTab === 'achievements'
-                                  ? 'rgba(255, 230, 0, 0.22)'
+                                  ? 'rgb(var(--accent-yellow-rgb) / 0.22)'
                                   : 'transparent',
                               borderColor:
                                 mainTab === 'achievements'
-                                  ? '#ffe600'
+                                  ? 'var(--accent-yellow)'
                                   : 'rgba(255, 255, 255, 0.15)',
                               boxShadow:
                                 mainTab === 'achievements'
-                                  ? '0 0 10px rgba(255, 230, 0, 0.35)'
+                                  ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.35)'
                                   : 'none',
                             }}
                           >
@@ -1831,7 +1831,7 @@ export function Profile() {
                         <div
                           style={{
                             fontSize: '0.72rem',
-                            color: mainTab === 'history' ? 'var(--accent-cyan)' : '#ffe600',
+                            color: mainTab === 'history' ? 'var(--accent-cyan)' : 'var(--accent-yellow)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 'bold',
                           }}
@@ -1875,9 +1875,9 @@ export function Profile() {
                                 const isAbandoned = g.status === 'ABANDONED';
                                 const tone = isAbandoned
                                   ? {
-                                      bg: 'rgba(255, 230, 0, 0.06)',
-                                      border: 'rgba(255, 230, 0, 0.34)',
-                                      fg: '#ffe600',
+                                      bg: 'rgb(var(--accent-yellow-rgb) / 0.06)',
+                                      border: 'rgb(var(--accent-yellow-rgb) / 0.34)',
+                                      fg: 'var(--accent-yellow)',
                                     }
                                   : isWin
                                     ? {
@@ -2161,7 +2161,7 @@ export function Profile() {
                                     width: `${achievementPercent}%`,
                                     height: '100%',
                                     background:
-                                      'linear-gradient(90deg, var(--accent-cyan), #ffe600)',
+                                      'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
                                     boxShadow: '0 0 12px rgba(0, 240, 255, 0.65)',
                                     transition: 'width 0.4s ease',
                                   }}
@@ -2197,10 +2197,10 @@ export function Profile() {
                                         ? 'rgba(38, 16, 72, 0.88)'
                                         : 'rgba(10, 4, 25, 0.45)',
                                       border: isUnlocked
-                                        ? '1.5px solid #ffe600'
+                                        ? '1.5px solid var(--accent-yellow)'
                                         : '1px dashed rgba(255, 255, 255, 0.12)',
                                       boxShadow: isUnlocked
-                                        ? '0 0 10px rgba(255, 230, 0, 0.18)'
+                                        ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.18)'
                                         : 'none',
                                       display: 'flex',
                                       flexDirection: 'column',
@@ -2215,14 +2215,14 @@ export function Profile() {
                                           height: 36,
                                           borderRadius: 6,
                                           background: isUnlocked
-                                            ? 'rgba(255, 230, 0, 0.18)'
+                                            ? 'rgb(var(--accent-yellow-rgb) / 0.18)'
                                             : 'rgba(255, 255, 255, 0.05)',
-                                          border: `1.5px solid ${isUnlocked ? '#ffe600' : 'rgba(255,255,255,0.1)'}`,
+                                          border: `1.5px solid ${isUnlocked ? 'var(--accent-yellow)' : 'rgba(255,255,255,0.1)'}`,
                                           display: 'grid',
                                           placeItems: 'center',
                                           fontSize: '1.2rem',
                                           color: isUnlocked
-                                            ? '#ffe600'
+                                            ? 'var(--accent-yellow)'
                                             : 'rgba(255, 255, 255, 0.4)',
                                           flexShrink: 0,
                                         }}
@@ -2284,10 +2284,10 @@ export function Profile() {
                                               borderRadius: 2,
                                               width: `${pct}%`,
                                               background: isUnlocked
-                                                ? 'linear-gradient(90deg, #ffe600, var(--state-on))'
-                                                : 'linear-gradient(90deg, var(--accent-cyan), #ffe600)',
+                                                ? 'linear-gradient(90deg, var(--accent-yellow), var(--state-on))'
+                                                : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
                                               boxShadow: isUnlocked
-                                                ? '0 0 6px #ffe600'
+                                                ? '0 0 6px var(--accent-yellow)'
                                                 : '0 0 6px rgba(0, 240, 255, 0.5)',
                                               transition: 'width 0.4s ease',
                                             }}
@@ -2297,7 +2297,7 @@ export function Profile() {
                                           style={{
                                             fontSize: '0.6rem',
                                             fontFamily: 'var(--font-mono)',
-                                            color: isUnlocked ? '#ffe600' : 'var(--text-muted)',
+                                            color: isUnlocked ? 'var(--accent-yellow)' : 'var(--text-muted)',
                                           }}
                                         >
                                           {isUnlocked
@@ -2644,7 +2644,7 @@ function TranscriptRow({
             style={{
               fontSize: '0.62rem',
               fontFamily: 'var(--font-mono)',
-              color: '#ffe600',
+              color: 'var(--accent-yellow)',
             }}
           >
             {t('profile.transcriptTruncated')}
