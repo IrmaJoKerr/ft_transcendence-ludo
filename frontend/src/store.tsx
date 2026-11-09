@@ -222,7 +222,7 @@ export type GuestSetup = {
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
-  // The non-clash attack animations: positive flag, independent of clash mode.
+  // The attack animations: positive flag, independent of clash mode.
   captureFx: boolean;
 };
 

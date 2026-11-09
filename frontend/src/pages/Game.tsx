@@ -15,6 +15,7 @@ import {
   CAPTURE_CARD_GRACE_MS,
   CAPTURE_CARD_MS,
   CLASH_RESULT_MS,
+  CLASH_TEXT_ONLY_MS,
   DICE_ROLL_ANIM_MS,
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
@@ -1310,11 +1311,17 @@ export function Game() {
   // The result card appeared: tell the engine when it will be done. The forecast is
   // in this client's clock and is sent once per card, so a chain reports each round.
   // It gates nothing locally; the engine's release frame is the authority.
+  //
+  // The number is the card's OWN length plus the margin, never a constant: 3100 on a
+  // scene card (2900 + 200) and 1500 on a text-only one. An over-ask is harmless — a
+  // receipt cannot extend the engine's deadline — and an under-ask truncates, so the
+  // length has to come from the card (25.8).
+  const clashCardMs = view.captureFx ? CLASH_RESULT_MS : CLASH_TEXT_ONLY_MS;
   useEffect(() => {
     const cardId = view.clashResult?.cardId;
     if (!cardId) return;
-    socketRef.current?.emit('clash_card_hold', cardId, CLASH_RESULT_MS + CARD_HOLD_MARGIN_MS);
-  }, [view.clashResult]);
+    socketRef.current?.emit('clash_card_hold', cardId, clashCardMs + CARD_HOLD_MARGIN_MS);
+  }, [view.clashResult, clashCardMs]);
 
   // The clash card owns the capture burst. While it is up the card wears a dim copy
   // (rendered with it, below), and the moment the card goes the board gets the real one:
@@ -1383,7 +1390,7 @@ export function Game() {
       clashEnabled: view.clashMode,
       noSafeZones: view.noSafeZones,
       freeExit: view.freeExit,
-      // The non-clash attack-animations flag rides every payload like the other rules.
+      // The attack-animations flag rides every payload like the other rules.
       captureFx: view.captureFx,
       // The mutator's count rides every payload; the engine forces it to 0 while
       // clash mode is off.
@@ -4067,7 +4074,9 @@ export function Game() {
       />
 
       {/* QTE Clash overlay: one component serves keyboard and touch. In hotseat a
-          single device owns both seats, so both sides' keys are live at once. */}
+          single device owns both seats, so both sides' keys are live at once. The
+          card's acts answer to the room's one rule, so the overlay is told the flag
+          rather than reading it: off means a text-only card (25.7). */}
       {view.clash && (
         <ClashOverlay
           clash={view.clash}
@@ -4076,6 +4085,7 @@ export function Game() {
           onKeyPress={clashInput}
           onComplete={clearClash}
           allowBothSides={activeMatch.mode === 'hotseat'}
+          animations={view.captureFx}
         />
       )}
 

@@ -1,9 +1,9 @@
-// The twelve delays the engine and the SPA both count, in one file. Copied
+// The fifteen delays the engine and the SPA both count, in one file. Copied
 // verbatim from `backend/app/ludo-engine/src/timing.ts` and
 // `frontend/src/game/timing.ts`, which agreed value for value on 2026-11-04; from
 // here on they read these declarations instead of each other's comments.
 //
-// Only the shared twelve live here. The engine's own lifecycle and bot tunables, and
+// Only the shared fifteen live here. The engine's own lifecycle and bot tunables, and
 // the client's presentation-only timings (`CLASH_SWITCH_*`, `DICE_BRAKE_*`,
 // `CAPTURE_FX_*`, `RESULTS_MODAL_*`), each have one reader and stay where they are.
 
@@ -12,14 +12,25 @@ export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
 export const CLASH_COUNTDOWN_MS = 3000; // 3-2-1, keys still hidden
 export const CLASH_PRESS_MS = 5000; // press race window
 
-// The result card is ADDED from its two beats rather than being one guessed number:
-// the gesture the card plays, then the headline's read time. Both sides keep the
-// parts, not just the sum, because the sum is also the engine's input freeze and the
-// chain's next-round timer: re-timing a gesture moves the card on both sides at once
-// instead of leaving a hand-computed 2900 to update.
-export const RESULT_FX_MS = 1900; // how long the gesture lasts (1.2 s was the floor)
+// The result card is ADDED from its parts rather than being one guessed number, and the
+// scene is those parts: the attack, whose last beat falls at 703 ms, and the jail, which
+// opens where the subtraction's last frame falls and lands its bars 421 ms later (25.8).
+// Cutting the old 1900 ms gesture into its two acts re-times nothing — only the
+// denominator each act's keyframes are written against — and it lets a third act sit
+// between them (the cloud on a breach) without touching either. Both sides keep the parts,
+// not just the sum, because the sum is also the engine's input freeze and the chain's
+// next-round timer: re-timing an act moves the card on both sides at once instead of
+// leaving a hand-computed 2900 to update.
+export const SCENE_ATTACK_MS = 700; // the beam, the strike, the wall's flare, the subtraction
+export const SCENE_JAIL_MS = 1200; // the bars travel, land at 421 and hold for 779 ms
+export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the scene: 1.9 s, unchanged
 export const RESULT_HEADLINE_READ_MS = 1000; // the headline after the gesture stops
 export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.9 s
+// With the acts switched off there is no scene at all, so the card is its text and nothing
+// else: it needs enough time to be read, not a gesture's worth. Deliberately neither the
+// 1000 ms read window (short because a scene has just carried the meaning) nor the 2900 ms
+// card (long because a gesture is playing). D32.
+export const CLASH_TEXT_ONLY_MS = 1400;
 
 // --- the opt-in capture flash card ---------------------------------------------
 // A non-clash capture paints the clash card's own gesture over the board. Its clock is

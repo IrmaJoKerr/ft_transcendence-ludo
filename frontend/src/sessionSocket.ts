@@ -24,7 +24,7 @@ export type LobbyRoom = {
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift?: 0 | 1 | 2;
-  /** The non-clash attack animations: positive flag, independent of clash mode. */
+  /** The attack animations: positive flag, independent of clash mode. */
   captureFx?: boolean;
 };
 

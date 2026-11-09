@@ -84,7 +84,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   const [clashEnabled, setClashEnabled] = useState(false);
   const [noSafeZones, setNoSafeZones] = useState(false);
   const [freeExit, setFreeExit] = useState(false);
-  // The non-clash attack animations: a positive flag, independent of clash mode.
+  // The attack animations: a positive flag, independent of clash mode.
   const [captureFx, setCaptureFx] = useState(false);
   // The mutator's count, kept apart from whether it is on, so re-enabling restores
   // 1 or 2 instead of resetting: `clashKeyShift` is the value that ships.
@@ -179,7 +179,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
           clashEnabled,
           noSafeZones,
           freeExit,
-          // The non-clash attack animations: a positive flag, independent of clash mode.
+          // The attack animations: a positive flag, independent of clash mode.
           captureFx,
           // The mutator only exists with clash mode on; the engine clamps it too.
           clashKeyShift: clashEnabled ? clashKeyShift : 0,
@@ -242,7 +242,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
         clashEnabled,
         noSafeZones,
         freeExit,
-        // The non-clash attack animations: a positive flag, independent of clash mode.
+        // The attack animations: a positive flag, independent of clash mode.
         captureFx,
         clashKeyShift: clashEnabled ? clashKeyShift : 0,
       });

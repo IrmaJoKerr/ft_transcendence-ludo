@@ -64,7 +64,7 @@ export class CreateGuestMatchDto {
   @IsBoolean()
   freeExit?: boolean;
 
-  // The non-clash attack animations: a positive flag, ON only for a literal `true`,
+  // The attack animations: a positive flag, ON only for a literal `true`,
   // independent of clash mode.
   @IsOptional()
   @IsBoolean()

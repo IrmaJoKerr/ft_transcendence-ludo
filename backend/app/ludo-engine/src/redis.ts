@@ -136,8 +136,8 @@ export class RedisGameStore {
     // Sixth rule, last so every existing positional call keeps its meaning: the
     // key-shift mutator's switch count for this room.
     clashKeyShift: 0 | 1 | 2 = 0,
-    // Seventh rule, also last and defaulting off (the standard room): the non-clash
-    // attack animations, independent of clash mode.
+    // Seventh rule, also last and defaulting off (the standard room): the attack
+    // animations, independent of clash mode.
     captureFx = false,
   ): Promise<void> {
     const pieces: Piece[] = [];

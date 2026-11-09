@@ -689,7 +689,8 @@ export class ClashEngine {
 
   // Record the result card a client is about to show. `seats` are the two sides of
   // the clash; their NON-BOT owners (by user id, so hotseat collapses to one) are the
-  // clients that may report. An empty set (bot against bot) keeps the short card.
+  // clients that may report. An empty set (bot against bot, or hotseat) has nobody to
+  // report, so the card runs on the ceiling alone.
   private armCardHold(
     state: GameState,
     cardId: string,
@@ -702,10 +703,17 @@ export class ClashEngine {
       if (seat?.isBot) continue;
       if (seat?.userId) users.add(seat.userId);
     }
+    // The ceiling is the CARD's, not the audience's: a mid-chain card is held to the
+    // card it is (2900), a final one to the freeze (4000). An empty set used to get a
+    // flat 2900 whatever had arrived, on the theory that a card nobody sits on keeps the
+    // short one; that theory breaks on a total breach in hotseat or a bot game, which is
+    // a FINAL card that needs 3300 and would be cut 400 ms short — the jail's tail, the
+    // part a player watches. `midChain` already encodes "short", so the ceiling is the
+    // only number this needs.
     const ceiling = midChain ? CLASH_RESULT_MS : CLASH_RESULT_FREEZE_MS;
     state.resultCardUntil = Math.min(
       state.resultCardUntil ?? Number.MAX_SAFE_INTEGER,
-      Date.now() + (users.size === 0 ? CLASH_RESULT_MS : ceiling),
+      Date.now() + ceiling,
     );
     this.cardHolds.set(state.id, { id: cardId, users, ready: new Set(), midChain });
   }

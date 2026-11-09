@@ -9,9 +9,11 @@ export type RoomRules = {
   // How many times the required letter changes mid-clash (0, 1 or 2). Forced to 0
   // whenever clash mode is off, so the two can never disagree.
   clashKeyShift: 0 | 1 | 2;
-  // The non-clash attack animations: a positive flag, ON only for a literal `true`, and
-  // independent of clash mode (a plain room may want it, and a clash room's
-  // captures outside a clash still show it). No clamp: a boolean has no edges.
+  // The attack animations: a positive flag, ON only for a literal `true`, and
+  // independent of clash mode (a plain room may want it, and a clash room's captures
+  // outside a clash still show it). It is the ONE gate on every act of the result card
+  // in every mode (25.7), so a clash room with it off shows the text-only card. No
+  // clamp: a boolean has no edges.
   captureFx: boolean;
 };
 

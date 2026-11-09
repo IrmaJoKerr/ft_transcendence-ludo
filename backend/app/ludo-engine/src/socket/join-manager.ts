@@ -147,7 +147,7 @@ export class JoinManager {
             matchData.noSafeZones === 'true',
             matchData.freeExit === 'true',
             clampClashKeyShift(matchData.clashKeyShift, matchData.clashEnabled === 'true'),
-            // The non-clash attack animations: a positive flag, independent of clash mode.
+            // The attack animations: a positive flag, independent of clash mode.
             matchData.captureFx === 'true',
           );
           state = await this.store.loadGameState(effectiveGameId);

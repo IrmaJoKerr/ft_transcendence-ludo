@@ -48,7 +48,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the twelve both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `RESULT_FX_MS` 1900, `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (added from the two), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/timing.constants.ts` | the fifteen both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_JAIL_MS` 1200, `RESULT_FX_MS` 1900 (the sum of the two acts), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -116,8 +116,9 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 ### **1. Engine timing**
 
 **Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns and no other
-build counts". The eight both builds count (the three clash windows, the result card's three and the
-two animations) are in `common/src/timing.constants.ts` 📦, so they are absent from this table.
+build counts". The fifteen both builds count (the three clash windows, the result scene's two acts and
+its card, the text-only card and the two animations) are in `common/src/timing.constants.ts` 📦, so
+they are absent from this table.
 
 **Clash QTE**
 
@@ -703,11 +704,26 @@ hues and parts are separated by lightness, never by hue. `--` means "not a colou
 ### **13. Client timing**
 
 **Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
-The twelve both builds count (the three clash windows, the result card's three, the opt-in capture
-card's four and the two animations) are in `common/src/timing.constants.ts` 📦; the SPA reads
-`../__shared__/timing.constants` and the engine reads its own copy, so there is no second declaration
-to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
-the overlay follows those, so they decide the card animation, never the game state.
+The fifteen both builds count (the three clash windows, the result scene's two acts and its card, the
+text-only card, the opt-in capture card's four and the two animations) are in
+`common/src/timing.constants.ts` 📦; the SPA reads `../__shared__/timing.constants` and the engine
+reads its own copy, so there is no second declaration to keep in step. The clash windows stay
+**presentation only**: the server sends absolute deadlines and the overlay follows those, so they
+decide the card animation, never the game state.
+
+**The result card's clock — three acts' worth of numbers, one card.** The 1900 ms scene is cut into
+the two acts it always had, so an act can be re-timed without moving the other, and the card is their
+sum plus a per-path read window rather than one guessed total. Nothing a player sees moved in the
+split: the attack's last beat still falls at 703 and the cell still lands at 1121.
+
+| Constant | Value | What it times |
+|---|---|---|
+| `SCENE_ATTACK_MS` | 700 | the beam, the strike, the wall's flare and the subtraction: every beat of `ResultFx`'s attack act is budgeted in this |
+| `SCENE_JAIL_MS` | 1200 | the cell: the bars travel from 136, land at 421 and hold for 779 ms of stillness |
+| `RESULT_FX_MS` | 1900 | the scene: `SCENE_ATTACK_MS + SCENE_JAIL_MS`, so a re-timed act moves both builds at once |
+| `RESULT_HEADLINE_READ_MS` | 1000 | the headline's read window after the last act |
+| `CLASH_RESULT_MS` | 2900 | the card: the scene + the read window; also the engine's mid-chain ceiling |
+| `CLASH_TEXT_ONLY_MS` | 1400 | the card with the room's acts switched off: no scene, no scene sound, just the text |
 
 **The opt-in capture card's clock** — shared, because three readers count it: the panel's fade, the
 client's roll guard, and the engine's bot pacing (`socket/server.ts`). It is *added* from its parts,
@@ -747,7 +763,7 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 | `DICE_BRAKE_SETTLE_MS` | 150 | near-miss face, then the true one |
 | `RESULTS_MODAL_DELAY_MS` | 900 | beat after the last move before the results modal |
 | `PENDING_MOVE_GUARD_MS` | 3000 | safety net for a move that never answers |
-| `CARD_HOLD_MARGIN_MS` | 200 | the receipt's one-way trip: card hold = `CLASH_RESULT_MS + this` |
+| `CARD_HOLD_MARGIN_MS` | 200 | the receipt's one-way trip: card hold = the card's own length + this (3100 on a scene card, 1500 on a text-only one) |
 | `CAPTURE_FX_MS` | 600 | the capture burst's own length; interpolated into both copies' inline `animation` so the keyframes hold no 600 |
 | `CAPTURE_FX_CARD_OPACITY` | 0.7 | the burst as it reads over the clash result card |
 | `CAPTURE_FX_AFTER_CARD_MS` | 50 | beat between the card leaving and the board's real burst |

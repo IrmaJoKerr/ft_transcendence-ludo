@@ -11,6 +11,7 @@ import {
   CLASH_COUNTDOWN_MS,
   CLASH_PRESS_MS,
   CLASH_RESULT_MS,
+  CLASH_TEXT_ONLY_MS,
 } from '../__shared__/timing.constants';
 import { CLASH_TAP_COUNT } from '../__shared__/clash.constants';
 import {
@@ -82,23 +83,6 @@ function useIsPortrait(touchMode: boolean): boolean {
   return portrait;
 }
 
-/** True while the OS asks for reduced motion; false where the query is unsupported. */
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(mq.matches);
-    onChange();
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
-
 function phaseAt(clash: NonNullable<GameViewState['clash']>, now: number): ClashPhase {
   if (now < clash.announceDeadline) return 'announce';
   if (now < clash.countdownDeadline) return 'countdown';
@@ -115,6 +99,9 @@ type Props = {
    *  accepted at once. PvP/PvE leave this false: each player only presses their
    *  own side's keys. */
   allowBothSides?: boolean;
+  /** The room's `captureFx` rule: the ONE gate on every act of the card (25.7). Off
+   *  means no scene, no scene sound and a text-only card of `CLASH_TEXT_ONLY_MS`. */
+  animations?: boolean;
 };
 
 /** Chunky bar: black track that fills with the side's color, whole pixels per press. */
@@ -246,15 +233,12 @@ function KeyBadge({
   emphasized,
   flipping = false,
   flash = false,
-  reduced = false,
 }: {
   label: string;
   emphasized: boolean;
   flipping?: boolean;
   /** One border flash as the new letter lands. */
   flash?: boolean;
-  /** Reduced motion: cross-fade instead of a flip, at the same instants. */
-  reduced?: boolean;
 }) {
   const face: CSSProperties = {
     display: 'grid',
@@ -271,13 +255,11 @@ function KeyBadge({
     color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
     boxShadow: flash || emphasized ? '0 0 14px var(--accent-yellow)' : 'none',
     // The return leg uses an overshooting curve, so the incoming face lands just past
-    // its resting size and settles: the "1.06 and back" bounce, in one transition.
-    transition: reduced
-      ? `opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`
-      : `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3, 1.5, .5, 1), opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`,
-    transform: reduced
-      ? 'none'
-      : `rotateY(${flipping ? 90 : 0}deg) scale(${flipping ? 0.96 : 1})`,
+    // its resting size and settles: the "1.06 and back" bounce, in one transition. The
+    // badge always flips: reduced motion is not a second gate anywhere in the card's
+    // stack, because the letters are also always readable as text.
+    transition: `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3, 1.5, .5, 1), opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`,
+    transform: `rotateY(${flipping ? 90 : 0}deg) scale(${flipping ? 0.96 : 1})`,
     opacity: flipping ? 0.45 : 1,
   };
   return (
@@ -346,7 +328,6 @@ function TouchPad({
   round,
   switchIndex = 0,
   flipping = false,
-  reduced = false,
   active,
   onPress,
 }: {
@@ -358,7 +339,6 @@ function TouchPad({
   switchIndex?: number;
   /** Edge-on while the key shifts, so the circles land their new letters with it. */
   flipping?: boolean;
-  reduced?: boolean;
   active: boolean;
   /** The click handler. `count` is the tap weight (1 = one press). */
   onPress: (key: string, count: number) => void;
@@ -441,7 +421,7 @@ function TouchPad({
             key={k}
             style={{
               perspective: 600,
-              transform: !reduced && flipping ? 'rotateX(90deg)' : 'none',
+              transform: flipping ? 'rotateX(90deg)' : 'none',
               transition: `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3,.7,.2,1) ${index * CLASH_SWITCH_PAD_STAGGER_MS}ms`,
             }}
           >
@@ -500,14 +480,19 @@ export function ClashOverlay({
   onKeyPress,
   onComplete,
   allowBothSides = false,
+  animations = true,
 }: Props) {
   const { t } = useTranslation();
   const now = useNow(CLASH_UI_TICK_MS);
   const phase = phaseAt(clash, now);
   const touchMode = useMemo(() => isMobileOS(), []);
   const portrait = useIsPortrait(touchMode);
-  const reduced = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // The card's own length (25.8), from its parts: the scene's acts plus the read window,
+  // or the text-only length when the room has the acts switched off. Every derived figure
+  // comes out of this one number — this overlay's timer, the receipt Game.tsx sends.
+  const cardMs = animations ? CLASH_RESULT_MS : CLASH_TEXT_ONLY_MS;
 
   // Key-shift schedule. `keyIndex` is which letter of each side's schedule the SERVER
   // is accepting; `flipping` is the half-flip before a switch (the badge is edge-on
@@ -667,9 +652,9 @@ export function ClashOverlay({
   }, [onComplete]);
   useEffect(() => {
     if (!result) return;
-    const timer = setTimeout(() => completeRef.current(), CLASH_RESULT_MS);
+    const timer = setTimeout(() => completeRef.current(), cardMs);
     return () => clearTimeout(timer);
-  }, [result]);
+  }, [result, cardMs]);
 
   // Best-effort landscape lock, armed only where the touch path is active. It
   // needs fullscreen on Android Chrome and does not exist on iOS Safari, so the
@@ -760,27 +745,31 @@ export function ClashOverlay({
             </div>
             {/* The gesture the card is about, above the headline it explains. Keyed on
                 the card id so a chain's next round remounts it: new animation, new
-                sound, same card. */}
+                sound, same card. Gated on the room's one rule, never on the card's host:
+                with the acts off the card is its text and nothing else, and its length
+                collapsed to `CLASH_TEXT_ONLY_MS` with it. */}
             {/* overflow: hidden (D6): the beam and the bloom are clipped by the
                 stage box, which retires the need for a per-group clipPath. */}
-            <div
-              style={{
-                width: stageWidth,
-                aspectRatio: '240 / 180',
-                margin: '0 auto 4px',
-                overflow: 'hidden',
-              }}
-            >
-              <ResultFx
-                key={result.cardId ?? `round-${result.round ?? 1}`}
-                kind={fxKind}
-                attacker={fxAttacker}
-                defender={fxDefender}
-                n={fxN}
-                totalRounds={fxTotalRounds}
-                banner={t('game.clashWallBroken')}
-              />
-            </div>
+            {animations && (
+              <div
+                style={{
+                  width: stageWidth,
+                  aspectRatio: '240 / 180',
+                  margin: '0 auto 4px',
+                  overflow: 'hidden',
+                }}
+              >
+                <ResultFx
+                  key={result.cardId ?? `round-${result.round ?? 1}`}
+                  kind={fxKind}
+                  attacker={fxAttacker}
+                  defender={fxDefender}
+                  n={fxN}
+                  totalRounds={fxTotalRounds}
+                  banner={t('game.clashWallBroken')}
+                />
+              </div>
+            )}
             <div
               style={{
                 fontFamily: 'var(--font-display)',
@@ -971,7 +960,6 @@ export function ClashOverlay({
                         emphasized={defenderIsMe}
                         flipping={flipping}
                         flash={flash}
-                        reduced={reduced}
                       />
                       <Bar
                         color={clash.defender}
@@ -996,7 +984,6 @@ export function ClashOverlay({
                         emphasized={attackerIsMe}
                         flipping={flipping}
                         flash={flash}
-                        reduced={reduced}
                       />
                       <Bar
                         color={clash.attacker}
@@ -1046,7 +1033,6 @@ export function ClashOverlay({
                 round={round}
                 switchIndex={keyIndex}
                 flipping={flipping}
-                reduced={reduced}
                 active={pressable}
                 onPress={onKeyPress}
               />
@@ -1071,7 +1057,6 @@ export function ClashOverlay({
                 round={round}
                 switchIndex={keyIndex}
                 flipping={flipping}
-                reduced={reduced}
                 active={pressable}
                 onPress={onKeyPress}
               />

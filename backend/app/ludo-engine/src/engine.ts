@@ -40,7 +40,7 @@ function normalizeRoomRules(raw: unknown): RoomRules {
     noSafeZones: input.noSafeZones === true,
     freeExit: input.freeExit === true,
     clashKeyShift: clampClashKeyShift(input.clashKeyShift, clashEnabled),
-    // The non-clash attack animations: positive flag, independent of clash mode.
+    // The attack animations: positive flag, independent of clash mode.
     captureFx: input.captureFx === true,
   };
 }
