@@ -491,12 +491,12 @@ export function RetroNavbar({
                     padding: '10px 12px',
                     borderRadius: 8,
                     background: !soundMuted
-                      ? 'rgba(0, 255, 136, 0.12)'
+                      ? 'rgb(var(--state-on-rgb) / 0.12)'
                       : 'rgba(255, 255, 255, 0.04)',
                     border: !soundMuted
-                      ? '1px solid #00ff88'
+                      ? '1px solid var(--state-on)'
                       : '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: !soundMuted ? '0 0 10px rgba(0, 255, 136, 0.2)' : 'none',
+                    boxShadow: !soundMuted ? '0 0 10px rgb(var(--state-on-rgb) / 0.2)' : 'none',
                     cursor: 'pointer',
                     transition: 'all 0.18s ease',
                   }}
@@ -523,10 +523,10 @@ export function RetroNavbar({
                       fontWeight: 900,
                       padding: '3px 8px',
                       borderRadius: 4,
-                      background: !soundMuted ? '#00ff88' : 'rgba(255, 255, 255, 0.12)',
-                      color: !soundMuted ? '#0b021a' : 'var(--text-muted)',
+                      background: !soundMuted ? 'var(--state-on)' : 'rgba(255, 255, 255, 0.12)',
+                      color: !soundMuted ? 'var(--state-on-ink)' : 'var(--text-muted)',
                       border: !soundMuted
-                        ? '1px solid #00ff88'
+                        ? '1px solid var(--state-on)'
                         : '1px solid rgba(255, 255, 255, 0.18)',
                     }}
                   >
@@ -586,9 +586,9 @@ export function RetroNavbar({
               style={{
                 padding: '6px 10px',
                 borderRadius: 6,
-                background: 'rgba(255, 0, 85, 0.12)',
-                border: '1px solid #ff0055',
-                color: '#ff0055',
+                background: 'rgb(var(--state-off-rgb) / 0.12)',
+                border: '1px solid var(--state-off)',
+                color: 'var(--state-off)',
                 fontSize: '0.7rem',
                 textAlign: 'center',
                 fontFamily: 'var(--font-mono)',

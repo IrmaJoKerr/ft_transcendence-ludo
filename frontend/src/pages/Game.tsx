@@ -1995,15 +1995,15 @@ export function Game() {
                 display: 'block',
                 padding: engineError ? '4px 14px' : 0,
                 background: engineError ? 'rgba(13, 2, 33, 0.95)' : 'transparent',
-                borderBottom: engineError ? '1px solid #ff0055' : 'none',
-                color: '#ff0055',
+                borderBottom: engineError ? '1px solid var(--state-off)' : 'none',
+                color: 'var(--state-off)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.8rem',
                 fontWeight: 'bold',
                 lineHeight: 1.4,
                 letterSpacing: '0.5px',
                 textAlign: 'center',
-                textShadow: '0 0 8px #ff0055',
+                textShadow: '0 0 8px var(--state-off)',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -2286,8 +2286,8 @@ export function Game() {
                                   style={{
                                     padding: '2px 6px',
                                     fontSize: '0.62rem',
-                                    border: isReady ? '1px solid #00ff88' : '1px solid #ff0055',
-                                    color: isReady ? '#00ff88' : '#ff0055',
+                                    border: isReady ? '1px solid var(--state-on)' : '1px solid var(--state-off)',
+                                    color: isReady ? 'var(--state-on)' : 'var(--state-off)',
                                   }}
                                 >
                                   {isReady ? 'READY OK' : 'WAITING'}
@@ -2463,8 +2463,8 @@ export function Game() {
                                       flex: 'none',
                                       padding: '1px 5px',
                                       fontSize: '0.55rem',
-                                      border: `1px solid ${isOut ? '#ff0055' : '#ffb300'}`,
-                                      color: isOut ? '#ff0055' : '#ffb300',
+                                      border: `1px solid ${isOut ? 'var(--state-off)' : '#ffb300'}`,
+                                      color: isOut ? 'var(--state-off)' : '#ffb300',
                                     }}
                                   >
                                     {isOut
@@ -2830,9 +2830,9 @@ export function Game() {
                             width: '100%',
                             padding: '12px 0',
                             fontSize: '0.8rem',
-                            background: alreadyReady ? 'rgba(0, 255, 136, 0.2)' : 'var(--btn-bg)',
-                            borderColor: alreadyReady ? '#00ff88' : 'var(--accent-pink)',
-                            color: alreadyReady ? '#00ff88' : '#ffffff',
+                            background: alreadyReady ? 'rgb(var(--state-on-rgb) / 0.2)' : 'var(--btn-bg)',
+                            borderColor: alreadyReady ? 'var(--state-on)' : 'var(--accent-pink)',
+                            color: alreadyReady ? 'var(--state-on)' : '#ffffff',
                             opacity: disabled ? 0.6 : 1,
                             cursor: disabled ? 'default' : 'pointer',
                           }}
@@ -3663,7 +3663,7 @@ export function Game() {
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
                   >
-                    <span style={{ color: '#ff0055', fontSize: '1.2rem' }}>⛔</span>
+                    <span style={{ color: 'var(--state-off)', fontSize: '1.2rem' }}>⛔</span>
                     <span>{t('gameExtra.rulesPage1Line3')}</span>
                   </div>
                 </div>

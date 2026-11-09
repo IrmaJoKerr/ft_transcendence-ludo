@@ -149,7 +149,7 @@ export function DeleteAccountModal({
             fontSize: '0.9rem',
             fontWeight: 900,
             fontFamily: 'var(--font-display)',
-            color: '#ff0055',
+            color: 'var(--state-off)',
             marginBottom: 10,
           }}
         >
@@ -245,7 +245,7 @@ export function DeleteAccountModal({
                 {t('profileEdit.deleteAccountSetPasswordDesc')}
               </div>
               {error && (
-                <div style={{ fontSize: '0.7rem', color: '#ff0055', margin: '4px 0 8px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--state-off)', margin: '4px 0 8px' }}>
                   {error}
                 </div>
               )}
@@ -306,7 +306,7 @@ export function DeleteAccountModal({
                 {t('profileEdit.deleteAccountAcknowledge')}
               </label>
               {error && (
-                <div style={{ fontSize: '0.7rem', color: '#ff0055', margin: '4px 0 8px' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--state-off)', margin: '4px 0 8px' }}>
                   {error}
                 </div>
               )}

@@ -146,7 +146,7 @@ function Yard({
             fontSize: '0.62rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 'bold',
-            color: goalCount > 0 ? '#00ff88' : '#ffffff',
+            color: goalCount > 0 ? 'var(--state-on)' : '#ffffff',
             background: 'rgba(5, 5, 20, 0.9)',
             border: `1px solid ${col.base}`,
             padding: '1px 6px',

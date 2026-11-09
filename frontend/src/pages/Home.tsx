@@ -39,9 +39,9 @@ import {
 const STATUS_STYLE: Record<string, { label: string; color: string; border: string; bg: string }> = {
   online: {
     label: 'Online',
-    color: '#00ff88',
-    border: 'rgba(0, 255, 136, 0.4)',
-    bg: 'rgba(0, 255, 136, 0.12)',
+    color: 'var(--state-on)',
+    border: 'rgb(var(--state-on-rgb) / 0.4)',
+    bg: 'rgb(var(--state-on-rgb) / 0.12)',
   },
   playing: {
     label: 'In Game',

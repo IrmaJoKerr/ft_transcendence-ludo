@@ -49,23 +49,37 @@
   --start-overlay-bg: rgba(13, 2, 33, 0.45);
   --start-overlay-glow: rgba(255, 0, 127, 0.35);
   --start-overlay-inset: rgba(0, 240, 255, 0.2);
-  /* The channel form of the five accents and the four neutrals: `r g b`, always
+  /* The channel form of the four accents and the three neutrals: `r g b`, always
      read as `rgb(var(--x-rgb) / a)`. A component that tints a theme colour needs
      an alpha, and `rgba(#ff007f, 0.3)` is not CSS — so without these the
      components spell the hex out again and the tint stops following the theme.
      Same numbers as the hexes above by construction, so every site moved to this
-     form renders byte-identically; `--success-rgb` and `--warn-rgb` exist because
-     `#00ff88` and `#ffe600` are written 66 and 74 times for their own reasons
-     (a green seat, and yellow as warning), not only as `--accent-yellow`. */
+     form renders byte-identically. */
   --accent-pink-rgb: 255 0 127;
   --accent-cyan-rgb: 0 240 255;
   --accent-yellow-rgb: 255 230 0;
   --accent-purple-rgb: 157 0 255;
-  --success-rgb: 0 255 136;
-  --warn-rgb: 255 230 0;
   --ink-rgb: 255 255 255;
   --shade-rgb: 0 0 0;
   --bg-primary-rgb: 13 2 33;
+  /* The state pair (26): the two colours that report a condition, as against the
+     accents, which name a thing, and the seat hues, which are identity. On, met,
+     valid, ready, online and sent read `--state-on`; off, muted, refused, missed
+     and out read `--state-off`. Both halves move together, because a row that
+     reads "on" by contrast with nothing has no reading left. Synthwave's columns
+     are the literals the pair replaces, so the 80s theme renders byte-identically
+     and only the 70s theme changes.
+     `--state-on-ink` is the text that sits ON a lit pill (an enabled badge, an
+     accept button): near-black, and a token because a cold near-black reads
+     purple over walnut. The channel pair carries the tints, and it replaces the
+     two orphans this block used to declare: `--success-rgb` (unread, and it is
+     now `--state-on-rgb`) and `--warn-rgb` (unread, and wrong in the 70s block,
+     where a warning is `--accent-yellow` and that channel form already exists). */
+  --state-on: #00ff88;
+  --state-on-rgb: 0 255 136;
+  --state-on-ink: #0b021a;
+  --state-off: #ff0055;
+  --state-off-rgb: 255 0 85;
 }
 
 /* --------------------------------------------------------------------------
@@ -120,22 +134,34 @@
   --start-overlay-bg: rgba(11, 8, 5, 0.55);
   --start-overlay-glow: rgba(255, 176, 0, 0.35);
   --start-overlay-inset: rgba(229, 52, 11, 0.22);
-  /* The channel form (see the block above): three of these are additions rather
+  /* The channel form (see the block above): two of these are additions rather
      than translations, because the 70s palette has no value to translate from.
-     All three were measured against `--bg-primary` rather than picked: avocado
-     `#7d8b3e` is the moss the era used lifted to 5.08:1 (the true `#6b7f3a`
-     reads 4.25:1, short for small text), terracotta `#f28a0f` is already the
-     second stop of `--btn-bg`, and warm black `#1a1009` keeps a shadow over
-     walnut from reading blue-grey. */
+     Both were measured against `--bg-primary` rather than picked: `--accent-cyan`
+     is the palette's `a1t` (`#5fb3b0`) rather than its `a1` (`#3f8a8c`), which
+     only reaches 4.6:1 for small text, and warm black `#1a1009` keeps a shadow
+     over walnut from reading blue-grey. */
   --accent-pink-rgb: 229 52 11;
   --accent-cyan-rgb: 95 179 176;
   --accent-yellow-rgb: 255 176 0;
   --accent-purple-rgb: 12 86 121;
-  --success-rgb: 125 139 62;
-  --warn-rgb: 242 138 15;
   --ink-rgb: 255 231 189;
   --shade-rgb: 26 16 9;
   --bg-primary-rgb: 20 16 14;
+  /* The state pair (26), measured against the surface the text actually sits on
+     rather than the page ground. Avocado `#82903f` keeps the era's moss and reads
+     4.75:1 on `--bg-card` (5.41:1 on `--bg-primary`); the earlier `#7d8b3e` was
+     measured at 5.08:1 on the ground but reads 4.45:1 on the card, a rounding miss
+     for small text, so it is lifted two steps of lightness and no hue. The refusal
+     is a cranberry rose `#e8697d`, 5.33:1 on the card, 20.7 degrees of hue from
+     the shell's vermilion and 50.9 from the amber warning, so a refusal is read as
+     neither chrome nor caution; it also keeps synthwave's own rose-red family
+     instead of inventing a third red. Warm black `#1a1009` is the ink that sits on
+     the lit pill (5.36:1), and it is `--shade-rgb` itself. */
+  --state-on: #82903f;
+  --state-on-rgb: 130 144 63;
+  --state-on-ink: #1a1009;
+  --state-off: #e8697d;
+  --state-off-rgb: 232 105 125;
 }
 
 /* --------------------------------------------------------------------------

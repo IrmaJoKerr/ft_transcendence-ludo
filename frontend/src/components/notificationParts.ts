@@ -75,13 +75,13 @@ export function getNotificationTypeBadge(
       return {
         tagKey: 'notifications.achievementTag',
         defaultTag: '[ACHIEVEMENT]',
-        color: '#00ff88',
+        color: 'var(--state-on)',
       };
     case 'match_finished':
       return {
         tagKey: 'notifications.matchEndTag',
         defaultTag: '[MATCH_COMPLETE]',
-        color: '#00ff88',
+        color: 'var(--state-on)',
       };
     case 'match_cancelled':
       return {
@@ -111,7 +111,7 @@ export function getNotificationTypeBadge(
       return {
         tagKey: 'notifications.friendOnlineTag',
         defaultTag: '[PILOT_ONLINE]',
-        color: '#00ff88',
+        color: 'var(--state-on)',
       };
     case 'friend_offline':
       return {

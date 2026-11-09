@@ -31,9 +31,9 @@ export function AutoCloseToggle() {
         width: '100%',
         padding: '10px 12px',
         borderRadius: 8,
-        background: notifAutoClose ? 'rgba(0, 255, 136, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-        border: notifAutoClose ? '1px solid #00ff88' : '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow: notifAutoClose ? '0 0 10px rgba(0, 255, 136, 0.2)' : 'none',
+        background: notifAutoClose ? 'rgb(var(--state-on-rgb) / 0.12)' : 'rgba(255, 255, 255, 0.04)',
+        border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: notifAutoClose ? '0 0 10px rgb(var(--state-on-rgb) / 0.2)' : 'none',
         cursor: 'pointer',
         transition: 'all 0.18s ease',
         // A button, so the row's own type styles have to be reset from the UA sheet.
@@ -59,9 +59,9 @@ export function AutoCloseToggle() {
           fontWeight: 900,
           padding: '3px 8px',
           borderRadius: 4,
-          background: notifAutoClose ? '#00ff88' : 'rgba(255, 255, 255, 0.12)',
-          color: notifAutoClose ? '#0b021a' : 'var(--text-muted)',
-          border: notifAutoClose ? '1px solid #00ff88' : '1px solid rgba(255, 255, 255, 0.18)',
+          background: notifAutoClose ? 'var(--state-on)' : 'rgba(255, 255, 255, 0.12)',
+          color: notifAutoClose ? 'var(--state-on-ink)' : 'var(--text-muted)',
+          border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgba(255, 255, 255, 0.18)',
         }}
       >
         {notifAutoClose ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}

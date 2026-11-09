@@ -311,7 +311,7 @@ function UsernameCopyChip({ username }: { username: string }) {
       }}
     >
       @{username}
-      <span style={{ color: copied ? '#00ff88' : 'var(--accent-cyan)', fontWeight: 900 }}>
+      <span style={{ color: copied ? 'var(--state-on)' : 'var(--accent-cyan)', fontWeight: 900 }}>
         [{copied ? t('profile.usernameCopiedOk') : t('profile.usernameCopy')}]
       </span>
     </button>
@@ -419,13 +419,13 @@ function BlockedProfileCard({
                   padding: '14px 16px',
                   borderRadius: 7,
                   background: 'rgba(12, 4, 30, 0.9)',
-                  border: '1.5px solid rgba(255, 0, 127, 0.45)',
-                  boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
+                  border: '1.5px solid rgb(var(--state-off-rgb) / 0.45)',
+                  boxShadow: '0 0 14px rgb(var(--state-off-rgb) / 0.12)',
                 }}
               >
                 <div
                   style={{
-                    color: '#ff0055',
+                    color: 'var(--state-off)',
                     fontFamily: 'var(--font-display)',
                     fontWeight: 900,
                     fontSize: '0.82rem',
@@ -824,8 +824,8 @@ export function Profile() {
                   marginBottom: 12,
                   padding: '10px 12px',
                   borderRadius: 6,
-                  border: '1px solid #ff0055',
-                  color: '#ff0055',
+                  border: '1px solid var(--state-off)',
+                  color: 'var(--state-off)',
                   fontFamily: 'var(--font-display)',
                   fontSize: '0.82rem',
                   textAlign: 'center',
@@ -867,7 +867,7 @@ export function Profile() {
                   flex: 1,
                   display: 'grid',
                   placeItems: 'center',
-                  color: '#ff0055',
+                  color: 'var(--state-off)',
                   fontSize: '1rem',
                   fontFamily: 'var(--font-display)',
                   letterSpacing: '0.04em',
@@ -940,7 +940,7 @@ export function Profile() {
                         border: '1px solid rgba(0, 240, 255, 0.45)',
                         borderRadius: 4,
                         cursor: 'pointer',
-                        color: usernameCopied ? '#00ff88' : 'var(--accent-cyan)',
+                        color: usernameCopied ? 'var(--state-on)' : 'var(--accent-cyan)',
                         font: 'inherit',
                         letterSpacing: 'inherit',
                       }}
@@ -1209,8 +1209,8 @@ export function Profile() {
                                   style={{
                                     padding: '3px 8px',
                                     fontSize: '0.68rem',
-                                    color: '#ff0055',
-                                    borderColor: 'rgba(255, 0, 85, 0.45)',
+                                    color: 'var(--state-off)',
+                                    borderColor: 'rgb(var(--state-off-rgb) / 0.45)',
                                     fontFamily: 'var(--font-display)',
                                     borderRadius: 4,
                                   }}
@@ -1249,7 +1249,7 @@ export function Profile() {
                                 {(uploadError || photoWarning) && (
                                   <span
                                     style={{
-                                      color: uploadError ? '#ff0055' : '#ffe600',
+                                      color: uploadError ? 'var(--state-off)' : '#ffe600',
                                       fontSize: '0.66rem',
                                       fontFamily: 'var(--font-mono)',
                                       lineHeight: 1.45,
@@ -1359,13 +1359,13 @@ export function Profile() {
                             style={{
                               fontSize: '11px',
                               fontWeight: 900,
-                              color: lastDelta > 0 ? '#00ff88' : '#ff0055',
+                              color: lastDelta > 0 ? 'var(--state-on)' : 'var(--state-off)',
                               background:
                                 lastDelta > 0
-                                  ? 'rgba(0, 255, 136, 0.12)'
-                                  : 'rgba(255, 0, 85, 0.12)',
+                                  ? 'rgb(var(--state-on-rgb) / 0.12)'
+                                  : 'rgb(var(--state-off-rgb) / 0.12)',
                               border: `1px solid ${
-                                lastDelta > 0 ? 'rgba(0, 255, 136, 0.5)' : 'rgba(255, 0, 85, 0.5)'
+                                lastDelta > 0 ? 'rgb(var(--state-on-rgb) / 0.5)' : 'rgb(var(--state-off-rgb) / 0.5)'
                               }`,
                               borderRadius: 4,
                               padding: '3px 10px',
@@ -1456,8 +1456,8 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgba(12, 4, 30, 0.9)',
-                        border: '1.5px solid rgba(0, 255, 136, 0.4)',
-                        boxShadow: '0 0 14px rgba(0, 255, 136, 0.12)',
+                        border: '1.5px solid rgb(var(--state-on-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--state-on-rgb) / 0.12)',
                         borderRadius: 7,
                         padding: '10px 14px',
                         textAlign: 'center',
@@ -1475,7 +1475,7 @@ export function Profile() {
                       </div>
                       <div
                         style={{
-                          color: '#00ff88',
+                          color: 'var(--state-on)',
                           fontSize: '1.6rem',
                           fontWeight: 900,
                           fontFamily: 'var(--font-display)',
@@ -1501,8 +1501,8 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgba(12, 4, 30, 0.9)',
-                        border: '1.5px solid rgba(255, 0, 127, 0.4)',
-                        boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
+                        border: '1.5px solid rgb(var(--state-off-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--state-off-rgb) / 0.12)',
                         borderRadius: 7,
                         padding: '10px 14px',
                         textAlign: 'center',
@@ -1520,7 +1520,7 @@ export function Profile() {
                       </div>
                       <div
                         style={{
-                          color: '#ff007f',
+                          color: 'var(--state-off)',
                           fontSize: '1.6rem',
                           fontWeight: 900,
                           fontFamily: 'var(--font-display)',
@@ -1881,14 +1881,14 @@ export function Profile() {
                                     }
                                   : isWin
                                     ? {
-                                        bg: 'rgba(0, 255, 136, 0.09)',
-                                        border: 'rgba(0, 255, 136, 0.42)',
-                                        fg: '#00ff88',
+                                        bg: 'rgb(var(--state-on-rgb) / 0.09)',
+                                        border: 'rgb(var(--state-on-rgb) / 0.42)',
+                                        fg: 'var(--state-on)',
                                       }
                                     : {
-                                        bg: 'rgba(255, 0, 127, 0.07)',
-                                        border: 'rgba(255, 0, 127, 0.36)',
-                                        fg: '#ff007f',
+                                        bg: 'rgb(var(--state-off-rgb) / 0.07)',
+                                        border: 'rgb(var(--state-off-rgb) / 0.36)',
+                                        fg: 'var(--state-off)',
                                       };
                                 const playedAt = new Date(g.playedAt);
                                 // The chips come from the room the match recorded, not
@@ -1959,7 +1959,7 @@ export function Profile() {
                                             fontWeight: 900,
                                             padding: '4px 12px',
                                             borderRadius: 4,
-                                            background: `${tone.fg}38`,
+                                            background: `color-mix(in srgb, ${tone.fg} 22%, transparent)`,
                                             color: tone.fg,
                                             border: `1px solid ${tone.fg}`,
                                             letterSpacing: '0.5px',
@@ -2024,13 +2024,13 @@ export function Profile() {
                                               lineHeight: 1,
                                               color:
                                                 g.ratingDelta > 0
-                                                  ? '#00ff88'
+                                                  ? 'var(--state-on)'
                                                   : g.ratingDelta < 0
-                                                    ? '#ff007f'
+                                                    ? 'var(--state-off)'
                                                     : 'var(--text-muted)',
                                               textShadow:
                                                 g.ratingDelta > 0
-                                                  ? '0 0 8px rgba(0, 255, 136, 0.6)'
+                                                  ? '0 0 8px rgb(var(--state-on-rgb) / 0.6)'
                                                   : 'none',
                                             }}
                                           >
@@ -2284,7 +2284,7 @@ export function Profile() {
                                               borderRadius: 2,
                                               width: `${pct}%`,
                                               background: isUnlocked
-                                                ? 'linear-gradient(90deg, #ffe600, #00ff88)'
+                                                ? 'linear-gradient(90deg, #ffe600, var(--state-on))'
                                                 : 'linear-gradient(90deg, var(--accent-cyan), #ffe600)',
                                               boxShadow: isUnlocked
                                                 ? '0 0 6px #ffe600'

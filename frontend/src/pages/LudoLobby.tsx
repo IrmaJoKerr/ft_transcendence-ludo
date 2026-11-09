@@ -512,8 +512,8 @@ export function LudoLobby() {
                 <span
                   className={RETRO_BADGE}
                   style={{
-                    border: '1px solid #00ff88',
-                    color: '#00ff88',
+                    border: '1px solid var(--state-on)',
+                    color: 'var(--state-on)',
                   }}
                 >
                   {t('ludoLobbyExtra.pilotLabel', {
@@ -765,16 +765,16 @@ export function LudoLobby() {
                     <div
                       style={{
                         padding: '12px 20px',
-                        background: 'rgba(0, 255, 136, 0.24)',
-                        border: '1.5px solid #00ff88',
+                        background: 'rgb(var(--state-on-rgb) / 0.24)',
+                        border: '1.5px solid var(--state-on)',
                         borderRadius: 8,
                         fontFamily: 'var(--font-mono)',
                         fontWeight: 900,
                         fontSize: '0.98rem',
-                        color: '#00ff88',
+                        color: 'var(--state-on)',
                         whiteSpace: 'nowrap',
                         letterSpacing: '1.2px',
-                        boxShadow: '0 0 12px rgba(0, 255, 136, 0.3)',
+                        boxShadow: '0 0 12px rgb(var(--state-on-rgb) / 0.3)',
                       }}
                     >
                       {t('ludoLobbyPasses.level3')}
@@ -783,7 +783,7 @@ export function LudoLobby() {
                       style={{
                         width: 1,
                         height: 56,
-                        borderRight: '2px dashed rgba(0, 255, 136, 0.45)',
+                        borderRight: '2px dashed rgb(var(--state-on-rgb) / 0.45)',
                       }}
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
@@ -816,10 +816,10 @@ export function LudoLobby() {
                     label={`▶ ${t('ludoLobbyPasses.playVsBots')}`}
                     probes={passActionProbes}
                     style={{
-                      background: 'rgba(0, 255, 136, 0.22)',
-                      border: '1.5px solid #00ff88',
-                      color: '#00ff88',
-                      boxShadow: '0 0 16px rgba(0, 255, 136, 0.4)',
+                      background: 'rgb(var(--state-on-rgb) / 0.22)',
+                      border: '1.5px solid var(--state-on)',
+                      color: 'var(--state-on)',
+                      boxShadow: '0 0 16px rgb(var(--state-on-rgb) / 0.4)',
                     }}
                   />
                 </div>
@@ -926,7 +926,7 @@ export function LudoLobby() {
                             fontWeight: 700,
                             letterSpacing: '0.4px',
                             color: '#ffffff',
-                            textShadow: '0 0 10px rgba(255, 0, 85, 0.65)',
+                            textShadow: '0 0 10px rgb(var(--state-off-rgb) / 0.65)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -1179,7 +1179,7 @@ export function LudoLobby() {
                                   style={{
                                     fontWeight: 'bold',
                                     fontSize: '0.82rem',
-                                    color: full ? '#ff0055' : '#00ff88',
+                                    color: full ? 'var(--state-off)' : 'var(--state-on)',
                                     fontFamily: 'var(--font-mono)',
                                   }}
                                 >

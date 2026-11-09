@@ -48,10 +48,10 @@ The caption names the *mode* rather than repeating the label, because "human win
 does not say whether it counts a lobby duel, a room invite or a PvE seat.
 
 `stats.lastRatingDelta` is deliberately **not** a card: it is the swing one match applied, not a
-career total, so it is a chip beside `CURRENT ELO` (`profile.ratingDeltaChip`, `LAST +12`), green
-when positive and the page's red `#ff0055` when negative, with `profile.ratingDeltaHint` on hover
-and **hidden at zero** — an unrated player has no change to report, and a `LAST 0` chip would read
-as a bug.
+career total, so it is a chip beside `CURRENT ELO` (`profile.ratingDeltaChip`, `LAST +12`), in the
+state pair's "on" when positive and its "off" when negative (`--state-on` / `--state-off`, the two
+themes' own values), with `profile.ratingDeltaHint` on hover and **hidden at zero** — an unrated
+player has no change to report, and a `LAST 0` chip would read as a bug.
 
 Every one of those numbers arrives on the payload. The win rate is the only thing the page derives
 (`wins / gamesPlayed`), and it stays derived rather than becoming a stored column; the split and

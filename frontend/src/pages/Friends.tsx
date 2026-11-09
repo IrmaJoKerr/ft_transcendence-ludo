@@ -273,10 +273,10 @@ export function Friends() {
                 <span
                   className={RETRO_BADGE}
                   style={{
-                    border: '1px solid #00ff88',
-                    color: '#00ff88',
-                    background: 'rgba(0, 255, 136, 0.12)',
-                    boxShadow: '0 0 10px rgba(0, 255, 136, 0.25)',
+                    border: '1px solid var(--state-on)',
+                    color: 'var(--state-on)',
+                    background: 'rgb(var(--state-on-rgb) / 0.12)',
+                    boxShadow: '0 0 10px rgb(var(--state-on-rgb) / 0.25)',
                     fontSize: '0.74rem',
                     padding: '4px 12px',
                     borderRadius: 4,
@@ -324,9 +324,9 @@ export function Friends() {
                   <span
                     className={RETRO_BADGE}
                     style={{
-                      border: '1px solid rgba(255, 0, 85, 0.4)',
-                      color: '#ff0055',
-                      background: 'rgba(255, 0, 85, 0.1)',
+                      border: '1px solid rgb(var(--state-off-rgb) / 0.4)',
+                      color: 'var(--state-off)',
+                      background: 'rgb(var(--state-off-rgb) / 0.1)',
                       fontSize: '0.74rem',
                       padding: '4px 12px',
                       borderRadius: 4,
@@ -476,11 +476,11 @@ export function Friends() {
                           borderRadius: 4,
                           color: activeTab === 'blocked' ? '#ffffff' : 'var(--text-muted)',
                           background:
-                            activeTab === 'blocked' ? 'rgba(255, 0, 85, 0.22)' : 'transparent',
+                            activeTab === 'blocked' ? 'rgb(var(--state-off-rgb) / 0.22)' : 'transparent',
                           borderColor:
-                            activeTab === 'blocked' ? '#ff0055' : 'rgba(255, 255, 255, 0.15)',
+                            activeTab === 'blocked' ? 'var(--state-off)' : 'rgba(255, 255, 255, 0.15)',
                           boxShadow:
-                            activeTab === 'blocked' ? '0 0 10px rgba(255, 0, 85, 0.35)' : 'none',
+                            activeTab === 'blocked' ? '0 0 10px rgb(var(--state-off-rgb) / 0.35)' : 'none',
                         }}
                       >
                         {t('friends.tabBlockedCount', { count: blocked.length })}
@@ -786,8 +786,8 @@ export function Friends() {
                                     fontFamily: 'var(--font-display)',
                                     fontWeight: 900,
                                     color: '#ffffff',
-                                    borderColor: 'rgba(255, 0, 85, 0.5)',
-                                    background: 'rgba(255, 0, 85, 0.14)',
+                                    borderColor: 'rgb(var(--state-off-rgb) / 0.5)',
+                                    background: 'rgb(var(--state-off-rgb) / 0.14)',
                                     borderRadius: 4,
                                   }}
                                   title={t('friends.blockTooltip')}
@@ -822,8 +822,8 @@ export function Friends() {
                             justifyContent: 'space-between',
                             padding: '12px 16px',
                             borderRadius: 6,
-                            background: 'rgba(255, 0, 85, 0.08)',
-                            border: '1.5px solid rgba(255, 0, 85, 0.28)',
+                            background: 'rgb(var(--state-off-rgb) / 0.08)',
+                            border: '1.5px solid rgb(var(--state-off-rgb) / 0.28)',
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -837,7 +837,7 @@ export function Friends() {
                                 height: 38,
                                 borderRadius: 4,
                                 background: 'rgba(10, 2, 28, 0.95)',
-                                color: '#ff0055',
+                                color: 'var(--state-off)',
                                 display: 'grid',
                                 placeItems: 'center',
                                 fontWeight: 900,
@@ -856,7 +856,7 @@ export function Friends() {
                               </div>
                               <div
                                 style={{
-                                  color: '#ff0055',
+                                  color: 'var(--state-off)',
                                   fontSize: '0.68rem',
                                   fontFamily: 'var(--font-display)',
                                   marginTop: 2,
@@ -973,10 +973,10 @@ export function Friends() {
                           borderRadius: 4,
                           background:
                             msg.type === 'error'
-                              ? 'rgba(255, 0, 85, 0.16)'
-                              : 'rgba(0, 255, 136, 0.16)',
-                          border: `1px solid ${msg.type === 'error' ? '#ff0055' : '#00ff88'}`,
-                          color: msg.type === 'error' ? '#ff0055' : '#00ff88',
+                              ? 'rgb(var(--state-off-rgb) / 0.16)'
+                              : 'rgb(var(--state-on-rgb) / 0.16)',
+                          border: `1px solid ${msg.type === 'error' ? 'var(--state-off)' : 'var(--state-on)'}`,
+                          color: msg.type === 'error' ? 'var(--state-off)' : 'var(--state-on)',
                           fontSize: '0.74rem',
                           fontFamily: 'var(--font-display)',
                           fontWeight: 'bold',
@@ -1179,9 +1179,9 @@ export function Friends() {
                                   fontSize: '0.7rem',
                                   fontFamily: 'var(--font-display)',
                                   fontWeight: 900,
-                                  background: '#00ff88',
-                                  color: '#0d0221',
-                                  borderColor: '#00ff88',
+                                  background: 'var(--state-on)',
+                                  color: 'var(--state-on-ink)',
+                                  borderColor: 'var(--state-on)',
                                   borderRadius: 3,
                                 }}
                                 title={t('friends.acceptTooltip')}

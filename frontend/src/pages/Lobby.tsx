@@ -40,9 +40,9 @@ const EMPTY_CARD_HUE = '#b8a6e4';
 /** The `✕` on every filled card: one control, one style, whichever seat it empties. */
 const REMOVE_SEAT_BTN: React.CSSProperties = {
   cursor: 'pointer',
-  background: 'rgba(255, 0, 85, 0.15)',
-  border: '1px solid #ff0055',
-  color: '#ff0055',
+  background: 'rgb(var(--state-off-rgb) / 0.15)',
+  border: '1px solid var(--state-off)',
+  color: 'var(--state-off)',
   borderRadius: 4,
   width: 26,
   height: 26,
@@ -534,7 +534,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                               <div
                                 style={{
                                   fontSize: '0.74rem',
-                                  color: '#00ff88',
+                                  color: 'var(--state-on)',
                                   fontFamily: 'var(--font-mono)',
                                   fontWeight: 'bold',
                                 }}
@@ -789,7 +789,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                               <div
                                 style={{
                                   fontSize: '0.74rem',
-                                  color: '#00ff88',
+                                  color: 'var(--state-on)',
                                   fontFamily: 'var(--font-mono)',
                                 }}
                               >
@@ -949,7 +949,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         <span style={{ color: 'var(--text-muted)' }}>
                           {t('lobby.botUnitsLabel')}
                         </span>
-                        <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
+                        <span style={{ color: 'var(--state-on)', fontWeight: 'bold' }}>
                           {t('lobby.unitsCount', {
                             count: visible.filter((s) => s.type === 'bot').length,
                             plural: visible.filter((s) => s.type === 'bot').length === 1 ? '' : 'S',
@@ -1001,7 +1001,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       <span style={{ color: 'var(--text-muted)' }}>
                         {t('lobby.winConditionLabel')}
                       </span>
-                      <span style={{ color: '#00ff88', fontWeight: 'bold' }}>
+                      <span style={{ color: 'var(--state-on)', fontWeight: 'bold' }}>
                         {t('lobby.fourPiecesInGoal')}
                       </span>
                     </div>
@@ -1151,7 +1151,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         textAlign: 'center',
                         fontSize: '0.82rem',
                         fontFamily: 'var(--font-mono)',
-                        color: canLaunch ? '#00ff88' : '#ffe600',
+                        color: canLaunch ? 'var(--state-on)' : '#ffe600',
                         marginTop: 12,
                         lineHeight: 1.5,
                       }}
@@ -1182,14 +1182,14 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         fontFamily: 'var(--font-heading)',
                         letterSpacing: '1.2px',
                         background: canLaunch
-                          ? 'rgba(0, 255, 136, 0.2)'
+                          ? 'rgb(var(--state-on-rgb) / 0.2)'
                           : 'rgba(255, 255, 255, 0.05)',
                         border: canLaunch
-                          ? '1px solid #00ff88'
+                          ? '1px solid var(--state-on)'
                           : '1px solid rgba(255, 255, 255, 0.2)',
-                        color: canLaunch ? '#00ff88' : 'var(--text-muted)',
+                        color: canLaunch ? 'var(--state-on)' : 'var(--text-muted)',
                         cursor: canLaunch ? 'pointer' : 'not-allowed',
-                        boxShadow: canLaunch ? '0 0 15px rgba(0, 255, 136, 0.4)' : 'none',
+                        boxShadow: canLaunch ? '0 0 15px rgb(var(--state-on-rgb) / 0.4)' : 'none',
                       }}
                     >
                       {lockedByActiveGame
@@ -1209,7 +1209,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       <div
                         style={{
                           textAlign: 'center',
-                          color: '#ff0055',
+                          color: 'var(--state-off)',
                           fontSize: '0.72rem',
                           fontFamily: 'var(--font-mono)',
                           marginTop: 8,

@@ -287,7 +287,7 @@ export function ResultsModal({
                     <div
                       role="alert"
                       style={{
-                        color: '#ff0055',
+                        color: 'var(--state-off)',
                         fontSize: '0.78rem',
                         fontFamily: 'var(--font-mono)',
                         textAlign: 'center',

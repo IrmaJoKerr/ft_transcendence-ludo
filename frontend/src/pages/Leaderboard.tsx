@@ -418,7 +418,7 @@ export function Leaderboard() {
                           </span>
                           <span>
                             {t('leaderboard.winRateLabel')}{' '}
-                            <strong style={{ color: '#00ff88', fontSize: '0.88rem' }}>
+                            <strong style={{ color: 'var(--state-on)', fontSize: '0.88rem' }}>
                               {top1.winRate}%
                             </strong>
                           </span>

@@ -180,9 +180,9 @@ export function PendingOffers() {
           role="alert"
           style={{
             padding: '6px 10px',
-            border: '1px solid #ff0055',
+            border: '1px solid var(--state-off)',
             borderRadius: 4,
-            background: 'rgba(255, 0, 85, 0.12)',
+            background: 'rgb(var(--state-off-rgb) / 0.12)',
             color: '#ff8095',
             fontSize: '0.7rem',
             fontFamily: 'var(--font-mono, monospace)',

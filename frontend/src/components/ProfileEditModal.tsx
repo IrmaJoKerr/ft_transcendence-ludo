@@ -121,7 +121,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   // Error text rendered under the field it belongs to (falls back to the first field).
   const errorFor = (fields: ErrorField[]) =>
     error && fields.includes(errorField) ? (
-      <div style={{ fontSize: '0.7rem', color: '#ff0055', margin: '-4px 0 10px' }}>{error}</div>
+      <div style={{ fontSize: '0.7rem', color: 'var(--state-off)', margin: '-4px 0 10px' }}>{error}</div>
     ) : null;
 
   // Load the full profile (linked providers + email) on open.
@@ -477,7 +477,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
             <div
               style={{
                 fontSize: '0.64rem',
-                color: '#ff0055',
+                color: 'var(--state-off)',
                 marginBottom: 12,
                 fontFamily: 'var(--font-mono)',
               }}
@@ -687,7 +687,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
                     style={{
                       padding: '2px 8px',
                       fontSize: '0.62rem',
-                      color: linked ? '#ff0055' : 'var(--accent-cyan)',
+                      color: linked ? 'var(--state-off)' : 'var(--accent-cyan)',
                     }}
                   >
                     {linked ? t('profileEdit.remove') : t('profileEdit.add')}

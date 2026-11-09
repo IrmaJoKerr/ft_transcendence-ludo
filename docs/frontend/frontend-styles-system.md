@@ -62,7 +62,7 @@ These rules stay in CSS because no utility expresses them:
 
 ### The theme
 
-The application runs one theme, Synthwave '84. Its tokens are declared on `:root, [data-theme='synthwave']`, and the store writes `data-theme="synthwave"` onto `<html>` and `<body>` on boot.
+Two themes ship, and both are token sets in the same stylesheet: **Synthwave '84**, declared on `:root, [data-theme='synthwave']` (the default), and **Retro 70's**, declared on `[data-theme='retro70']` after it. The store writes `data-theme` onto `<html>` and `<body>` on boot and on every switch, and the choice survives a reload in `retro_theme`.
 
 ### Theme tokens (CSS custom properties)
 
@@ -76,9 +76,13 @@ The application runs one theme, Synthwave '84. Its tokens are declared on `:root
 --font-heading, --font-display, --font-mono  /* Atkinson Hyperlegible Next (heading/display), Atkinson Hyperlegible Mono */
 --crt-scanline-opacity, --crt-flicker-opacity
 --window-header-bg, --window-header-text
+--state-on, --state-on-ink, --state-off   /* the pass/fail pair, see below */
+--accent-*-rgb, --state-on-rgb, --state-off-rgb, --ink-rgb, --shade-rgb, --bg-primary-rgb   /* `r g b`, read as `rgb(var(--x-rgb) / a)` */
 ```
 
 A component only ever references `var(--accent-cyan)` (and so on), so the colour comes from the stylesheet.
+
+**The state pair.** `--state-on` (`#00ff88` / avocado `#82903f`) and `--state-off` (`#ff0055` / cranberry rose `#e8697d`) are the only two colours that report a condition: on/off, joined/muted, valid/refused, met/missed, in/out. They are not accents, so they are not reused for a seat, a mode or a rule, and the two halves always move together (a row reads "on" by contrast with a row that reads "off"). `--state-on-ink` is the text that sits on a lit pill. Seat hues, the hero art and the mode chrome stay literal, because colour is the seat and a mode's colour is its name. Both halves moved together on 2026-11-09, which is why the accent pink that sat beside a moved green (the profile's defeats card, a lost match, the blocked card, the down delta) moved onto `--state-off` too: `--accent-pink` is the red seat's own hue, so it cannot report a failure. The pair also replaced the two unread channel tokens `--success-rgb` and `--warn-rgb`.
 
 
 ---

@@ -649,6 +649,9 @@ both specificity 0-1-0, so only source order decides.
 | `--shell-image` | `url('/synthwave-cityscape.jpeg')` | the `html, body` ground; `none` in the 70s theme, where `--bg-primary` shows through |
 | `--start-overlay-bg` | `rgba(13, 2, 33, 0.45)` | the press-start card's fill |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgba(0,240,255,.2)` | the two layers of that card's shadow |
+| `--state-on` / `--state-on-rgb` | `#00ff88` / `0 255 136` | the state pair's **on**: met, ready, valid, online, sent. Only a condition reads it, never a seat, a mode or a rule |
+| `--state-on-ink` | `#0b021a` | the text that sits ON a lit pill (an enabled badge, an accept button) |
+| `--state-off` / `--state-off-rgb` | `#ff0055` / `255 0 85` | the pair's **off**: muted, refused, missed, out |
 
 **The 1970s block (`[data-theme='retro70']`)** 🎨 — the approved stills' palette
 (`/tmp/theme-mockups`, `gen.py`'s `PAL['retro70']`), so the shell and the canvas painters cannot
@@ -681,6 +684,20 @@ reaches 4.6:1.
 | `--shell-image` | `none` | a neon skyline behind a walnut console is the one thing a 70s shell cannot wear |
 | `--start-overlay-bg` | `rgba(11, 8, 5, 0.55)` | black at 55%: the navy card reads purple over walnut |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,176,0,.35)` / `rgba(229,52,11,.22)` | the card's shadow, in the palette's amber and red |
+| `--state-on` / `--state-on-rgb` | `#82903f` / `130 144 63` | avocado, 4.75:1 on `--bg-card` and 5.41:1 on `--bg-primary` |
+| `--state-on-ink` | `#1a1009` | warm black (the same value as `--shade-rgb`), 5.36:1 on the lit pill |
+| `--state-off` / `--state-off-rgb` | `#e8697d` / `232 105 125` | cranberry rose, 5.33:1 on the card: 20.7° of hue from the border's vermilion and 50.9° from the amber warning, so a refusal reads as neither chrome nor caution |
+
+**The state pair (`--state-*`)** 🎨 — added 2026-11-09 (`todo.md` [26](todo.md#state-colour)). Two colours report a
+condition; everything else names a thing. On, met, valid, ready, online and sent read `--state-on`; off, muted, refused,
+missed and out read `--state-off`. Synthwave's columns are the literals the readers used to spell out, so the 80s theme
+keeps every colour it had except in the nine accent-pink halves of pairs that the pair rule moved with their green (the
+profile's blocked card, its defeats card, a lost match's chip and the down rating delta); the 70s columns are the two
+measured above. The pair also retires the two orphan channel tokens this section never listed, `--success-rgb` and
+`--warn-rgb`: neither had a single reader, and `--warn-rgb` was terracotta in the 70s block while that theme's warning
+colour is the amber `--accent-yellow`, so it could not be right in both themes. Seat hues (`COL`, the two `SEAT_HUES`,
+`SEAT_COLOR`), the hero art and the mode chrome (the three lobby tickets, the rule chips, the tier badges, the rules
+pages) stay literal: colour is the seat, and a mode's colour is its name.
 
 **The 1970s piece palette — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four

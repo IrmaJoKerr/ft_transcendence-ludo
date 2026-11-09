@@ -79,8 +79,8 @@ function getToastInfo(
       return {
         tag: t('notifications.achievementTag'),
         badgeLabel: 'ACHV',
-        badgeColor: '#00ff88',
-        badgeBg: 'rgba(0, 255, 136, 0.18)',
+        badgeColor: 'var(--state-on)',
+        badgeBg: 'rgb(var(--state-on-rgb) / 0.18)',
         fromUser: null,
         actionMessage: name ? `${name}!` : t('notifications.achievementUnlocked'),
       };
@@ -91,8 +91,8 @@ function getToastInfo(
       return {
         tag: t('notifications.matchEndTag'),
         badgeLabel: 'END',
-        badgeColor: '#00ff88',
-        badgeBg: 'rgba(0, 255, 136, 0.18)',
+        badgeColor: 'var(--state-on)',
+        badgeBg: 'rgb(var(--state-on-rgb) / 0.18)',
         fromUser: null,
         actionMessage:
           rank === 1
@@ -151,8 +151,8 @@ function getToastInfo(
       return {
         tag: t('notifications.friendOnlineTag'),
         badgeLabel: 'ON',
-        badgeColor: '#00ff88',
-        badgeBg: 'rgba(0, 255, 136, 0.18)',
+        badgeColor: 'var(--state-on)',
+        badgeBg: 'rgb(var(--state-on-rgb) / 0.18)',
         fromUser: String(payload.displayName ?? from),
         actionMessage: t('notifications.actionFriendOnline', {
           displayName: payload.displayName ?? from,
@@ -493,7 +493,7 @@ function Toast({
               fontSize: '0.78rem',
               fontWeight: 'bold',
               color: badgeColor,
-              boxShadow: `0 0 12px ${badgeColor}35`,
+              boxShadow: `0 0 12px color-mix(in srgb, ${badgeColor} 21%, transparent)`,
               letterSpacing: 1,
               flexShrink: 0,
             }}
