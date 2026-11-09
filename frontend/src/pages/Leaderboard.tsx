@@ -51,12 +51,6 @@ export function Leaderboard() {
   // A page-level look, not a dock control: read once at mount.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('retro_theme') ?? 'synthwave';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    document.body.setAttribute('data-theme', savedTheme);
-  }, []);
-
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
 

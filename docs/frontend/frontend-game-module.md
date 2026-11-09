@@ -48,6 +48,8 @@ The Game page (`/game`) is the real-time gameplay screen. It has:
 | `src/game/ClashOverlay.tsx` | Clash QTE: phases, press bars, result card, keyboard listener and touch pads |
 | `src/game/ResultFx.tsx` | The result card's one scene, played twice (capture, repulse), its injected keyframes, the four-beat sound schedule it derives its snap from, the flash card's crop and stage scale, and the reduced-motion cross-fade |
 | `src/game/boardGeometry.ts` | Logical step → board cell mapping (track loop, home lanes, per-colour offsets), shared by the board and the capture burst's anchor |
+| `src/game/pieceParts.ts` | The 1970s piece set: four bobbleheads in a 100-unit box as data (`PiecePart[]`), the per-seat value ladder that paints them, and the crew's stance |
+| `src/components/PieceFigure.tsx` | Those parts as SVG, shared by the board's `Sphere` and the clash result's cast |
 | `src/game/reducer.ts` | Pure reducer that turns engine events into local view state |
 | `src/game/timing.ts` | Client-side presentation delays (the eight both builds count come from `common/src/timing.constants.ts`), the dice brake's landing clamp, and the capture burst's length, card opacity and post-card beat |
 | `src/game/types.ts` | GameState, PlayerColor, LegalMove, MoveResult and others |

@@ -508,12 +508,6 @@ export function Profile() {
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('retro_theme') ?? 'synthwave';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    document.body.setAttribute('data-theme', savedTheme);
-  }, []);
-
   const [profile, setProfile] = useState<UserProfile | null>(null);
   // The window header line is the handle's copy target (`… [COPY]`), the same
   // shape the PvP waiting room gives its room code.

@@ -139,7 +139,7 @@ export const ARCADE_SCREEN_FRAME =
   'bg-black p-0 border-4 border-[#333333] shadow-[inset_0_0_20px_#000000,0_0_15px_var(--accent-cyan)] relative overflow-hidden w-full h-full cursor-pointer [transition:all_0.2s_ease]';
 
 export const ARCADE_START_OVERLAY =
-  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[82%] max-w-[580px] bg-[rgba(13,2,33,.45)] backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_rgba(255,0,127,.35),inset_0_0_12px_rgba(0,240,255,.2)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-none [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
+  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[82%] max-w-[580px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-none [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
 
 export const ARCADE_START_TITLE =
   '[font-family:var(--font-heading)] text-[0.95rem] text-(--accent-yellow) [text-shadow:0_0_10px_var(--accent-yellow),0_0_20px_var(--accent-pink)] tracking-[1.5px] font-bold whitespace-nowrap';

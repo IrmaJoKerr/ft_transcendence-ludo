@@ -37,6 +37,72 @@
   --window-header-bg: linear-gradient(90deg, #ff007f, #00f0ff);
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
+  /* The shell's ground. A token rather than a literal on `html, body` because one
+     theme paints a cityscape and the other paints nothing (see the retro70 block
+     below): `none` lets `--bg-primary` show through, which is the same ground
+     `index.css` already gives the shell before any theme lands. */
+  --shell-image: url('/synthwave-cityscape.jpeg');
+  /* The press-start card's own fill. Its border reads `--accent-pink` and so
+     rethemes for free; the fill and the two glows in its shadow do not, and they
+     are the parts that read wrong over walnut. Values are the literals that were
+     in the class before they were tokens, so synthwave renders unchanged. */
+  --start-overlay-bg: rgba(13, 2, 33, 0.45);
+  --start-overlay-glow: rgba(255, 0, 127, 0.35);
+  --start-overlay-inset: rgba(0, 240, 255, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   THEME 2: 1970s SPACE-AGE (data-theme='retro70')
+   -------------------------------------------------------------------------- */
+
+/* Placed after the block above on purpose: `:root` and `[data-theme='synthwave']`
+   are both specificity 0-1-0, so only source order decides which of the two wins
+   for an element that matches both selectors — which `<html>` does for a
+   `retro70` reader between the store's first render and its effect. A 70s block
+   above this one would lose silently instead of flashing a palette.
+
+   Values are the approved stills' palette (`/tmp/theme-mockups`, `gen.py`'s
+   `PAL['retro70']`), so the canvas painters and the shell cannot disagree. One
+   deliberate lift: `--accent-cyan` takes the palette's `a1t` (#5FB3B0) rather
+   than its `a1` (#3F8A8C), because the app paints small cyan text in 169 places
+   and `a1` on `--bg-primary` only reaches 4.6:1. */
+[data-theme='retro70'] {
+  --bg-primary: #14100e;
+  --bg-secondary: #241a12;
+  --bg-card: rgba(43, 30, 21, 0.85);
+  --accent-cyan: #5fb3b0;
+  --accent-pink: #e5340b;
+  --accent-yellow: #ffb000;
+  --accent-purple: #0c5679;
+  --text-main: #ffe7bd;
+  --text-muted: #c9b08a;
+  --text-soft: #e3d2ae;
+  --border-color: #e5340b;
+  --box-shadow: 0 0 15px rgba(229, 52, 11, 0.45), inset 0 0 15px rgba(255, 176, 0, 0.2);
+  /* Heading and display are the era's face, vendored with the others (see
+     `public/fonts/README.md`); Mono stays Atkinson so readouts and room codes keep
+     their tabular figures. */
+  --font-heading: 'Comfortaa', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-display: 'Comfortaa', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace;
+  --grid-line-color: rgba(255, 176, 0, 0.28);
+  --grid-bg-glow: rgba(242, 138, 15, 0.18);
+  --btn-bg: linear-gradient(135deg, #e5340b, #f28a0f);
+  --btn-hover-shadow: 0 0 20px #ffb000, 0 0 35px #e5340b;
+  --crt-scanline-opacity: 0.1;
+  --crt-flicker-opacity: 0.02;
+  --window-header-bg: linear-gradient(90deg, #e5340b, #ffb000);
+  --window-header-text: #ffe7bd;
+  --card-border-style: 2px solid var(--accent-pink);
+  /* No cityscape: a neon skyline behind a walnut console is the one thing a 70s
+     shell cannot wear. The ground is `--bg-primary`, warm enough on its own. */
+  --shell-image: none;
+  /* Black at 55 per cent, the value the stills paint this card at: the navy the
+     synthwave card uses reads purple over walnut. The glows move to the palette's
+     amber and hot red, the pair the stills ring the card in. */
+  --start-overlay-bg: rgba(11, 8, 5, 0.55);
+  --start-overlay-glow: rgba(255, 176, 0, 0.35);
+  --start-overlay-inset: rgba(229, 52, 11, 0.22);
 }
 
 /* --------------------------------------------------------------------------
@@ -51,7 +117,7 @@ body {
   width: 100%;
   min-height: 100vh;
   background-color: var(--bg-primary);
-  background-image: url('/synthwave-cityscape.jpeg');
+  background-image: var(--shell-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

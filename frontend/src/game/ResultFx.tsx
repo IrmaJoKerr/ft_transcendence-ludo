@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { COL } from '../theme';
+import { useApp } from '../store';
+import { PieceFigure } from '../components/PieceFigure';
 import type { PlayerColor } from './types';
 import { PIECE_GLYPH } from './boardGeometry';
 import { RESULT_FX_MS, RESULT_HEADLINE_READ_MS } from '../__shared__/timing.constants';
@@ -248,6 +250,8 @@ export function ResultFx({
 }) {
   useEffect(ensureKeyframes, []);
   const reduced = useReducedMotion();
+  const { theme } = useApp();
+  const isRetro70 = theme === 'retro70';
   const attackerColor = COL[attacker].base;
   const defenderColor = COL[defender].base;
   // Who won, and therefore whose colour is on every mark and whose side the cell slams in
@@ -401,22 +405,54 @@ export function ResultFx({
       {/* the cast, at the same two places whichever seat won: the attacker in the lane,
           the defender on its square. A clip stops being one clip if the cast changes, so
           neither piece is gated on the outcome (25.17 item 2). A wall's defender is its
-          dome, so only the rings are drawn for it above. */}
-      <g
-        transform={`translate(${ATTACKER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
-        shapeRendering='crispEdges'
-      >
-        <path d={PIECE_GLYPH[attacker]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
-        <path d={PIECE_GLYPH[attacker]} fill={attackerColor} />
-      </g>
-      {isPieceLevel && (
-        <g
-          transform={`translate(${DEFENDER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
-          shapeRendering='crispEdges'
-        >
-          <path d={PIECE_GLYPH[defender]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
-          <path d={PIECE_GLYPH[defender]} fill={defenderColor} />
-        </g>
+          dome, so only the rings are drawn for it above.
+
+          Two renderings of the same cast: the invader glyph stamped to `PIECE_W`, or the
+          70s figure from `game/pieceParts.ts` filling the same 33-unit box. The box is
+          the contract — the beam's inset is measured from its edge, so neither drawing
+          can move the strike. */}
+      {isRetro70 ? (
+        <>
+          <g transform={`translate(${ATTACKER_GLYPH_X} ${GLYPH_Y}) scale(${PIECE_W / 100})`}>
+            <PieceFigure ck={attacker} />
+          </g>
+          {isPieceLevel && (
+            <g transform={`translate(${DEFENDER_GLYPH_X} ${GLYPH_Y}) scale(${PIECE_W / 100})`}>
+              <PieceFigure ck={defender} />
+            </g>
+          )}
+        </>
+      ) : (
+        <>
+          <g
+            transform={`translate(${ATTACKER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
+            shapeRendering='crispEdges'
+          >
+            <path
+              d={PIECE_GLYPH[attacker]}
+              fill='none'
+              stroke='#000'
+              strokeWidth='1'
+              strokeLinejoin='miter'
+            />
+            <path d={PIECE_GLYPH[attacker]} fill={attackerColor} />
+          </g>
+          {isPieceLevel && (
+            <g
+              transform={`translate(${DEFENDER_GLYPH_X} ${GLYPH_Y}) scale(${GLYPH_SCALE})`}
+              shapeRendering='crispEdges'
+            >
+              <path
+                d={PIECE_GLYPH[defender]}
+                fill='none'
+                stroke='#000'
+                strokeWidth='1'
+                strokeLinejoin='miter'
+              />
+              <path d={PIECE_GLYPH[defender]} fill={defenderColor} />
+            </g>
+          )}
+        </>
       )}
 
       {/* the strike lands: the field cracks under the loser. The loser itself never moves

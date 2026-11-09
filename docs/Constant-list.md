@@ -608,10 +608,13 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 | `BOT_POOL` | `Siri, Alexa, Cortana` | the three assistant names a bot seat can draw (the host is never a bot, so 3 is enough) |
 | `BASE_MODE_HUE` | `#b8a6e4` | the lobby's "base game" room chip: a room with no mutator is a category, not an empty cell |
 | `STATUS_STYLE` (theme) | online `#4bbf7b`, playing `#f0c24e`, offline `#6b6255` | presence dot colour, mirroring the backend's `PresenceStatus` |
+| `THEMES` | `synthwave` (`SYNTHWAVE '84`, `#ff007f`/`#00f0ff`), `retro70` (`RETRO 70'S`, `#e5340b`/`#ffb000`) | the account menu's theme rows. One list, three readers: the switcher renders it, `storedTheme()` validates `retro_theme` against it, and the CSS token blocks are keyed by the same ids. The labels are not translated: a decade is spelled the same way in all three locales |
 | Clash plate colours | red `#e05050`, green `#5fd08a`, yellow `#f0d18a`, blue `#4a92e0` | the clash overlay's plates and bars, read as `var(--clash-<colour>, <fallback>)`. The vars are **not** defined in `retrowave.css`, so the fallback is the effective value |
 
-**Design tokens — `retrowave.css`** 🎨 — `:root, [data-theme='synthwave']`; this is the only theme
-(`ThemeType = 'synthwave'`), and the attributes are set on both `<html>` and `<body>`.
+**Design tokens — `retrowave.css`** 🎨 — `:root, [data-theme='synthwave']` is the default block and
+`[data-theme='retro70']` is the second theme. The attributes are set on both `<html>` and `<body>`;
+the 70s block is placed **after** the default one because `:root` and `[data-theme='synthwave']` are
+both specificity 0-1-0, so only source order decides.
 
 | Token | Value | Role |
 |---|---|---|
@@ -640,6 +643,59 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
 | `--fs-border` / `--fs-text` / `--fs-accent` | `#ff007f` / `#ffffff` / `#ff007f` | custom fieldset + colour-scheme component (global `:root`, not theme-scoped) |
 | `--fs-cyan` / `--fs-bg` / `--fs-glow` | `#00f0ff` / `rgba(25,10,56,.9)` / `rgba(255,0,127,.5)` | the same component's outline, fill and glow |
+| `--shell-image` | `url('/synthwave-cityscape.jpeg')` | the `html, body` ground; `none` in the 70s theme, where `--bg-primary` shows through |
+| `--start-overlay-bg` | `rgba(13, 2, 33, 0.45)` | the press-start card's fill |
+| `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgba(0,240,255,.2)` | the two layers of that card's shadow |
+
+**The 1970s block (`[data-theme='retro70']`)** 🎨 — the approved stills' palette
+(`/tmp/theme-mockups`, `gen.py`'s `PAL['retro70']`), so the shell and the canvas painters cannot
+disagree. One deliberate lift: `--accent-cyan` takes the palette's `a1t` (`#5FB3B0`) rather than its
+`a1` (`#3F8A8C`), because the app paints small cyan text in 169 places and `a1` on `--bg-primary` only
+reaches 4.6:1.
+
+| Token | Value | Note |
+|---|---|---|
+| `--bg-primary` | `#14100e` | walnut |
+| `--bg-secondary` | `#241a12` | panels, scrollbar track |
+| `--bg-card` | `rgba(43, 30, 21, 0.85)` | card fill |
+| `--accent-cyan` | `#5fb3b0` | primary accent (teal, lifted from `a1` for contrast) |
+| `--accent-pink` | `#e5340b` | secondary accent (hot red), default border |
+| `--accent-yellow` | `#ffb000` | highlight (amber) |
+| `--accent-purple` | `#0c5679` | gradient partner (deep blue) |
+| `--text-main` | `#ffe7bd` | body text (cream) |
+| `--text-muted` | `#c9b08a` | secondary text (sand) |
+| `--text-soft` | `#e3d2ae` | captions and empty-state lines |
+| `--border-color` | `#e5340b` | default border |
+| `--box-shadow` | `0 0 15px rgba(229,52,11,.45), inset 0 0 15px rgba(255,176,0,.2)` | panel glow |
+| `--font-heading`, `--font-display` | `'Comfortaa', 'Atkinson Hyperlegible Next', system-ui, sans-serif` | the era's face, vendored; the UI face stays Atkinson |
+| `--font-mono` | `'Atkinson Hyperlegible Mono', …` | unchanged: readouts keep tabular figures |
+| `--grid-line-color` / `--grid-bg-glow` | `rgba(255,176,0,.28)` / `rgba(242,138,15,.18)` | grid and horizon glow |
+| `--btn-bg` | `linear-gradient(135deg, #e5340b, #f28a0f)` | button fill |
+| `--btn-hover-shadow` | `0 0 20px #ffb000, 0 0 35px #e5340b` | button hover glow |
+| `--crt-scanline-opacity` / `--crt-flicker-opacity` | `0.1` / `0.02` | CRT overlays |
+| `--window-header-bg` / `--window-header-text` | `linear-gradient(90deg, #e5340b, #ffb000)` / `#ffe7bd` | OS-window title bar |
+| `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
+| `--shell-image` | `none` | a neon skyline behind a walnut console is the one thing a 70s shell cannot wear |
+| `--start-overlay-bg` | `rgba(11, 8, 5, 0.55)` | black at 55%: the navy card reads purple over walnut |
+| `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,176,0,.35)` / `rgba(229,52,11,.22)` | the card's shadow, in the palette's amber and red |
+
+**The 1970s piece palette — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
+`piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
+hues and parts are separated by lightness, never by hue. `--` means "not a colour role".
+
+| Constant | Value | Role |
+|---|---|---|
+| `hi` / `lit` | seat hue mixed 62% / 34% towards `#ffffff` | the lifted values, and the globe's gradient start |
+| `shd` / `lo` / `deep` | seat hue mixed 22% / 52% / 74% towards `#000000` | the sunken values: straps, arms, boots |
+| `deepink` | seat hue mixed 86% towards `#0a0716` | a hue-tinted near-black, so an outline still belongs to its piece |
+| `pop` | blue `#ffb000`, red `#f6e7c6`, green `#5fb3b0`, yellow `#7b4dff` | the one accent, per hue: cream works for three seats and is invisible on yellow, so yellow takes the violet complement |
+| `ink` / `cream` / `white` | `#0a0716` / `#ffe7bd` / `#ffffff` | the fixed values: every outline, the H2 faceplate, the specular literals |
+| `PIECE_GRADIENT.lid` | `hi → base (0.46) → lo` | the torso |
+| `PIECE_GRADIENT.lidCrew` | `lit → base (0.55) → lo` | the hero's torso, lit flatter for a figure 47 px tall |
+| `PIECE_GRADIENT.gid` | `hi → base (0.5) → lo`, radial at `0.33/0.28` r `0.9` | the helmet globe |
+| `CREW_HEAD` | neck `62`, scale `0.85`, span `95.5` | the crew's head: 62% head reads as a ball on a box at 112 px, so the window and the board disagree here on purpose |
+| `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned visor's squash and slide |
+| `PIECE_CREW` | red H2 `+1` @ 178/112, green H3 `−1` @ 246/106, yellow H4 `+1` @ 320/106, blue H1 `−1` @ 404/112 | the row in the porthole: the seat legend's order, facing each other in pairs, the outer pair a size up |
 
 
 ### **13. Client timing**
@@ -838,7 +894,7 @@ The results modal drives its own print cadence on top of these: steps at `0, 80,
 | Key | Default / shape | What it holds |
 |---|---|---|
 | `lr.lang` | `'en'` (one of `en`, `ms`, `fr`) | chosen language; read at boot so the first paint is already localized |
-| `retro_theme` | `'synthwave'` | theme name, written to `data-theme` on `<html>` and `<body>` |
+| `retro_theme` | `'synthwave'` (one of `synthwave`, `retro70`; anything else falls back) | theme name, written to `data-theme` on `<html>` and `<body>` |
 | `lr.activeMatch` | JSON `ActiveMatch` (`gameId`, `token`, `color`, `inviteCode`) | the navbar's rejoin banner |
 | `lr.seats` | JSON seat map | lobby → game handoff of seat colours/names |
 | `rulesShowOnStart` | `true` (absent means on) | show the rules popup when a match starts |

@@ -81,13 +81,29 @@ function emptySeats(): Seat[] {
 export type PlayerCount = 2 | 3 | 4;
 
 export type Lang = 'en' | 'fr' | 'ms';
-export type ThemeType = 'synthwave';
+export type ThemeType = 'synthwave' | 'retro70';
 
 /** Languages offered in the account menu. */
 export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'ms', label: 'Bahasa Melayu', flag: '🇲🇾' },
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
+];
+
+/**
+ * The themes the shell offers, in the order the account menu lists them.
+ *
+ * One list, three readers: the switcher renders it, `storedTheme()` validates the
+ * saved value against it, and the token blocks in `styles/retrowave.css` are keyed
+ * by the same `id`s — so a theme cannot be offered without a palette, or kept in
+ * storage without a switcher row. The labels are the era names the approved 1970s
+ * stills print (`/tmp/theme-mockups`, `PAL[*].label`) and are deliberately not
+ * translated: a decade is spelled the same way in all three locales. `swatch` is
+ * the pair of token colours the row paints as a two-tone chip.
+ */
+export const THEMES: Array<{ id: ThemeType; label: string; swatch: [string, string] }> = [
+  { id: 'synthwave', label: "SYNTHWAVE '84", swatch: ['#ff007f', '#00f0ff'] },
+  { id: 'retro70', label: "RETRO 70'S", swatch: ['#e5340b', '#ffb000'] },
 ];
 
 const LANG_KEY = 'lr.lang';
@@ -102,7 +118,8 @@ function storedLang(): Lang {
 }
 
 function storedTheme(): ThemeType {
-  return 'synthwave';
+  const raw = localStorage.getItem(THEME_KEY);
+  return THEMES.some((theme) => theme.id === raw) ? (raw as ThemeType) : 'synthwave';
 }
 
 // A popup setting that forgets on reload is not a setting (22.5). Absent or

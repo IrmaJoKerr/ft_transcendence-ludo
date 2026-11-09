@@ -130,7 +130,7 @@ type AppState = {
   lastResult: LastResult | null     // finished-match data for the ResultsModal overlay
   setLastResult: (r: LastResult | null) => void  // Saves finished match results
   // Theme
-  theme: ThemeType  // Current theme (synthwave, persisted as retro_theme)
+  theme: ThemeType  // Current theme ('synthwave' | 'retro70', persisted as retro_theme)
   setTheme: (t: ThemeType) => void  // Changes the theme
   // Language
   lang: Lang  // Selected language

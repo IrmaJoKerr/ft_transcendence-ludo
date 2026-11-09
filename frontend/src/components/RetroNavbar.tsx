@@ -7,6 +7,7 @@ import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 import { UserAvatar } from './UserAvatar';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import { NotificationBell } from './NotificationBell';
 import { LobbyChat } from './LobbyChat';
 import { AutoCloseToggle } from './AutoCloseToggle';
@@ -471,8 +472,8 @@ export function RetroNavbar({
 
                 {/* 2. Auto-close alerts: one preference, two homes (22.5). It sits
                 above the master audio block because the running order is 1 language,
-                2 auto-close, 3 master audio, 4 logout — the stack this panel had
-                before f43ffb9 deleted its old block 2. */}
+                2 auto-close, 3 master audio, 4 theme, 5 logout — the stack this panel
+                had before f43ffb9 deleted its old block 2, plus the theme row. */}
                 <AutoCloseToggle />
 
                 {/* 3. Master Audio Toggle: mutes/unmutes ALL sounds (music + FX),
@@ -528,7 +529,13 @@ export function RetroNavbar({
                   </span>
                 </div>
 
-                {/* 4. Logout / Disconnect Button */}
+                {/* 4. Theme: the row that flips the shell. It sits after the
+                master audio block because the running order is 1 language,
+                2 auto-close, 3 master audio, 4 theme, 5 logout — the theme row is
+                the last preference before the destructive button. */}
+                <ThemeSwitcher />
+
+                {/* 5. Logout / Disconnect Button */}
                 <button
                   className={RETRO_BTN}
                   onClick={() => {

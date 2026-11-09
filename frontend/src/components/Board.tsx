@@ -2,7 +2,9 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COL, type ColorKey } from '../theme';
+import { useApp } from '../store';
 import { PIECE_GLYPH, SAFE_TRACK_POSITIONS, TRACK_CELLS, stepToCell } from '../game/boardGeometry';
+import { PieceFigure } from './PieceFigure';
 import { CaptureBurst } from './CaptureBurst';
 
 const CELL_BG = '#050515';
@@ -10,8 +12,33 @@ const LINE = '#00f0ff';
 
 
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
+  const { theme } = useApp();
   const c = COL[ck];
   const d = PIECE_GLYPH[ck];
+
+  // The 1970s piece is a drawn figure, not a pixel sprite: its own 100-unit box, real
+  // strokes and no pixel snapping. The BOX is unchanged — same tile, same 30/36 px
+  // footprint the stacking geometry was measured on — so a board recorded in one theme
+  // and replayed in the other moves no piece; what differs inside it is the drawing,
+  // and a figure 54 units wide in a 100-unit box reads narrower than the 11-of-13
+  // invader. That is the picked silhouette, not slack.
+  if (theme === 'retro70') {
+    return (
+      <svg
+        viewBox="0 0 100 100"
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'visible',
+          filter: isLegal
+            ? 'drop-shadow(0 0 4px #ffe600) drop-shadow(0 0 8px #ffe600)'
+            : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
+        }}
+      >
+        <PieceFigure ck={ck} />
+      </svg>
+    );
+  }
 
   return (
     <svg

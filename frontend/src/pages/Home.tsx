@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
 import { LegalModal, type LegalDocType } from '../components/LegalModal';
 import { useFriendships } from '../hooks/useFriendships';
+import { useHeroScene } from '../hooks/useHeroScene';
 import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { useApp } from '../store';
@@ -57,8 +58,8 @@ const STATUS_STYLE: Record<string, { label: string; color: string; border: strin
 };
 
 export function Home() {
-  const { t, i18n } = useTranslation();
-  const { user, onlineCount } = useApp();
+  const { t } = useTranslation();
+  const { user, onlineCount, theme } = useApp();
   const [legalModalDoc, setLegalModalDoc] = useState<LegalDocType | null>(null);
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
 
@@ -82,8 +83,10 @@ export function Home() {
   // freshly connected socket the number it last pushed, and the store keeps that
   // value for as long as the connection lives (so a remount still paints).
 
-  // **5. HUB ARCADE CABINET: 3D ATTRACT MODE & PRESS START**
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // **5. HUB ARCADE CABINET: ATTRACT MODE & PRESS START**
+  // The canvas, its scene and its one rAF loop belong to `useHeroScene`; the theme
+  // decides which backdrop that loop paints. `Home` keeps only the launch.
+  const canvasRef = useHeroScene(theme, t('homeExtended.heroMarquee'));
   const [isWarpingToLobby, setIsWarpingToLobby] = useState(false);
 
   const launchToLobby = useCallback(() => {
@@ -118,179 +121,6 @@ export function Home() {
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
   }, [launchToLobby]);
-
-  // **1b. HERO MARQUEE // Held in a ref so a language switch only swaps the
-  // text: the canvas effect below keeps running (no starfield reshuffle).
-  const heroMarqueeRef = useRef(t('homeExtended.heroMarquee'));
-  useEffect(() => {
-    heroMarqueeRef.current = t('homeExtended.heroMarquee');
-  }, [t, i18n.language]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animId: number;
-    let gridOffset = 0;
-    let time = 0;
-
-    // Synthwave color palette
-    const cfg = {
-      bgTop: '#070114',
-      bgMid: '#160530',
-      bgBot: '#05010d',
-      hasSun: true,
-      sunC1: 'rgba(255, 230, 0, 0.72)',
-      sunC2: 'rgba(255, 0, 127, 0.38)',
-      sunScanline: 'rgba(13, 2, 33, 0.6)',
-      gridColor: 'rgba(0, 240, 255, 0.45)',
-      starRgb: '255, 255, 255',
-      pawns: [
-        { label: 'RED', color: '#ff0055', x: 85, y: 350 },
-        { label: 'GREEN', color: '#00ff88', x: 230, y: 360 },
-        { label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },
-        { label: 'BLUE', color: '#00f0ff', x: 635, y: 350 },
-      ],
-      marqueeColor: '#00f0ff',
-    };
-
-    // Background stars
-    const stars = Array.from({ length: 65 }, () => ({
-      x: Math.random() * 720,
-      y: Math.random() * 260,
-      size: Math.random() * 1.8 + 0.5,
-      speed: Math.random() * 0.3 + 0.1,
-      alpha: Math.random() * 0.7 + 0.3,
-    }));
-
-    const loop = () => {
-      time += 0.02;
-      gridOffset = (gridOffset + 1.3) % 26;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 1. Deep Canvas Background with gradient
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      bgGrad.addColorStop(0, cfg.bgTop);
-      bgGrad.addColorStop(0.65, cfg.bgMid);
-      bgGrad.addColorStop(1, cfg.bgBot);
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 2. Distant Sun: the disc and its scanlines share one clip path, so a
-      //    scanline stroke cannot reach past the sun's silhouette.
-      const sunY = 250;
-      const sunRadius = 90;
-      const sunGrad = ctx.createRadialGradient(360, sunY, 7, 360, sunY, sunRadius);
-      sunGrad.addColorStop(0, cfg.sunC1);
-      sunGrad.addColorStop(0.5, cfg.sunC2);
-      sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(360, sunY, sunRadius, Math.PI, 0, false);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.fillStyle = sunGrad;
-      ctx.fillRect(360 - sunRadius, sunY - sunRadius, sunRadius * 2, sunRadius);
-
-      // Sun horizon scanlines (kept translucent so they band the sun instead
-      // of painting solid black lines over it)
-      ctx.strokeStyle = cfg.sunScanline;
-      ctx.lineWidth = 2;
-      for (let sy = sunY - 60; sy < sunY; sy += 8) {
-        ctx.beginPath();
-        ctx.moveTo(360 - sunRadius, sy);
-        ctx.lineTo(360 + sunRadius, sy);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 3. Floating Stars
-      stars.forEach((st) => {
-        st.y += st.speed;
-        if (st.y > 260) st.y = 0;
-        ctx.fillStyle = `rgba(${cfg.starRgb}, ${st.alpha * (0.8 + 0.2 * Math.sin(time * 3 + st.x))})`;
-        ctx.beginPath();
-        ctx.arc(st.x, st.y, st.size, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      // 4. Horizon Perspective Grid
-      const horizonY = 260;
-      ctx.save();
-      ctx.strokeStyle = cfg.gridColor;
-      ctx.lineWidth = 1;
-
-      // Horizontal grid lines moving toward camera
-      for (let gy = 0; gy < 140; gy += 14) {
-        const y = horizonY + Math.pow((gy + gridOffset) / 145, 1.8) * 140;
-        if (y <= canvas.height) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(canvas.width, y);
-          ctx.stroke();
-        }
-      }
-
-      // Perspective radiating vertical lines from vanishing point (360, 260)
-      for (let x = -250; x <= canvas.width + 250; x += 45) {
-        ctx.beginPath();
-        ctx.moveTo(360, horizonY);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      // 5. 4-Player Army Hologram Nodes
-      const pawns = cfg.pawns;
-
-      pawns.forEach((p, idx) => {
-        const pulse = Math.sin(time * 3 + idx * 1.5) * 2.4;
-        ctx.save();
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 11;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y + pulse, 7.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Base ring
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 1.8;
-        ctx.beginPath();
-        ctx.ellipse(p.x, p.y + 12, 15, 5, 0, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(p.label, p.x, p.y - 13 + pulse);
-        ctx.restore();
-      });
-
-      // 6. Marquee Title on Top of Screen
-      ctx.save();
-      ctx.font = '13px "Atkinson Hyperlegible Next", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = cfg.marqueeColor;
-      ctx.shadowColor = cfg.marqueeColor;
-      ctx.shadowBlur = 11;
-      ctx.fillText(heroMarqueeRef.current, 360, 28);
-      ctx.shadowBlur = 0;
-      ctx.restore();
-
-      animId = requestAnimationFrame(loop);
-    };
-
-    loop();
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, []);
 
   const username = user?.username ?? t('common.you');
   const displayName = user?.displayName ?? username;
@@ -376,13 +206,19 @@ export function Home() {
                   >
                     <canvas id="arcadeCanvas" ref={canvasRef} width={720} height={400} />
 
-                    {/* Interactive Translucent Press Start Banner Overlay */}
+                    {/* Interactive Translucent Press Start Banner Overlay. The copy
+                        follows the theme: the 70s room says LIFT OFF, and its card is
+                        the one the stills drew. */}
                     <div className={ARCADE_START_OVERLAY}>
                       <span className={ARCADE_START_TITLE}>
-                        {t('homeExtended.pressStartTitleSynthwave')}
+                        {theme === 'retro70'
+                          ? t('homeExtended.pressStartTitleRetro70')
+                          : t('homeExtended.pressStartTitleSynthwave')}
                       </span>
                       <span className={ARCADE_START_SUB}>
-                        {t('homeExtended.pressStartSubSynthwave')}
+                        {theme === 'retro70'
+                          ? t('homeExtended.pressStartSubRetro70')
+                          : t('homeExtended.pressStartSubSynthwave')}
                       </span>
                     </div>
 

@@ -36,6 +36,9 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 | File | Role |
 |------|------|
 | `src/pages/Home.tsx` | Home page — hero header, arcade panel, friends list, footer |
+| `src/heroScenes.ts` | One scene per theme (`SYNTHWAVE_CFG`, `RETRO70_CFG`) behind `HERO_SCENES`: the palette, the crew's placement, the star count and the marquee colour |
+| `src/heroBackdrops.ts` | The attract-mode painters — `paintSynthwave`, `paintRoom` — plus the frame clocks, the star seeding and the `paintHero` dispatch |
+| `src/hooks/useHeroScene.ts` | The cabinet's one canvas, one effect and one rAF loop; the marquee rides a ref so a language switch does not restart it |
 | `src/hooks/useNotifications.tsx` | Notification bell + toasts (session socket, Redis bell) |
 | `src/components/UserAvatar.tsx` | Avatar rendering |
 | `src/components/NavDock.tsx` | The seated navigation dock (bar + chat slot) |
@@ -105,11 +108,15 @@ sequenceDiagram
 
 ### Arcade attract-mode canvas
 
-The arcade panel renders its scene on one 720×400 canvas: the background gradient, the sun, the star field, the horizon grid, the four army nodes and the marquee. The sun's disc and its scanlines are drawn under a single clip path, so a scanline stroke cannot extend past the disc even though each stroke is wider than the disc near its top.
+The arcade panel renders its scene on one 720×400 canvas, and the theme decides which scene. Sixty times a second `useHeroScene` (`hooks/useHeroScene.ts`) advances two clocks and hands them, the scene's seeded star field and the localized marquee to `paintHero` (`heroBackdrops.ts`), which calls the painter the theme picked: `paintSynthwave` for the sun, the star field, the horizon grid and the four army nodes, or `paintRoom` for the 1970s lounge — a walnut wall, a porthole onto a ringed planet and the four seats standing in it as bobbleheads. The painters are plain functions over a 2D context, not components: one canvas, one effect and one rAF loop, so a theme flip tears the loop down and starts the other painter from frame zero instead of putting two animations on one screen.
+
+Every number a painter draws with is a literal beside the call that uses it, and only colour comes from the scene. `heroScenes.ts` holds `SYNTHWAVE_CFG` and `RETRO70_CFG` — the palette, the crew's placement, the star count and the marquee colour — behind one `HERO_SCENES: Record<ThemeType, HeroScene>` map, so a theme cannot ship unpainted.
+
+Two painter details are load-bearing. The sun's disc and its scanlines share a single clip path, so a scanline stroke cannot extend past the disc even though each stroke is wider than the disc near its top. And the room's sky is clipped to an aperture of 74..646 × 44..218: the window ends at 218 because the press-start card starts at 234, and the frame, the ledge and the card are three separate bands, so no sky is spent where the card would hide it.
 
 ### Localized hero and canvas strings
 
-The hero title, the greeting, the canvas marquee, the arena title and the footer line all come from the locale sheets, so they follow the language selector:
+The hero title, the greeting, the canvas marquee, the arena title, the press-start copy and the footer line all come from the locale sheets, so they follow the language selector:
 
 | Element | Key | English value |
 |---------|-----|---------------|
@@ -117,11 +124,15 @@ The hero title, the greeting, the canvas marquee, the arena title and the footer
 | Greeting | `home.greeting` | `Welcome, Pilot {{name}}` |
 | Canvas marquee | `homeExtended.heroMarquee` | `[ ft_Transcendence // Team: Pace 24 ]` |
 | Arena title | `homeExtended.arcadeArenaTitle` | `RETRO LUDO '42 // ARCADE ARENA` |
+| Press-start title (80s) | `homeExtended.pressStartTitleSynthwave` | `▶ INSERT COIN // PRESS START ◀` |
+| Press-start subtitle (80s) | `homeExtended.pressStartSubSynthwave` | `[ CLICK SCREEN OR PRESS SPACEBAR ]` |
+| Press-start title (70s) | `homeExtended.pressStartTitleRetro70` | `▶ INSERT COIN // LIFT OFF ◀` |
+| Press-start subtitle (70s) | `homeExtended.pressStartSubRetro70` | `[ TAP THE SCREEN OR PRESS SPACEBAR ]` |
 | Footer line | `home.footerLegal` | `© 1942-2026 RETRO LUDO '42 // 42KL // ALL RIGHTS RESERVED // WEB AUDIO & CANV-ARCADE` |
 
 French swaps the brand for `LUDO RÉTRO`, the marquee team word for `Équipe` and the greeting for `Bienvenue, pilote {{name}}`. Malay uses `LUDO RETRO`, `Pasukan` and `Selamat datang, Pilot {{name}}`.
 
-The marquee text is held in a ref, so a language switch only swaps the text and the canvas effect keeps running: the star field is not reshuffled.
+The marquee text is held in a ref inside `useHeroScene`, so a language switch only swaps the text and the loop keeps running: the star field is not reshuffled. The theme is the loop's only dependency, so a theme flip is the one thing that restarts it.
 
 
 ---
