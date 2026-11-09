@@ -14,8 +14,6 @@ import {
   CAPTURE_CARD_FADE_MS,
   CAPTURE_CARD_GRACE_MS,
   CAPTURE_CARD_MS,
-  CLASH_RESULT_MS,
-  CLASH_TEXT_ONLY_MS,
   DICE_ROLL_ANIM_MS,
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
@@ -27,6 +25,7 @@ import {
   DICE_BRAKE_ARM_MS,
   PENDING_MOVE_GUARD_MS,
   RESULTS_MODAL_DELAY_MS,
+  clashCardMs,
   diceLandAt,
 } from '../game/timing';
 import { navigate } from '../router';
@@ -1304,31 +1303,37 @@ export function Game() {
   // One press of this player's clash key. The overlay matches the key; the server
   // proves ownership and applies the press cap, which discards a decoy pad press.
   const clashInput = (key: string, count = 1) => socketRef.current?.emit('clash_input', key, count);
-  // The overlay's result-card timer calls this after CLASH_RESULT_MS. It is what
-  // frees canRoll again: the reducer deliberately keeps `clash` alive until then.
+  // The overlay's result-card timer calls this when the card's own length is up (2900, or
+  // 3300 on a breach). It is what frees canRoll again: the reducer deliberately keeps
+  // `clash` alive until then.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
   // The result card appeared: tell the engine when it will be done. The forecast is
   // in this client's clock and is sent once per card, so a chain reports each round.
   // It gates nothing locally; the engine's release frame is the authority.
   //
-  // The number is the card's OWN length plus the margin, never a constant: 3100 on a
-  // scene card (2900 + 200) and 1500 on a text-only one. An over-ask is harmless — a
-  // receipt cannot extend the engine's deadline — and an under-ask truncates, so the
-  // length has to come from the card (25.8).
-  const clashCardMs = view.captureFx ? CLASH_RESULT_MS : CLASH_TEXT_ONLY_MS;
+  // The number is the card's OWN length plus the margin, never a constant, and the
+  // card's length is per path: 3100 on a two-act scene card (2900 + 200), 3500 on a
+  // breach (3300 + 200, the cloud's act included) and 1500 on a text-only one. An
+  // over-ask is harmless — a receipt cannot extend the engine's deadline — and an
+  // under-ask truncates, so the length has to come from the card (25.8).
+  const clashCardLength = clashCardMs(
+    view.clashResult,
+    view.clashResult?.attacker ?? view.clash?.attacker,
+    view.captureFx,
+  );
   useEffect(() => {
     const cardId = view.clashResult?.cardId;
     if (!cardId) return;
-    socketRef.current?.emit('clash_card_hold', cardId, clashCardMs + CARD_HOLD_MARGIN_MS);
-  }, [view.clashResult, clashCardMs]);
+    socketRef.current?.emit('clash_card_hold', cardId, clashCardLength + CARD_HOLD_MARGIN_MS);
+  }, [view.clashResult, clashCardLength]);
 
   // The clash card owns the capture burst. While it is up the card wears a dim copy
   // (rendered with it, below), and the moment the card goes the board gets the real one:
   // CAPTURE_FX_AFTER_CARD_MS later, so the two never share a frame. The card can leave
-  // two ways — its own CLASH_RESULT_MS timer and the engine releasing the clash early —
-  // and both narrow to `view.clash` going null, which is what this watches. A chain's
-  // intermediate rounds never set a pending burst, so only the settling move fires.
+  // two ways — its own per-card timer and the engine releasing the clash early — and both
+  // narrow to `view.clash` going null, which is what this watches. A chain's intermediate
+  // rounds never set a pending burst, so only the settling move fires.
   useEffect(() => {
     if (view.clash) return;
     const pending = pendingCardBurstRef.current;
@@ -4082,6 +4087,7 @@ export function Game() {
           clash={view.clash}
           result={view.clashResult}
           myColor={view.myColor}
+          players={view.players}
           onKeyPress={clashInput}
           onComplete={clearClash}
           allowBothSides={activeMatch.mode === 'hotseat'}

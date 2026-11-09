@@ -23,9 +23,19 @@ export const CLASH_PRESS_MS = 5000; // press race window
 // leaving a hand-computed 2900 to update.
 export const SCENE_ATTACK_MS = 700; // the beam, the strike, the wall's flare, the subtraction
 export const SCENE_JAIL_MS = 1200; // the bars travel, land at 421 and hold for 779 ms
-export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the scene: 1.9 s, unchanged
+// The breach's own act, and the only act a card does not always have: a mushroom cloud
+// grows from the ground where the wall stood, and the sentence lives inside it (25.4).
+// Everything after it moves by its length when it plays, and by nothing else.
+export const SCENE_CLOUD_MS = 1400; // breach only: the cloud, then the sentence inside it
+export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the two-act scene: 1.9 s
 export const RESULT_HEADLINE_READ_MS = 1000; // the headline after the gesture stops
 export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.9 s
+// A breach is the one card that grows, and the only one whose sentence is inside a scene
+// act rather than after it: three acts and NO read window, so it is shorter than
+// `CLASH_RESULT_MS + SCENE_CLOUD_MS` by exactly the read window it gives up. It is also a
+// FINAL card by definition (there is no defender left to fight), so it fits the 4000 ms
+// freeze ceiling with 700 ms to spare (D31).
+export const CLASH_BREACH_RESULT_MS = SCENE_ATTACK_MS + SCENE_CLOUD_MS + SCENE_JAIL_MS; // 3.3 s
 // With the acts switched off there is no scene at all, so the card is its text and nothing
 // else: it needs enough time to be read, not a gesture's worth. Deliberately neither the
 // 1000 ms read window (short because a scene has just carried the meaning) nor the 2900 ms

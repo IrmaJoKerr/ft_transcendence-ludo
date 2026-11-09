@@ -654,10 +654,10 @@ export const ms = {
     // pusingan kemudian sudah menghantar pertahanan terdahulu pulang, jadi tembok
     // lebih nipis walaupun serangan gagal. "Petak" kekal benar dalam kedua-dua kes.
     clashChainRepulsed: 'Serangan ditangkis — pertahanan kekal di petak.',
-    // Sepanduk tembus penuh pada lapisan tembok terakhir (D7). Satu perkataan
-    // paparan, bukan ayat: ia dibaca dalam tetingkap 1000 ms yang sama dengan
-    // tajuk pemenang.
-    clashWallBroken: 'TEMBOK PECAH',
+    // Ayat tembus penuh, dilukis DALAM babak awan di atas tanah tempat tembok berdiri
+    // (25.4). Ia membawa nama pemenang, jadi saiznya dikira daripada panjangnya sendiri
+    // dan bukan 27 px tetap; tiga tanda seru itu disengajakan.
+    clashWallBroken: '{{name}} memecahkan tembok !!!',
     clashOver: 'CLASH TAMAT',
     clashYouWon: '⚔️ Anda menang!',
     clashWins: '{{color}} menang',

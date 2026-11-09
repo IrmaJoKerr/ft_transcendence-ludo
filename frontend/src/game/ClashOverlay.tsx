@@ -10,8 +10,6 @@ import {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
   CLASH_PRESS_MS,
-  CLASH_RESULT_MS,
-  CLASH_TEXT_ONLY_MS,
 } from '../__shared__/timing.constants';
 import { CLASH_TAP_COUNT } from '../__shared__/clash.constants';
 import {
@@ -22,6 +20,7 @@ import {
   CLASH_SWITCH_FLIP_MS,
   CLASH_SWITCH_PAD_STAGGER_MS,
   TOUCH_FLASH_MS,
+  clashCardMs,
 } from './timing';
 
 // Clash timing lives in ./timing, shared with the engine and pinned by the
@@ -93,6 +92,10 @@ type Props = {
   clash: NonNullable<GameViewState['clash']>;
   result: ClashResult | null;
   myColor: PlayerColor;
+  /** The room's seats: the result card names the winner in the breach sentence, and this
+   *  is the only place the name can come from — `ResultFx` draws a finished string and
+   *  never sees a player (25.4). */
+  players: GameViewState['players'];
   onKeyPress: (key: string, count?: number) => void;
   onComplete: () => void;
   /** Hotseat only: one device controls both seats, so BOTH sides' inputs must be
@@ -477,6 +480,7 @@ export function ClashOverlay({
   clash,
   result,
   myColor,
+  players,
   onKeyPress,
   onComplete,
   allowBothSides = false,
@@ -489,10 +493,11 @@ export function ClashOverlay({
   const portrait = useIsPortrait(touchMode);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // The card's own length (25.8), from its parts: the scene's acts plus the read window,
-  // or the text-only length when the room has the acts switched off. Every derived figure
-  // comes out of this one number — this overlay's timer, the receipt Game.tsx sends.
-  const cardMs = animations ? CLASH_RESULT_MS : CLASH_TEXT_ONLY_MS;
+  // The card's own length (25.8), from its parts: the scene's acts plus the read window, the
+  // breach's three acts with no read window, or the text-only length when the room has the
+  // acts switched off. One number and one function, because both readers of it must agree:
+  // this overlay's timer and the receipt `Game.tsx` sends.
+  const cardMs = clashCardMs(result, result?.attacker ?? clash.attacker, animations);
 
   // Key-shift schedule. `keyIndex` is which letter of each side's schedule the SERVER
   // is accepting; `flipping` is the half-flip before a switch (the badge is edge-on
@@ -607,6 +612,16 @@ export function ClashOverlay({
     : result.winner === fxAttacker
       ? result.loser
       : result.winner;
+  // The sentence the breach card draws (25.4): the winner's name, resolved here because the
+  // scene never sees a player. The colour word is the same fallback the winner line uses, so
+  // an unnamed seat reads the same in the sentence and in the headline instead of one of
+  // them saying nothing. Hotseat and bot seats need no case of their own — both are in
+  // `players` with their own names.
+  const winnerSeat = result ? players.find((p) => p.color === result.winner) : undefined;
+  const winnerName =
+    winnerSeat?.displayName ||
+    winnerSeat?.username ||
+    (result ? result.winner.toUpperCase() : '');
 
   // The overlay swallows every tap: a stray tap must not emit a roll or a move and
   // spend rate-limit tokens. A native non-passive listener is required, because
@@ -766,7 +781,7 @@ export function ClashOverlay({
                   defender={fxDefender}
                   n={fxN}
                   totalRounds={fxTotalRounds}
-                  banner={t('game.clashWallBroken')}
+                  banner={t('game.clashWallBroken', { name: winnerName })}
                 />
               </div>
             )}

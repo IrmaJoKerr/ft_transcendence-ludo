@@ -1,10 +1,17 @@
-// The delays the client owns and no other build counts. The twelve the engine also
-// counts (the three clash windows, the result card's two beats, the flash card's four
-// and the step and dice animations) live in `common/src/timing.constants.ts` and reach
-// this tree as `../__shared__/timing.constants`, so there is nothing left to mirror.
-// What stays here is presentation only: the clash windows are still read as fallbacks,
-// but the server sends deadlines, so a wrong number here cannot move a game.
-import { DICE_ROLL_ANIM_MS } from '../__shared__/timing.constants';
+// The delays the client owns and no other build counts. The ones the engine counts too (the
+// clash windows, the result card's three acts and the two lengths they make, the flash card's
+// four, and the step and dice animations) live in `common/src/timing.constants.ts` and reach
+// this tree as `../__shared__/timing.constants`, so there is nothing left to mirror. What
+// stays here is presentation only: the clash windows are still read as fallbacks, but the
+// server sends deadlines, so a wrong number here cannot move a game.
+import {
+  CLASH_BREACH_RESULT_MS,
+  CLASH_RESULT_MS,
+  CLASH_TEXT_ONLY_MS,
+  DICE_ROLL_ANIM_MS,
+} from '../__shared__/timing.constants';
+import type { ClashResult } from './reducer';
+import type { PlayerColor } from './types';
 
 export const CLASH_FIGHT_FLASH_MS = 700; // "FIGHT!" flash at press start
 export const CLASH_UI_TICK_MS = 250; // overlay re-render cadence
@@ -24,6 +31,36 @@ export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
 export const CARD_HOLD_MARGIN_MS = 200; // the receipt's one-way trip
+
+/**
+ * The result card a `clash_result` frame draws, and how long it lasts (25.8).
+ *
+ * Two readers, one number: the overlay's own timer and the receipt `Game.tsx` sends the
+ * engine, which must be the card's own length plus the margin and never a constant — an
+ * over-ask is harmless, an under-ask truncates.
+ *
+ * A total breach — the attacker's win against the LAST defender of a wall — is the only
+ * card with a third act (the cloud) and the only one whose sentence lives inside an act
+ * instead of after the scene, so it is the only card that is not `CLASH_RESULT_MS`. The
+ * test is the three facts the scene itself reads (`ResultFx`'s `isBreach`): the attacker
+ * won, the square was a wall, and no defender is left. With the room's acts off there is
+ * no scene at all, so there is no cloud to wait for either.
+ *
+ * `attacker` is the round's attacker resolved by the caller, because an older engine's
+ * frame may omit it and the overlay falls back to the live clash's.
+ */
+export function clashCardMs(
+  result: ClashResult | null,
+  attacker: PlayerColor | undefined,
+  animations: boolean,
+): number {
+  if (!animations) return CLASH_TEXT_ONLY_MS;
+  const attackerWon = !!result && result.winner === (result.attacker ?? attacker);
+  const isWall = (result?.totalRounds ?? 1) > 1;
+  const lastDefender = (result?.remainingDefenderIds?.length ?? 0) === 0;
+  return attackerWon && isWall && lastDefender ? CLASH_BREACH_RESULT_MS : CLASH_RESULT_MS;
+}
+
 export const CAPTURE_FX_MS = 600; // the capture burst's own length (its keyframes read it)
 export const CAPTURE_FX_CARD_OPACITY = 0.7; // the burst as it reads over the clash card
 export const CAPTURE_FX_AFTER_CARD_MS = 50; // beat between the card leaving and the real burst
