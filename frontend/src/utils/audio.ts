@@ -321,59 +321,101 @@ export class RetroAudioEngine {
     }
   }
 
-  // Clash result FX — a layer goes out and the cage slams: two ratchet clicks, a
-  // bandpassed rustle, then a low triangle thunk as the barrier loses a course. The
-  // clicks keep the old rope bind's body; the thunk is new, so the beat reads as a snap.
-  playCageSnap() {
+  // Clash result FX — the jail, and the only recipe in the game built from metal
+  // (25.5): a noise transient around 3 kHz for the contact, four inharmonic partials
+  // (470, 812, 1290, 2075 Hz) each with its own decay, a 90 → 50 Hz body under them for
+  // the weight of the bars, and a quieter lock tick 120 ms later. It replaces
+  // `playCageSnap`, whose two ratchet clicks read as one more effect; layered
+  // inharmonic partials over a noise transient is what makes it read as a jail.
+  playCageSlam() {
     if (this.muted) return;
     try {
       this.initContext();
       if (!this.ctx) return;
       const ctx = this.ctx;
       const now = ctx.currentTime;
-      const click = (at: number, freq: number) => {
+
+      // The contact: 30 ms of bandpassed noise, the bars meeting the deck.
+      this.noiseBurst(0.03, 3000, 3000, 1.2, 'bandpass');
+
+      // The bars: four partials that are deliberately not in tune with each other, so
+      // the clang rings rather than sounding a chord.
+      const partials = [
+        { freq: 470, decay: 0.45, gain: 0.9 },
+        { freq: 812, decay: 0.38, gain: 0.6 },
+        { freq: 1290, decay: 0.31, gain: 0.4 },
+        { freq: 2075, decay: 0.25, gain: 0.28 },
+      ];
+      for (const partial of partials) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(freq, at);
-        gain.gain.setValueAtTime(this.volume, at);
-        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.008);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(partial.freq, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(this.volume * partial.gain, now + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + partial.decay);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(at);
-        osc.stop(at + 0.008);
-      };
-      click(now, 760);
-      click(now + 0.05, 1120);
-      this.noiseBurst(0.05, 3000, 3000, 0.8, 'bandpass');
+        osc.start(now);
+        osc.stop(now + partial.decay);
+      }
 
-      const thunk = ctx.createOscillator();
-      const thunkGain = ctx.createGain();
-      thunk.type = 'triangle';
-      thunk.frequency.setValueAtTime(190, now + 0.02);
-      thunk.frequency.exponentialRampToValueAtTime(80, now + 0.16);
-      thunkGain.gain.setValueAtTime(this.volume * 0.7, now + 0.02);
-      thunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
-      thunk.connect(thunkGain);
-      thunkGain.connect(ctx.destination);
-      thunk.start(now + 0.02);
-      thunk.stop(now + 0.16);
+      // The weight: 90 → 50 Hz, the cell being heavier than the sound of its bars.
+      const body = ctx.createOscillator();
+      const bodyGain = ctx.createGain();
+      body.type = 'sine';
+      body.frequency.setValueAtTime(90, now);
+      body.frequency.exponentialRampToValueAtTime(50, now + 0.35);
+      bodyGain.gain.setValueAtTime(this.volume * 0.8, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      body.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
+      body.start(now);
+      body.stop(now + 0.35);
+
+      // The lock: the cell closing, quieter and 120 ms behind the slam.
+      const lock = ctx.createOscillator();
+      const lockGain = ctx.createGain();
+      lock.type = 'square';
+      lock.frequency.setValueAtTime(1400, now + 0.12);
+      lockGain.gain.setValueAtTime(this.volume * 0.35, now + 0.12);
+      lockGain.gain.exponentialRampToValueAtTime(0.001, now + 0.132);
+      lock.connect(lockGain);
+      lockGain.connect(ctx.destination);
+      lock.start(now + 0.12);
+      lock.stop(now + 0.132);
     } catch (e) {
       console.debug('Audio error:', e);
     }
   }
 
-  // Clash result FX — the total breach: the wall's fall, but it SWELLS first. The noise
-  // now ramps in over 300 ms (the helper's new attack) instead of landing at full peak,
-  // so the collapse reads as a bloom rising then bursting rather than a flat bang.
-  playBreachBloom() {
+  // Clash result FX — a layer going out (25.5): noise only, 40 ms, a bright lowpass
+  // falling 5200 → 2400 Hz. It scores the line glitch, so it is the line letting go
+  // rather than the wall being hit, which is the bloom's job.
+  playShatterTick() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      this.noiseBurst(0.04, 5200, 2400, 1.0);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // Clash result FX — the wall taking a hit, scaled by `weight` (25.5). At full weight
+  // it is the total breach: the wall's fall, but it SWELLS first — the noise ramps in
+  // over 300 ms (the helper's attack) instead of landing at full peak, so the collapse
+  // reads as a bloom rising then bursting rather than a flat bang. At low weight it is
+  // the flare where the beam lands, the same recipe heard through a closed door.
+  playBreachBloom(weight = 1) {
     if (this.muted) return;
     try {
       this.initContext();
       if (!this.ctx) return;
       const ctx = this.ctx;
       const now = ctx.currentTime;
-      this.noiseBurst(1.0, 1200, 70, 1.4, 'lowpass', 0.3);
+      this.noiseBurst(1.0, 1200, 70, 1.4 * weight, 'lowpass', 0.3);
 
       const sub = ctx.createOscillator();
       const subGain = ctx.createGain();
@@ -381,7 +423,7 @@ export class RetroAudioEngine {
       sub.frequency.setValueAtTime(55, now);
       sub.frequency.exponentialRampToValueAtTime(34, now + 0.9);
       subGain.gain.setValueAtTime(0.0001, now);
-      subGain.gain.linearRampToValueAtTime(this.volume * 1.1, now + 0.25);
+      subGain.gain.linearRampToValueAtTime(this.volume * 1.1 * weight, now + 0.25);
       subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
       sub.connect(subGain);
       subGain.connect(ctx.destination);
@@ -395,7 +437,7 @@ export class RetroAudioEngine {
       shine.frequency.setValueAtTime(300, now);
       shine.frequency.exponentialRampToValueAtTime(900, now + 0.28);
       shineGain.gain.setValueAtTime(0.0001, now);
-      shineGain.gain.linearRampToValueAtTime(this.volume * 0.5, now + 0.28);
+      shineGain.gain.linearRampToValueAtTime(this.volume * 0.5 * weight, now + 0.28);
       shineGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
       shine.connect(shineGain);
       shineGain.connect(ctx.destination);
@@ -513,9 +555,13 @@ export class RetroAudioEngine {
 
   // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A
   // in morse on a 900 Hz sine. It fires per line, so it is the quietest tone the engine
-  // owns: half of `volume`. The two tones ramp in over 8 ms and out over 12 ms from a
-  // 0.0001 floor rather than riding `playUiBeep`'s exponential tail, which clicks when
-  // two tones are this close together.
+  // owns: half of `volume`. Every element opens on a 4 ms bandpassed click, because a key
+  // is recognisable by its contact rather than by its carrier: a bare sine has nothing in
+  // front of it, which is why the first cut read as a buzz (revised 2026-11-09). The
+  // carriers ramp in over 8 ms and out over 20 ms from a 0.0001 floor rather than riding
+  // `playUiBeep`'s exponential tail, which clicks when two elements are this close
+  // together. The click is built here rather than through `noiseBurst`, because that
+  // helper always starts at `currentTime` and these start on a scheduled instant.
   playChatSend() {
     if (this.muted) return;
     try {
@@ -527,6 +573,29 @@ export class RetroAudioEngine {
       // The squelch: 35 ms of bandpassed white noise at 2200 Hz, the carrier dropping in.
       this.noiseBurst(0.035, 2200, 2200, 0.35, 'bandpass');
 
+      // The contact: 4 ms of white noise through a bandpass at 3,200 Hz. It sits on the
+      // element's own onset, so the snap and the tone are one press.
+      const click = (at: number) => {
+        const samples = Math.max(1, Math.floor(ctx.sampleRate * 0.004));
+        const buffer = ctx.createBuffer(1, samples, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < samples; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(3200, at);
+        filter.Q.setValueAtTime(0.9, at);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(this.volume * 0.5, at);
+        gain.gain.exponentialRampToValueAtTime(0.01, at + 0.004);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start(at);
+        noise.stop(at + 0.004);
+      };
+
       const tone = (at: number, seconds: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -534,7 +603,7 @@ export class RetroAudioEngine {
         osc.frequency.setValueAtTime(900, at);
         gain.gain.setValueAtTime(0.0001, at);
         gain.gain.linearRampToValueAtTime(this.volume * 0.5, at + 0.008);
-        gain.gain.setValueAtTime(this.volume * 0.5, at + seconds - 0.012);
+        gain.gain.setValueAtTime(this.volume * 0.5, at + seconds - 0.02);
         gain.gain.linearRampToValueAtTime(0.0001, at + seconds);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -542,9 +611,13 @@ export class RetroAudioEngine {
         osc.stop(at + seconds);
       };
 
-      // A dot then a dash, 60 ms apart: `.-`.
-      tone(now + 0.06, 0.07);
-      tone(now + 0.19, 0.21);
+      // A 55 ms dot then a 170 ms dash, one morse unit apart: `.-`. Each element is a
+      // click plus its carrier, and the pair ends at 0.34 s, inside the 0.40 s the cue
+      // has always held.
+      click(now + 0.06);
+      tone(now + 0.06, 0.055);
+      click(now + 0.17);
+      tone(now + 0.17, 0.17);
     } catch (e) {
       console.debug('Audio error:', e);
     }

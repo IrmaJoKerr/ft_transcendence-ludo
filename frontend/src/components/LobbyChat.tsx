@@ -20,6 +20,9 @@ import type { ChatCardLine, ChatCardStatus } from './chatCardTypes';
 import { CHAT_SURFACE } from './chatSurface';
 import { useChallenges } from '../hooks/useChallenges';
 import { retroAudio } from '../utils/audio';
+import { railButtonStyle, railGlyphFrameStyle, railHoverHandlers } from './railButton';
+import { NavGlyph } from './NavGlyphs';
+import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 
 // The dock's chat slot, wired to the public channel (queue item 3). The plate is
 // the screen: it previews the newest lines and opens the card, which carries the
@@ -34,7 +37,9 @@ import { retroAudio } from '../utils/audio';
 // pilot met across the board are offered the same acts; the lobby's own contribution
 // to it is CHALLENGE, which it passes because it has a duel to offer. The feed drops
 // the lines of whoever this reader has blocked, which the channel's own empty state
-// promises.
+// promises. On the rail (`compact`) none of that is drawn: the same host renders one
+// glyph button and the same card, because an 88 px rail has no width for a screen and a
+// reader under 1280 px otherwise has no way into the channel at all (decision 1.4).
 const SCREEN_PREVIEW_LINES = 3;
 
 /** The screen's floor, in both states. The 720p budget is 656 px (100vh − 64)
@@ -47,9 +52,14 @@ const SCREEN_MIN_HEIGHT = 112;
 
 interface LobbyChatProps {
   /** ON lights the screen; OFF leaves the same plate black, and inert: the card
-   *  cannot be opened from a powered-down screen. */
+   *  cannot be opened from a powered-down screen. The compact rail has no screen to
+   *  switch, so it never reads this. */
   open: boolean;
   onToggle: () => void;
+  /** The rail's form: one glyph instead of the screen, and the card hanging off it
+   *  (decision 1.4, 2026-11-09). It carries no ON/OFF state and no unread cue, and
+   *  the card closes itself, so the glyph is one press in either direction. */
+  compact?: boolean;
 }
 
 interface CardBox {
@@ -59,7 +69,7 @@ interface CardBox {
   height: number;
 }
 
-export function LobbyChat({ open, onToggle }: LobbyChatProps) {
+export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   const { t } = useTranslation();
   const { chatLog, sendChat, sessionConnected, user, activeMatch } = useApp();
 
@@ -103,6 +113,15 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   const [box, setBox] = useState<CardBox | null>(null);
   const plateRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  // The compact glyph is the plate's stand-in: it is the trigger, the rectangle `place()`
+  // measures, the element an outside press exempts and the one focus returns to. Reaching
+  // both through one accessor is what keeps those four jobs written once instead of twice
+  // (decision 1.4).
+  const glyphRef = useRef<HTMLButtonElement>(null);
+  const anchor = useCallback(
+    () => (compact ? glyphRef.current : plateRef.current),
+    [compact],
+  );
 
   // One line out. The three local refusals exist so the band answers in the same
   // tick as the press: the socket's own ack covers length, spacing and storage.
@@ -193,24 +212,25 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   // share of the viewport since decision 1.4 — and the window, the reserve row, or
   // the dock's own rows are the only things allowed to shorten it.
   const place = useCallback(() => {
-    const plate = plateRef.current;
+    const plate = anchor();
     if (!plate) return;
     const r = plate.getBoundingClientRect();
     const reserve = document.querySelector('[data-chat-reserve]');
     const floor = reserve ? reserve.getBoundingClientRect().top : r.bottom;
     // Left-aligned with the plate where that fits, held inside the right edge
     // otherwise; rising out of the screen from the reserve rather than dropping
-    // over it.
+    // over it. The compact glyph measures the rail's own left edge, and a 480 px card
+    // there would open on top of the rail, so that card anchors right instead
+    // (decision 1.4).
     const bottom = Math.min(floor - 1, window.innerHeight - CHAT_CARD_MARGIN);
     const height = Math.max(0, Math.min(chatCardHeight(), bottom - CHAT_CARD_MARGIN));
     const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
-    const left = Math.max(
-      CHAT_CARD_MARGIN,
-      Math.min(r.left, window.innerWidth - width - CHAT_CARD_MARGIN),
-    );
+    const left = compact
+      ? Math.max(CHAT_CARD_MARGIN, window.innerWidth - width - CHAT_CARD_MARGIN)
+      : Math.max(CHAT_CARD_MARGIN, Math.min(r.left, window.innerWidth - width - CHAT_CARD_MARGIN));
     const top = Math.max(CHAT_CARD_MARGIN, bottom - height);
     setBox({ left, top, width, height });
-  }, []);
+  }, [anchor, compact]);
 
   const openCard = useCallback(() => {
     place();
@@ -221,8 +241,8 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   const closeCard = useCallback(() => {
     setCardOpen(false);
     retroAudio.playUiBeep(520, 0.05);
-    plateRef.current?.focus();
-  }, []);
+    anchor()?.focus();
+  }, [anchor]);
 
   // A scrolling page and a resizing window both move the anchor: the card follows
   // it, or it would be left pointing at where the plate used to be.
@@ -252,7 +272,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
       const target = e.target as Node | null;
       if (!target) return;
       if (cardRef.current?.contains(target)) return;
-      if (plateRef.current?.contains(target)) return;
+      if (anchor()?.contains(target)) return;
       // The name card and its confirm are further overlays, portaled outside this
       // one's subtree: pressing inside them must not collapse the transcript they were
       // opened from, because the outcome of their actions lands in its band.
@@ -266,12 +286,13 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPress);
     };
-  }, [cardOpen, closeCard]);
+  }, [anchor, cardOpen, closeCard]);
 
   // Focus moves into the card on open, so Escape and the composer are reachable
-  // without a second tab stop; `closeCard` puts it back on the plate. The box is
-  // not measured here: `openCard` measures it in the same tick as the click, and
-  // the resize/scroll listeners below keep it on its anchor afterwards.
+  // without a second tab stop; `closeCard` puts it back on the anchor — the plate in
+  // the dock, the glyph on the rail. The box is not measured here: `openCard` measures
+  // it in the same tick as the click, and the resize/scroll listeners keep it on its
+  // anchor afterwards.
   useEffect(() => {
     if (cardOpen) cardRef.current?.focus();
   }, [cardOpen]);
@@ -286,6 +307,120 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
     if (cardOpen) closeCard();
     else openCard();
   }, [cardOpen, closeCard, openCard]);
+
+  // The card and the name card are the same on both hosts: each hangs off whichever
+  // element is the anchor, so the rail reuses them unchanged. The gate keeps the wide
+  // dock's rule that a powered-down screen leaves no card floating over the page; the
+  // rail has no such switch, so it asks only whether the card is open (decision 1.4).
+  const overlay = (
+    <>
+      {/* The expanded card. Portaled to `document.body` (the dock is a sticky
+          column with its own stacking context, and the card is wider than it), so
+          it can hang over the page without being clipped and without the dock
+          changing width — the rule this whole dock is built on. Its size is
+          `ChatCard.tsx`'s (`CHAT_CARD_WIDTH` × `chatCardHeight()`, 19.3), so the
+          dock draws the same card the room does. */}
+      {(compact || open) &&
+        cardOpen &&
+        box &&
+        createPortal(
+          <div
+            ref={cardRef}
+            role="dialog"
+            aria-label={t('chat.dialogLabel')}
+            tabIndex={-1}
+            className="chat-card"
+            style={{
+              ...CHAT_SURFACE,
+              position: 'fixed',
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+              zIndex: 10004,
+              display: 'flex',
+              flexDirection: 'column',
+              outline: 'none',
+            }}
+          >
+            <ChatCardHead onClose={closeCard} />
+            <ChatCardFeed lines={cardLines} onOpenName={openNameCard} />
+            <ChatCardComposer
+              draft={draft}
+              onDraft={setDraft}
+              onSubmit={submit}
+              status={status}
+              connected={sessionConnected}
+              onStatus={setStatus}
+            />
+          </div>,
+          document.body,
+        )}
+
+      {/* The name card. It portals itself above this one (10005 against 10004,
+          because it is opened from a name inside the card), and it is the room's card
+          too: the only thing this surface adds is the duel. */}
+      {nameTarget && (
+        <ChatNameCard
+          target={nameTarget}
+          friends={friends}
+          requests={requests}
+          loading={loading}
+          challenge={
+            activeMatch?.mode === 'pvp'
+              ? {
+                  sent: isSent(nameTarget.id),
+                  onPress: () => challengeName(nameTarget),
+                }
+              : undefined
+          }
+          onClose={() => setNameTarget(null)}
+          onStatus={setStatus}
+          onBlocked={refresh}
+        />
+      )}
+    </>
+  );
+
+  // The rail: one row, the sixth mark, and the same card hanging off it. There is no
+  // header, no screen and no ON/OFF pill, so the row is the whole surface; `chatOn` is
+  // the wide feed's switch and is deliberately not read here (decision 1.4).
+  if (compact) {
+    return (
+      <>
+        <button
+          ref={glyphRef}
+          type="button"
+          className={`${RETRO_BTN} ${THEME_TRIGGER_BTN_BASE} ${cardOpen ? 'active' : ''}`}
+          aria-haspopup="dialog"
+          aria-expanded={cardOpen}
+          aria-label={t('chat.openChannel')}
+          title={t('chat.openChannel')}
+          onClick={toggleCard}
+          {...railHoverHandlers(cardOpen)}
+          style={{
+            ...railButtonStyle(cardOpen),
+            width: '100%',
+            height: 52,
+            justifyContent: 'center',
+            // No flex gap: the mark is the row's only child.
+            gap: 0,
+            padding: 0,
+            borderRadius: 12,
+            fontSize: '0.85rem',
+            color: cardOpen ? '#ffffff' : 'var(--text-main)',
+            fontWeight: 900,
+            letterSpacing: '1px',
+          }}
+        >
+          <div style={railGlyphFrameStyle(cardOpen)}>
+            <NavGlyph name="chat" />
+          </div>
+        </button>
+        {overlay}
+      </>
+    );
+  }
 
   return (
     <section
@@ -460,71 +595,9 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
         )}
       </div>
 
-      {/* The expanded card. Portaled to `document.body` (the dock is a sticky
-          column with its own stacking context, and the card is wider than it), so
-          it can hang over the page without being clipped and without the dock
-          changing width — the rule this whole dock is built on. Its size is
-          `ChatCard.tsx`'s (`CHAT_CARD_WIDTH` × `chatCardHeight()`, 19.3), so the
-          dock draws the same card the room does. */}
-      {open &&
-        cardOpen &&
-        box &&
-        createPortal(
-          <div
-            ref={cardRef}
-            role="dialog"
-            aria-label={t('chat.dialogLabel')}
-            tabIndex={-1}
-            className="chat-card"
-            style={{
-              ...CHAT_SURFACE,
-              position: 'fixed',
-              left: box.left,
-              top: box.top,
-              width: box.width,
-              height: box.height,
-              zIndex: 10004,
-              display: 'flex',
-              flexDirection: 'column',
-              outline: 'none',
-            }}
-          >
-            <ChatCardHead onClose={closeCard} />
-            <ChatCardFeed lines={cardLines} onOpenName={openNameCard} />
-            <ChatCardComposer
-              draft={draft}
-              onDraft={setDraft}
-              onSubmit={submit}
-              status={status}
-              connected={sessionConnected}
-              onStatus={setStatus}
-            />
-          </div>,
-          document.body,
-        )}
-
-      {/* The name card. It portals itself above this one (10005 against 10004,
-          because it is opened from a name inside the card), and it is the room's card
-          too: the only thing this surface adds is the duel. */}
-      {nameTarget && (
-        <ChatNameCard
-          target={nameTarget}
-          friends={friends}
-          requests={requests}
-          loading={loading}
-          challenge={
-            activeMatch?.mode === 'pvp'
-              ? {
-                  sent: isSent(nameTarget.id),
-                  onPress: () => challengeName(nameTarget),
-                }
-              : undefined
-          }
-          onClose={() => setNameTarget(null)}
-          onStatus={setStatus}
-          onBlocked={refresh}
-        />
-      )}
+      {/* Both overlays are built once, above, so the rail and the dock mount the same
+          card. */}
+      {overlay}
     </section>
   );
 }

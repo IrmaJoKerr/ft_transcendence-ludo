@@ -2735,7 +2735,6 @@ export function Game() {
                     defender={flashCard.defender}
                     n={1}
                     totalRounds={1}
-                    card="flash"
                     viewBox={FLASH_CARD_VIEWBOX}
                   />
                 </div>

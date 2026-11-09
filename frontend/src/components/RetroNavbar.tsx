@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { navigate, useRoute } from '../router';
-import { railButtonStyle, railHoverHandlers } from './railButton';
+import { railButtonStyle, railGlyphFrameStyle, railHoverHandlers } from './railButton';
 import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 import { UserAvatar } from './UserAvatar';
@@ -51,7 +51,8 @@ const NAV_LABEL_SAFETY_PX = 2; // kept free so rounding can't trigger ellipsis
 // mount rule is documented there.
 interface RetroNavbarProps {
   activeRoute?: string;
-  /** Under `WIDE_MIN_PX`: icon rail, no labels, no chat slot. */
+  /** Under `WIDE_MIN_PX`: icon rail, no labels, and the chat slot as one glyph
+   *  rather than a screen. */
   isCompact: boolean;
   /** The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`. */
   chatOn: boolean;
@@ -759,19 +760,10 @@ export function RetroNavbar({
               >
                 <div
                   style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 7,
-                    background: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 240, 255, 0.08)',
-                    display: 'grid',
-                    placeItems: 'center',
-                    // No font rules: the mark is an SVG stroke, and `currentColor`
-                    // is what makes it follow the theme and the active state.
-                    color: isActive ? '#ffffff' : 'var(--accent-cyan)',
-                    flexShrink: 0,
-                    // Icon→label spacing (the button's flex gap is 0).
+                    ...railGlyphFrameStyle(isActive),
+                    // Icon→label spacing (the button's flex gap is 0); the rail draws
+                    // no label, so it keeps no margin either.
                     marginRight: isCompact ? 0 : 12,
-                    filter: isActive ? 'drop-shadow(0 0 6px #ffffff)' : 'none',
                   }}
                 >
                   <NavGlyph name={item.glyph} />
@@ -801,9 +793,12 @@ export function RetroNavbar({
         </div>
       </div>
 
-      {/* Chat Slot: the dock's share of the slack. Only the wide dock has room
-          for a panel, so the 88 px rail draws none of it. */}
-      {!isCompact && <LobbyChat open={chatOn} onToggle={onToggleChat} />}
+      {/* Chat Slot: the dock's share of the slack. The wide dock draws the screen and
+          the 88 px rail draws one glyph in the same slot, below the five routes and
+          above the bell row; both mount the same card (decision 1.4). The glyph is not
+          a route, so it is not in `navItems`, and `chatOn` — the screen's switch — is
+          never read on the rail. */}
+      <LobbyChat open={chatOn} onToggle={onToggleChat} compact={isCompact} />
 
       {/* Bottom Controls: Notifications */}
       <div

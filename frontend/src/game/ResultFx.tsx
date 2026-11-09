@@ -40,6 +40,18 @@ const CAGE_TRAVEL_PX = 52;
 // The beam starts a full stage clear of its own tail, on the shooter's side.
 const BEAM_TRAVEL_PX = 150;
 
+// The instants 25.5's soundtrack is heard against, derived from the keyframes they
+// belong to for the same reason the cell's landing is: the sound cannot drift from the
+// drawing. The wall's flare peaks at 17 % of `fxPuncture`, and a layer starts glitching
+// at 22 % of `fxLayerOut`; the beam lands at 260 and the breach's swell opens the cloud
+// act at 700.
+const FLARE_PEAK_AT_MS = Math.round((RESULT_FX_MS * 17) / 100);
+const SUBTRACT_AT_MS = Math.round((RESULT_FX_MS * 22) / 100);
+const IMPACT_AT_MS = 260;
+const FALL_AT_MS = 700;
+// One puncture per layer, 40 ms apart, so a three-line wall is heard as three.
+const PUNCTURE_GAP_MS = 40;
+
 // The keyframes, injected once for however many cards render them. Durations are NOT
 // written in here: `fx()` builds each `animation` string from RESULT_FX_MS minus that
 // element's own stagger, so every gesture lands exactly on the budget and nothing can
@@ -230,7 +242,6 @@ export function ResultFx({
   n,
   totalRounds,
   banner,
-  card = 'clash',
   viewBox = `0 0 ${VB_W} ${VB_H}`,
 }: {
   kind: ResultFxKind;
@@ -239,10 +250,6 @@ export function ResultFx({
   n: number;
   totalRounds: number;
   banner?: string;
-  // Where the card lives, which only changes its SOUND palette (25.5 item 5): the clash
-  // card owns every beat, while a flash card plays only the cell, because the board's own
-  // capture burst already fired the hit at the cell.
-  card?: 'clash' | 'flash';
   // The visible window into the stage. The clash card shows all of it; the flash card
   // shows `FLASH_CARD_VIEWBOX`, a 0.8-scaled crop of the same frame at the same pixels
   // per unit, so the two clips are one clip (25.17 item 3).
@@ -335,28 +342,45 @@ export function ResultFx({
     ? Math.min(SHARED_X_MAX, cageCx + cageHalf + 16)
     : DOME_CX + LAYER_R[MAX_LAYERS - 1] + 18;
 
-  // Four sounds on one table, the same four whichever seat won, because the scene is the
-  // same scene: the beam, the strike, the bloom on a breach, and the cell. The cell's beat
-  // is the instant the bars land, derived from the keyframe's own percentage rather than
-  // counted by hand, so the snap is heard ON the slam instead of 191 ms before it. Armed
-  // once per mounted card and cleared on unmount, so a chain round that unmounts early
-  // leaves no timer behind; nothing is scheduled after the cell, so the read window is
-  // silent under the banner.
+  // The soundtrack belongs to the act, not to the host (25.5): both cards mount the same
+  // scene, so both play the same beats, and the flash card keeps the laser the walk found
+  // missing. Each act schedules its own beats — the beam, the wall taking it, the layer
+  // going, the bloom, the cell — and nothing is scheduled after the cell, so the read
+  // window stays silent under the banner. Armed once per mounted card and cleared on
+  // unmount, so a chain round that unmounts early leaves no timer behind.
   useEffect(() => {
-    // A flash card plays the cell alone: the board's own burst already fired the hit.
-    if (card === 'flash') {
-      const timer = window.setTimeout(() => retroAudio.playCageSnap(), CAGE_LAND_AT_MS);
-      return () => window.clearTimeout(timer);
-    }
     const beats: Array<{ at: number; play: () => void }> = [
+      // The attack act: the shot leaves on every path.
       { at: 0, play: () => retroAudio.playLaserBeam() },
-      { at: 260, play: () => retroAudio.playBarrierPuncture() },
     ];
-    if (isBreach) beats.push({ at: 700, play: () => retroAudio.playBreachBloom() });
-    beats.push({ at: CAGE_LAND_AT_MS, play: () => retroAudio.playCageSnap() });
+    if (isWall) {
+      // The wall taking the hit, at the flare's own peak.
+      beats.push({ at: FLARE_PEAK_AT_MS, play: () => retroAudio.playBreachBloom(0.4) });
+      if (attackerWon) {
+        // One puncture per layer, then the line going on its glitch.
+        for (let i = 0; i < layers; i++) {
+          beats.push({
+            at: IMPACT_AT_MS + i * PUNCTURE_GAP_MS,
+            play: () => retroAudio.playBarrierPuncture(),
+          });
+        }
+        beats.push({ at: SUBTRACT_AT_MS, play: () => retroAudio.playShatterTick() });
+      } else {
+        // The wall stood, so the reflect has an instant to be heard on.
+        beats.push({ at: IMPACT_AT_MS, play: () => retroAudio.playBarrierDeflect() });
+      }
+    } else if (!attackerWon) {
+      // A 1v1 repulse is "the attack failed", which gives the second orphan its call site.
+      beats.push({ at: IMPACT_AT_MS, play: () => retroAudio.playAttackFailed() });
+    }
+    // The cloud act: only a total breach falls all the way.
+    if (isBreach) beats.push({ at: FALL_AT_MS, play: () => retroAudio.playBreachBloom() });
+    // The jail act: the cell, heard ON the slam rather than 191 ms before it.
+    beats.push({ at: CAGE_LAND_AT_MS, play: () => retroAudio.playCageSlam() });
+
     const timers = beats.map(({ at, play }) => window.setTimeout(play, at));
     return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [isBreach, card]);
+  }, [isWall, attackerWon, isBreach, layers]);
 
   return (
     <svg

@@ -1,4 +1,4 @@
-/** The rail's five marks, drawn rather than typed (decision 1.4, 2026-11-09).
+/** The rail's marks, drawn rather than typed (decision 1.4, 2026-11-09).
  *
  *  The rail used to hold one string per route — `⌂ ♛ @/ ♟ >_` — which is three
  *  systems of drawing in one column: `⌂` and `♛` are glyphs whose shape came from
@@ -11,15 +11,19 @@
  *  with `currentColor` at 1.75 with round caps, and sized by the caller. Because
  *  the stroke is the inherited colour, a glyph follows the theme and the active
  *  state for free — the rail only sets `color`, never per-icon fills. No icon
- *  package: five shapes is not a dependency, and an SVG sprite would be a second
- *  build step for the same five strings.
+ *  package: six shapes is not a dependency, and an SVG sprite would be a second
+ *  build step for the same six strings.
  *
  *  Shapes, in the order the rail shows them: a house (home), a cup (the
  *  leaderboard — `♛` said "best", a trophy says "ranking"), a person (profile), two
  *  people (friends), and a console with a prompt and a cursor (the lobby channel —
- *  `>_` was already that idea, so the drawing keeps it and drops the ASCII). */
+ *  `>_` was already that idea, so the drawing keeps it and drops the ASCII). The
+ *  sixth is `chat`: a speech bubble, which is the compact rail's only way into
+ *  Hyperspace Comms (decided 2026-11-09). It is not a route and not in `navItems`;
+ *  the bubble is a different idea from the channel's console, because one is a mark
+ *  for a destination and the other opens a card over the page. */
 
-export type NavGlyphName = 'home' | 'board' | 'profile' | 'friends' | 'channel';
+export type NavGlyphName = 'home' | 'board' | 'profile' | 'friends' | 'channel' | 'chat';
 
 /** One entry per shape, each a list of `d` attributes on the same grid. Paths are
  *  stroked, never filled: an outline at 34 px keeps its weight when the rail's
@@ -57,6 +61,12 @@ const GLYPH_PATHS: Record<NavGlyphName, string[]> = {
     'M3 4.5 H21 V19.5 H3 Z',
     'M7 10 L10 13 L7 16',
     'M12.5 16 H17',
+  ],
+  chat: [
+    // A speech bubble with its tail, then the two lines of what it carries.
+    'M3.5 5 H20.5 V16 H12.5 L8 20 V16 H3.5 Z',
+    'M7.5 9 H16.5',
+    'M7.5 12.5 H13.5',
   ],
 };
 
