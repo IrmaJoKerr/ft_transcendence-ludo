@@ -11,6 +11,7 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 import { NotificationBell } from './NotificationBell';
 import { LobbyChat } from './LobbyChat';
 import { AutoCloseToggle } from './AutoCloseToggle';
+import { NavGlyph, type NavGlyphName } from './NavGlyphs';
 import { useNotifications, type Notification } from '../hooks/useNotifications';
 import { getApi, postApi } from '../api';
 import type { ActiveMatch } from '../store';
@@ -90,12 +91,15 @@ export function RetroNavbar({
   const [isRejoining, setIsRejoining] = useState(false);
   const [rejoinError, setRejoinError] = useState<string | null>(null);
 
-  const navItems = [
-    { path: '/home', label: t('nav.home').toUpperCase(), icon: '⌂' },
-    { path: '/leaderboard', label: t('nav.leaderboard').toUpperCase(), icon: '♛' },
-    { path: '/profile', label: t('nav.profile').toUpperCase(), icon: '@/' },
-    { path: '/friends', label: t('nav.friends').toUpperCase(), icon: '♟' },
-    { path: '/gamelobby', label: t('nav.lobby').toUpperCase(), icon: '>_' },
+  // The rail's marks are drawn, not typed: `NavGlyphs.tsx` holds one stroked path
+  // set on a 24-unit grid, so the five icons share a weight and follow the theme's
+  // colour (decision 1.4).
+  const navItems: { path: string; label: string; glyph: NavGlyphName }[] = [
+    { path: '/home', label: t('nav.home').toUpperCase(), glyph: 'home' },
+    { path: '/leaderboard', label: t('nav.leaderboard').toUpperCase(), glyph: 'board' },
+    { path: '/profile', label: t('nav.profile').toUpperCase(), glyph: 'profile' },
+    { path: '/friends', label: t('nav.friends').toUpperCase(), glyph: 'friends' },
+    { path: '/gamelobby', label: t('nav.lobby').toUpperCase(), glyph: 'channel' },
   ];
 
   // Measure the widest nav label and apply one font size to all five. Re-runs
@@ -743,6 +747,10 @@ export function RetroNavbar({
                   letterSpacing: '1px',
                 }}
                 title={item.label}
+                // The compact rail draws no label, so the name has to be on the
+                // button itself; `title` alone is a tooltip, not an accessible name.
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
                   retroAudio.playUiBeep(isActive ? 480 : 640, 0.05);
                   navigate(item.path);
@@ -757,8 +765,8 @@ export function RetroNavbar({
                     background: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 240, 255, 0.08)',
                     display: 'grid',
                     placeItems: 'center',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.2rem',
+                    // No font rules: the mark is an SVG stroke, and `currentColor`
+                    // is what makes it follow the theme and the active state.
                     color: isActive ? '#ffffff' : 'var(--accent-cyan)',
                     flexShrink: 0,
                     // Icon→label spacing (the button's flex gap is 0).
@@ -766,7 +774,7 @@ export function RetroNavbar({
                     filter: isActive ? 'drop-shadow(0 0 6px #ffffff)' : 'none',
                   }}
                 >
-                  {item.icon}
+                  <NavGlyph name={item.glyph} />
                 </div>
                 {!isCompact && (
                   <span

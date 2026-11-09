@@ -439,6 +439,9 @@ export const fr = {
     openHint: 'OUVRIR ⤢',
     show: 'Afficher le canal du lobby',
     hide: 'Masquer le canal du lobby',
+    openChannel: 'Ouvrir le canal du lobby',
+    dialogLabel: 'Canal Hyperspace Comms',
+    sendHint: 'Entrée envoie · Maj+Entrée commence une nouvelle ligne',
     close: 'FERMER',
     cancel: 'ANNULER',
     emptyTitle: 'AUCUNE TRANSMISSION',
@@ -631,7 +634,7 @@ export const fr = {
     rulesControl: '// RÈGLES DE LA SALLE',
     hostOnlyRules: "Seul l'hôte peut les modifier tant que la salle attend.",
     clashMode: 'Mode Clash',
-    clashModeDesc: 'Gagnez la course aux touches quand on vous attaque pour rester sur la case',
+    clashModeDesc: 'Gagnez la course aux lettres quand on vous attaque pour rester sur la case',
     noSafeZones: 'Sans zones sûres',
     noSafeZonesDesc: 'Les cases étoilées ne protègent plus (hardcore)',
     freeExit: 'Sortie libre',
@@ -646,7 +649,7 @@ export const fr = {
     clashKeyShiftWarn: 'LA LETTRE CHANGE !',
     // Clash QTE
     clashPressHint:
-      'Appuyez sans arrêt sur votre touche pour remplir la barre — {{seconds}}s pour gagner !',
+      'Appuyez sans arrêt sur votre lettre pour remplir la barre — {{seconds}}s pour gagner !',
     clashYou: 'VOUS',
     // Chaînes de clash : attaquer une case empilée, c'est un clash par défenseur.
     // Les clashs à un seul défenseur n'affichent ni la pastille ni la ligne.
@@ -675,12 +678,12 @@ export const fr = {
       "{{reveal}}s d'annonce · {{countdown}}s de compte à rebours · {{clash}}s de clash",
     clashGetReady: 'PRÉPAREZ-VOUS…',
     clashGo: 'GO',
-    clashKeyHint: 'Votre touche apparaîtra quand le combat commencera !',
+    clashKeyHint: 'Votre lettre apparaîtra quand le combat commencera !',
     clashFight: '⚔️ COMBAT !',
     clashWatching: 'En spectateur…',
     // Chemin tactile (tablette). Clavier ou toucher, un seul QTE.
-    clashTouchHint: 'Repérez la touche affichée sur le pavé quand le combat commence !',
-    clashTouchPress: 'Touchez le cercle de la touche — {{seconds}}s pour gagner !',
+    clashTouchHint: 'Repérez la lettre affichée sur le pavé quand le combat commence !',
+    clashTouchPress: 'Touchez le cercle de la lettre — {{seconds}}s pour gagner !',
     clashRotateTitle: 'PASSEZ EN PAYSAGE',
     clashRotateBody:
       'Le clash exige le mode paysage. Tournez votre appareil — la course commence quand même, alors faites vite.',
@@ -996,15 +999,15 @@ export const fr = {
     rulesPage6Header: '// MODE CLASH',
     rulesPage6Title: '⚔️ Défendez-vous en martelant',
     rulesPage6Body:
-      "En mode Clash, une attaque ne se décide pas sur le plateau : le défenseur et l'attaquant se livrent une course aux touches. Le gagnant reste sur la case et le perdant va en prison — oui, même l'attaquant.",
+      "En mode Clash, une attaque ne se décide pas sur le plateau : le défenseur et l'attaquant se livrent une course aux lettres. Le gagnant reste sur la case et le perdant va en prison — oui, même l'attaquant.",
     rulesPage6Step1: 'Une pièce attaque → un Clash commence',
     rulesPage6Step2: 'Compte à rebours de 3 s — défenseur contre attaquant',
-    rulesPage6Step3: 'Martelez votre touche — remplissez votre jauge',
+    rulesPage6Step3: 'Martelez votre lettre — remplissez votre jauge',
     rulesPage6Step4: 'Le gagnant reste · le perdant va en prison (même l’attaquant !)',
     rulesPage6Chain:
-      "Atterrir sur un mur — deux pièces ou plus empilées — n'est pas un seul combat mais un Clash par défenseur, chaque manche étant une nouvelle course aux touches : gagnez-les d'affilée et la case est à vous, perdez-en une et le mur tient.",
+      "Atterrir sur un mur — deux pièces ou plus empilées — n'est pas un seul combat mais un Clash par défenseur, chaque manche étant une nouvelle course aux lettres : gagnez-les d'affilée et la case est à vous, perdez-en une et le mur tient.",
     rulesPage6Touch:
-      "Sur tablette, vous touchez le cercle de votre touche au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
+      "Sur tablette, vous touchez le cercle de votre lettre au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
     rulesPage6KeyShift:
       "L'hôte peut aussi activer un saut multi-spectre du clash : la lettre demandée change une ou deux fois pendant la course. Un avertissement clignote avant chaque changement et le pad redistribue ses lettres, alors continuez à lire — un pouce resté sur l'ancienne lettre ne remplit la barre que jusqu'au changement.",
     rulesPage7Header: '// SANS ZONES SÛRES (HARDCORE)',

@@ -436,6 +436,9 @@ export const ms = {
     openHint: 'BUKA ⤢',
     show: 'Tunjuk saluran lobi',
     hide: 'Sembunyi saluran lobi',
+    openChannel: 'Buka saluran lobi',
+    dialogLabel: 'Saluran Hyperspace Comms',
+    sendHint: 'Enter menghantar · Shift+Enter mula baris baharu',
     close: 'TUTUP',
     cancel: 'BATAL',
     emptyTitle: 'TIADA TRANSMISI LAGI',
@@ -625,7 +628,7 @@ export const ms = {
     rulesControl: '// PERATURAN BILIK',
     hostOnlyRules: 'Hanya hos boleh menukarnya semasa bilik masih menunggu.',
     clashMode: 'Mod Clash',
-    clashModeDesc: 'Menangi perlumbaan kekunci apabila diserang untuk kekal di petak',
+    clashModeDesc: 'Menangi perlumbaan huruf apabila diserang untuk kekal di petak',
     noSafeZones: 'Tanpa Zon Selamat',
     noSafeZonesDesc: 'Petak bintang tidak lagi melindungi (hardcore)',
     freeExit: 'Keluar Bebas',
@@ -639,7 +642,7 @@ export const ms = {
     clashKeyShiftCount: 'Pertukaran',
     clashKeyShiftWarn: 'HURUF BERTUKAR!',
     // Clash QTE
-    clashPressHint: 'Tekan kekunci anda berulang kali untuk mengisi bar — {{seconds}}s untuk menang!',
+    clashPressHint: 'Tekan huruf anda berulang kali untuk mengisi bar — {{seconds}}s untuk menang!',
     clashYou: 'ANDA',
     // Rantaian clash: menyerang petak bertindan bermakna satu clash setiap
     // pertahanan. Clash seorang pertahanan tidak memaparkan pil atau baris ini.
@@ -666,12 +669,12 @@ export const ms = {
     clashAnnounceTiming: '{{reveal}}s dedah · {{countdown}}s kira detik · {{clash}}s clash',
     clashGetReady: 'BERSEDIA…',
     clashGo: 'GO',
-    clashKeyHint: 'Kekunci anda akan muncul apabila pertarungan bermula!',
+    clashKeyHint: 'Huruf anda akan muncul apabila pertarungan bermula!',
     clashFight: '⚔️ LAWAN!',
     clashWatching: 'Menonton…',
     // Laluan sentuhan (tablet). Papan kekunci atau sentuhan, satu QTE.
-    clashTouchHint: 'Padankan kekunci yang dipaparkan pada pad apabila lawan bermula!',
-    clashTouchPress: 'Ketik bulatan yang memegang kekunci — {{seconds}}s untuk menang!',
+    clashTouchHint: 'Padankan huruf yang dipaparkan pada pad apabila lawan bermula!',
+    clashTouchPress: 'Ketik bulatan yang memegang huruf — {{seconds}}s untuk menang!',
     clashRotateTitle: 'PUTAR KE MOD LANDSKAP',
     clashRotateBody:
       'Clash memerlukan mod landskap. Putarkan peranti anda — perlumbaan tetap bermula, jadi cepat.',
@@ -986,15 +989,15 @@ export const ms = {
     rulesPage6Header: '// MOD CLASH',
     rulesPage6Title: '⚔️ Bertahan dengan menekan laju',
     rulesPage6Body:
-      'Dalam mod Clash, serangan tidak diputuskan di papan: pertahanan dan penyerang berlumba menekan kekunci. Pemenang kekal di petak dan yang kalah masuk penjara — ya, penyerang juga.',
+      'Dalam mod Clash, serangan tidak diputuskan di papan: pertahanan dan penyerang berlumba menekan huruf. Pemenang kekal di petak dan yang kalah masuk penjara — ya, penyerang juga.',
     rulesPage6Step1: 'Buah menyerang → Clash bermula',
     rulesPage6Step2: 'Kiraan detik 3 saat — pertahanan lawan penyerang',
-    rulesPage6Step3: 'Tekan kekunci laju — penuhkan meter anda',
+    rulesPage6Step3: 'Tekan huruf laju — penuhkan meter anda',
     rulesPage6Step4: 'Pemenang kekal · yang kalah masuk penjara (walaupun penyerang!)',
     rulesPage6Chain:
-      'Mendarat di atas tembok — dua buah atau lebih bertindan — bukan satu pertarungan tetapi satu Clash bagi setiap pertahanan, setiap pusingan perlumbaan kekunci yang baharu: menang semuanya berturut-turut dan petak itu milik anda, kalah satu dan tembok itu bertahan.',
+      'Mendarat di atas tembok — dua buah atau lebih bertindan — bukan satu pertarungan tetapi satu Clash bagi setiap pertahanan, setiap pusingan perlumbaan huruf yang baharu: menang semuanya berturut-turut dan petak itu milik anda, kalah satu dan tembok itu bertahan.',
     rulesPage6Touch:
-      'Pada tablet anda mengetik bulatan yang memegang kekunci anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
+      'Pada tablet anda mengetik bulatan yang memegang huruf anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
     rulesPage6KeyShift:
       'Hos juga boleh menghidupkan Lompatan Multi-Spektrum Clash: huruf yang perlu ditekan bertukar sekali atau dua kali semasa perlumbaan. Amaran berkelip sebelum setiap pertukaran dan pad mengocok semula hurufnya, jadi terus membaca — ibu jari yang kekal pada huruf lama hanya mengisi bar sehingga pertukaran itu.',
     rulesPage7Header: '// TANPA ZON SELAMAT (HARDCORE)',

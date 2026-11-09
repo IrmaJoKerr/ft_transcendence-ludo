@@ -135,8 +135,10 @@ two animations) are in `common/src/timing.constants.ts` 📦, so they are absent
 | `CLASH_BOT_FAST_MS_BASE` | 111 | fast profile's interval base: deliberately just above `CLASH_PRESS_CAP_MS` |
 | `CLASH_BOT_CASUAL_MS_BASE` | 129 | casual profile's interval base |
 | `CLASH_BOT_JITTER_MS` | 30 | random spread added to each bot gap |
-| `CLASH_BOT_FAST_REACTION_MS` | 120 | touch-typist pause before the first press (muscle memory, 100–150 band) |
-| `CLASH_BOT_CASUAL_REACTION_MS` | 500 | choice reaction pause before the first press (400–600 band) |
+| `CLASH_BOT_FAST_REACTION_MS` | 200 | fast pause before the first press: recognition plus muscle memory, just above the 100–150 band (the letters change mid-round since 4.7) |
+| `CLASH_BOT_CASUAL_REACTION_MS` | 600 | casual pause before the first press: choice reaction at the top of its 400–600 band |
+| `CLASH_BOT_REREAD_MS` | 150 | what a bot pays per letter switch, on top of the profile pause, out of `CLASH_KEYSHIFT_EXTRA_MS`'s slack |
+| `CLASH_KEYSHIFT_EXTRA_MS` | 1500 | press-window extension the key-shift mutator grants per switch (added to the deadline and to `CLASH_TARGET`'s budget) |
 
 **Turn animation** — `BOT_MOVE_STEP_MS` is the engine's slack over the shared
 `MOVE_STEP_ANIM_MS` 📦, because bot turns are paced so their move finishes animating before the next
@@ -721,7 +723,10 @@ shorter than the clip it plays.
 
 **Key-shift presentation** — client-only, because the engine sends the absolute switch instants and the
 overlay schedules its own timers against them. Nothing here decides the game; the server judges a press
-against the live letter on its own clock.
+against the live letter on its own clock. The warning is a cue in its own right since 4.7: the banner carries
+`clash-switch-warn` / `clash-switch-warn--on` (one `pulse-glow` breath of 400 ms, inside the stylesheet's
+`prefers-reduced-motion` gate rather than a hook) and the sting sounds with it, `playCyberReject()` 400 ms
+ahead of the flip rather than on it, so the flip keeps its own three cues.
 
 | Constant | Value | What it shows |
 |---|---|---|
@@ -876,7 +881,7 @@ files. Every sound is a small oscillator/noise graph; the master gain multiplies
 | `playLaserSound()` | 880 → 110 Hz, 150 ms | laser sweep |
 | `playCyberSlide()` | 180 → 740 Hz, 180–200 ms | slide open |
 | `playCyberAccept()` | 587.3 / 880 / 1174.6 Hz, 240 ms | accept chime |
-| `playCyberReject()` | 440 → 160 Hz, 160–180 ms | reject buzz |
+| `playCyberReject()` | 440 → 160 Hz, 160–180 ms | reject buzz; since 4.7 it also scores the switch warning, 400 ms ahead of the flip |
 | `playIgnitionSound()` | 140 → 360 Hz, 140 ms | ignition |
 | `playExplosionSound()` | white noise, 250 ms, lowpass 1000 → 100 Hz | explosion |
 | `playPrinterSound()` | 14 pulses 110 ms apart, pitch `350 + (i % 4) × 110` Hz, closing beep 1200 Hz | the results receipt printing |

@@ -9,9 +9,9 @@ import {
   ChatCardComposer,
   ChatCardFeed,
   ChatCardHead,
-  CHAT_CARD_HEIGHT,
   CHAT_CARD_MARGIN,
   CHAT_CARD_WIDTH,
+  chatCardHeight,
 } from './ChatCard';
 import { ChatNameCard } from './ChatNameCard';
 import type { ChatNameCardTarget } from './ChatNameCard';
@@ -189,8 +189,9 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
   // the card has to clear the viewport edges at every one of them. Its floor is the
   // bell row, which the bar marks `data-chat-reserve` (19.3): the card stops one
   // pixel above it, so a navbar that reflows moves the card with it and no second
-  // constant has to track the nav's height. The height is the card's budget and the
-  // window is the only thing allowed to shorten it.
+  // constant has to track the nav's height. The height is `chatCardHeight()` — a
+  // share of the viewport since decision 1.4 — and the window, the reserve row, or
+  // the dock's own rows are the only things allowed to shorten it.
   const place = useCallback(() => {
     const plate = plateRef.current;
     if (!plate) return;
@@ -201,7 +202,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
     // otherwise; rising out of the screen from the reserve rather than dropping
     // over it.
     const bottom = Math.min(floor - 1, window.innerHeight - CHAT_CARD_MARGIN);
-    const height = Math.max(0, Math.min(CHAT_CARD_HEIGHT, bottom - CHAT_CARD_MARGIN));
+    const height = Math.max(0, Math.min(chatCardHeight(), bottom - CHAT_CARD_MARGIN));
     const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
     const left = Math.max(
       CHAT_CARD_MARGIN,
@@ -383,8 +384,8 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
         tabIndex={open ? 0 : undefined}
         aria-haspopup={open ? 'dialog' : undefined}
         aria-expanded={open ? cardOpen : undefined}
-        aria-label={open ? 'Open the lobby channel' : undefined}
-        title={open ? 'Open the lobby channel' : undefined}
+        aria-label={open ? t('chat.openChannel') : undefined}
+        title={open ? t('chat.openChannel') : undefined}
         onClick={open ? toggleCard : undefined}
         onKeyDown={
           open
@@ -463,7 +464,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
           column with its own stacking context, and the card is wider than it), so
           it can hang over the page without being clipped and without the dock
           changing width — the rule this whole dock is built on. Its size is
-          `ChatCard.tsx`'s (`CHAT_CARD_WIDTH` × `CHAT_CARD_HEIGHT`, 19.3), so the
+          `ChatCard.tsx`'s (`CHAT_CARD_WIDTH` × `chatCardHeight()`, 19.3), so the
           dock draws the same card the room does. */}
       {open &&
         cardOpen &&
@@ -472,7 +473,7 @@ export function LobbyChat({ open, onToggle }: LobbyChatProps) {
           <div
             ref={cardRef}
             role="dialog"
-            aria-label="Hyperspace Comms channel"
+            aria-label={t('chat.dialogLabel')}
             tabIndex={-1}
             className="chat-card"
             style={{

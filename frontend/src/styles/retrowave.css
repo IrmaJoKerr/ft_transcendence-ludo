@@ -49,6 +49,23 @@
   --start-overlay-bg: rgba(13, 2, 33, 0.45);
   --start-overlay-glow: rgba(255, 0, 127, 0.35);
   --start-overlay-inset: rgba(0, 240, 255, 0.2);
+  /* The channel form of the five accents and the four neutrals: `r g b`, always
+     read as `rgb(var(--x-rgb) / a)`. A component that tints a theme colour needs
+     an alpha, and `rgba(#ff007f, 0.3)` is not CSS — so without these the
+     components spell the hex out again and the tint stops following the theme.
+     Same numbers as the hexes above by construction, so every site moved to this
+     form renders byte-identically; `--success-rgb` and `--warn-rgb` exist because
+     `#00ff88` and `#ffe600` are written 66 and 74 times for their own reasons
+     (a green seat, and yellow as warning), not only as `--accent-yellow`. */
+  --accent-pink-rgb: 255 0 127;
+  --accent-cyan-rgb: 0 240 255;
+  --accent-yellow-rgb: 255 230 0;
+  --accent-purple-rgb: 157 0 255;
+  --success-rgb: 0 255 136;
+  --warn-rgb: 255 230 0;
+  --ink-rgb: 255 255 255;
+  --shade-rgb: 0 0 0;
+  --bg-primary-rgb: 13 2 33;
 }
 
 /* --------------------------------------------------------------------------
@@ -103,6 +120,22 @@
   --start-overlay-bg: rgba(11, 8, 5, 0.55);
   --start-overlay-glow: rgba(255, 176, 0, 0.35);
   --start-overlay-inset: rgba(229, 52, 11, 0.22);
+  /* The channel form (see the block above): three of these are additions rather
+     than translations, because the 70s palette has no value to translate from.
+     All three were measured against `--bg-primary` rather than picked: avocado
+     `#7d8b3e` is the moss the era used lifted to 5.08:1 (the true `#6b7f3a`
+     reads 4.25:1, short for small text), terracotta `#f28a0f` is already the
+     second stop of `--btn-bg`, and warm black `#1a1009` keeps a shadow over
+     walnut from reading blue-grey. */
+  --accent-pink-rgb: 229 52 11;
+  --accent-cyan-rgb: 95 179 176;
+  --accent-yellow-rgb: 255 176 0;
+  --accent-purple-rgb: 12 86 121;
+  --success-rgb: 125 139 62;
+  --warn-rgb: 242 138 15;
+  --ink-rgb: 255 231 189;
+  --shade-rgb: 26 16 9;
+  --bg-primary-rgb: 20 16 14;
 }
 
 /* --------------------------------------------------------------------------
@@ -339,6 +372,26 @@ body {
 
   to {
     filter: drop-shadow(0 0 12px var(--accent-pink));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   CLASH: THE SWITCH WARNING'S PULSE
+   -------------------------------------------------------------------------- */
+
+/* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath
+   of the keyframe above, no second keyframe to tune and keep distinct. The gate is
+   the stylesheet's own `prefers-reduced-motion` query rather than a third hook in
+   the overlay (the room keeps ONE gate, and it is CSS): with reduced motion the
+   line simply stays lit for the 700 ms it is visible, which is what it did before
+   the pulse existed. The sting beside it is audio, so it follows the mute switch. */
+.clash-switch-warn {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .clash-switch-warn--on {
+    animation: pulse-glow 400ms ease-in-out infinite alternate;
   }
 }
 

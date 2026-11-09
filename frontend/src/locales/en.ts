@@ -435,6 +435,9 @@ export const en = {
     openHint: 'OPEN ⤢',
     show: 'Show the lobby channel',
     hide: 'Hide the lobby channel',
+    openChannel: 'Open the lobby channel',
+    dialogLabel: 'Hyperspace Comms channel',
+    sendHint: 'Enter sends · Shift+Enter starts a new line',
     close: 'CLOSE',
     cancel: 'CANCEL',
     emptyTitle: 'NO TRANSMISSIONS YET',
@@ -641,7 +644,7 @@ export const en = {
     rulesControl: '// ROOM RULES',
     hostOnlyRules: 'Only the host can change these while the room is waiting.',
     clashMode: 'Clash Mode',
-    clashModeDesc: 'Win the key race when attacked to stay on the square',
+    clashModeDesc: 'Win the letter race when attacked to stay on the square',
     noSafeZones: 'No Safe Zones',
     noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
     freeExit: 'Free Exit',
@@ -657,7 +660,7 @@ export const en = {
     clashKeyShiftCount: 'Switches',
     clashKeyShiftWarn: 'LETTER SWITCHING!',
     // Clash QTE
-    clashPressHint: 'Spam your key to fill the bar — {{seconds}}s to win!',
+    clashPressHint: 'Mash your letter to fill the bar — {{seconds}}s to win!',
     clashYou: 'YOU',
     clashOver: 'CLASH OVER',
     // Clash CHAINS: an attack on a stacked square is one clash per defender, so
@@ -684,12 +687,12 @@ export const en = {
     clashAnnounceTiming: '{{reveal}}s reveal · {{countdown}}s countdown · {{clash}}s clash',
     clashGetReady: 'GET READY…',
     clashGo: 'GO',
-    clashKeyHint: 'Your key will appear when the fight starts!',
+    clashKeyHint: 'Your letter will appear when the fight starts!',
     clashFight: '⚔️ FIGHT!',
     clashWatching: 'Watching…',
     // Touch path (tablet). Keyboard or touch, one QTE.
-    clashTouchHint: 'Match the key shown on the pad when the fight starts!',
-    clashTouchPress: 'Tap the circle holding the key — {{seconds}}s to win!',
+    clashTouchHint: 'Match the letter shown on the pad when the fight starts!',
+    clashTouchPress: 'Tap the circle holding the letter — {{seconds}}s to win!',
     clashRotateTitle: 'ROTATE TO LANDSCAPE',
     clashRotateBody:
       'The clash needs landscape. Turn your device sideways — the race starts either way, so hurry.',
@@ -1007,18 +1010,18 @@ export const en = {
     rulesPage6Header: '// CLASH MODE',
     rulesPage6Title: '⚔️ Defend by mashing',
     rulesPage6Body:
-      'With clash mode on, an attack is not decided on the board: the defender and the attacker fight a key race for it. The winner stays on the square and the loser goes to prison — yes, even the attacker.',
+      'With clash mode on, an attack is not decided on the board: the defender and the attacker fight a letter race for it. The winner stays on the square and the loser goes to prison — yes, even the attacker.',
     rulesPage6Step1: 'A piece attacks → a Clash starts',
     rulesPage6Step2: '3-second countdown — defender vs attacker',
-    rulesPage6Step3: 'Mash your key — fill your meter',
+    rulesPage6Step3: 'Mash your letter — fill your meter',
     rulesPage6Step4: 'Winner stays · loser goes to prison (even the attacker!)',
     // A chain (a wall attack) is not a second mechanic: the deck spells out the
     // one-clash-per-defender count next to the four steps, because the live
     // screen shows a ROUND n / total pill and a ×R badge from the same count.
     rulesPage6Chain:
-      'Landing on a wall — two or more pieces stacked — is not one fight but one clash per defender, each round a fresh key race: win them back to back and the square is yours, lose one and the wall holds.',
+      'Landing on a wall — two or more pieces stacked — is not one fight but one clash per defender, each round a fresh letter race: win them back to back and the square is yours, lose one and the wall holds.',
     rulesPage6Touch:
-      'On a tablet you tap the circle holding your key instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
+      'On a tablet you tap the circle holding your letter instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
     // The mutator's page-six paragraph. It names the warning and the re-scramble
     // (the two things the player actually has to react to), and never claims the
     // switch is announced in advance of the warning itself.

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClashResult, GameViewState } from './reducer';
 import type { ClashPhase, PlayerColor } from './types';
 import { isMobileOS } from '../utils/device';
+import { retroAudio } from '../utils/audio';
 import { ResultFx, CLASH_STAGE_MAX_PX, type ResultFxKind } from './ResultFx';
 import {
   CLASH_ANNOUNCE_MS,
@@ -558,7 +559,16 @@ export function ClashOverlay({
     };
     at.forEach((when, i) => {
       if (Date.now() + offsetMs >= when) return;
-      later(when - CLASH_SWITCH_WARN_MS, () => patch({ warning: true }));
+      // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on
+      // the flip (the flip already has the banner, the pad re-scramble and the
+      // round's own tone, so a voice landing there would double the cue instead of
+      // warning). It borrows the cyber-reject voice — 180 ms of falling sawtooth, a
+      // warning rather than a sixth thing to mix — and obeys the same mute switch as
+      // every other engine call (decision 4.7).
+      later(when - CLASH_SWITCH_WARN_MS, () => {
+        patch({ warning: true });
+        retroAudio.playCyberReject();
+      });
       later(when - CLASH_SWITCH_FLIP_MS, () => patch({ flipping: true }));
       later(when, () => patch({ index: i + 1, flipping: false, flash: true }));
       later(when + CLASH_SWITCH_WARN_HOLD_MS, () => patch({ warning: false }));
@@ -928,8 +938,12 @@ export function ClashOverlay({
                   {/* The warning's line is always in the layout and only its visibility
                       changes: a banner that appears mid-press would otherwise shove the
                       two key badges down for the 700 ms it shows. It never names the
-                      letter the switch is about to ask for. */}
+                      letter the switch is about to ask for. The pulse rides the
+                      stylesheet's `pulse-glow` keyframe, gated there by
+                      `prefers-reduced-motion`, so the overlay has no motion hook of its
+                      own. */}
                   <div
+                    className={`clash-switch-warn ${warning ? 'clash-switch-warn--on' : ''}`}
                     style={{
                       marginTop: 6,
                       height: 22,

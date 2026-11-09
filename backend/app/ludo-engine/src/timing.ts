@@ -41,11 +41,27 @@ export const CLASH_BOT_JITTER_MS = 30; // random spread added to each interval
 // Bot reaction pauses: one CONSTANT per profile, never drawn. The bands are the
 // research figures for "see the key, then press it". A touch-typist does not read
 // the letter, muscle memory does: 100..150 ms. Everyone else pays choice reaction
-// time, decoding the symbol and picking the finger: 400..600 ms. The pause is a
-// constant on purpose, so the hesitation IS the profile, and every draw left in
-// the schedule is the mash tempo (CLASH_BOT_JITTER_MS on the gaps).
-export const CLASH_BOT_FAST_REACTION_MS = 120; // touch-typist: muscle memory
-export const CLASH_BOT_CASUAL_REACTION_MS = 500; // choice reaction: 400..600 band
+// time, decoding the symbol and picking the finger: 400..600 ms. Since the QTE's
+// letters change mid-round (decision 4.7, 2026-11-09) both constants sit at the top
+// of their band or just above it — 200 and 600 — because nobody in this room is
+// reading a key they already know: recognition comes first, muscle memory second,
+// and 100..150 assumes the first half is free. 200 sits just above the touch-typist
+// band and 600 on the casual band's top edge, so the fast profile now models
+// recognition plus muscle memory, which is exactly what a human pays when the
+// letter under their finger is replaced. The pause is a constant on purpose, so the
+// hesitation IS the profile, and every draw left in the schedule is the mash tempo
+// (CLASH_BOT_JITTER_MS on the gaps). What the widening costs is jitter, not presses:
+// the fit in `botPressTimes` leaves fast ~540 ms of slack against ~555 ms of drawn
+// jitter and casual ~110 against ~480, so a casual bot reads close to a metronome
+// and no press leaves the window (the arithmetic is in 4.7).
+export const CLASH_BOT_FAST_REACTION_MS = 200; // recognition, then muscle memory
+export const CLASH_BOT_CASUAL_REACTION_MS = 600; // top of the choice-reaction band
+// What a bot pays when the letters change mid-round: the re-read a human pays at a
+// switch, on top of the profile's own pause (so 350 fast, 750 casual). It comes out
+// of the extension the key-shift mutator already grants the window
+// (`CLASH_KEYSHIFT_EXTRA_MS` per switch), which the fit never spent — the bot's
+// schedule stayed inside the plain 5000 ms while the window was 6500 or 8000.
+export const CLASH_BOT_REREAD_MS = 150;
 
 // --- turn animation ------------------------------------------------------------
 // The step and dice numbers are shared (bot turns are paced so their move finishes

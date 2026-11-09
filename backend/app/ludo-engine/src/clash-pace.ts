@@ -12,6 +12,7 @@ import {
   CLASH_BOT_FAST_MS_BASE,
   CLASH_BOT_FAST_REACTION_MS,
   CLASH_BOT_JITTER_MS,
+  CLASH_BOT_REREAD_MS,
 } from './timing';
 import { CLASH_PRESS_MS } from './__shared__/timing.constants';
 import { randFloat, randInt } from './rng';
@@ -46,15 +47,28 @@ const CLASH_BOT_RAMP = [1.25, 1.15, 1.07] as const;
 const CLASH_BOT_TAIL_GUARD_MS = 100;
 
 // The reaction pause, one constant per profile: how long a side needs to see its
-// letter and get a finger onto it. Fast is a touch-typist, so muscle memory does
-// the work (100..150 ms); casual pays choice reaction time, decoding the letter
-// and picking the finger (400..600 ms). Deliberately NOT jittered, and the same
-// for every round: the hesitation is the profile, so a fast bot always opens at
-// the same moment and the only variation left in a schedule is the mash tempo.
+// letter and get a finger onto it. Fast is recognition plus muscle memory (200 ms,
+// just above the touch-typist band); casual pays choice reaction time, decoding the
+// letter and picking the finger (600 ms, the top of the 400..600 band). Deliberately
+// NOT jittered, and the same for every round: the hesitation is the profile, so a
+// fast bot always opens at the same moment and the only variation left in a schedule
+// is the mash tempo. Both numbers widened on 2026-11-09 (4.7) because the letters
+// change mid-round: see `CLASH_BOT_REREAD_MS` for the switch's own charge.
 export const CLASH_BOT_REACTION_MS: Record<BotPaceKind, number> = {
   fast: CLASH_BOT_FAST_REACTION_MS,
   casual: CLASH_BOT_CASUAL_REACTION_MS,
 };
+
+// What a mid-clash letter switch costs a bot, and what the window already pays for
+// it: the absolute instants the letters change, and the extension the key-shift
+// mutator granted the press window (`CLASH_KEYSHIFT_EXTRA_MS` per switch, already
+// added to the deadline and to the target). The schedule spends one
+// `CLASH_BOT_REREAD_MS` per switch out of that extension, so a bot pays the re-read
+// a human pays without a press ever leaving the window.
+export interface BotSwitchCost {
+  at: number[];
+  extraMs: number;
+}
 
 // One stumble, casual profile only: the slower profile is the one that fumbles.
 // It is charged to the jitter budget below, never to the press count.
@@ -76,9 +90,25 @@ export function botPace(kind: BotPaceKind): BotPace {
 // so the last press is always the nth one, inside the window. `base` sits just
 // above CLASH_PRESS_CAP_MS, which is why the floor holds even though bots
 // currently reach the store directly.
-export function botPressTimes(pace: BotPace, startAt: number, rng: Rng): number[] {
+export function botPressTimes(
+  pace: BotPace,
+  startAt: number,
+  rng: Rng,
+  switches?: BotSwitchCost,
+): number[] {
+  // The window this schedule has to fit in: the plain press window plus whatever the
+  // key-shift mutator already paid for it. Absent `switches` — a plain room, or a bot
+  // schedule replayed from an older state — leaves it at exactly `CLASH_PRESS_MS`,
+  // which is today's behaviour to the millisecond.
+  const windowMs = CLASH_PRESS_MS + Math.max(0, switches?.extraMs ?? 0);
+  // Only the switches inside this window cost this side anything, and each one is a
+  // re-read: the letter it was aiming at is gone.
+  const switchAt = (switches?.at ?? [])
+    .filter((at) => at > startAt && at < startAt + windowMs)
+    .sort((a, b) => a - b);
+
   const gaps = pace.presses - 1;
-  if (gaps <= 0) return [startAt + pace.reactionMs];
+  if (gaps <= 0) return [startAt + pace.reactionMs + CLASH_BOT_REREAD_MS * switchAt.length];
 
   const base = pace.kind === 'fast' ? CLASH_BOT_FAST_MS_BASE : CLASH_BOT_CASUAL_MS_BASE;
   // What the ramp costs on top of a flat base: the three stretched gaps.
@@ -97,14 +127,15 @@ export function botPressTimes(pace: BotPace, startAt: number, rng: Rng): number[
   for (let i = 0; i < gaps; i++) jitter.push(randFloat(rng, 0, CLASH_BOT_JITTER_MS));
   if (stumbleAt >= 0) jitter[stumbleAt] += stumble;
 
-  // The fit: whatever the window has left after the base and the reaction is the
-  // jitter budget. The reaction is the bigger half of it now — 120 ms fast, 500 ms
-  // casual — so the room is ~620 ms for 37 gaps on fast and ~210 ms for 32 on
-  // casual, against ~555 and ~480 ms of drawn jitter: the fast schedule usually
-  // keeps its full spread and the casual one is compressed by a small factor. The
-  // gaps keep their variation; the mean lands on the interval the target needs,
-  // and neither the base nor the count moves.
-  const budget = CLASH_PRESS_MS - pace.reactionMs - CLASH_BOT_TAIL_GUARD_MS - baseTotal;
+  // The fit: whatever the window has left after the base and the pauses is the
+  // jitter budget. The pauses are the bigger half of it — 200 ms fast, 600 ms casual,
+  // plus one 150 ms re-read per switch — so the room is ~540 ms for 37 gaps on fast
+  // and ~110 ms for 32 on casual, against ~555 and ~480 ms of drawn jitter: the fast
+  // schedule keeps almost all its spread and the casual one is compressed to about a
+  // quarter, which reads as a metronome. The gaps keep their variation; the mean
+  // lands on the interval the target needs, and neither the base nor the count moves.
+  const pause = pace.reactionMs + CLASH_BOT_REREAD_MS * switchAt.length;
+  const budget = windowMs - pause - CLASH_BOT_TAIL_GUARD_MS - baseTotal;
   const drawn = jitter.reduce((sum, j) => sum + j, 0);
   const scale = drawn > budget ? Math.max(0, budget) / drawn : 1;
 
@@ -114,5 +145,11 @@ export function botPressTimes(pace: BotPace, startAt: number, rng: Rng): number[
     elapsed += base * (CLASH_BOT_RAMP[i] ?? 1) + jitter[i] * scale;
     times.push(startAt + elapsed);
   }
-  return times;
+  // Each press carries the re-reads paid before it, so the pause lands where the
+  // letters changed rather than in front of the whole schedule: the first press at or
+  // after a switch is 150 ms late, and nothing before it moves. The budget above
+  // already gave those milliseconds up, so the last press still lands one tail guard
+  // inside the window.
+  if (switchAt.length === 0) return times;
+  return times.map((t) => t + CLASH_BOT_REREAD_MS * switchAt.filter((at) => at <= t).length);
 }

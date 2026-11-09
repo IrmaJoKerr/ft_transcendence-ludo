@@ -27,8 +27,10 @@ export {
   CLASH_BOT_FAST_MS_BASE,
   CLASH_BOT_CASUAL_MS_BASE,
   CLASH_BOT_JITTER_MS,
-  CLASH_BOT_FAST_REACTION_MS,
-  CLASH_BOT_CASUAL_REACTION_MS,
+  // The two reaction constants are NOT re-exported here: nothing outside the pacing
+  // module reads them (the live reader is `CLASH_BOT_REACTION_MS` in clash-pace.ts),
+  // and two dead re-exports were removed with the 2026-11-09 pass.
+  CLASH_BOT_REREAD_MS,
   CLASH_SWITCH_FIRST_MIN_MS,
   CLASH_SWITCH_FIRST_MAX_MS,
   CLASH_SWITCH_GAP_MIN_MS,

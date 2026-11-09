@@ -1,11 +1,16 @@
 import type { CSSProperties } from 'react';
 
-/** The four Ludo player colors: base / dark / yard (dim home-quadrant fill). */
+/** The four Ludo player colors. `base` is the only field anything reads: it is
+ *  the seat, and colour is the seat (see 9.1 — the board itself is never dimmed,
+ *  only the unfilled seat pills are, and they dim the pill rather than the
+ *  quadrant). A `dark` and a `yard` value used to sit here for a dimmed
+ *  home-quadrant fill the board stopped painting; nothing referenced either, and
+ *  the sweep counts them among the literals it removes. */
 export const COL = {
-  red: { base: '#ff007f', dark: '#a00050', yard: 'rgba(255, 0, 127, 0.15)' },
-  green: { base: '#00ff88', dark: '#009950', yard: 'rgba(0, 255, 136, 0.15)' },
-  yellow: { base: '#ffe600', dark: '#998a00', yard: 'rgba(255, 230, 0, 0.15)' },
-  blue: { base: '#00f0ff', dark: '#009099', yard: 'rgba(0, 240, 255, 0.15)' },
+  red: { base: '#ff007f' },
+  green: { base: '#00ff88' },
+  yellow: { base: '#ffe600' },
+  blue: { base: '#00f0ff' },
 } as const;
 
 export type ColorKey = keyof typeof COL;

@@ -31,21 +31,44 @@ import { CHAT_SURFACE } from './chatSurface';
 // head's (`ChatCardHead`'s `glyph`), beside CLOSE: the band under the composer is one
 // reserved line of text and does not also have to hold a control.
 //
-// Since 19.3 that one size is `CHAT_CARD_WIDTH`, `CHAT_CARD_HEIGHT` and
+// Since 19.3 that one size is `CHAT_CARD_WIDTH`, `chatCardHeight()` and
 // `CHAT_CARD_MARGIN`, exported below: both hosts drew 440 × 560 at 16 before, and the
-// dock now imports these instead of keeping a copy. Neither host may grow the card —
-// the head and the band are drawn inside its height and the transcript gives up rows.
+// dock now imports these instead of keeping a copy. The height is a share of the
+// viewport since decision 1.4 (2026-11-09). Neither host may grow the card — the head
+// and the band are drawn inside its height and the transcript gives up rows.
 
-/** The card's budget, one home for both hosts (19.3): 480 wide (was 440 until queue
- *  item 6's m4), 560 tall, 16 off the
- *  window's edges. The height is the card's own rather than a ceiling it may grow
- *  into: the head and the composer — the reserved band included — are drawn inside
- *  it and the transcript gives up the rows, so nothing a channel has to say can make
- *  the card taller than it was when it opened. Only the window — or a dock whose own
- *  rows leave less — can shorten it. */
+/** The card's budget, one home for both hosts (19.3): 480 wide, 16 off the
+ *  window's edges. The width is a constant; the height is not. Since decision 1.4
+ *  (2026-11-09) it is `clamp(420px, 60vh, 720px)` — a share of the screen rather
+ *  than the 560 px both hosts drew — because a transcript card is a reading surface
+ *  and a fixed 560 wastes a 1080 window and crowds a 720 one. Three fifths of the
+ *  viewport is the rule; the 420 px floor is the one place it is overruled (below
+ *  700 px tall), because a card too short to hold its composer is not a card; 720
+ *  is where more rows stop helping. The head and the composer — the reserved band
+ *  included — are still drawn inside that height and the transcript is `flex: 1 1 0`
+ *  with `min-height: 0`, so a composer that grows to six rows eats list rows and
+ *  never the card. Only the window, or a dock whose own rows leave less, can
+ *  shorten it further. */
 export const CHAT_CARD_WIDTH = 480;
-export const CHAT_CARD_HEIGHT = 560;
+export const CHAT_CARD_MIN_HEIGHT = 420;
+export const CHAT_CARD_VH = 0.6;
+export const CHAT_CARD_MAX_HEIGHT = 720;
 export const CHAT_CARD_MARGIN = 16;
+
+/** `clamp(420px, 60vh, 720px)`, kept in JS because both hosts portal the card
+ *  with a measured `top` and `height` (its slot's rectangle decides both, and CSS
+ *  cannot place a fixed box off another element). One function rather than a
+ *  second copy of the numbers, so the card and the panel beside it agree. */
+export function chatCardHeight(viewportHeight = window.innerHeight): number {
+  return Math.round(
+    Math.min(CHAT_CARD_MAX_HEIGHT, Math.max(CHAT_CARD_MIN_HEIGHT, viewportHeight * CHAT_CARD_VH)),
+  );
+}
+
+/** The composer's ceiling once it starts growing: six rows at the card's line
+ *  (20 px of line plus 6 + 6 of padding), about 140 px, after which the box keeps
+ *  its own scrollbar. One row to start. */
+const COMPOSER_MAX_HEIGHT = 140;
 
 /** How many lines the collapsed board card previews. */
 const PREVIEW_LINES = 3;
@@ -474,10 +497,19 @@ export function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
   );
 }
 
-/** The composer: one input, one send, a counter, and the band under it. The band is
- *  always mounted, so a refusal never resizes the card. Both channels render this one
- *  component and one band; what differs between them is a host's business, and the one
- *  control either host adds (the room's panel switch) is the head's, not this row's. */
+/** The composer: one message box, one send, a counter, and the band under it. The
+ *  band is always mounted, so a refusal never resizes the card. Both channels render
+ *  this one component and one band; what differs between them is a host's business,
+ *  and the one control either host adds (the room's panel switch) is the head's, not
+ *  this row's.
+ *
+ *  The box is a `<textarea>` since decision 1.4 (2026-11-09), not an `<input>`: an
+ *  input cannot hold a newline at all, and a player who wants two lines of taunt had
+ *  to send two messages. `Enter` sends, `Shift+Enter` breaks the line, and the
+ *  transport already carries the newline unchanged — the gateway trims the ends of
+ *  the body only and `chatLength` counts characters — so a two-line message is one
+ *  message. It starts at one row and grows from `scrollHeight` to six rows, then
+ *  scrolls itself. */
 export function ChatCardComposer({
   draft,
   onDraft,
@@ -507,11 +539,28 @@ export function ChatCardComposer({
   const count = chatLength(draft);
   const over = count > CHAT_MAX_CHARS;
   const disabled = !connected || inert === true;
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+
+  // Grown from the rendered text rather than from a row count: the browser is the
+  // only thing that knows how many rows a 200-character line wraps to. Reset to
+  // `auto` first, or the box can grow but never shrink; clamped at the ceiling, past
+  // which `overflowY` gives it a scrollbar of its own. Runs on every draft change,
+  // including the one that clears it after a send.
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${Math.min(box.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+  }, [draft]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-      <form onSubmit={onSubmit} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input
-          type="text"
+      {/* `flex-end`, not `center`: the counter and SEND belong to the box's last
+          line, and a six-row draft must not float them in its middle. */}
+      <form onSubmit={onSubmit} style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+        <textarea
+          ref={boxRef}
+          rows={1}
           value={draft}
           onChange={(event) => {
             onDraft(event.target.value);
@@ -519,19 +568,33 @@ export function ChatCardComposer({
             // must not sit under the box while a new line is being typed.
             if (status?.tone === 'error') onStatus(null);
           }}
+          onKeyDown={(event) => {
+            // A key that arrives mid-composition belongs to the IME: Enter there picks
+            // a candidate, and sending on it would cut the word in half (fr and ms both
+            // have users typing through one).
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
           disabled={disabled}
           placeholder={connected ? t(placeholderKey) : t(offlineKey)}
           aria-label={t(inputLabelKey)}
+          // Which key does which: the same sentence the send button carries, so the
+          // rule is readable from either end of the row and there is one key to fix.
+          title={t('chat.sendHint')}
           aria-invalid={over}
-          // One character over the cap, so the band can say why rather than the input
+          // One character over the cap, so the band can say why rather than the box
           // silently refusing the keystroke.
           maxLength={CHAT_MAX_CHARS + 1}
           style={{
             flex: 1,
             minWidth: 0,
-            height: 32,
+            minHeight: 32,
+            maxHeight: COMPOSER_MAX_HEIGHT,
             boxSizing: 'border-box',
-            padding: '0 10px',
+            padding: '6px 10px',
             borderRadius: 6,
             background: 'rgba(0, 0, 0, 0.5)',
             color: 'var(--text-main)',
@@ -539,6 +602,11 @@ export function ChatCardComposer({
             outline: 'none',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.74rem',
+            lineHeight: '20px',
+            // The box grows only by the height the script gives it; a drag handle
+            // would let a player take the transcript's rows away for good.
+            resize: 'none',
+            overflowY: 'auto',
             opacity: connected ? 1 : 0.7,
           }}
         />
@@ -548,6 +616,8 @@ export function ChatCardComposer({
             fontSize: '0.58rem',
             color: over ? '#ff5278' : 'var(--text-muted)',
             whiteSpace: 'nowrap',
+            // Its own line height so it sits level with a one-row box.
+            lineHeight: '32px',
           }}
         >
           {count} / {CHAT_MAX_CHARS}
@@ -555,6 +625,7 @@ export function ChatCardComposer({
         <button
           type="submit"
           disabled={disabled}
+          title={t('chat.sendHint')}
           className={RETRO_BTN}
           style={{
             height: 32,
@@ -630,7 +701,7 @@ export function ChatCard({
     const slot = slotRef.current;
     if (!slot) return;
     const r = slot.getBoundingClientRect();
-    const height = Math.min(CHAT_CARD_HEIGHT, window.innerHeight - CHAT_CARD_MARGIN * 2);
+    const height = Math.min(chatCardHeight(), window.innerHeight - CHAT_CARD_MARGIN * 2);
     const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
     const left = Math.max(
       CHAT_CARD_MARGIN,
