@@ -64,8 +64,11 @@ export type ResultFxKind = 'capture' | 'repulse';
 // `jailStartMs`: 1121 ms of the card everywhere, 2521 on a breach).
 const CAGE_START_IN_JAIL_MS = 136;
 const CAGE_LAND_IN_JAIL_MS = 421;
+// The cell's half-width: 26 x 36 / 33, the old half-width carried along with the box it
+// encloses, so the cell still closes on the piece with the margin it had.
+const CAGE_HALF = 28.4;
 // How far the cell travels: its own width, so it starts clear of the piece it closes on.
-const CAGE_TRAVEL_PX = 52;
+const CAGE_TRAVEL_PX = CAGE_HALF * 2;
 // The beam starts a full stage clear of its own tail, on the shooter's side.
 const BEAM_TRAVEL_PX = 150;
 
@@ -243,15 +246,17 @@ const BANNER_Y = 162;
 // The 1v1's two seats, and the seats every jail act re-presents the pair on: the DEFENDER
 // on the left and the ATTACKER on the right, one line for both, never swapped on any card
 // or in any act (25.3 rule 1) — which is what makes a chain's rounds read as one
-// continuous shot. `PIECE_W` is the cast's box: 33 stage units, the footprint every
-// strike is measured from — the invaders' old 11 glyph units at scale 3, kept so the
-// 70s and 80s figures fill exactly the space those sprites did.
+// continuous shot. `PIECE_W` is the cast's box: 36 stage units, the footprint every
+// strike is measured from and the box every glyph is drawn into. It was 33 — the invaders'
+// old 11 glyph units at scale 3, the space the 70s and 80s sprites filled — until 32.2
+// widened it because the drawn figures read small in the card's pair; the seats did not
+// move with it, so the boxes grew outward from their centres at 24.5 and 150.5.
 const PAIR_CX = 150;
-const PIECE_W = 33;
-const STRIKE_Y = 84; // the line both pieces are struck on: the middle of the box
-const GLYPH_Y = STRIKE_Y - 12; // 72
-const DEFENDER_GLYPH_X = 8;
-const ATTACKER_GLYPH_X = PAIR_CX - 16; // 134, the defender's old place
+const PIECE_W = 36;
+const STRIKE_Y = 84; // the strike line: 13 under the box's top, 23 over its floor
+const GLYPH_Y = STRIKE_Y - 13; // 71: the box is y 71 to 107, 13 units of ground under it
+const DEFENDER_GLYPH_X = 6.5; // 24.5, the seat's own centre, less half the box
+const ATTACKER_GLYPH_X = PAIR_CX - 17.5; // 132.5: the same seat held on the right
 // The widest x BOTH cards can show: the flash window's own width. A mark drawn past it
 // would be cut on the small card and kept on the big one, which is the one difference
 // the two cards are not allowed to have (25.18).
@@ -263,10 +268,10 @@ const SHARED_X_MAX = 192;
 // player owns four pieces (D4, D24).
 //
 // The fit, because the shield is the widest thing either card draws: a group of four spans
-// 3 x 20 + 33 = 93 units of run, from x 48 (the rear-most box's left edge) to 141 (the
+// 3 x 20 + 36 = 96 units of run, from x 48 (the rear-most box's left edge) to 144 (the
 // front-most's right edge), so the shield is centred on x 118 with its outermost curve at
-// 64 — x 54 to 182 — and the attacker takes the right-hand bay at x 196 to 229 at the same
-// 33 units, on the same ground line. The shield's own face at the strike height is x 171,
+// 64 — x 54 to 182 — and the attacker takes the right-hand bay at x 196 to 232 at the same
+// 36 units, on the same ground line. The shield's own face at the strike height is x 171,
 // so the wall reads left to right in one sweep: rear-most, shield, face, attacker.
 const WALL_MAX = 4;
 const WALL_CX = 118;
@@ -281,7 +286,7 @@ const WALL_INK = 5; // the innermost curve's weight; the arcs thin as they go ou
 const WALL_DX = 20;
 const WALL_DY = 14;
 const WALL_FRONT_X = WALL_CX - 10; // 108: the front-most box, straddling the centre
-const WALL_ATTACKER_X = 196; // the attacker's own 33-unit bay, outside the shield
+const WALL_ATTACKER_X = 196; // the attacker's own 36-unit bay, outside the shield
 const BEAM_INSET = 6; // the shot leaves its shooter 6 units inside the glyph's edge
 // The shield's outer face: the outermost curve's own right flank **at the strike height**,
 // because every shot in the game travels on `STRIKE_Y` — so a wall's punch and its return
@@ -352,7 +357,7 @@ const shieldCurve = (r: number) =>
 
 /**
  * One piece of the cast, at the box both renderings share: the 70s figure or the 80s
- * character from `game/pieceParts*.ts`, either filling the same 33 units. The box is
+ * character from `game/pieceParts*.ts`, either filling the same 36 units. The box is
  * the contract — every strike is measured from its edge — so neither drawing can move
  * the shot, and a wall's defenders are drawn by the same call as the pair (25.17 item 2).
  *
@@ -480,17 +485,17 @@ export function ResultFx({
   const beamFrom = attackerWon
     ? isWall
       ? WALL_ATTACKER_X + BEAM_INSET // 202: the attacker's front face, in the wall's bay
-      : ATTACKER_GLYPH_X + BEAM_INSET // 140
+      : ATTACKER_GLYPH_X + BEAM_INSET // 138.5
     : isWall
       ? SHIELD_FACE_X // 171: the shot returns off the face it struck
-      : DEFENDER_GLYPH_X + PIECE_W - BEAM_INSET; // 35
+      : DEFENDER_GLYPH_X + PIECE_W - BEAM_INSET; // 36.5
   const impactX = attackerWon
     ? isWall
       ? SHIELD_FACE_X // 171: the shield's outer face takes the hit
-      : DEFENDER_GLYPH_X + PIECE_W // 41: the defender's right flank
+      : DEFENDER_GLYPH_X + PIECE_W // 42.5: the defender's right flank, the box's own edge
     : isWall
       ? WALL_ATTACKER_X // 196: the reflected shot strikes the attacker's flank
-      : ATTACKER_GLYPH_X; // 134: the attacker's left flank
+      : ATTACKER_GLYPH_X; // 132.5: the attacker's left flank
   const beamX = Math.min(beamFrom, impactX);
   const beamW = Math.abs(impactX - beamFrom);
   // The white-hot head sits 12 units back toward the shooter on a capture — to the right,
@@ -507,12 +512,11 @@ export function ResultFx({
   const defenderCx = DEFENDER_GLYPH_X + PIECE_W / 2; // 24.5
   const attackerCx = ATTACKER_GLYPH_X + PIECE_W / 2; // 150.5
   const loserCx = attackerWon ? defenderCx : attackerCx;
-  const cageHalf = 26;
   // Both edges are clamped into the window the two cards share: the left one, because the
-  // defender's cell (centre 24.5, half-width 26) would otherwise start at -1.5 and be cut
+  // defender's cell (centre 24.5, half-width 28.4) would otherwise start at -3.9 and be cut
   // by the stage's edge, and the right one against `SHARED_X_MAX` 192, so the flash card
   // can never crop a cell the clash card keeps (D35).
-  const cageCx = Math.min(SHARED_X_MAX - cageHalf, Math.max(cageHalf, loserCx));
+  const cageCx = Math.min(SHARED_X_MAX - CAGE_HALF, Math.max(CAGE_HALF, loserCx));
   const cageTopY = STRIKE_Y - 30; // 54, the top of the cell's box
   const cageH = GROUND_Y - cageTopY; // 66
   // The bars start on the winner's side and travel away from it: right to left on a
@@ -529,10 +533,10 @@ export function ResultFx({
   // defender to past the attacker's own bay; the pair's follows the cell and stops at
   // x 192, the widest both cards can show, so the flash card never cuts a mark the clash
   // card keeps.
-  const pairFloorX1 = Math.max(0, cageCx - cageHalf - 16);
-  const pairFloorX2 = Math.min(SHARED_X_MAX, cageCx + cageHalf + 16);
+  const pairFloorX1 = Math.max(0, cageCx - CAGE_HALF - 16);
+  const pairFloorX2 = Math.min(SHARED_X_MAX, cageCx + CAGE_HALF + 16);
   const wallFloorX1 = Math.max(4, WALL_FRONT_X - (wallLayers - 1) * WALL_DX - 12);
-  const wallFloorX2 = Math.min(VB_W - 4, WALL_ATTACKER_X + PIECE_W + 8); // 237
+  const wallFloorX2 = Math.min(VB_W - 4, WALL_ATTACKER_X + PIECE_W + 8); // 236: the stage's edge
 
   // The three compositions' gates. The frame is cleared twice on a breach and once
   // everywhere else (25.3 rule 4): the wall leaves at the attack's last instant, the cloud
@@ -814,9 +818,9 @@ export function ResultFx({
           filter is the one thing that costs frames here. */}
       <g style={{ animation: jailFx('fxCage'), '--cageFrom': cageFrom } as CSSProperties}>
         <g style={{ animation: jailFx('fxArc') }}>
-          <rect x={cageCx - cageHalf} y={cageTopY} width={cageHalf * 2} height='4' rx='2' fill={winnerColor} />
+          <rect x={cageCx - CAGE_HALF} y={cageTopY} width={CAGE_HALF * 2} height='4' rx='2' fill={winnerColor} />
           {Array.from({ length: cageBars }, (_, i) => {
-            const bx = cageCx - cageHalf + ((cageHalf * 2) / (cageBars - 1)) * i;
+            const bx = cageCx - CAGE_HALF + ((CAGE_HALF * 2) / (cageBars - 1)) * i;
             return (
               <g key={`bar-${i}`}>
                 <rect x={bx - 3.5} y={cageTopY} width='7' height={cageH} fill={winnerColor} opacity='.2' />
