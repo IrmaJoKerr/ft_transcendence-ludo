@@ -3,8 +3,8 @@ import type { CSSProperties } from 'react';
 import { COL } from '../theme';
 import { useApp } from '../store';
 import { PieceFigure } from '../components/PieceFigure';
+import type { PiecePose } from './pieceParts';
 import type { PlayerColor } from './types';
-import { PIECE_GLYPH } from './boardGeometry';
 import {
   RESULT_HEADLINE_READ_MS,
   SCENE_ATTACK_MS,
@@ -243,11 +243,11 @@ const BANNER_Y = 162;
 // The 1v1's two seats, and the seats every jail act re-presents the pair on: the DEFENDER
 // on the left and the ATTACKER on the right, one line for both, never swapped on any card
 // or in any act (25.3 rule 1) — which is what makes a chain's rounds read as one
-// continuous shot. `PIECE_W` is the glyph's own 11 units at the scale the card draws it,
-// and the box is the contract: every strike is measured from its edge.
+// continuous shot. `PIECE_W` is the cast's box: 33 stage units, the footprint every
+// strike is measured from — the invaders' old 11 glyph units at scale 3, kept so the
+// 70s and 80s figures fill exactly the space those sprites did.
 const PAIR_CX = 150;
-const GLYPH_SCALE = 3;
-const PIECE_W = 11 * GLYPH_SCALE; // 33
+const PIECE_W = 33;
 const STRIKE_Y = 84; // the line both pieces are struck on: the middle of the box
 const GLYPH_Y = STRIKE_Y - 12; // 72
 const DEFENDER_GLYPH_X = 8;
@@ -351,36 +351,38 @@ const shieldCurve = (r: number) =>
   `M ${WALL_CX - r} ${GROUND_Y} A ${r} ${r} 0 0 1 ${WALL_CX + r} ${GROUND_Y}`;
 
 /**
- * One piece of the cast, at the box both renderings share: the invader glyph stamped to
- * `PIECE_W`, or the 70s figure from `game/pieceParts.ts` filling the same 33 units. The box
- * is the contract — every strike is measured from its edge — so neither drawing can move
+ * One piece of the cast, at the box both renderings share: the 70s figure or the 80s
+ * character from `game/pieceParts*.ts`, either filling the same 33 units. The box is
+ * the contract — every strike is measured from its edge — so neither drawing can move
  * the shot, and a wall's defenders are drawn by the same call as the pair (25.17 item 2).
+ *
+ * `pose` is the facing, and it is the only thing about the cast that changes across an
+ * act: the defender holds the left seat and looks right, the attacker holds the right
+ * seat and looks left, on every card in every act — the same rule that pins their
+ * places (25.3 rule 1). A pose is one matrix on a face plate inside a head that stays
+ * put — the same rule on both sets, since the 80s art lost its props and gained a face
+ * slice (`todo.md` 30) — so it costs the box nothing: 0 of 32 posed renders leave it
+ * (`posecheck.py`), and the head holds its collar on all 16 posed rows, outline 0.0 and
+ * face ±6.0 (`neckcheck.py`) — both in `.scratch/80s`.
  */
 function CastPiece({
   x,
   y,
   color,
   retro70,
+  pose = 'front',
   style,
 }: {
   x: number;
   y: number;
   color: PlayerColor;
   retro70: boolean;
+  pose?: PiecePose;
   style?: CSSProperties;
 }) {
-  return retro70 ? (
+  return (
     <g transform={`translate(${x} ${y}) scale(${PIECE_W / 100})`} style={style}>
-      <PieceFigure ck={color} />
-    </g>
-  ) : (
-    <g
-      transform={`translate(${x} ${y}) scale(${GLYPH_SCALE})`}
-      shapeRendering='crispEdges'
-      style={style}
-    >
-      <path d={PIECE_GLYPH[color]} fill='none' stroke='#000' strokeWidth='1' strokeLinejoin='miter' />
-      <path d={PIECE_GLYPH[color]} fill={COL[color].base} />
+      <PieceFigure ck={color} set={retro70 ? 'retro70' : 'retro80'} pose={pose} />
     </g>
   );
 }
@@ -637,7 +639,9 @@ export function ResultFx({
           {/* the defenders: `n` glyphs on a diagonal, the front-most — lowest and
               right-most, nearest the attacker — first, each further one up and to the left,
               overlapping the one in front (25.3 rule 1). The struck defender fades as its
-              line goes: one defender, one line, always together (rule 4). */}
+              line goes: one defender, one line, always together (rule 4). Every one of
+              them looks right, at the attacker, because that is the seat the shot comes
+              from and a wall faces the thing that hit it. */}
           {Array.from({ length: wallLayers }, (_, i) => (
             <CastPiece
               key={`defender-${i}`}
@@ -645,6 +649,7 @@ export function ResultFx({
               y={GLYPH_Y - i * WALL_DY}
               color={defender}
               retro70={isRetro70}
+              pose='right'
               style={attackerWon && i === 0 ? { animation: fx('fxDefenderFade') } : undefined}
             />
           ))}
@@ -672,7 +677,13 @@ export function ResultFx({
 
           {/* the attacker, in frame, on the ground and outside the shield: the reflected
               shot has to have somebody visible to strike (rule 6). */}
-          <CastPiece x={WALL_ATTACKER_X} y={GLYPH_Y} color={attacker} retro70={isRetro70} />
+          <CastPiece
+            x={WALL_ATTACKER_X}
+            y={GLYPH_Y}
+            color={attacker}
+            retro70={isRetro70}
+            pose='left'
+          />
         </g>
       )}
 
@@ -693,9 +704,23 @@ export function ResultFx({
         {/* the cast, at the same two places whichever seat won: the defender on the left,
             the attacker on the right. On a wall this group is the jail act only — the pair
             arrives where the wall stood, one clear later, which is why the wall's prisoner
-            is drawn twice and never contradicted (25.4). */}
-        <CastPiece x={DEFENDER_GLYPH_X} y={GLYPH_Y} color={defender} retro70={isRetro70} />
-        <CastPiece x={ATTACKER_GLYPH_X} y={GLYPH_Y} color={attacker} retro70={isRetro70} />
+            is drawn twice and never contradicted (25.4). They face each other, which is the
+            same rule the wall's row follows: the seats never swap, so neither does the
+            direction each of them looks. */}
+        <CastPiece
+          x={DEFENDER_GLYPH_X}
+          y={GLYPH_Y}
+          color={defender}
+          retro70={isRetro70}
+          pose='right'
+        />
+        <CastPiece
+          x={ATTACKER_GLYPH_X}
+          y={GLYPH_Y}
+          color={attacker}
+          retro70={isRetro70}
+          pose='left'
+        />
       </g>
 
       {/* the strike lands: the field cracks under the loser. The loser itself never moves

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { COL, type ColorKey } from '../theme';
 import { useApp } from '../store';
-import { PIECE_GLYPH, SAFE_TRACK_POSITIONS, TRACK_CELLS, stepToCell } from '../game/boardGeometry';
+import { SAFE_TRACK_POSITIONS, TRACK_CELLS, stepToCell } from '../game/boardGeometry';
 import { PieceFigure } from './PieceFigure';
 import { CaptureBurst } from './CaptureBurst';
 
@@ -13,36 +13,17 @@ const LINE = '#00f0ff';
 
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
   const { theme } = useApp();
-  const c = COL[ck];
-  const d = PIECE_GLYPH[ck];
 
-  // The 1970s piece is a drawn figure, not a pixel sprite: its own 100-unit box, real
-  // strokes and no pixel snapping. The BOX is unchanged — same tile, same 30/36 px
-  // footprint the stacking geometry was measured on — so a board recorded in one theme
-  // and replayed in the other moves no piece; what differs inside it is the drawing,
-  // and a figure 54 units wide in a 100-unit box reads narrower than the 11-of-13
-  // invader. That is the picked silhouette, not slack.
-  if (theme === 'retro70') {
-    return (
-      <svg
-        viewBox="0 0 100 100"
-        style={{
-          width: '100%',
-          height: '100%',
-          overflow: 'visible',
-          filter: isLegal
-            ? 'drop-shadow(0 0 4px var(--accent-yellow)) drop-shadow(0 0 8px var(--accent-yellow))'
-            : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
-        }}
-      >
-        <PieceFigure ck={ck} />
-      </svg>
-    );
-  }
-
+  // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the
+  // 1980s characters, each in a 100-unit box with real strokes and no pixel snapping.
+  // The BOX is unchanged — same tile, same 30/36 px footprint the stacking geometry
+  // was measured on — so a board recorded in one theme and replayed in the other moves
+  // no piece; what differs inside it is the drawing, and a figure ~50 units wide in a
+  // 100-unit box reads narrower than the invader glyph that used to fill 11 of 13.
+  // That is the picked silhouette, not slack.
   return (
     <svg
-      viewBox="-1 -1 13 10"
+      viewBox="0 0 100 100"
       style={{
         width: '100%',
         height: '100%',
@@ -51,19 +32,8 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
           ? 'drop-shadow(0 0 4px var(--accent-yellow)) drop-shadow(0 0 8px var(--accent-yellow))'
           : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
       }}
-      shapeRendering="crispEdges"
     >
-      {/* High-contrast solid black outline tracing the Invader's exact pixel shape */}
-      <path
-        d={d}
-        fill="none"
-        stroke="#000000"
-        strokeWidth="1"
-        strokeLinejoin="miter"
-        strokeLinecap="square"
-      />
-      {/* Original Invader color fill */}
-      <path fill={c.base} d={d} />
+      <PieceFigure ck={ck} set={theme === 'retro70' ? 'retro70' : 'retro80'} />
     </svg>
   );
 }

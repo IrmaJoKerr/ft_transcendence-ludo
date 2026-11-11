@@ -1,6 +1,7 @@
 # secrets & prisma generated client
 backend/generated/
 backend/dist/
+tools/
 
 # Logs
 logs

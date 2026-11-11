@@ -709,23 +709,30 @@ the mode chrome as whole objects (the amber ticket with its badge, divider and l
 siblings are literal), the two mode and rank hue tables, the hero art, the 70s piece accent, the theme row's swatch and
 the token block. Everything else that paints reads the token.
 
-**The 1970s piece palette — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
+**The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
-hues and parts are separated by lightness, never by hue. `--` means "not a colour role".
+hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
+with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s
+set is black leather and a long black coat, which at `.52` on the synthwave cell is a silhouette
+(`todo.md` [28.3](todo.md#rv80-lift)); the 70s set and the hero's crew keep `.52`. `--` means "not a
+colour role".
 
 | Constant | Value | Role |
 |---|---|---|
 | `hi` / `lit` | seat hue mixed 62% / 34% towards `#ffffff` | the lifted values, and the globe's gradient start |
-| `shd` / `lo` / `deep` | seat hue mixed 22% / 52% / 74% towards `#000000` | the sunken values: straps, arms, boots |
+| `shd` / `lo` / `deep` | seat hue mixed 22% / 52% / 74% towards `#000000` | the sunken values: straps, arms, boots. The 80s set takes `lo` at **30%** (`LO_80`, `piecePalette80`), so every garment volume and both gradients' dark stop lift together |
 | `deepink` | seat hue mixed 86% towards `#0a0716` | a hue-tinted near-black, so an outline still belongs to its piece |
 | `pop` | blue `#ffb000`, red `#f6e7c6`, green `#5fb3b0`, yellow `#7b4dff` | the one accent, per hue: cream works for three seats and is invisible on yellow, so yellow takes the violet complement |
 | `ink` / `cream` / `white` | `#0a0716` / `#ffe7bd` / `#ffffff` | the fixed values: every outline, the H2 faceplate, the specular literals |
+| `skin` | `#c98a63` | the 80s set's one face tone, off the ladder beside `cream`/`white`: one tone, no shading wash, at 7.03:1 on the cell (`todo.md` [28.4](todo.md#rv80-face)) |
 | `PIECE_GRADIENT.lid` | `hi → base (0.46) → lo` | the torso |
 | `PIECE_GRADIENT.lidCrew` | `lit → base (0.55) → lo` | the hero's torso, lit flatter for a figure 47 px tall |
 | `PIECE_GRADIENT.gid` | `hi → base (0.5) → lo`, radial at `0.33/0.28` r `0.9` | the helmet globe |
 | `CREW_HEAD` | neck `62`, scale `0.85`, span `95.5` | the crew's head: 62% head reads as a ball on a box at 112 px, so the window and the board disagree here on purpose |
-| `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned visor's squash and slide |
+| `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned head's squash and slide: the crew's helmets in the window, and the whole of `poseTurn`'s one matrix — both numbers, both sets, no per-set table left |
+| `PIECE_FACE_80` | red `[4,12)`, blue `[2,5)`, green `[4,6)`, yellow `[1,4)` | the slice of each 80s head a pose may move — the face plate `cutAtNeck` turns. `parts80.py`'s `FACE80`, asserted against each head on import and emitted into `pieceParts80.ts`; everything outside it (crest, pods, jaw, chin bar) is outline and does not move (`todo.md` [30](todo.md#rv30-set)) |
 | `PIECE_CREW` | red H2 `+1` @ 178/112, green H3 `−1` @ 246/106, yellow H4 `+1` @ 320/106, blue H1 `−1` @ 404/112 | the row in the porthole: the seat legend's order, facing each other in pairs, the outer pair a size up |
+| `PIECE_HEAD_80` | red `12`, green `11`, yellow `6`, blue `13` | how many parts of each 80s figure sit above the neck — `parts80.py`'s `HEAD_END` seam, emitted into `pieceParts80.ts` so `cutAtNeck` can find the head a pose turns |
 
 
 ### **13. Client timing**
