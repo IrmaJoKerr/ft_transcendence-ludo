@@ -9,15 +9,19 @@ import type { Rng } from './rng';
 // the right-hand one.
 export const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 export const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
-// The clash WINDOWS live in `common/src/timing.constants.ts` (`./__shared__/timing.constants`
-// here) because the client counts the same four; the rest of the clash delays are the
-// engine's. Both are re-exported from this module so the existing imports (clash-engine,
-// the socket layer, harnesses) keep their path.
+// The clash WINDOWS and the result card's four lengths live in `common/src/timing.constants.ts`
+// (`./__shared__/timing.constants` here) because the client counts the same ones; the rest of
+// the clash delays are the engine's. Both are re-exported from this module so the existing
+// imports (clash-engine, the socket layer, harnesses) keep their path.
 export {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
   CLASH_PRESS_MS,
   CLASH_RESULT_MS,
+  CLASH_WALL_RESULT_MS,
+  CLASH_BREACH_RESULT_MS,
+  CLASH_TEXT_ONLY_MS,
+  CARD_HOLD_MARGIN_MS,
 } from './__shared__/timing.constants';
 export {
   CLASH_RESULT_FREEZE_MS,

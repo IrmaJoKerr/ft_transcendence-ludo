@@ -4,9 +4,13 @@ import {
   CLASH_SWEEP_GRACE_MS,
   CLASH_TARGET,
   CLASH_RESULT_MS,
+  CLASH_WALL_RESULT_MS,
+  CLASH_BREACH_RESULT_MS,
+  CLASH_TEXT_ONLY_MS,
   CLASH_RESULT_FREEZE_MS,
   CLASH_PRESS_MS,
   CARD_HOLD_MIN_MS,
+  CARD_HOLD_MARGIN_MS,
   CLASH_BOT_FAST_VS_BOT,
   CLASH_BOT_FAST_VS_HUMAN,
 } from './clash';
@@ -475,11 +479,13 @@ export class ClashEngine {
         // The round's clash is over; the next round's startClash writes a fresh one
         // with its own keys, countdown and press window.
         delete state.clash;
-        // The SHORT gap: the client's result card, then the kick-back animation.
-        state.resultCardUntil = Date.now() + CLASH_RESULT_MS;
-        // The card a client is about to show, and the users who may report on it.
+        // The card this round draws, then the kick-back animation. An intermediate round
+        // exists only on a wall (a chain is a stack of defenders), and a wall's card is the
+        // scene plus its beat (32.4): 3800, not the 2900 a pair's card gets. The deadline
+        // is `armCardHold`'s to stamp — the card itself for a human, the card plus the
+        // margin for the hotseat card nobody can report — so it is not guessed at here.
         const cardId = this.cardIdFor(pc.attacker, defenderColor, state.moveCounter);
-        this.armCardHold(state, cardId, [pc.attacker, defenderColor], true);
+        this.armCardHold(state, cardId, [pc.attacker, defenderColor], true, CLASH_WALL_RESULT_MS);
         const paused = Boolean(state.paused);
         await this.store.saveGameState(gameId, state);
 
@@ -504,7 +510,7 @@ export class ClashEngine {
           defenderPieceId,
           remainingDefenderIds: [...pc.remainingDefenderIds],
         });
-        this.armChainTimer(gameId, CLASH_RESULT_MS);
+        this.armChainTimer(gameId, CLASH_WALL_RESULT_MS);
         return;
       }
 
@@ -622,11 +628,22 @@ export class ClashEngine {
       delete state.clash;
       delete state.pendingCapture;
       // Freeze all input while the result card shows (covers human and hotseat;
-      // bots are already frozen by the scheduler's clash-card delay). The handshake
-      // can shorten this to the clients' own forecasts; the ceiling is the net.
-      state.resultCardUntil = Date.now() + CLASH_RESULT_FREEZE_MS;
+      // bots are already frozen by the scheduler's clash-card delay). `armCardHold` stamps
+      // the deadline — the freeze for a card a human sits on, the card's own kind plus the
+      // margin for one nobody can report — and the handshake can only shorten it after.
       const cardId = this.cardIdFor(pc.attacker, defenderColor, state.moveCounter);
-      this.armCardHold(state, cardId, [pc.attacker, defenderColor], false);
+      // This card's own length, for the one case a receipt cannot cover (see
+      // `armCardHold`). The chain ends here, so it is the last defender beaten on a wall
+      // (the breach), a wall repulsed, or a pair — read the way `clashCardMs` reads it
+      // client-side: `winner === attacker`, a stack of more than one, nothing left.
+      const cardMs = !state.captureFx
+        ? CLASH_TEXT_ONLY_MS
+        : ledger.totalRounds > 1
+          ? attackerWon
+            ? CLASH_BREACH_RESULT_MS
+            : CLASH_WALL_RESULT_MS
+          : CLASH_RESULT_MS;
+      this.armCardHold(state, cardId, [pc.attacker, defenderColor], false, cardMs);
       await this.store.saveGameState(gameId, state);
 
       // `currentTurn` is the seat the chain left holding the turn, stamped after
@@ -689,13 +706,16 @@ export class ClashEngine {
 
   // Record the result card a client is about to show. `seats` are the two sides of
   // the clash; their NON-BOT owners (by user id, so hotseat collapses to one) are the
-  // clients that may report. An empty set (bot against bot, or hotseat) has nobody to
-  // report, so the card runs on the ceiling alone.
+  // clients that may report. `cardMs` is the length of the card being drawn (the caller
+  // has the ledger and the outcome, so it reads the same branch `clashCardMs` reads
+  // client-side). A card a human sits on runs to the ceiling and a receipt shortens it;
+  // a card nobody can report (bot against bot, or hotseat) is timed here to its own kind.
   private armCardHold(
     state: GameState,
     cardId: string,
     seats: PlayerColor[],
     midChain: boolean,
+    cardMs: number,
   ): void {
     const users = new Set<string>();
     for (const color of seats) {
@@ -703,18 +723,30 @@ export class ClashEngine {
       if (seat?.isBot) continue;
       if (seat?.userId) users.add(seat.userId);
     }
-    // The ceiling is the CARD's, not the audience's: a mid-chain card is held to the
-    // card it is (2900), a final one to the freeze (4000). An empty set used to get a
-    // flat 2900 whatever had arrived, on the theory that a card nobody sits on keeps the
-    // short one; that theory breaks on a total breach in hotseat or a bot game, which is
-    // a FINAL card that needs 3300 and would be cut 400 ms short — the jail's tail, the
-    // part a player watches. `midChain` already encodes "short", so the ceiling is the
-    // only number this needs.
-    const ceiling = midChain ? CLASH_RESULT_MS : CLASH_RESULT_FREEZE_MS;
-    state.resultCardUntil = Math.min(
-      state.resultCardUntil ?? Number.MAX_SAFE_INTEGER,
-      Date.now() + ceiling,
-    );
+    // The deadline is this method's to write, and it is the CARD's, not the audience's: a
+    // mid-chain card is a wall round and is held to the wall card it is (3800), a final one
+    // to the freeze (4400, sized for the longest card there is). A card somebody sits on
+    // keeps that, because nothing may cut what a client actually drew and only that client
+    // knows when it finished.
+    //
+    // A card NOBODY sits on has no receipt to shorten it — `holdCard` returns before it can
+    // arrive — so it used to pay the ceiling whole: 1500 ms past a pair card's last frame,
+    // 3000 past a text-only one. The ceiling is the wrong theory twice now that it is sized
+    // for a breach (32.4): the card nobody watches is the one that must be cut, so it is
+    // timed to its own kind plus the same margin a receipt would have sent — 3100 plain,
+    // 4000 wall, 4400 breach, 1600 text-only (`clashCardMs(kind) + CARD_HOLD_MARGIN_MS`).
+    //
+    // Assigned, not `Math.min`ed against whatever the state carried: the previous round of
+    // a chain leaves its expired deadline behind, and keeping the smaller number would pin
+    // this card's deadline in the past. `holdCard` is the one place a deadline is only ever
+    // shortened, and it runs after this.
+    const until =
+      users.size === 0
+        ? cardMs + CARD_HOLD_MARGIN_MS
+        : midChain
+          ? CLASH_WALL_RESULT_MS
+          : CLASH_RESULT_FREEZE_MS;
+    state.resultCardUntil = Date.now() + until;
     this.cardHolds.set(state.id, { id: cardId, users, ready: new Set(), midChain });
   }
 
@@ -732,8 +764,9 @@ export class ClashEngine {
       // dropped silently: the ceiling is still doing its job.
       if (hold?.id !== cardId) return;
       // A HOTSEAT card has no user ids: join-manager leaves them undefined for local
-      // seats, so there is nobody to authorise. The card runs on the short ceiling and
-      // ignores receipts; without this guard every local receipt threw and logged.
+      // seats, so there is nobody to authorise. Such a card is timed by `armCardHold` to
+      // its own kind and ignores receipts; without this guard every local receipt threw
+      // and logged.
       if (hold.users.size === 0) return;
       if (!hold.users.has(userId)) throw new Error('Not a participant of this clash');
       hold.ready.add(userId);
@@ -760,6 +793,21 @@ export class ClashEngine {
       setImmediate(() => void this.startNextRound(gameId).catch(() => undefined));
     }
     return released;
+  }
+
+  // Drop everything this engine holds for a game: the card handshake and both timer maps.
+  // Called when the room goes (`cleanupGame`). The handshake is the one that leaks without
+  // it: an entry is only deleted when every participant reports, and a hotseat or bot card
+  // has no participant to report, so each local card left its user and ready sets behind on
+  // the singleton for the life of the process — one per game, outliving its room (32.8).
+  forget(gameId: string): void {
+    const clash = this.clashTimers.get(gameId);
+    if (clash) clearTimeout(clash);
+    this.clashTimers.delete(gameId);
+    const chain = this.chainTimers.get(gameId);
+    if (chain) clearTimeout(chain);
+    this.chainTimers.delete(gameId);
+    this.cardHolds.delete(gameId);
   }
 
   // Start the next round of a chain from the ledger. This is the one entry point

@@ -2883,7 +2883,7 @@ socket.emit('clash_input', 'f', 1);
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleClashCardHold`)
 
-The result-card release handshake. The client forecasts how long its own card will run; the engine clamps that to `[CARD_HOLD_MIN_MS, CLASH_RESULT_FREEZE_MS]` and keeps the smallest receipt, so a receipt can only shorten the freeze. With no receipt at all (bot against bot, hotseat, or a client that never answers) the deadline armed with the card stands: `CLASH_RESULT_MS` while another round of the chain follows, `CLASH_RESULT_FREEZE_MS` on the final card.
+The result-card release handshake. The client forecasts how long its own card will run; the engine clamps that to `[CARD_HOLD_MIN_MS, CLASH_RESULT_FREEZE_MS]` and keeps the smallest receipt, so a receipt can only shorten the freeze. A card a human sits on runs to its ceiling until the receipt lands — `CLASH_WALL_RESULT_MS` (3800) while another round of the chain follows, `CLASH_RESULT_FREEZE_MS` (4400, the longest card plus `CARD_HOLD_MARGIN_MS`) on the final one. A card with nobody to report it (bot against bot, hotseat, or a client that never answers) has no receipt to shorten anything, so the engine times it to its own kind plus the same margin: 3100 on a pair's card, 4000 on a wall's, 4400 on a breach and 1600 on a text-only one — the number the client would have sent.
 
 ```js
 socket.emit('clash_card_hold', 'blue-red-41', 2400);

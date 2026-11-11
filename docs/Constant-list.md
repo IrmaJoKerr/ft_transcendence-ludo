@@ -48,7 +48,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the seventeen both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_JAIL_MS` 1200, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1900 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_BREACH_RESULT_MS` 3300 (attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/timing.constants.ts` | the twenty-one both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1200, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1900 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3800 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4200 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -116,9 +116,9 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 ### **1. Engine timing**
 
 **Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns and no other
-build counts". The fifteen both builds count (the three clash windows, the result scene's two acts and
-its card, the text-only card and the two animations) are in `common/src/timing.constants.ts` 📦, so
-they are absent from this table.
+build counts". The twenty-one both builds count (the three clash windows, the result scene's acts, the
+four card lengths and the receipt's margin, the text-only card, the opt-in capture card's four and the
+two animations) are in `common/src/timing.constants.ts` 📦, so they are absent from this table.
 
 **Clash QTE**
 
@@ -128,7 +128,7 @@ they are absent from this table.
 | `CLASH_SWITCH_FIRST_MAX_MS` | 2500 | latest first key switch |
 | `CLASH_SWITCH_GAP_MIN_MS` | 800 | shortest gap between two switches |
 | `CLASH_SWITCH_GAP_MAX_MS` | 1100 | longest gap; the worst case (2500 + 1100) still leaves 1.4 s of the press window after the last switch |
-| `CLASH_RESULT_FREEZE_MS` | 4000 | input-freeze **ceiling**: a client card hold can only shorten it |
+| `CLASH_RESULT_FREEZE_MS` | 4400 | input-freeze **ceiling**: the longest card (`CLASH_BREACH_RESULT_MS` 4200) plus `CARD_HOLD_MARGIN_MS`, and a client card hold can only shorten it |
 | `CARD_HOLD_MIN_MS` | 250 | floor for a reported card hold: a client that asks for less is raised to this |
 | `CLASH_SWEEP_GRACE_MS` | 15000 | outer cleanup bound measured from the clash start |
 | `CLASH_SWEEP_INTERVAL_MS` | 5000 | cadence of the orphaned-clash sweep |
@@ -738,35 +738,42 @@ colour role".
 ### **13. Client timing**
 
 **Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
-The fifteen both builds count (the three clash windows, the result scene's two acts and its card, the
-text-only card, the opt-in capture card's four and the two animations) are in
-`common/src/timing.constants.ts` 📦; the SPA reads `../__shared__/timing.constants` and the engine
-reads its own copy, so there is no second declaration to keep in step. The clash windows stay
-**presentation only**: the server sends absolute deadlines and the overlay follows those, so they
-decide the card animation, never the game state.
+The twenty-one both builds count (the three clash windows, the result scene's acts, the four card
+lengths and the receipt's margin, the text-only card, the opt-in capture card's four and the two
+animations) are in `common/src/timing.constants.ts` 📦; the SPA reads
+`../__shared__/timing.constants` and the engine reads its own copy, so there is no second declaration
+to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
+the overlay follows those, so they decide the card animation, never the game state.
 
 **The result card's clock — three acts' worth of numbers, one card.** The 1900 ms scene is cut into
 the two acts it always had, so an act can be re-timed without moving the other, and the card is their
 sum plus a per-path read window rather than one guessed total. Nothing a player sees moved in the
-split: the attack's last beat still falls at 703 and the cell still lands at 1121. A **breach** — the
-attacker's win against the last defender of a wall — is the one card with a third act, so it is the
-one card that is longer than 2900: attack + cloud + jail and no read window, because its sentence
-lives inside the cloud act instead of after the scene.
+split: the attack's last beat still falls at 703 and the cell still lands at 1121. A **wall** adds
+nothing to the scene's acts but time to one of them: its attack act carries a 900 ms beat (`the dome
+taking the hit, then holding`), so every card drawn on a wall is 3800 instead of 2900. A **breach** —
+the attacker's win against the last defender of a wall — is the one card with a third act, so it is
+the longest card there is: a wall's attack + cloud + jail and no read window, 4200, because its
+sentence lives inside the cloud act instead of after the scene.
 
 | Constant | Value | What it times |
 |---|---|---|
-| `SCENE_ATTACK_MS` | 700 | the beam, the strike, the wall's flare and the subtraction: every beat of `ResultFx`'s attack act is budgeted in this |
+| `SCENE_ATTACK_MS` | 700 | the beam, the strike, the wall's flare and the subtraction: every beat of `ResultFx`'s attack act is budgeted in this, and the marks pinned to its head keep it on a wall too |
+| `SCENE_WALL_BEAT_MS` | 900 | the wall's own beat, added to its attack act: the dome takes the hit at 260, blobs over to a peak at 700, resolves at 880, loses its face ring by 1000, then holds for the last 600 |
+| `SCENE_WALL_ATTACK_MS` | 1600 | a wall's attack act: `SCENE_ATTACK_MS + SCENE_WALL_BEAT_MS`, which is what every "after the attack act" start reads (a wall's jail opens at 1600, a breach's cloud too) |
 | `SCENE_JAIL_MS` | 1200 | the cell: the bars travel from 136, land at 421 and hold for 779 ms of stillness |
 | `SCENE_CLOUD_MS` | 1400 | the breach's cloud: it is up at 500 and holds, and the sentence joins it at 400 and finishes with the act |
-| `RESULT_FX_MS` | 1900 | the scene every card has: `SCENE_ATTACK_MS + SCENE_JAIL_MS`, so a re-timed act moves both builds at once |
+| `RESULT_FX_MS` | 1900 | the scene every card has on the pair stage: `SCENE_ATTACK_MS + SCENE_JAIL_MS`, so a re-timed act moves both builds at once |
 | `RESULT_HEADLINE_READ_MS` | 1000 | the headline's read window after the last act |
-| `CLASH_RESULT_MS` | 2900 | the card: the scene + the read window; also the engine's mid-chain ceiling |
-| `CLASH_BREACH_RESULT_MS` | 3300 | the breach card: attack + cloud + jail, no read window. A final card by definition, so it fits the 4000 freeze with 700 to spare |
+| `CLASH_RESULT_MS` | 2900 | a pair's card: the scene + the read window |
+| `CLASH_WALL_RESULT_MS` | 3800 | a wall's card: the same scene and read window plus the beat. A wall round mid-chain and a wall repulse alike, because the stage that plays the beat is chosen by the stack and not by who won |
+| `CLASH_BREACH_RESULT_MS` | 4200 | the breach card: a wall's attack + cloud + jail, no read window. A final card by definition, and the longest there is — the freeze is derived from it |
 | `CLASH_TEXT_ONLY_MS` | 1400 | the card with the room's acts switched off: no scene, no scene sound, just the text |
 
-Two readers pick between them, through one function (`clashCardMs` in `frontend/src/game/timing.ts`):
-the overlay's own timer and the receipt `Game.tsx` sends the engine, which is the card's length plus
-`CARD_HOLD_MARGIN_MS` — 3100 on a scene card, 3500 on a breach and 1500 on a text-only one.
+Three readers pick between them, through one function (`clashCardMs` in `frontend/src/game/timing.ts`):
+the overlay's own timer, the receipt `Game.tsx` sends the engine, and the engine's own deadline for a
+card nobody sits on (which mirrors the function in `clash-engine.ts` from the same constants). The
+receipt is the card's length plus `CARD_HOLD_MARGIN_MS` — 3100 on a pair's card, 4000 on a wall's,
+4400 on a breach and 1600 on a text-only one.
 
 **The opt-in capture card's clock** — shared, because three readers count it: the panel's fade, the
 client's roll guard, and the engine's bot pacing (`socket/server.ts`). It is *added* from its parts,
@@ -806,7 +813,6 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 | `DICE_BRAKE_SETTLE_MS` | 150 | near-miss face, then the true one |
 | `RESULTS_MODAL_DELAY_MS` | 900 | beat after the last move before the results modal |
 | `PENDING_MOVE_GUARD_MS` | 3000 | safety net for a move that never answers |
-| `CARD_HOLD_MARGIN_MS` | 200 | the receipt's one-way trip: card hold = the card's own length + this (3100 on a scene card, 1500 on a text-only one) |
 | `CAPTURE_FX_MS` | 600 | the capture burst's own length; interpolated into both copies' inline `animation` so the keyframes hold no 600 |
 | `CAPTURE_FX_CARD_OPACITY` | 0.7 | the burst as it reads over the clash result card |
 | `CAPTURE_FX_AFTER_CARD_MS` | 50 | beat between the card leaving and the board's real burst |

@@ -620,6 +620,13 @@ export class LudoEngine {
     return this.clashEngine.holdCard(gameId, userId, cardId, holdMs);
   }
 
+  // Drop this game's clash timers and its result-card handshake. The socket layer calls it
+  // when the room goes, because a card nobody reports (hotseat or bots) is remembered on the
+  // shared engine and nothing else would ever clear that entry (32.8).
+  forgetClash(gameId: string): void {
+    this.clashEngine.forget(gameId);
+  }
+
   // Settle a mid-clash disconnect by meters, tie to the attacker, as on timeout. In a
   // chain this settles the round: a win continues, a loss repels the attack. Called
   // after the disconnect lock releases, so it cannot re-enter it. `goneColor` is the

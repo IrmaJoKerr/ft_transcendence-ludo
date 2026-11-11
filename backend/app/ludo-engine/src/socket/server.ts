@@ -231,8 +231,9 @@ export class SocketServer {
         this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
       } else if (event.type === 'clash_result') {
         // The card is the pause: freeze to its own deadline (a card nobody human
-        // sits on ends at the short ceiling, not the 4 s one) and hand the bot's
-        // resume to it. `clash_card_released` re-arms when a receipt shortens it.
+        // sits on ends at its own kind plus the margin, not at the ceiling the freeze
+        // is sized to) and hand the bot's resume to it. `clash_card_released` re-arms
+        // when a receipt shortens it.
         const cardUntil = event.resultCardUntil ?? Date.now() + CLASH_RESULT_FREEZE_MS;
         this.botScheduler.setClashFreeze(event.gameId, cardUntil);
         if (!event.continues) {
@@ -331,12 +332,14 @@ export class SocketServer {
     await this.blocks.disconnect();
     this.httpServer.close();
   }
-  // Drop a room's in-memory state: its RoomContext (seat bindings + timers) and
-  // its pending bot turn. Called on teardown, and by the wake pass when an entry
-  // has no state behind it.
+  // Drop a room's in-memory state: its RoomContext (seat bindings + timers), its pending
+  // bot turn and the clash engine's own entries for it (a card hold nobody may report and
+  // the two chain timers). Called on teardown, and by the wake pass when an entry has no
+  // state behind it.
   private cleanupGame(gameId: string): void {
     this.rooms.delete(gameId);
     this.botScheduler.clear(gameId);
+    this.engine.forgetClash(gameId);
     this.idleLobby.forget(gameId);
     this.roomChat?.forget(gameId);
   }

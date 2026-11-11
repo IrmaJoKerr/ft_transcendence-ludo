@@ -1,13 +1,15 @@
 // The delays the client owns and no other build counts. The ones the engine counts too (the
-// clash windows, the result card's three acts and the two lengths they make, the flash card's
-// four, and the step and dice animations) live in `common/src/timing.constants.ts` and reach
-// this tree as `../__shared__/timing.constants`, so there is nothing left to mirror. What
-// stays here is presentation only: the clash windows are still read as fallbacks, but the
-// server sends deadlines, so a wrong number here cannot move a game.
+// clash windows, the result card's acts and the four lengths they make, the receipt's
+// margin, the flash card's four, and the step and dice animations) live in
+// `common/src/timing.constants.ts` and reach this tree as `../__shared__/timing.constants`,
+// so there is nothing left to mirror. What stays here is presentation only: the clash
+// windows are still read as fallbacks, but the server sends deadlines, so a wrong number
+// here cannot move a game.
 import {
   CLASH_BREACH_RESULT_MS,
   CLASH_RESULT_MS,
   CLASH_TEXT_ONLY_MS,
+  CLASH_WALL_RESULT_MS,
   DICE_ROLL_ANIM_MS,
 } from '../__shared__/timing.constants';
 import type { ClashResult } from './reducer';
@@ -30,21 +32,29 @@ export const DICE_BRAKE_FLOOR_MS = 450; // shortest braked roll, so nothing tele
 export const DICE_BRAKE_SETTLE_MS = 150; // near-miss face, then the true one
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
-export const CARD_HOLD_MARGIN_MS = 200; // the receipt's one-way trip
 
 /**
- * The result card a `clash_result` frame draws, and how long it lasts (25.8).
+ * The result card a `clash_result` frame draws, and how long it lasts (25.8, 32.4).
  *
  * Two readers, one number: the overlay's own timer and the receipt `Game.tsx` sends the
  * engine, which must be the card's own length plus the margin and never a constant — an
- * over-ask is harmless, an under-ask truncates.
+ * over-ask is harmless, an under-ask truncates. The engine reads the same shared lengths
+ * for the one card nobody sits on, so the two sides cannot pick different cards.
+ *
+ * Three kinds, and the wall is the one that changed the shape of this test. A wall's act
+ * carries an extra 900 ms beat (the dome taking the hit and holding), so every card drawn
+ * on a wall is 900 longer than the pair's: 3800 against 2900. A wall's card is
+ * `CLASH_WALL_RESULT_MS` whether the wall stood or fell, because the stage that plays the
+ * beat is chosen by the stack (`isWall`) and not by who won — a repulse is a dome that
+ * took the blow and held.
  *
  * A total breach — the attacker's win against the LAST defender of a wall — is the only
  * card with a third act (the cloud) and the only one whose sentence lives inside an act
- * instead of after the scene, so it is the only card that is not `CLASH_RESULT_MS`. The
- * test is the three facts the scene itself reads (`ResultFx`'s `isBreach`): the attacker
- * won, the square was a wall, and no defender is left. With the room's acts off there is
- * no scene at all, so there is no cloud to wait for either.
+ * instead of after the scene, so it is the longest card there is: three acts and no read
+ * window, `CLASH_BREACH_RESULT_MS` 4200. The test is the three facts the scene itself
+ * reads (`ResultFx`'s `isBreach`): the attacker won, the square was a wall, and no
+ * defender is left. With the room's acts off there is no scene at all, so there is no
+ * cloud — or beat — to wait for either.
  *
  * `attacker` is the round's attacker resolved by the caller, because an older engine's
  * frame may omit it and the overlay falls back to the live clash's.
@@ -55,10 +65,13 @@ export function clashCardMs(
   animations: boolean,
 ): number {
   if (!animations) return CLASH_TEXT_ONLY_MS;
+  // No stack, no beat: the pair's card is untouched by this pass, whatever the outcome.
+  if ((result?.totalRounds ?? 1) <= 1) return CLASH_RESULT_MS;
   const attackerWon = !!result && result.winner === (result.attacker ?? attacker);
-  const isWall = (result?.totalRounds ?? 1) > 1;
+  // The frame reports the ledger AFTER the round, so an empty one on a wall is the last
+  // defender gone; a mid-chain round names the rest of the stack and is not a breach.
   const lastDefender = (result?.remainingDefenderIds?.length ?? 0) === 0;
-  return attackerWon && isWall && lastDefender ? CLASH_BREACH_RESULT_MS : CLASH_RESULT_MS;
+  return attackerWon && lastDefender ? CLASH_BREACH_RESULT_MS : CLASH_WALL_RESULT_MS;
 }
 
 export const CAPTURE_FX_MS = 600; // the capture burst's own length (its keyframes read it)

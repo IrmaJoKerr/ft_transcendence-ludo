@@ -10,6 +10,7 @@ import {
   SCENE_ATTACK_MS,
   SCENE_CLOUD_MS,
   SCENE_JAIL_MS,
+  SCENE_WALL_ATTACK_MS,
 } from '../__shared__/timing.constants';
 import { retroAudio } from '../utils/audio';
 
@@ -37,21 +38,29 @@ import { retroAudio } from '../utils/audio';
  * the jail plays on the pair stage like any other round, which is the only cut in the
  * sequence and the only place the cast changes (rule 4).
  *
+ * A wall's attack act is 900 ms longer than the pair's (32.4), and the extra is the dome's
+ * own beat: it takes the hit and blobs over while the defenders die, resolves, loses the
+ * ring the shot took, and then holds in the frame — the stillness a pair gets from the
+ * jail's own tail, which a wall cannot spare while its shield is the thing that was hit.
+ * The beat is added to the act, never borrowed from the jail, so every instant inside the
+ * act is the instant it always was: the beam arrives at 247, the flare peaks at 323, the
+ * line is subtracted at 418.
+ *
  * A **breach** — the last defender of a wall, beaten — adds one act that nothing else has:
  * a mushroom cloud grows from the ground where the wall stood, the sentence naming the
  * winner pulses inside it, and the frame is cleared a second time before the jail (25.4).
- * So a breach card is attack + cloud + jail, the only card in the game that is longer than
- * the 2900 ms every other card plays at, and the only one whose sentence is inside an act
- * instead of after the scene.
+ * So a breach card is attack + cloud + jail, and only a wall can break, so its attack is
+ * the wall's 1600: 4200 ms, the longest card in the game (a wall that does not break is
+ * 3800), and the only card whose sentence is inside an act instead of after the scene.
  *
  * `kind` chooses only whose colour is on the ink. `n` is the wall's defender count,
  * `totalRounds > 1` says the square is a wall at all, and `banner` is the finished breach
  * sentence — this component draws strings, never looks one up.
  *
  * The clock is per act, not per scene (25.8): an element is budgeted in the act it plays
- * in — the attack's 700 ms, the cloud's 1400 or the jail's 1200 — so an act can be re-timed
- * without touching the others', and every instant a player sees stayed the instant the card
- * played before the split.
+ * in — the attack's 700 (a wall's 1600), the cloud's 1400 or the jail's 1200 — so an act can
+ * be re-timed without touching the others', and every instant a player sees stayed the
+ * instant the card played before the split.
  */
 export type ResultFxKind = 'capture' | 'repulse';
 
@@ -81,9 +90,24 @@ const BEAM_LAND_AT_MS = 247;
 const PUNCTURE_PEAK_AT_MS = 323;
 const SUBTRACT_AT_MS = 418;
 const IMPACT_AT_MS = 260; // the puncture, a beat after the beam arrives
-const CLEAR_AT_MS = SCENE_ATTACK_MS; // the first clear: the attack's last frame
 // One puncture per layer, 40 ms apart, so a three-line wall is heard as three.
 const PUNCTURE_GAP_MS = 40;
+
+// The wall beat's instants, in ms from the attack act's own start (32.4). The head of the
+// act is untouched: the dome takes the hit at the puncture's own 260, blobs over while the
+// defenders die and peaks on the frame the act used to end at, resolves and finishes the
+// struck defender's fade at 880, and the ring the shot took — the face — glitches out over
+// the next 120. The last 600 are the dome standing in the frame, which is the stillness the
+// card needs after a shield is hit and which no other card has to pay for.
+const BLOB_PEAK_AT_MS = SCENE_ATTACK_MS; // 700: the old last frame is the swell's peak
+const BLOB_DONE_AT_MS = 880; // the blob resolves and the fade completes
+const RING_OUT_AT_MS = 1000; // the face ring's glitch has finished
+// The glitch's own four flickers, the shape the ring had at 475/532/589/646 of 700 — twice
+// out and back, then out — re-spaced inside its 120 ms.
+const GLITCH_OUT_1_AT_MS = 910;
+const GLITCH_BACK_1_AT_MS = 940;
+const GLITCH_OUT_2_AT_MS = 970;
+const GLITCH_BACK_2_AT_MS = 985;
 
 // The cloud act's two beats, in ms from its own start: the cloud is up at 500 and holds,
 // and the sentence joins it 400 ms later so it reads over a cloud already moving and
@@ -94,8 +118,12 @@ const CLOUD_TEXT_LEAD_MS = 400;
 
 // The keyframes are written in milliseconds and converted here, so a beat reads as its
 // instant instead of a percentage somebody has to divide by 19 in their head. Each act's
-// percentages are of that act: the attack's 700, the jail's 1200 and the cloud's 1400.
+// percentages are of that act: the pair's attack at 700, a wall's attack at 1600, the jail's
+// 1200 and the cloud's 1400. The two attack scales are the same act at two lengths, which is
+// why the wall's three marks take `wPct` and the shot's four stay on `aPct`: a mark that is
+// pinned inside the head of the act must not stretch when the tail is added.
 const aPct = (ms: number) => +((ms / SCENE_ATTACK_MS) * 100).toFixed(2);
+const wPct = (ms: number) => +((ms / SCENE_WALL_ATTACK_MS) * 100).toFixed(2);
 const jPct = (ms: number) => +((ms / SCENE_JAIL_MS) * 100).toFixed(2);
 const cPct = (ms: number) => +((ms / SCENE_CLOUD_MS) * 100).toFixed(2);
 
@@ -130,31 +158,46 @@ function ensureKeyframes() {
       }
       /* a line glitches TWICE and goes out — no fade-through, no hard cut (D1). It is the
          wall's outermost curve on every path, a breach's last one included: the last
-         defender is not a special case (25.4). */
+         defender is not a special case (25.4). The beat is the wall act's, so the ring holds
+         until the defenders' fade has finished (880) and then flickers out inside its own
+         120 ms — the glitch happens to the ring once the wall has taken the blow, never
+         while the blow is landing. */
       @keyframes fxLayerOut {
-        0%, ${aPct(SUBTRACT_AT_MS)}%  { transform: translateX(0); opacity: 1; }
-        ${aPct(475)}%    { transform: translateX(var(--g1)); opacity: .25; }
-        ${aPct(532)}%    { transform: translateX(0); opacity: 1; }
-        ${aPct(589)}%    { transform: translateX(var(--g2)); opacity: .25; }
-        ${aPct(646)}%    { transform: translateX(0); opacity: .55; }
-        ${aPct(SCENE_ATTACK_MS)}% { transform: translateX(0); opacity: 0; }
+        0%, ${wPct(BLOB_DONE_AT_MS)}%  { transform: translateX(0); opacity: 1; }
+        ${wPct(GLITCH_OUT_1_AT_MS)}%   { transform: translateX(var(--g1)); opacity: .25; }
+        ${wPct(GLITCH_BACK_1_AT_MS)}%  { transform: translateX(0); opacity: 1; }
+        ${wPct(GLITCH_OUT_2_AT_MS)}%   { transform: translateX(var(--g2)); opacity: .25; }
+        ${wPct(GLITCH_BACK_2_AT_MS)}%  { transform: translateX(0); opacity: .55; }
+        ${wPct(RING_OUT_AT_MS)}%, 100% { transform: translateX(0); opacity: 0; }
       }
-      /* the defender the shot struck leaves the wall as its line goes — one defender, one
-         line, always together, and the flare has already cleared (25.4). It is a wall
-         effect and not a hand-off into the cell: the clear re-presents the same piece as
-         the prisoner on the pair stage. */
+      /* the dome takes the blow: it swells and settles into the ground it stands on, peaking
+         on the frame the act used to end at and resolving by 880 — the shape a shield makes
+         when it absorbs rather than shatters. It scales about the ground under its centre,
+         so the rim travels and the foot stays where the column stands. */
+      @keyframes fxDomeBeat {
+        0%, ${wPct(IMPACT_AT_MS)}%    { transform: scale(1, 1); }
+        ${wPct(BLOB_PEAK_AT_MS)}%     { transform: scale(1.04, .97); }
+        ${wPct(BLOB_DONE_AT_MS)}%, 100% { transform: scale(1, 1); }
+      }
+      /* the defender the shot struck leaves the wall as its lines go — one defender, one
+         line, always together, and the flare has already cleared (25.4). The fade begins on
+         the subtraction, as it always did, and is STRETCHED rather than re-timed: it now
+         completes at 880, where the blob has resolved, instead of at the act's old last
+         frame. It is a wall effect and not a hand-off into the cell: the clear re-presents
+         the same piece as the prisoner on the pair stage. */
       @keyframes fxDefenderFade {
-        0%, ${aPct(SUBTRACT_AT_MS)}%      { opacity: 1; }
-        ${aPct(SCENE_ATTACK_MS)}%, 100%   { opacity: 0; }
+        0%, ${wPct(SUBTRACT_AT_MS)}%      { opacity: 1; }
+        ${wPct(BLOB_DONE_AT_MS)}%, 100%   { opacity: 0; }
       }
       /* the clear: the wall and the defenders it has left leave the frame at the attack's
          last instant, and the jail's pair stage takes over (25.3 rule 4). It is one of the
          two places in the whole sequence where the cast changes, so it is a cut — a cut
          softened by a frame, because a shape that vanishes between two frames reads as a
-         dropped frame rather than as a cut. */
+         dropped frame rather than as a cut. On a wall that instant is the wall act's own end,
+         after the dome has held (32.4); a pair keeps the 700 it always had. */
       @keyframes fxWallClear {
-        0%, ${aPct(SCENE_ATTACK_MS - 28)}% { opacity: 1; }
-        ${aPct(SCENE_ATTACK_MS)}%, 100%    { opacity: 0; }
+        0%, ${wPct(SCENE_WALL_ATTACK_MS - 28)}% { opacity: 1; }
+        100%                                   { opacity: 0; }
       }
       /* the jail re-presents the pair where the wall stood: the second and last cast
          change. It starts at 0 so the wall is gone before the pair arrives — never two
@@ -465,7 +508,7 @@ export function ResultFx({
   // A single-defender round is piece-level in EITHER direction: two glyphs, no shield.
   const isPieceLevel = !isWall;
   // The total breach: the attacker's win against the LAST defender of a wall. It is the one
-  // path with a cloud and a sentence, and the only card longer than `CLASH_RESULT_MS`.
+  // path with a cloud and a sentence, and the longest card there is.
   const isBreach = attackerWon && isWall && layers === 1;
   // A capture subtracts one defender, so the wall is drawn one layer fuller than it is
   // left; a repulse subtracts nothing, and there `n` is the whole set plus the one that
@@ -496,17 +539,20 @@ export function ResultFx({
   ).toFixed(1);
 
   // One clock per act (25.8): an element is budgeted in the act it plays in, so nothing can
-  // outlive that act and re-timing one act leaves the others' instants alone. The read
-  // window is not an act: it follows the scene, and it is the only caller of `readFx` — and
-  // a breach has none, because its sentence lives inside the cloud instead.
+  // outlive that act and re-timing one act leaves the others' instants alone. The ATTACK act
+  // has two lengths — the pair's 700 and a wall's 1600, the beat included (32.4) — so it is
+  // read once here: the shot's own marks keep the 700 they are pinned to, the wall's three
+  // take the longer act, and everything that starts AFTER the act takes `attackMs`, which is
+  // what keeps a breach's cloud and every jail exactly one act late instead of 900 ms early.
+  const attackMs = isWall ? SCENE_WALL_ATTACK_MS : SCENE_ATTACK_MS;
   const fx = (name: string) => `${name} ${SCENE_ATTACK_MS}ms ease-out both`;
-  const cloudFx = (name: string) =>
-    `${name} ${SCENE_CLOUD_MS}ms ease-out ${SCENE_ATTACK_MS}ms both`;
+  const wallFx = (name: string) => `${name} ${SCENE_WALL_ATTACK_MS}ms ease-out both`;
+  const cloudFx = (name: string) => `${name} ${SCENE_CLOUD_MS}ms ease-out ${attackMs}ms both`;
   // The jail is the second act everywhere and the THIRD on a breach, where the cloud sits
   // between the two clears. One number says when it opens, and the cell's drawing, the
-  // cast-in and the slam's own beat are all derived from it, so a breach moves them
-  // together and by the cloud's length alone.
-  const jailStartMs = SCENE_ATTACK_MS + (isBreach ? SCENE_CLOUD_MS : 0); // 700 or 2100
+  // cast-in and the slam's own beat are all derived from it, so a longer attack act (a
+  // wall's 1600) or a breach's cloud moves them together and by that length alone.
+  const jailStartMs = attackMs + (isBreach ? SCENE_CLOUD_MS : 0); // 700, 1600 or 3000
   const jailFx = (name: string) => `${name} ${SCENE_JAIL_MS}ms ease-out ${jailStartMs}ms both`;
   // The jail act's clock, held OPEN by its delay rather than by `both`: an element that must
   // not exist before the jail keeps its base style until its own act starts.
@@ -583,10 +629,19 @@ export function ResultFx({
   const wallFloorX2 = Math.min(VB_W - 4, WALL_ATTACKER_X + PIECE_W + 8); // 236: the stage's edge
 
   // The three compositions' gates. The frame is cleared twice on a breach and once
-  // everywhere else (25.3 rule 4): the wall leaves at the attack's last instant, the cloud
+  // everywhere else (25.3 rule 4): the wall leaves at the wall act's last instant, the cloud
   // leaves at the cloud act's last instant, and the jail's pair arrives on the pair stage
   // after whichever of them was the last — so no group holds a pixel of another act.
-  const wallGate: CSSProperties = { animation: fx('fxWallClear') };
+  const wallGate: CSSProperties = { animation: wallFx('fxWallClear') };
+  // The dome's own beat: it scales about the ground under its centre, so the rim travels and
+  // the column's feet stay put. `view-box` is what lets one user-unit point (the dome's
+  // centre on the floor line) be the origin, instead of the group's own bounding box, which
+  // moves as the ring count changes.
+  const domeBeat: CSSProperties = {
+    animation: wallFx('fxDomeBeat'),
+    transformBox: 'view-box',
+    transformOrigin: `${DOME_CX}px ${GROUND_Y}px`,
+  };
   const pairGate: CSSProperties = isWall
     ? { opacity: 0, animation: atJailStart('fxCastIn') }
     : {};
@@ -596,7 +651,7 @@ export function ResultFx({
   // player's name now, so 27 — sized for an eleven-character word — is a ceiling and not a
   // constant. Both layers take the same size and, when even the floor overflows, the same
   // squeeze, or the halo drifts off the fill.
-  const sentenceAtMs = CLEAR_AT_MS + CLOUD_TEXT_LEAD_MS; // 1100: 400 ms into the cloud
+  const sentenceAtMs = attackMs + CLOUD_TEXT_LEAD_MS; // 2000: 400 ms into a breach's cloud
   const sentenceLen = Math.max(1, banner?.length ?? 1);
   const bannerFs = Math.max(
     BANNER_MIN_FS,
@@ -650,15 +705,18 @@ export function ResultFx({
       beats.push({ at: IMPACT_AT_MS, play: () => retroAudio.playAttackFailed() });
     }
     // The cloud act: only a total breach falls all the way, and it opens where the first
-    // clear takes the frame away — at full weight, because it is the biggest sound here.
-    if (isBreach) beats.push({ at: CLEAR_AT_MS, play: () => retroAudio.playBreachBloom() });
-    // The jail act: the cell, heard ON the slam rather than 191 ms before it — and on a
-    // breach that is 2521 ms of the card, because the whole act moved by the cloud.
+    // clear takes the frame away — the end of the wall's act, at full weight, because it is
+    // the biggest sound here.
+    if (isBreach) beats.push({ at: attackMs, play: () => retroAudio.playBreachBloom() });
+    // The jail act: the cell, heard ON the slam rather than 191 ms before it. That is 1121
+    // ms of a pair card, 2021 of a wall's (its act is 900 longer) and 3421 of a breach (the
+    // cloud on top of the beat); `jailStartMs` carries all three, so the slam cannot drift
+    // from the bars.
     beats.push({ at: jailStartMs + CAGE_LAND_IN_JAIL_MS, play: () => retroAudio.playCageSlam() });
 
     const timers = beats.map(({ at, play }) => window.setTimeout(play, at));
     return () => timers.forEach((id) => window.clearTimeout(id));
-  }, [isWall, attackerWon, isBreach, layers, jailStartMs]);
+  }, [attackMs, isWall, attackerWon, isBreach, layers, jailStartMs]);
 
   return (
     <svg
@@ -699,7 +757,11 @@ export function ResultFx({
               color={defender}
               retro70={isRetro70}
               pose='right'
-              style={attackerWon && i === 0 ? { animation: fx('fxDefenderFade') } : undefined}
+              style={
+                attackerWon && i === 0
+                  ? { animation: wallFx('fxDefenderFade') }
+                  : undefined
+              }
             />
           ))}
 
@@ -709,25 +771,34 @@ export function ResultFx({
               outermost ring — both the face the shot meets and the line that glitches out
               when a defender is taken (rules 3 and 4) — is the heaviest of them. All of them
               paint in front of the glyphs, because an enclosing curve never crosses one; the
-              count reads twice: `n` glyphs and `n` rings. */}
-          {DOME_RADII.slice(0, wallLayers).map((r, i) => {
-            const isFace = i === wallLayers - 1;
-            return (
-              <path
-                key={`dome-${i}`}
-                d={shieldCurve(r)}
-                fill='none'
-                stroke={defenderColor}
-                strokeOpacity={isFace ? 1 : 0.55}
-                strokeWidth={DOME_STROKES[i]}
-                style={
-                  isFace && attackerWon
-                    ? ({ ...pivot, '--g1': '5px', '--g2': '-6px', animation: fx('fxLayerOut') } as CSSProperties)
-                    : undefined
-                }
-              />
-            );
-          })}
+              count reads twice: `n` glyphs and `n` rings. The group carries the beat: the
+              whole dome takes the blow and settles, because the blow is the shield's, and the
+              face's own glitch (a transform on the path) travels with it (32.4). */}
+          <g style={domeBeat}>
+            {DOME_RADII.slice(0, wallLayers).map((r, i) => {
+              const isFace = i === wallLayers - 1;
+              return (
+                <path
+                  key={`dome-${i}`}
+                  d={shieldCurve(r)}
+                  fill='none'
+                  stroke={defenderColor}
+                  strokeOpacity={isFace ? 1 : 0.55}
+                  strokeWidth={DOME_STROKES[i]}
+                  style={
+                    isFace && attackerWon
+                      ? ({
+                          ...pivot,
+                          '--g1': '5px',
+                          '--g2': '-6px',
+                          animation: wallFx('fxLayerOut'),
+                        } as CSSProperties)
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </g>
 
           {/* the attacker, in frame, on the ground and outside the dome: the reflected
               shot has to have somebody visible to strike (rule 6). */}

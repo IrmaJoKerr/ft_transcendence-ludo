@@ -1,10 +1,13 @@
-// Every delay the engine owns and no other build counts. The twelve both builds count
-// (the three clash windows, the result card's two beats, the flash card's four and the
-// step and dice animations) live in `common/src/timing.constants.ts` and reach this tree
-// as `./__shared__/timing.constants`, so there is nothing left to mirror.
+// Every delay the engine owns and no other build counts. The ones both builds count
+// (the three clash windows, the result card's acts and the four lengths they make, the
+// receipt's margin, the flash card's four and the step and dice animations) live in
+// `common/src/timing.constants.ts` and reach this tree as
+// `./__shared__/timing.constants`, so there is nothing left to mirror.
+
+import { CARD_HOLD_MARGIN_MS, CLASH_BREACH_RESULT_MS } from './__shared__/timing.constants';
 
 // --- clash QTE ----------------------------------------------------------------
-// The three clash windows and the result card's two beats are NOT here: both builds
+// The three clash windows and the result card's lengths are NOT here: both builds
 // count them, so they live in `common/src/timing.constants.ts` (`./__shared__/
 // timing.constants` is the copy this tree compiles). Everything below has exactly one
 // reader, which is the engine.
@@ -17,10 +20,11 @@ export const CLASH_SWITCH_FIRST_MIN_MS = 2000; // earliest first switch
 export const CLASH_SWITCH_FIRST_MAX_MS = 2500; // latest first switch
 export const CLASH_SWITCH_GAP_MIN_MS = 800; // shortest gap between two switches
 export const CLASH_SWITCH_GAP_MAX_MS = 1100; // longest gap between two switches
-// The result card is the shared pair too (see the top of the file): the engine never
-// draws the card, but it owns the freeze stamped on the game and the chain's
-// next-round timer, so it reads the same `CLASH_RESULT_MS` the client draws from.
-export const CLASH_RESULT_FREEZE_MS = 4000; // input freeze CEILING: a card hold only shortens it
+// The result card's lengths are the shared ones too (see the top of the file): the
+// engine never draws the card, but it owns the freeze stamped on the game and the
+// chain's next-round timer, so it reads the same constants the client draws from —
+// and reads them for the LONGEST card, which is the breach.
+export const CLASH_RESULT_FREEZE_MS = CLASH_BREACH_RESULT_MS + CARD_HOLD_MARGIN_MS; // 4400
 export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
 // The key-shift mutator widens the press window: each switch adds this to the base
 // `CLASH_PRESS_MS` (see `startClash` in clash.ts), so the sweep's outer bound has to

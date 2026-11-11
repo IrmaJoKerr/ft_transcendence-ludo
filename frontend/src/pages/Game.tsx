@@ -14,6 +14,7 @@ import {
   CAPTURE_CARD_FADE_MS,
   CAPTURE_CARD_GRACE_MS,
   CAPTURE_CARD_MS,
+  CARD_HOLD_MARGIN_MS,
   DICE_ROLL_ANIM_MS,
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
@@ -21,7 +22,6 @@ import {
   CAPTURE_FX_AFTER_CARD_MS,
   CAPTURE_FX_CARD_OPACITY,
   CAPTURE_FX_MS,
-  CARD_HOLD_MARGIN_MS,
   DICE_BRAKE_ARM_MS,
   PENDING_MOVE_GUARD_MS,
   RESULTS_MODAL_DELAY_MS,
@@ -1303,9 +1303,9 @@ export function Game() {
   // One press of this player's clash key. The overlay matches the key; the server
   // proves ownership and applies the press cap, which discards a decoy pad press.
   const clashInput = (key: string, count = 1) => socketRef.current?.emit('clash_input', key, count);
-  // The overlay's result-card timer calls this when the card's own length is up (2900, or
-  // 3300 on a breach). It is what frees canRoll again: the reducer deliberately keeps
-  // `clash` alive until then.
+  // The overlay's result-card timer calls this when the card's own length is up (2900 on a
+  // pair, 3800 on a wall and 4200 on a breach). It is what frees canRoll again: the reducer
+  // deliberately keeps `clash` alive until then.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
   // The result card appeared: tell the engine when it will be done. The forecast is
@@ -1313,10 +1313,11 @@ export function Game() {
   // It gates nothing locally; the engine's release frame is the authority.
   //
   // The number is the card's OWN length plus the margin, never a constant, and the
-  // card's length is per path: 3100 on a two-act scene card (2900 + 200), 3500 on a
-  // breach (3300 + 200, the cloud's act included) and 1500 on a text-only one. An
-  // over-ask is harmless — a receipt cannot extend the engine's deadline — and an
-  // under-ask truncates, so the length has to come from the card (25.8).
+  // card's length is per path: 3100 on a pair's two-act card (2900 + 200), 4000 on a
+  // wall's (3800 + 200, the dome's beat included), 4400 on a breach (4200 + 200, the
+  // cloud's act on top of the beat) and 1600 on a text-only one. An over-ask is harmless —
+  // a receipt cannot extend the engine's deadline — and an under-ask truncates, so the
+  // length has to come from the card (25.8, 32.4).
   const clashCardLength = clashCardMs(
     view.clashResult,
     view.clashResult?.attacker ?? view.clash?.attacker,

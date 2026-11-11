@@ -314,7 +314,8 @@ export function applyEvent(
       };
     case 'clash_card_released':
       // The card keeps its own clock: the overlay's timer ends it at the card's own length
-      // (2900, or 3300 on a breach — `clashCardMs` in game/timing.ts).
+      // (2900 on a pair, 3800 on a wall and 4200 on a breach — `clashCardMs` in
+      // game/timing.ts).
       // The engine emits this a round trip into the card, so it only carries the
       // shortened freeze; clearing here would hide the result before it is read.
       return {
