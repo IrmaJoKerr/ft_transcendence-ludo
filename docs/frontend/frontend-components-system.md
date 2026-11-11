@@ -72,7 +72,7 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/components/LegalModal.tsx` | Privacy Policy / Terms of Service popup, opened from Home's footer and from the Signup terms link |
 | `src/components/MarkdownViewer.tsx` | Renders the markdown legal documents |
 | `src/components/CyberModal.tsx` | Cyber-styled modal base (`CyberButton`, `CyberModal`) used for confirmations and dialogs |
-| `src/components/ControlsSettingsModal.tsx` | The in-game controls popover (`pages/Game.tsx`): three key rows — dice, select piece, goal count — and the retro audio switch, on the `LegalModal` shell, 340 px wide, closed by the backdrop or Escape |
+| `src/components/ControlsSettingsModal.tsx` | The in-game controls popover (`pages/Game.tsx`): three key rows — dice, select piece, goal count — the auto-close row, the language and theme switches above the retro audio switch, on the `LegalModal` shell, 340 px wide, closed by the backdrop or Escape; only the rows scroll (`calc(100dvh - 2rem)`, `overflowY: auto`) and the audio switch is a fixed footer outside them |
 | `src/components/ResultsModal.tsx` | Post-game results overlay: podium, rank badges, outcome title, return-to-lobby; guest-only Play again, exit label and refusal text |
 | `src/avatarCache.ts` | Avatar state store, keyed by immutable user id: live `avatar_changed` overrides (`{has, style}`, delivered only to the owner's own clients, so its value is always about this user's own photo), a remount stamp per user, and a `broken` set so a failed photo is not retried |
 
