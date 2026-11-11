@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useTranslation } from 'react-i18next';
 import { Board } from '../components/Board';
 import { CaptureBurst } from '../components/CaptureBurst';
+import { GoalBurst } from '../components/GoalBurst';
+import { GoalCard, GOAL_CARD_ASPECT, GOAL_CARD_MAX_PX } from '../components/GoalCard';
+import { GoalConfetti } from '../components/GoalConfetti';
 import { Die } from '../components/Die';
 import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
@@ -16,6 +19,8 @@ import {
   CAPTURE_CARD_MS,
   CARD_HOLD_MARGIN_MS,
   DICE_ROLL_ANIM_MS,
+  GOAL_CARD_FADE_MS,
+  GOAL_CARD_MS,
   MOVE_STEP_ANIM_MS,
 } from '../__shared__/timing.constants';
 import {
@@ -27,6 +32,7 @@ import {
   RESULTS_MODAL_DELAY_MS,
   clashCardMs,
   diceLandAt,
+  goalCelebrationMs,
 } from '../game/timing';
 import { navigate } from '../router';
 import { connectSocket } from '../socket';
@@ -486,6 +492,23 @@ export function Game() {
   // the next event (25.6 item 3), but a roll must reopen once the card has visually gone,
   // or the capturer's own bonus re-roll would deadlock behind a card nothing else clears.
   const flashCardGuardUntilRef = useRef(0);
+  // The goal celebration (32.5): a piece reaching home bursts on the cell its last step left,
+  // and then exactly one overlay — confetti with the room's effects off, the ramp card with
+  // them on — runs for `goalCelebrationMs`. `count` is the seat's pieces home AFTER the move,
+  // which is the station the ramp card's figure climbs to, and `id` forces a fresh mount for
+  // two goals by the same seat. `goalFxEndsAtRef` dates the END of the celebration the moment
+  // the path is queued, because `game_ended` arrives while the walk is still in front of it
+  // and the result modal has to wait for a celebration that has not begun.
+  const [goalFx, setGoalFx] = useState<{
+    id: number;
+    color: PlayerColor;
+    x: number;
+    y: number;
+    count: number;
+  } | null>(null);
+  const goalFxSeq = useRef(0);
+  const goalFxEndsAtRef = useRef<number | null>(null);
+  const goalFxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Wall Breaker: the token-priced exit is armed explicitly, so a tap in prison can
   // never spend a token by accident. The arm switch lives on the server
   // (`PlayerMeta.wallBreakerArmed`), and the engine blocks an unarmed seat at a wall.
@@ -830,8 +853,12 @@ export function Game() {
           color: PlayerColor;
           captured: boolean;
           capturedPieceIds?: string[];
+          from: number;
           to: number;
           path?: number[];
+          // Set only when the path ends at home (step 57): the arrival gets its own beat
+          // (32.5) on top of the walk.
+          enteredHome?: boolean;
           // Set only when this move settled a clash: the result card is about to take the
           // screen, which moves the capture burst out of the board (see below).
           clashOutcome?: 'attacker_won' | 'defender_won';
@@ -840,6 +867,26 @@ export function Game() {
           log?: LogEntry[];
         };
         const path = e.path ?? [];
+        // What is left of a spin in flight. Measured here rather than where the walk is
+        // scheduled, because the celebration's end is dated below and the roll's tail is part
+        // of it.
+        const rollWait = !isRollingRef.current
+          ? 0
+          : rollLandAtRef.current == null
+            ? DICE_ROLL_ANIM_MS
+            : Math.max(0, rollLandAtRef.current - performance.now());
+        // A path that ends at home is the one move whose beat outlives the walk, and the result
+        // modal is dated off it: `game_ended` follows this frame while the walk is still in
+        // front of it, so the end is worked out NOW — the roll's tail, the walk's own length,
+        // then the celebration the room's rule chose. `enterGoal` below does not touch it: one
+        // writer, and it is this one.
+        if (e.enteredHome) {
+          goalFxEndsAtRef.current =
+            performance.now() +
+            rollWait +
+            path.length * MOVE_STEP_ANIM_MS +
+            goalCelebrationMs(viewRef.current.captureFx);
+        }
 
         const finishMove = () => {
           if (animTimerRef.current) {
@@ -893,6 +940,37 @@ export function Game() {
           }, settleMs);
         };
 
+        const enterGoal = () => {
+          // The cell the piece just left: the step before the last one, and for a one-step
+          // path the step it came from. Home has no square (`stepToCell` answers null for 57),
+          // so nothing is looked up BY 57 — the burst lands where the walk's previous tick put
+          // the piece, and mounting it in the same batch as that piece's exit is what keeps a
+          // frame from showing an empty cell.
+          const leftStep = path.length > 1 ? path[path.length - 2] : e.from;
+          const anchor = captureBurstAnchor(e.color, leftStep);
+          const animations = viewRef.current.captureFx;
+          const celebrationMs = goalCelebrationMs(animations);
+          // The fanfare is NOT the rule's: a room with the acts switched off still hears the
+          // piece arrive. `retroAudio` is the master switch's business and nothing else's.
+          retroAudio.playFanfare();
+          // Pre-dispatch, so the arriving piece is counted here by hand.
+          const count = Math.min(
+            4,
+            viewRef.current.pieces.filter((p) => p.color === e.color && p.isInGoal).length + 1,
+          );
+          if (goalFxTimerRef.current) clearTimeout(goalFxTimerRef.current);
+          goalFxTimerRef.current = setTimeout(() => setGoalFx(null), celebrationMs);
+          setGoalFx({
+            id: ++goalFxSeq.current,
+            color: e.color,
+            // A cell that cannot be measured (a layout mid-resize) still gets its
+            // celebration, from the middle of the screen rather than nowhere.
+            x: anchor?.x ?? window.innerWidth / 2,
+            y: anchor?.y ?? window.innerHeight / 2,
+            count,
+          });
+        };
+
         const runStepAnimation = () => {
           retroAudio.playUiBeep(580, 0.06, 'sine');
 
@@ -907,9 +985,14 @@ export function Game() {
                 return;
               }
               setAnimatingPiece({ pieceId: e.pieceId, step: path[i] });
+              // The last tick of a path into home: the piece is off the board from this frame
+              // on, so this is where the arrival is drawn — by the setter that lands it, and
+              // never by a second pass over the path.
+              if (i === path.length - 1 && e.enteredHome) enterGoal();
             }, MOVE_STEP_ANIM_MS);
           } else if (path.length === 1) {
             setAnimatingPiece({ pieceId: e.pieceId, step: path[0] });
+            if (e.enteredHome) enterGoal();
             setTimeout(() => {
               finishMove();
             }, MOVE_STEP_ANIM_MS);
@@ -919,11 +1002,10 @@ export function Game() {
         };
 
         if (isRollingRef.current) {
-          // Wait out what is LEFT of the spin rather than the whole constant: a
-          // braked roll is shorter, and the walk starts on the landed face.
-          const landAt = rollLandAtRef.current;
-          const wait = landAt == null ? DICE_ROLL_ANIM_MS : Math.max(0, landAt - performance.now());
-          setTimeout(runStepAnimation, wait);
+          // Wait out what is LEFT of the spin rather than the whole constant: a braked roll is
+          // shorter, and the walk starts on the landed face. The same remainder was measured
+          // above, where the goal's end was dated with it.
+          setTimeout(runStepAnimation, rollWait);
         } else {
           runStepAnimation();
         }
@@ -969,9 +1051,17 @@ export function Game() {
           players: endedPlayers,
           abandoned: false,
         });
+        // A game can end on the goal that ended it, and that celebration is still playing — or,
+        // more often, still ahead of the walk. The card waits for the celebration and then for
+        // its own beat: the sum, never the larger of the two, so a win shows the piece arrive,
+        // then the burst, then the card. `goalFxEndsAtRef` was dated when the path was queued,
+        // because this frame arrives before the walk has finished; reading it here consumes it.
+        const goalEndsAt = goalFxEndsAtRef.current;
+        goalFxEndsAtRef.current = null;
+        const celebrationLeft = goalEndsAt == null ? 0 : Math.max(0, goalEndsAt - performance.now());
         setTimeout(() => {
           setShowResultsModal(true);
-        }, RESULTS_MODAL_DELAY_MS);
+        }, celebrationLeft + RESULTS_MODAL_DELAY_MS);
       }
     };
 
@@ -1091,6 +1181,9 @@ export function Game() {
       animTimerRef.current = null;
       if (captureFxTimerRef.current) clearTimeout(captureFxTimerRef.current);
       captureFxTimerRef.current = null;
+      if (goalFxTimerRef.current) clearTimeout(goalFxTimerRef.current);
+      goalFxTimerRef.current = null;
+      goalFxEndsAtRef.current = null;
       if (engineErrorTimerRef.current) clearTimeout(engineErrorTimerRef.current);
       engineErrorTimerRef.current = null;
       if (turnSwapNoticeTimerRef.current) clearTimeout(turnSwapNoticeTimerRef.current);
@@ -1102,6 +1195,7 @@ export function Game() {
       setAnimatingPiece(null);
       setCaptureFx(null);
       setCardCaptureFx(null);
+      setGoalFx(null);
       setFlashCard(null);
       pendingCardBurstRef.current = null;
     };
@@ -2751,6 +2845,72 @@ export function Game() {
                     viewBox={FLASH_CARD_VIEWBOX}
                   />
                 </div>
+              )}
+              {/* The goal celebration (32.5): the arrival, then exactly ONE overlay. The
+                  starburst is the arrival and sits above everything — the piece has left its
+                  cell, so the burst is the only thing on the square, and with the ramp card
+                  mounted it would otherwise burn down behind it. The overlay is the room's
+                  effects rule and never both: the ramp card on the flash card's own chrome, or
+                  the confetti. Both are pinned to the cell the piece left (viewport
+                  coordinates, measured when the walk landed) and neither takes a click. */}
+              {goalFx && (
+                <>
+                  <div
+                    style={{
+                      position: 'fixed',
+                      left: goalFx.x,
+                      top: goalFx.y,
+                      width: 0,
+                      height: 0,
+                      zIndex: 40,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <GoalBurst key={`goal-burst-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
+                  </div>
+                  {view.captureFx ? (
+                    <div
+                      key={`goal-card-${goalFx.id}`}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        // The flash card's own window and chrome, so the two cards are one
+                        // family: 92 % of the board column less its 3 mm padding, the ratio
+                        // cap, and the same border and shadow.
+                        width: `min(calc(92% - 2 * 3mm), 48vw, ${GOAL_CARD_MAX_PX}px)`,
+                        aspectRatio: GOAL_CARD_ASPECT,
+                        boxSizing: 'content-box',
+                        padding: '3mm',
+                        borderRadius: 12,
+                        background: 'var(--bg-card)',
+                        border: 'var(--card-border-style)',
+                        boxShadow: 'var(--box-shadow)',
+                        overflow: 'hidden',
+                        zIndex: 30,
+                        pointerEvents: 'none',
+                        animation: `goal-card-out ${GOAL_CARD_FADE_MS}ms ease-in ${GOAL_CARD_MS}ms both`,
+                      }}
+                    >
+                      <GoalCard color={goalFx.color} count={goalFx.count} />
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        position: 'fixed',
+                        left: goalFx.x,
+                        top: goalFx.y,
+                        width: 0,
+                        height: 0,
+                        zIndex: 35,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <GoalConfetti key={`goal-confetti-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
+                    </div>
+                  )}
+                </>
               )}
               {(() => {
                 const currentTurnPlayer = view.players.find((p) => p.color === view.currentTurn);

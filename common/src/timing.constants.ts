@@ -1,11 +1,12 @@
-// The twenty-one delays the engine and the SPA both count, in one file. Copied
+// The twenty-five delays the engine and the SPA both count, in one file. Copied
 // verbatim from `backend/app/ludo-engine/src/timing.ts` and
 // `frontend/src/game/timing.ts`, which agreed value for value on 2026-11-04; from
 // here on they read these declarations instead of each other's comments.
 //
-// Only the shared twenty-one live here. The engine's own lifecycle and bot tunables, and
+// Only the shared twenty-five live here. The engine's own lifecycle and bot tunables, and
 // the client's presentation-only timings (`CLASH_SWITCH_*`, `DICE_BRAKE_*`,
-// `CAPTURE_FX_*`, `RESULTS_MODAL_*`), each have one reader and stay where they are.
+// `CAPTURE_FX_*`, `GOAL_BURST_MS`, `RESULTS_MODAL_*`), each have one reader and stay where
+// they are.
 
 // --- the clash QTE -------------------------------------------------------------
 export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
@@ -77,6 +78,24 @@ export const CAPTURE_CARD_FADE_MS = 300; // the panel's own fade out
 export const CAPTURE_CARD_MS =
   RESULT_FX_MS + CAPTURE_CARD_HOLD_MS + CAPTURE_CARD_FADE_MS; // the whole card: 2.4 s
 export const CAPTURE_CARD_GRACE_MS = 150; // the roll guard's slack past the card
+
+// --- the goal beat -------------------------------------------------------------
+// A piece reaching home is the one move whose celebration the SEAT watches after the walk,
+// so both builds count it: the client plays it, and the engine paces a bot past it exactly
+// as it paces one past a capture card. The celebration is exactly ONE overlay, and which
+// one is the room's effects rule — never both (32.5):
+//
+//   effects off -> confetti over the board, `GOAL_FX_MS`
+//   effects on  -> a ramp card, `GOAL_CARD_MS` and then its `GOAL_CARD_FADE_MS` fade
+//
+// Only the overlay answers to the rule. The starburst on the piece's last tick and the
+// fanfare play on every goal, and the result modal waits for the celebration and THEN for
+// its own beat (`RESULTS_MODAL_DELAY_MS`, 900): the sum, never the larger of the two, so a
+// game that ends on a goal shows the piece arrive, then the burst, then the card.
+export const GOAL_FX_MS = 900; // the confetti: the whole celebration with the card off
+export const GOAL_CARD_MS = 1100; // the ramp card's hold, before its fade
+export const GOAL_CARD_FADE_MS = 300; // the panel's own fade — the lever if 1400 reads long
+export const GOAL_CARD_TOTAL_MS = GOAL_CARD_MS + GOAL_CARD_FADE_MS; // the card: 1.4 s
 
 // --- the turn animation --------------------------------------------------------
 // The client owns the pixels. The engine keeps the SAME two numbers because bot turns

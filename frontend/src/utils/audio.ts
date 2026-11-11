@@ -623,6 +623,64 @@ export class RetroAudioEngine {
     }
   }
 
+  // The goal (32.5) — the one cue that plays on EVERY goal, whatever the room's effects
+  // rule says: the rule governs the overlay, never the celebration. A four-note rise in C
+  // (the triad and its octave), each note a triangle body with a quiet square an octave up
+  // for the chiptune edge and the last one held, and a bandpassed sparkle over it — the
+  // confetti's own air, not a second cue. It is short on purpose: the overlay after it is
+  // 900 or 1400 and the cue is done in about a third of that.
+  playFanfare() {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+
+      const notes = [
+        { freq: 523.25, at: 0, seconds: 0.16 },
+        { freq: 659.25, at: 0.09, seconds: 0.16 },
+        { freq: 783.99, at: 0.18, seconds: 0.16 },
+        { freq: 1046.5, at: 0.29, seconds: 0.46 },
+      ];
+      for (const note of notes) {
+        const at = now + note.at;
+
+        const body = ctx.createOscillator();
+        const bodyGain = ctx.createGain();
+        body.type = 'triangle';
+        body.frequency.setValueAtTime(note.freq, at);
+        bodyGain.gain.setValueAtTime(0.0001, at);
+        bodyGain.gain.linearRampToValueAtTime(this.volume * 0.8, at + 0.006);
+        bodyGain.gain.exponentialRampToValueAtTime(0.001, at + note.seconds);
+        body.connect(bodyGain);
+        bodyGain.connect(ctx.destination);
+        body.start(at);
+        body.stop(at + note.seconds);
+
+        // The edge: the same note an octave up, quiet enough to be heard as timbre rather
+        // than as a second note (the shape the cyber cues use).
+        const edge = ctx.createOscillator();
+        const edgeGain = ctx.createGain();
+        edge.type = 'square';
+        edge.frequency.setValueAtTime(note.freq * 2, at);
+        edgeGain.gain.setValueAtTime(0.0001, at);
+        edgeGain.gain.linearRampToValueAtTime(this.volume * 0.16, at + 0.006);
+        edgeGain.gain.exponentialRampToValueAtTime(0.001, at + note.seconds * 0.7);
+        edge.connect(edgeGain);
+        edgeGain.connect(ctx.destination);
+        edge.start(at);
+        edge.stop(at + note.seconds);
+      }
+
+      // `noiseBurst` always starts at `currentTime`, so the sparkle is scheduled by being
+      // called: it belongs to the arrival, and the arrival is now.
+      this.noiseBurst(0.32, 6200, 2600, 0.22);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
   setVolume(vol: number) {
     this.volume = Math.max(0, Math.min(1, vol));
   }

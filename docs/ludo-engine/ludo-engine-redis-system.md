@@ -225,10 +225,35 @@ from Redis each turn** via `loadGameState`. That keeps bots stateless and cheap.
 Bots never act on their own. The `SocketServer` tells them when to play:
 
 ```text
-game_started  → botScheduler.schedule(gameId, BOT_THINK_MS)          // 500 ms thinking pause
-piece_moved   → botScheduler.schedule(gameId, path.length * 220 + 500) // wait for the move animation
-dice_rolled   → if no legal moves → botScheduler.schedule(gameId, 750 + 500)
+game_started  → botScheduler.schedule(gameId, BOT_THINK_MS)                  // 500 ms thinking pause
+piece_moved   → botScheduler.schedule(gameId, walk + BOT_THINK_MS + overlay) // the walk, then what the room paints
+dice_rolled   → if no legal moves → botScheduler.schedule(gameId, DICE_ROLL_ANIM_MS + BOT_THINK_MS) // 750 + 500
 ```
+
+`walk` is `path.length * BOT_MOVE_STEP_MS` (220), and `overlay` is what the clients paint **after** the walk, which is
+none of it on most moves. Both overlays are mounted by the client's own `finishMove()`, not on the move, so the two
+delays are **added**: a max would fire the bot by the whole walk before the overlay had even opened. The overlay is one
+exclusive branch on the move's own result, `enteredHome` first and `captured` second, so a move that lands home and also
+captures adds one beat and not two:
+
+| move | `overlay` |
+| --- | --- |
+| into home, room's effects rule on | `GOAL_CARD_TOTAL_MS` 1400 — the ramp card and its fade |
+| into home, rule off | `GOAL_FX_MS` 900 — the confetti |
+| capture that settled no clash, rule on | `CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS`, 2410 + 150 |
+| capture that settled no clash, rule off | 0 |
+| anything else | 0 |
+
+Two things about that column. A goal is never 0, because the celebration is not the rule's to switch off — the rule picks
+*which* overlay, not whether the piece arrives; the client plays the starburst and the fanfare either way. And the rule is
+read from `loadGameState`, the same call the bot reads its own turn from, so the engine and the SPA count one number off
+one shared file. That read is async and this handler sits on the engine's broadcast path, so a store miss falls back to
+the plain walk + pause rather than holding the bot forever: a mistimed bot turn is a hiccup, a bot that never plays is a
+dead room.
+
+A move that settled a clash is the exception in the other direction, and does not arm a timer here at all: `clash_result`
+owns that card's deadline and `clash_card_released` is what fires the bot, so one owner keeps the guards from stacking
+(the card's own receipt is already a deadline, and a second timer behind it would be a race with no visible winner).
 
 `BotTurnScheduler.schedule` keeps **one timer per game** (`botTurnTimers`): it cancels the
 old timer before starting a new one, so bot turns never overlap. When the timer

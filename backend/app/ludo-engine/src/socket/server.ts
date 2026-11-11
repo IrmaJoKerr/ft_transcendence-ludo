@@ -37,6 +37,8 @@ import {
   CAPTURE_CARD_GRACE_MS,
   CAPTURE_CARD_MS,
   DICE_ROLL_ANIM_MS,
+  GOAL_CARD_TOTAL_MS,
+  GOAL_FX_MS,
 } from '../__shared__/timing.constants';
 
 // Every delay lives in ../timing; these are socket-wiring limits, exported for the
@@ -193,22 +195,37 @@ export class SocketServer {
         if (!event.result.clashOutcome) {
           const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
           const baseDelay = animMs + BOT_THINK_MS;
-          if (!event.result.captured) {
+          // What the clients paint AFTER the walk, if anything. A move into home is tested
+          // first and the three cases are exclusive branches, so a move that lands home and
+          // also captured adds one beat rather than two (32.6).
+          const overlay: 'goal' | 'capture' | null = event.result.enteredHome
+            ? 'goal'
+            : event.result.captured
+              ? 'capture'
+              : null;
+          if (!overlay) {
             this.botScheduler.schedule(event.gameId, baseDelay);
           } else {
-            // A capture may paint the opt-in flash card on the clients. When the room turned
-            // that rule on, the bot waits the walk out and THEN the card, so it never plays
-            // into a caption the human is still reading (25.9, amended in 25.17 item 7): the
-            // card is mounted in `finishMove()`, after the walk, so the two delays are added
-            // rather than maxed — a max fired the bot by the whole walk before the card even
-            // opened. The read is async and this frame is hot, so a store miss falls back to
-            // the plain delay rather than holding the bot forever.
+            // A capture may paint the opt-in flash card on the clients, and a goal always
+            // paints its celebration, so the bot waits the walk out and THEN the overlay, so
+            // it never plays into a caption the human is still reading (25.9, amended in 25.17
+            // item 7): both are mounted in `finishMove()`, after the walk, so the two delays
+            // are added rather than maxed — a max fired the bot by the whole walk before the
+            // overlay even opened. The goal's own length is the room's: confetti with the acts
+            // off, the ramp card and its fade with them on, exactly the clock the client runs
+            // (`goalCelebrationMs`). The read is async and this frame is hot, so a store miss
+            // falls back to the plain delay rather than holding the bot forever.
             void this.store
               .loadGameState(event.gameId)
               .then((state) => {
-                const cardWait = state?.captureFx
-                  ? CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS
-                  : 0;
+                const cardWait =
+                  overlay === 'goal'
+                    ? state?.captureFx
+                      ? GOAL_CARD_TOTAL_MS
+                      : GOAL_FX_MS
+                    : state?.captureFx
+                      ? CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS
+                      : 0;
                 this.botScheduler.schedule(event.gameId, baseDelay + cardWait);
               })
               .catch(() => this.botScheduler.schedule(event.gameId, baseDelay));

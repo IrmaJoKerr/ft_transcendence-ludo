@@ -1,16 +1,18 @@
 // The delays the client owns and no other build counts. The ones the engine counts too (the
 // clash windows, the result card's acts and the four lengths they make, the receipt's
-// margin, the flash card's four, and the step and dice animations) live in
-// `common/src/timing.constants.ts` and reach this tree as `../__shared__/timing.constants`,
-// so there is nothing left to mirror. What stays here is presentation only: the clash
-// windows are still read as fallbacks, but the server sends deadlines, so a wrong number
-// here cannot move a game.
+// margin, the flash card's four, the goal celebration's four, and the step and dice
+// animations) live in `common/src/timing.constants.ts` and reach this tree as
+// `../__shared__/timing.constants`, so there is nothing left to mirror. What stays here is
+// presentation only: the clash windows are still read as fallbacks, but the server sends
+// deadlines, so a wrong number here cannot move a game.
 import {
   CLASH_BREACH_RESULT_MS,
   CLASH_RESULT_MS,
   CLASH_TEXT_ONLY_MS,
   CLASH_WALL_RESULT_MS,
   DICE_ROLL_ANIM_MS,
+  GOAL_CARD_TOTAL_MS,
+  GOAL_FX_MS,
 } from '../__shared__/timing.constants';
 import type { ClashResult } from './reducer';
 import type { PlayerColor } from './types';
@@ -77,6 +79,26 @@ export function clashCardMs(
 export const CAPTURE_FX_MS = 600; // the capture burst's own length (its keyframes read it)
 export const CAPTURE_FX_CARD_OPACITY = 0.7; // the burst as it reads over the clash card
 export const CAPTURE_FX_AFTER_CARD_MS = 50; // beat between the card leaving and the real burst
+
+export const GOAL_BURST_MS = 700; // the starburst's own length (its keyframes read it)
+
+/**
+ * The goal celebration a seat watches after the walk, and how long it lasts (32.5).
+ *
+ * Two readers, one number: the overlay's own timer, and the result modal's delay when the
+ * move that reached home also ended the game (`Game.tsx`'s `game_ended`), which is this
+ * plus `RESULTS_MODAL_DELAY_MS`. The engine counts the same two lengths for a bot's wake
+ * (`socket/server.ts`), so a human and a bot wait out the same celebration.
+ *
+ * The rule picks the overlay and nothing else: with the room's effects off the client
+ * paints confetti over the board for `GOAL_FX_MS`, and with them on it mounts the ramp card
+ * for `GOAL_CARD_MS` and then its fade — `GOAL_CARD_TOTAL_MS`, 1400 all told. The starburst
+ * and the fanfare are not the rule's business and play on every goal, so a room that
+ * switched the acts off still shows the piece arrive.
+ */
+export function goalCelebrationMs(animations: boolean): number {
+  return animations ? GOAL_CARD_TOTAL_MS : GOAL_FX_MS;
+}
 
 // When a roll in flight may land, all in one place because the brake's whole
 // behaviour is this clamp. `start` is the tap that opened the roll, `valueAt` the

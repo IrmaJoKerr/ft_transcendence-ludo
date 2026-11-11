@@ -190,3 +190,12 @@ a:hover {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
+
+/* The goal's ramp card fades itself out over its last beat (32.5), the way the flash card
+   does: the panel unmounts on its own timer, but a board that then sits idle must not keep
+   a stale card floating over it. The delay is `GOAL_CARD_MS`, the fade `GOAL_CARD_FADE_MS`,
+   and the celebration's whole length is their sum. */
+@keyframes goal-card-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}

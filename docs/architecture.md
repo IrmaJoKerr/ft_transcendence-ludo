@@ -562,7 +562,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 ├── common/                       # The one declaration of the constants two builds count
 │   └── src/
 │       ├── chat.constants.ts     # 300 chars, 2 s cooldown, 500/1000 rows, 400-line fallback, 86400 s, chatLength()
-│       ├── timing.constants.ts   # the eight: clash windows, result card (2 + sum), step and dice animation
+│       ├── timing.constants.ts   # the twenty-five both builds count: clash windows, the scene's acts, the card lengths (the goal's four among them), step and dice animation
 │       └── wall-breaker.constants.ts # the token every seat is dealt, and the hand's ceiling
 │
 ├── backend/                      # NestJS REST API (port 3000)

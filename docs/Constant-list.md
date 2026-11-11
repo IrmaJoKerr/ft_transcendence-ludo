@@ -48,7 +48,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the twenty-one both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1200, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1900 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3800 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4200 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/timing.constants.ts` | the twenty-five both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1200, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1900 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3800 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4200 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -72,7 +72,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 
 ### Shared
 
-0. **[The shared folder](#the-shared-folder)** — the one declaration each build copies: chat, the eight timings, the Wall Breaker hand, and the test for what belongs there
+0. **[The shared folder](#the-shared-folder)** — the one declaration each build copies: chat, the twenty-five timings, the Wall Breaker hand, and the test for what belongs there
 
 ### Engine
 
@@ -94,7 +94,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 ### Frontend
 
 12. **[Theme and palette](#12-theme-and-palette)** — seat colours, presence colours, CSS design tokens
-13. **[Client timing](#13-client-timing)** — every presentation delay: clash cards, dice brake, path, capture burst, guards
+13. **[Client timing](#13-client-timing)** — every presentation delay: clash cards, dice brake, path, capture burst, the goal's celebration, guards
 14. **[Client cadences](#14-client-cadences)** — token refresh, room-push debounce and repair, cross-tab locks, toasts
 15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, touch pad, nav fit, toast stack
 16. **[Audio](#16-audio)** — master volume and the blip defaults
@@ -116,9 +116,10 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 ### **1. Engine timing**
 
 **Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns and no other
-build counts". The twenty-one both builds count (the three clash windows, the result scene's acts, the
-four card lengths and the receipt's margin, the text-only card, the opt-in capture card's four and the
-two animations) are in `common/src/timing.constants.ts` 📦, so they are absent from this table.
+build counts". The twenty-five both builds count (the three clash windows, the result scene's acts, the
+four card lengths and the receipt's margin, the text-only card, the opt-in capture card's four, the goal
+celebration's four and the two animations) are in `common/src/timing.constants.ts` 📦, so they are absent
+from this table.
 
 **Clash QTE**
 
@@ -738,9 +739,9 @@ colour role".
 ### **13. Client timing**
 
 **Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
-The twenty-one both builds count (the three clash windows, the result scene's acts, the four card
-lengths and the receipt's margin, the text-only card, the opt-in capture card's four and the two
-animations) are in `common/src/timing.constants.ts` 📦; the SPA reads
+The twenty-five both builds count (the three clash windows, the result scene's acts, the four card
+lengths and the receipt's margin, the text-only card, the opt-in capture card's four, the goal
+celebration's four and the two animations) are in `common/src/timing.constants.ts` 📦; the SPA reads
 `../__shared__/timing.constants` and the engine reads its own copy, so there is no second declaration
 to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
 the overlay follows those, so they decide the card animation, never the game state.
@@ -786,6 +787,21 @@ shorter than the clip it plays.
 | `CAPTURE_CARD_FADE_MS` | 300 | the panel's own fade out |
 | `CAPTURE_CARD_MS` | 2410 | the whole card: `RESULT_FX_MS` 1900 + the hold + the fade |
 | `CAPTURE_CARD_GRACE_MS` | 150 | the roll guard's slack past the card (a press inside it is dropped; the engine paces bots by it too) |
+
+**The goal's beat** — shared for the same reason the capture card's is: two readers count it, the
+client's celebration and the engine's bot pace (`socket/server.ts`). A piece reaching home gets exactly
+**one** overlay, and the room's effects rule picks which: with the rule off, confetti over the board for
+`GOAL_FX_MS`; with it on, the ramp card for `GOAL_CARD_MS` and then its fade. The starburst on the walk's
+last tick and the fanfare are **not** the rule's business and play on every goal, and the result modal
+waits the celebration out and then `RESULTS_MODAL_DELAY_MS` — the sum, never the larger of the two.
+
+| Constant | Value | What it times |
+|---|---|---|
+| `GOAL_FX_MS` | 900 | the confetti's whole life, and the beat a bot waits out with the acts off |
+| `GOAL_CARD_MS` | 1100 | the ramp card's hold: the figure climbs for 539 of it, lands by 803, and the station's flash is gone by 914 |
+| `GOAL_CARD_FADE_MS` | 300 | the panel's own fade, after the hold — the lever if the celebration reads long |
+| `GOAL_CARD_TOTAL_MS` | 1400 | the card all told (`GOAL_CARD_MS + GOAL_CARD_FADE_MS`), and the beat a bot waits out with the acts on |
+| `GOAL_BURST_MS` | 700 | client only: the starburst's own length, read by its keyframes, and inside every celebration |
 
 **Key-shift presentation** — client-only, because the engine sends the absolute switch instants and the
 overlay schedules its own timers against them. Nothing here decides the game; the server judges a press
@@ -855,7 +871,8 @@ the session socket, so the only client timers left are the client rows below.
 ### **15. Layout, size and z-index**
 
 **Owners:** `frontend/src/components/Board.tsx` 🖥️ and `frontend/src/game/boardGeometry.ts` 🖥️ (board),
-`components/CaptureBurst.tsx` 🖥️, `game/ClashOverlay.tsx` 🖥️, `pages/Game.tsx` 🖥️,
+`components/CaptureBurst.tsx` 🖥️, `components/GoalBurst.tsx` / `GoalConfetti.tsx` / `GoalCard.tsx` 🖥️,
+`game/ClashOverlay.tsx` 🖥️, `pages/Game.tsx` 🖥️,
 `components/RetroNavbar.tsx` 🖥️, `hooks/useFitTextSize.ts` 🖥️, `components/NotificationToast.tsx` 🖥️.
 
 **Board geometry** — one mapping shared by the renderer and anything that has to point at a square
@@ -882,6 +899,21 @@ the session socket, so the only client timers left are the client rows below.
 | Ring | 34 × 34, inset −17, 3 px border, 12 px glow | the expanding ring around the anchor |
 | `KEYFRAMES_ID` | `capture-fx-keyframes` | the two `@keyframes` (`captureRing`, `captureSpark`) are injected once however many bursts are mounted |
 | `settleMs` (inline, `Game.tsx`) | 600 captured / 350 plain | how long the landing holds before the turn is handed back; 600 keeps the burst mounted for its whole `CAPTURE_FX_MS` |
+
+**Goal burst, confetti and ramp card** — the arrival's three layers, all mounted from `Game.tsx`'s one
+`goalFx` state (32.5).
+
+| Constant | Value | What it decides |
+|---|---|---|
+| `RAYS` (`GoalBurst.tsx`) | 12 entries, 30° pitch | long (40) and short (22/32) alternating so the silhouette is a star, not a wheel; the seat colour alternates with white |
+| Core / shock ring | 26 × 26 inset −13 / 44 × 44 inset −22 | the flash on the square, and the one ring wider than the rays are long |
+| `PIECES` (`GoalConfetti.tsx`) | 20 entries, hand-laid | `dx` −66…68, `dy` 44…142 (all clearing +40, so nothing lands back on the square), spins −410…400, delays 0…130 ms inside `GOAL_FX_MS` |
+| `KEYFRAMES_ID` | `goal-burst-keyframes`, `goal-confetti-keyframes`, `goal-card-keyframes` | each component's `@keyframes` injected once however many copies are mounted |
+| `GOAL_CARD_MAX_PX` / `GOAL_CARD_VIEWBOX` / `GOAL_CARD_ASPECT` | 336 / `0 0 200 130` / 200⁄130 | the ramp card's frame: the flash card's width cap at the card's own ratio |
+| Ramp (`GoalCard.tsx`) | `10,118 58,118 160,44 112,44` | the home stretch as a parallelogram band, 48 units wide, rising 74 over 102 |
+| Stations | 4, at 0.16/0.40/0.64/0.88 of the band, `r` 8.5 | one per piece a seat can bring home, filled bottom to top; the piece climbs to the one this move filled |
+| `PIECE_SCALE` | 0.42 | 42 units of `PieceFigure` against the 48-unit band; the feet are placed at the station, not the box |
+| Card z / burst z / confetti z | 30 / 40 / 35 | the card is the flash card's 30; the burst sits above it, because the piece has left the square |
 
 **Clash overlay**
 
