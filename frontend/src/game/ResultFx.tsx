@@ -30,10 +30,10 @@ import { retroAudio } from '../utils/audio';
  * sweep repeated: a shot, then a cell.
  *
  * A **wall** changes the composition of the attack act, never the jail's: a square held by
- * more than one defender is drawn as those defenders — `n` glyphs on a diagonal with the
- * front-most nearest the attacker, `n` nested curves over them as the shield, and the
- * attacker himself standing in the right-hand bay — and one success subtracts one defender
- * and one line (25.3). The frame is then cleared once, at the attack's last instant, and
+ * more than one defender is drawn as those defenders — `n` glyphs on a column that recedes
+ * and shrinks, the front-most nearest the attacker, under a dome of `n` frozen rings — with
+ * the attacker himself standing in the right-hand bay. One success subtracts one defender
+ * and one ring (25.3). The frame is then cleared once, at the attack's last instant, and
  * the jail plays on the pair stage like any other round, which is the only cut in the
  * sequence and the only place the cast changes (rule 4).
  *
@@ -263,46 +263,63 @@ const ATTACKER_GLYPH_X = PAIR_CX - 17.5; // 132.5: the same seat held on the rig
 const SHARED_X_MAX = 192;
 
 // ── The wall stage ───────────────────────────────────────────────────────────
-// A wall is its defenders (25.3): `n` glyphs on a diagonal and `n` curves arcing over
-// them, one pair subtracted per success, four at most — one colour defends a square and a
-// player owns four pieces (D4, D24).
+// A wall is its defenders (25.3): `n` glyphs on the cast's own diagonal and a dome of `n`
+// rings over them, one pair subtracted per success, four at most — one colour defends a
+// square and a player owns four pieces (D4, D24). The attacker takes the right-hand bay at
+// x 196 to 232 at the same 36 units, on the same ground line, outside the dome.
 //
-// The fit, because the shield is the widest thing either card draws: a group of four spans
-// 3 x 20 + 36 = 96 units of run, from x 48 (the rear-most box's left edge) to 144 (the
-// front-most's right edge), so the shield is centred on x 118 with its outermost curve at
-// 64 — x 54 to 182 — and the attacker takes the right-hand bay at x 196 to 232 at the same
-// 36 units, on the same ground line. The shield's own face at the strike height is x 171,
-// so the wall reads left to right in one sweep: rear-most, shield, face, attacker.
+// The column first, because the dome is fitted to it: the front box stands at x 108 and
+// every further defender is a rung up and to the left — `WALL_TAPER` 0.82 of the width, and
+// a third of its own box hidden by the piece in front — so the four boxes are 36, 29.5, 24.2
+// and 19.8 wide, the group spans x 59 to 144, and every rung is 8.4 units higher. The step
+// is per defender rather than a constant, because the boxes shrink: one number that cleared
+// the first would bury the third. The rise stays shallow against the run on purpose, since a
+// true 45 degree recession pushes the rear-most defender out from under the dome's rim and
+// hides the count, and the count is what a wall exists to show.
 const WALL_MAX = 4;
-const WALL_CX = 118;
-const WALL_R = 64; // the outermost curve's radius
-const WALL_RING_STEP = 8; // ...and the gap to the next one, one ring per defender
-const WALL_INK = 5; // the innermost curve's weight; the arcs thin as they go outward
-// The diagonal's run and rise, one defender to the next. The rise is shallow against the
-// run on purpose: a true 45 degree recession pushes the rear-most defender out from under
-// the shield's rim and hides the count, and the count is what a wall exists to show. Twenty
-// units of run by fourteen of rise still separates the glyphs enough to be counted one by
-// one, which is the whole job of the diagonal.
-const WALL_DX = 20;
-const WALL_DY = 14;
-const WALL_FRONT_X = WALL_CX - 10; // 108: the front-most box, straddling the centre
-const WALL_ATTACKER_X = 196; // the attacker's own 36-unit bay, outside the shield
+const WALL_TAPER = 0.82; // each further defender's width, against the one in front
+const WALL_OVERLAP = 1 / 3; // ...and the share of that box the piece in front covers
+const WALL_DY = 8.4; // the rise of every rung
+// The front-most box: lowest and right-most, because the shot arrives from the right. A
+// literal now, since the column no longer orbits a curve's centre.
+const WALL_FRONT_X = 108;
+const WALL_ATTACKER_X = 196; // the attacker's own 36-unit bay, outside the dome
 const BEAM_INSET = 6; // the shot leaves its shooter 6 units inside the glyph's edge
-// The shield's outer face: the outermost curve's own right flank **at the strike height**,
-// because every shot in the game travels on `STRIKE_Y` — so a wall's punch and its return
-// are one line at one height, the line the pair is struck on, and the beam meets the shield
-// instead of the ground beside it.
-const SHIELD_FACE_X = Math.round(
-  WALL_CX + Math.sqrt(WALL_R ** 2 - (GROUND_Y - STRIKE_Y) ** 2),
-); // 171
+
+// The dome (25.3 rule 5): four **frozen** rings, measured and fitted rather than drawn by
+// eye, so a later redraw re-runs the sum instead of re-guessing it. The ink of every 70s and
+// 80s colour, in the `right` pose, was sampled through those four boxes; the minimal
+// enclosing semicircle about the ground line is centred on x 85 with a radius of 74.88. The
+// pad is 4 px at 1.75 px per unit, 2.29 units, plus half of `DOME_STROKE`, 1.5, so the ring
+// fitted to the ink is 78.7 — and `DOME_GAP` 5.5 out from there fixes the other three.
+//
+// The rings sit outside the whole column rather than in the middle of it: the outer rim is
+// at 180.2, 15.8 units clear of the attacker's bay, and the innermost rim is at 6.3, so the
+// two outer rings leave the frame on the left. `n` draws the innermost `n` of the four, so
+// the ring fitted to the ink is always there, whatever the count, and the shield hugs the
+// group it protects. What moves with the count is the face.
+const DOME_CX = 85;
+const DOME_STROKE = 3.0; // the outermost ring's weight, and the half-stroke in the fit
+const DOME_PAD = 4 / 1.75; // 4 px of breathing room, at the stage's own pixels per unit
+const DOME_R_INK = 74.88; // the minimal semicircle about the sampled ink
+const DOME_R_IN = +(DOME_R_INK + DOME_PAD + DOME_STROKE / 2).toFixed(1); // 78.7
+const DOME_GAP = 5.5; // the pitch to the next ring outward
+// To a tenth, because the fitted numbers are tenths and 78.7 + 3 x 5.5 is 95.199... in
+// floating point: 78.7, 84.2, 89.7 and 95.2, the last the line the shot meets.
+const DOME_RADII = [0, 1, 2, 3].map((i) => +(DOME_R_IN + i * DOME_GAP).toFixed(1));
+// The strokes invert the old ladder, 2.2 at the innermost out to 3.2 at the outermost, so
+// the face the shot meets and the line that glitches out is the heaviest of the four. A
+// 5-unit stroke cannot live on a 5.5-unit pitch either: it would leave half a unit of ground
+// between two rings.
+const DOME_STROKES = [2.2, 2.4, 2.8, 3.2]; // the same four, innermost first
 
 // ── The cloud stage ───────────────────────────────────────────────────────────
-// The breach's own act (25.4), and the only thing in the card drawn on the wall's centre
+// The breach's own act (25.4), and the only thing in the card drawn on the shield's centre
 // line instead of around a piece: a mushroom cloud stands where the wall stood, so its
-// marks are all offsets from `CLOUD_CX` on the ground line. The ring is the blast's own
-// footprint — the head's width, and well inside the shield's 64 — so it reads as the
-// ground giving way under the wall and never as a second wall.
-const CLOUD_CX = WALL_CX; // 118
+// marks are all offsets from `DOME_CX` on the ground line — it is the wall's collapse, not a
+// second object. The ring is the blast's own footprint — the head's width, and well inside
+// the dome's innermost 78.7 — so it reads as the ground giving way under the wall and never
+// as a second wall.
 const CLOUD_RING_R = 46;
 const CLOUD_RING_RY = 9; // a ring lying on the ground is seen edge-on, so it is flat
 // The mushroom: a stem that widens as it reaches the ground and a head of three puffs (two
@@ -315,7 +332,7 @@ const CLOUD_STEM_TOP_HALF = 7; // ...where it meets the head
 const CLOUD_STEM_TOP_UP = 41; // above the ground line; also the belly's underside
 const CLOUD_HEAD_UP = 50; // the side puffs' centres, above the ground line
 const CLOUD_HEAD_R = 17;
-const CLOUD_HEAD_X = 18; // their centres' offset from `CLOUD_CX`
+const CLOUD_HEAD_X = 18; // their centres' offset from `DOME_CX`
 const CLOUD_CROWN_UP = 64; // the crown puff, one step higher and wider
 const CLOUD_CROWN_R = 22;
 const CLOUD_BELLY_UP = 56; // the bar that joins the three puffs to the stem
@@ -349,17 +366,19 @@ const starAt = (cx: number, cy: number, r = 9) =>
   `L ${cx + r * 0.28} ${cy + r * 0.28} L ${cx} ${cy + r} L ${cx - r * 0.28} ${cy + r * 0.28} ` +
   `L ${cx - r} ${cy} L ${cx - r * 0.28} ${cy - r * 0.28} Z`;
 
-// The shield's curve, r units out from the wall's centre: a half circle standing on the
-// ground line, which is as much curvature as a card of this size can read. Gentler or
-// flatter is allowed — it is a fitting value and not a shape ruling (25.3 rule 5).
+// One ring of the dome, r units out from its centre: a half circle standing on the ground
+// line, which is as much curvature as a card of this size can read. Gentler or flatter is
+// allowed — it is a fitting value and not a shape ruling (25.3 rule 5).
 const shieldCurve = (r: number) =>
-  `M ${WALL_CX - r} ${GROUND_Y} A ${r} ${r} 0 0 1 ${WALL_CX + r} ${GROUND_Y}`;
+  `M ${DOME_CX - r} ${GROUND_Y} A ${r} ${r} 0 0 1 ${DOME_CX + r} ${GROUND_Y}`;
 
 /**
  * One piece of the cast, at the box both renderings share: the 70s figure or the 80s
- * character from `game/pieceParts*.ts`, either filling the same 36 units. The box is
- * the contract — every strike is measured from its edge — so neither drawing can move
- * the shot, and a wall's defenders are drawn by the same call as the pair (25.17 item 2).
+ * character from `game/pieceParts*.ts`, either filling the same box — 36 units by default,
+ * and whatever a wall's rung gives it otherwise, since each further defender is smaller
+ * than the one in front (25.3). The box is the contract — every strike is measured from its
+ * edge — so neither drawing can move the shot, and a wall's defenders are drawn by the same
+ * call as the pair (25.17 item 2).
  *
  * `pose` is the facing, and it is the only thing about the cast that changes across an
  * act: the defender holds the left seat and looks right, the attacker holds the right
@@ -373,6 +392,7 @@ const shieldCurve = (r: number) =>
 function CastPiece({
   x,
   y,
+  size = PIECE_W,
   color,
   retro70,
   pose = 'front',
@@ -380,13 +400,14 @@ function CastPiece({
 }: {
   x: number;
   y: number;
+  size?: number;
   color: PlayerColor;
   retro70: boolean;
   pose?: PiecePose;
   style?: CSSProperties;
 }) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${PIECE_W / 100})`} style={style}>
+    <g transform={`translate(${x} ${y}) scale(${size / 100})`} style={style}>
       <PieceFigure ck={color} set={retro70 ? 'retro70' : 'retro80'} pose={pose} />
     </g>
   );
@@ -450,6 +471,29 @@ export function ResultFx({
   // left; a repulse subtracts nothing, and there `n` is the whole set plus the one that
   // would have gone, which is why the total is the ceiling.
   const wallLayers = attackerWon ? layers : Math.min(total, WALL_MAX);
+  // The wall's column and the ring the shot meets, both read off `n`. The column: the front
+  // box at `WALL_FRONT_X`, and each further defender `WALL_TAPER` of the width, one rung up
+  // and left by the rest of its own box — 36, 29.5, 24.2 and 19.8 wide, x 144 back to 59.
+  // The face: the outermost drawn ring's own right flank **at the strike height**, because
+  // every shot in the game travels on `STRIKE_Y` — so a wall's punch and its return are one
+  // line at one height, the line the pair is struck on, and the beam meets the dome instead
+  // of the ground beside it. It is the one mark that moves with the count: 155.0 at one
+  // ring, 161.1 at two, 167.2 at three, 173.1 at four.
+  const wallBoxes: { x: number; y: number; size: number }[] = [];
+  for (let i = 0; i < wallLayers; i++) {
+    const size = +(PIECE_W * WALL_TAPER ** i).toFixed(1);
+    const step = i === 0 ? 0 : +((1 - WALL_OVERLAP) * size).toFixed(1);
+    const prev = i === 0 ? WALL_FRONT_X : wallBoxes[i - 1].x;
+    wallBoxes.push({
+      x: +(prev - step).toFixed(1),
+      y: +(GLYPH_Y - i * WALL_DY).toFixed(1),
+      size,
+    });
+  }
+  const shieldFaceX = +(
+    DOME_CX +
+    Math.sqrt(DOME_RADII[wallLayers - 1] ** 2 - (GROUND_Y - STRIKE_Y) ** 2)
+  ).toFixed(1);
 
   // One clock per act (25.8): an element is budgeted in the act it plays in, so nothing can
   // outlive that act and re-timing one act leaves the others' instants alone. The read
@@ -479,19 +523,19 @@ export function ResultFx({
   // The strike: from the winner's front face to whatever takes it. The tail sits 6 units
   // inside the shooter's glyph, so the beam leaves a piece instead of crossing an empty
   // lane (25.17 item 2). The front face is the attacker's LEFT and the defender's RIGHT,
-  // now that the defender holds the left seat. On a wall the shield's outer face is what
-  // the shot meets: a capture punches through it, and a 1v1 frame has no shield to bounce
+  // now that the defender holds the left seat. On a wall the dome's own face is what the
+  // shot meets: a capture punches through it, and a 1v1 frame has no shield to bounce
   // from, so the reflect is a wall beat only (25.3 rule 2, 25.4 path C).
   const beamFrom = attackerWon
     ? isWall
       ? WALL_ATTACKER_X + BEAM_INSET // 202: the attacker's front face, in the wall's bay
       : ATTACKER_GLYPH_X + BEAM_INSET // 138.5
     : isWall
-      ? SHIELD_FACE_X // 171: the shot returns off the face it struck
+      ? shieldFaceX // the shot returns off the face it struck
       : DEFENDER_GLYPH_X + PIECE_W - BEAM_INSET; // 36.5
   const impactX = attackerWon
     ? isWall
-      ? SHIELD_FACE_X // 171: the shield's outer face takes the hit
+      ? shieldFaceX // the dome's face takes the hit
       : DEFENDER_GLYPH_X + PIECE_W // 42.5: the defender's right flank, the box's own edge
     : isWall
       ? WALL_ATTACKER_X // 196: the reflected shot strikes the attacker's flank
@@ -524,7 +568,7 @@ export function ResultFx({
   // as the beam, so the card reads as one sweep repeated.
   const cageFrom = `${attackerWon ? CAGE_TRAVEL_PX : -CAGE_TRAVEL_PX}px`;
   // The beam travels a full stage clear on the pair, and its own width on a wall: the
-  // attacker stands beside the shield there, so the shot is a punch at close range rather
+  // attacker stands beside the dome there, so the shot is a punch at close range rather
   // than a lance across the frame (25.3). It keeps the act's 247 ms either way, because the
   // puncture and the flare are pinned to that instant on every path.
   const beamTravel = isWall ? beamW : BEAM_TRAVEL_PX;
@@ -535,7 +579,7 @@ export function ResultFx({
   // card keeps.
   const pairFloorX1 = Math.max(0, cageCx - CAGE_HALF - 16);
   const pairFloorX2 = Math.min(SHARED_X_MAX, cageCx + CAGE_HALF + 16);
-  const wallFloorX1 = Math.max(4, WALL_FRONT_X - (wallLayers - 1) * WALL_DX - 12);
+  const wallFloorX1 = Math.max(4, wallBoxes[wallLayers - 1].x - 12);
   const wallFloorX2 = Math.min(VB_W - 4, WALL_ATTACKER_X + PIECE_W + 8); // 236: the stage's edge
 
   // The three compositions' gates. The frame is cleared twice on a breach and once
@@ -624,7 +668,7 @@ export function ResultFx({
       height='100%'
       style={{ display: 'block', overflow: 'hidden', pointerEvents: 'none' }}
     >
-      {/* ── the attack act, on a wall: its defenders, the shield over them, and the
+      {/* ── the attack act, on a wall: its defenders, the dome over them, and the
              attacker drawn in the right-hand bay ─────────────────────────────────── */}
 
       {isWall && (
@@ -640,17 +684,18 @@ export function ResultFx({
             strokeWidth='2'
           />
 
-          {/* the defenders: `n` glyphs on a diagonal, the front-most — lowest and
-              right-most, nearest the attacker — first, each further one up and to the left,
-              overlapping the one in front (25.3 rule 1). The struck defender fades as its
-              line goes: one defender, one line, always together (rule 4). Every one of
-              them looks right, at the attacker, because that is the seat the shot comes
+          {/* the defenders: `n` glyphs on the cast's own diagonal, the front-most — lowest
+              and right-most, nearest the attacker — first, each further one up, left and
+              smaller, overlapping the one in front (25.3 rule 1). The struck defender fades
+              as its line goes: one defender, one line, always together (rule 4). Every one
+              of them looks right, at the attacker, because that is the seat the shot comes
               from and a wall faces the thing that hit it. */}
-          {Array.from({ length: wallLayers }, (_, i) => (
+          {wallBoxes.map(({ x, y, size }, i) => (
             <CastPiece
               key={`defender-${i}`}
-              x={WALL_FRONT_X - i * WALL_DX}
-              y={GLYPH_Y - i * WALL_DY}
+              x={x}
+              y={y}
+              size={size}
               color={defender}
               retro70={isRetro70}
               pose='right'
@@ -658,28 +703,33 @@ export function ResultFx({
             />
           ))}
 
-          {/* the shield: `n` nested curves arcing over them, one per defender, thinning as
-              they go outward, and drawn after the glyphs because it stands in front of
-              them. The outermost is both the face the shot meets and the line that glitches
-              out when a defender is taken (rules 3 and 4), so the count reads twice: `n`
-              glyphs and `n` lines. */}
-          {Array.from({ length: wallLayers }, (_, i) => (
-            <path
-              key={`shield-${i}`}
-              d={shieldCurve(WALL_R - i * WALL_RING_STEP)}
-              fill='none'
-              stroke={defenderColor}
-              strokeOpacity={i === 0 ? 1 : 0.55}
-              strokeWidth={+(WALL_INK - (wallLayers - 1 - i) * 0.8).toFixed(1)}
-              style={
-                i === 0 && attackerWon
-                  ? ({ ...pivot, '--g1': '5px', '--g2': '-6px', animation: fx('fxLayerOut') } as CSSProperties)
-                  : undefined
-              }
-            />
-          ))}
+          {/* the dome: `n` of the four frozen rings, the innermost `n`, so the one fitted
+              to the ink is always drawn and the shield hugs the group it protects. The
+              strokes run the other way from the old curves, 2.2 inside to 3.2 out, so the
+              outermost ring — both the face the shot meets and the line that glitches out
+              when a defender is taken (rules 3 and 4) — is the heaviest of them. All of them
+              paint in front of the glyphs, because an enclosing curve never crosses one; the
+              count reads twice: `n` glyphs and `n` rings. */}
+          {DOME_RADII.slice(0, wallLayers).map((r, i) => {
+            const isFace = i === wallLayers - 1;
+            return (
+              <path
+                key={`dome-${i}`}
+                d={shieldCurve(r)}
+                fill='none'
+                stroke={defenderColor}
+                strokeOpacity={isFace ? 1 : 0.55}
+                strokeWidth={DOME_STROKES[i]}
+                style={
+                  isFace && attackerWon
+                    ? ({ ...pivot, '--g1': '5px', '--g2': '-6px', animation: fx('fxLayerOut') } as CSSProperties)
+                    : undefined
+                }
+              />
+            );
+          })}
 
-          {/* the attacker, in frame, on the ground and outside the shield: the reflected
+          {/* the attacker, in frame, on the ground and outside the dome: the reflected
               shot has to have somebody visible to strike (rule 6). */}
           <CastPiece
             x={WALL_ATTACKER_X}
@@ -757,7 +807,7 @@ export function ResultFx({
       </g>
 
       {/* where it lands: the puncture star blooms on the piece the shot met — the defender's
-          flank on a 1v1 capture, the shield's outer face on a wall, the attacker himself on
+          flank on a 1v1 capture, the dome's face on a wall, the attacker himself on
           a repulse — always in the winner's colour */}
       <path
         d={starAt(impactX, STRIKE_Y)}
@@ -774,7 +824,7 @@ export function ResultFx({
           stem and head in one group, which is what lets a single scale about its bottom
           edge be "it grows upward from the ground" (25.4). */}
       {isBreach && (
-        <g transform={`translate(${CLOUD_CX} ${GROUND_Y})`} style={cloudGate}>
+        <g transform={`translate(${DOME_CX} ${GROUND_Y})`} style={cloudGate}>
           <ellipse
             rx={CLOUD_RING_R}
             ry={CLOUD_RING_RY}
