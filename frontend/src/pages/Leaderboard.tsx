@@ -18,6 +18,9 @@ import {
   WINDOW_BTN_MAX,
   WINDOW_BODY,
   APEX_CHAMPION_CARD,
+  DISPLAY_MEDIUM,
+  DISPLAY_STAT,
+  STAT_FOOTER,
 } from '../styles/tw';
 
 type LeaderboardEntry = {
@@ -241,25 +244,12 @@ export function Leaderboard() {
                           />
                           <div>
                             <div
-                              style={{
-                                fontSize: '1.1rem',
-                                fontWeight: 700,
-                                color: '#ffffff',
-                                fontFamily: 'var(--font-display)',
-                                letterSpacing: '0.04em',
-                              }}
+                              className={DISPLAY_MEDIUM}
                             >
                               {top2.displayName ?? top2.username}
                             </div>
                             <div
-                              style={{
-                                fontSize: '1.35rem',
-                                fontWeight: 900,
-                                color: '#ffffff',
-                                fontFamily: 'var(--font-display)',
-                                letterSpacing: '0.04em',
-                                marginTop: 2,
-                              }}
+                              className={DISPLAY_STAT}
                             >
                               ♛ {top2.rating}
                             </div>
@@ -267,25 +257,15 @@ export function Leaderboard() {
                         </div>
 
                         <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginTop: 16,
-                            paddingTop: 12,
-                            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                            fontSize: '0.78rem',
-                            color: 'var(--text-muted)',
-                            fontFamily: 'var(--font-display)',
-                            letterSpacing: '0.03em',
-                          }}
+                          className={STAT_FOOTER}
                         >
                           <span>
                             {t('leaderboard.matchesLabel')}{' '}
-                            <strong style={{ color: '#ffffff' }}>{top2.gamesPlayed}</strong>
+                            <strong className="text-(--text-main)">{top2.gamesPlayed}</strong>
                           </span>
                           <span>
                             {t('leaderboard.winRateLabel')}{' '}
-                            <strong style={{ color: '#ffffff' }}>{top2.winRate}%</strong>
+                            <strong className="text-(--text-main)">{top2.winRate}%</strong>
                           </span>
                         </div>
                       </div>
@@ -375,7 +355,7 @@ export function Leaderboard() {
                               style={{
                                 fontSize: '1.3rem',
                                 fontWeight: 900,
-                                color: '#ffffff',
+                                color: 'var(--text-main)',
                                 fontFamily: 'var(--font-display)',
                                 letterSpacing: '0.04em',
                               }}
@@ -386,7 +366,7 @@ export function Leaderboard() {
                               style={{
                                 fontSize: '1.7rem',
                                 fontWeight: 900,
-                                color: '#ffffff',
+                                color: 'var(--text-main)',
                                 fontFamily: 'var(--font-display)',
                                 letterSpacing: '0.04em',
                                 marginTop: 2,
@@ -412,7 +392,7 @@ export function Leaderboard() {
                         >
                           <span>
                             {t('leaderboard.matchesLabel')}{' '}
-                            <strong style={{ color: '#ffffff', fontSize: '0.88rem' }}>
+                            <strong style={{ color: 'var(--text-main)', fontSize: '0.88rem' }}>
                               {top1.gamesPlayed}
                             </strong>
                           </span>
@@ -485,25 +465,12 @@ export function Leaderboard() {
                           />
                           <div>
                             <div
-                              style={{
-                                fontSize: '1.1rem',
-                                fontWeight: 700,
-                                color: '#ffffff',
-                                fontFamily: 'var(--font-display)',
-                                letterSpacing: '0.04em',
-                              }}
+                              className={DISPLAY_MEDIUM}
                             >
                               {top3.displayName ?? top3.username}
                             </div>
                             <div
-                              style={{
-                                fontSize: '1.35rem',
-                                fontWeight: 900,
-                                color: '#ffffff',
-                                fontFamily: 'var(--font-display)',
-                                letterSpacing: '0.04em',
-                                marginTop: 2,
-                              }}
+                              className={DISPLAY_STAT}
                             >
                               ♛ {top3.rating}
                             </div>
@@ -511,25 +478,15 @@ export function Leaderboard() {
                         </div>
 
                         <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginTop: 16,
-                            paddingTop: 12,
-                            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                            fontSize: '0.78rem',
-                            color: 'var(--text-muted)',
-                            fontFamily: 'var(--font-display)',
-                            letterSpacing: '0.03em',
-                          }}
+                          className={STAT_FOOTER}
                         >
                           <span>
                             {t('leaderboard.matchesLabel')}{' '}
-                            <strong style={{ color: '#ffffff' }}>{top3.gamesPlayed}</strong>
+                            <strong className="text-(--text-main)">{top3.gamesPlayed}</strong>
                           </span>
                           <span>
                             {t('leaderboard.winRateLabel')}{' '}
-                            <strong style={{ color: '#ffffff' }}>{top3.winRate}%</strong>
+                            <strong className="text-(--text-main)">{top3.winRate}%</strong>
                           </span>
                         </div>
                       </div>
@@ -544,7 +501,7 @@ export function Leaderboard() {
                     borderRadius: 6,
                     background: 'rgba(5, 2, 18, 0.9)',
                     overflow: 'hidden',
-                    boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.5)',
+                    boxShadow: 'inset 0 0 20px rgb(var(--shade-rgb) / 0.5)',
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
@@ -630,7 +587,7 @@ export function Leaderboard() {
                                   : '14px 28px',
                               borderBottom: isRankOne
                                 ? '2.5px solid rgba(255, 23, 68, 0.6)'
-                                : '1px solid rgba(255, 255, 255, 0.08)',
+                                : '1px solid rgb(var(--ink-rgb) / 0.08)',
                               alignItems: 'center',
                               background: isRankOne
                                 ? isYou
@@ -681,7 +638,7 @@ export function Leaderboard() {
                                       ? 'var(--accent-cyan)'
                                       : entry.rank === 3
                                         ? 'var(--accent-pink)'
-                                        : '#ffffff',
+                                        : 'var(--text-main)',
                                   fontFamily: 'var(--font-display)',
                                   letterSpacing: '0.03em',
                                   textAlign: 'left',
@@ -725,7 +682,7 @@ export function Leaderboard() {
                                       : isTopThree
                                         ? '1.02rem'
                                         : '0.95rem',
-                                    color: '#ffffff',
+                                    color: 'var(--text-main)',
                                     fontFamily: 'var(--font-display)',
                                     letterSpacing: '0.04em',
                                     whiteSpace: 'nowrap',
@@ -754,7 +711,7 @@ export function Leaderboard() {
                               style={{
                                 fontWeight: 900,
                                 fontSize: isRankOne ? '1.45rem' : isTopThree ? '1.2rem' : '1.05rem',
-                                color: '#ffffff',
+                                color: 'var(--text-main)',
                                 fontFamily: 'var(--font-display)',
                                 letterSpacing: '0.04em',
                               }}
@@ -765,7 +722,7 @@ export function Leaderboard() {
                             {/* Games Played */}
                             <div
                               style={{
-                                color: '#ffffff',
+                                color: 'var(--text-main)',
                                 fontSize: isRankOne ? '0.98rem' : '0.88rem',
                                 fontFamily: 'var(--font-display)',
                                 letterSpacing: '0.03em',
@@ -780,7 +737,7 @@ export function Leaderboard() {
                                 textAlign: 'right',
                                 fontWeight: 900,
                                 fontSize: isRankOne ? '1.15rem' : '0.98rem',
-                                color: '#ffffff',
+                                color: 'var(--text-main)',
                                 fontFamily: 'var(--font-display)',
                                 letterSpacing: '0.03em',
                               }}

@@ -94,7 +94,7 @@ body {
    the way a CRT raster opens from a line to a frame. */
 .chat-screen {
   position: relative;
-  background: #000000;
+  background: rgb(var(--shade-rgb));
   border: 1px solid rgba(0, 240, 255, 0.18);
   border-radius: 10px;
   overflow: hidden;
@@ -231,7 +231,7 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   LAYOUT CONTAINER & NAVIGATION
+   CLASH: THE SWITCH WARNING'S PULSE
    -------------------------------------------------------------------------- */
 
 @keyframes pulse-glow {
@@ -243,10 +243,6 @@ body {
     filter: drop-shadow(0 0 12px var(--accent-pink));
   }
 }
-
-/* --------------------------------------------------------------------------
-   CLASH: THE SWITCH WARNING'S PULSE
-   -------------------------------------------------------------------------- */
 
 /* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath
    of the keyframe above, no second keyframe to tune and keep distinct. The gate is
@@ -265,16 +261,6 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   BUTTONS & FORM INPUTS
-   -------------------------------------------------------------------------- */
-
-/* --------------------------------------------------------------------------
-   HERO BANNER
-   -------------------------------------------------------------------------- */
-
-/* Apex Champion Podium Card - Steady Constant Glow */
-
-/* --------------------------------------------------------------------------
    GRID DASHBOARD BOARDS & WIDGETS
    -------------------------------------------------------------------------- */
 
@@ -289,10 +275,6 @@ body {
 body:has(.game-page) .crt-screen {
   min-height: 100vh !important;
 }
-
-/* --------------------------------------------------------------------------
-   AUDIO BOOMBOX & SYNTH CONTROLLER
-   -------------------------------------------------------------------------- */
 
 /* --------------------------------------------------------------------------
    RETRO MINI ARCADE CANVAS
@@ -318,184 +300,11 @@ body:has(.game-page) .crt-screen {
   }
 }
 
-canvas#arcadeCanvas,
-canvas#snakeCanvas {
-  background: #000000;
+canvas#arcadeCanvas {
+  background: rgb(var(--shade-rgb));
   display: block;
   max-width: 100%;
   margin: 0 auto;
-}
-
-/* --------------------------------------------------------------------------
-   STICKY NOTES & GUESTBOOK WIDGET
-   -------------------------------------------------------------------------- */
-
-/* --------------------------------------------------------------------------
-   DIGITAL CLOCK & SYSTEM STATS
-   -------------------------------------------------------------------------- */
-
-/* --------------------------------------------------------------------------
-   FOOTER
-   -------------------------------------------------------------------------- */
-
-/* ==========================================================================
-   CUSTOM RETRO FIELDSET & COLOR SCHEME COMPONENT
-   ========================================================================== */
-
-/* The fieldset's `--fs-*` tokens are declared and derived in `theme-base.css`, off
-   the era's palette; this sheet only reads them. */
-/* --------------------------------------------------------------------------
-   CUSTOM COMPONENT STYLES
-   -------------------------------------------------------------------------- */
-
-#color-scheme {
-  border: 2px solid var(--fs-border);
-  border-radius: 5px;
-  color: var(--fs-text);
-  background: var(--fs-bg);
-  outline: 2px solid var(--fs-cyan);
-  outline-offset: 2px;
-  filter: drop-shadow(0 0 8px var(--fs-glow));
-
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: -0.05ch;
-  text-rendering: geometricprecision;
-
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-
-  margin: 0;
-  padding: 14px 10px 10px 10px;
-  box-sizing: border-box;
-  width: 100%;
-
-  position: relative;
-  z-index: 3;
-}
-
-#color-scheme legend {
-  color: var(--fs-cyan);
-  text-align: center;
-  position: relative;
-  top: -2px;
-  padding: 0 8px;
-  font-size: 0.62rem;
-  letter-spacing: 1.5px;
-  font-weight: bold;
-  background: var(--fs-bg);
-}
-
-#color-scheme input {
-  --d: 10px;
-  --rotation: 225deg;
-
-  appearance: none;
-
-  background: currentColor;
-  color: inherit;
-
-  border-radius: 3px;
-  rotate: var(--rotation);
-
-  margin: 0;
-
-  outline: 1.5px solid var(--fs-text);
-  outline-offset: 1px;
-
-  height: var(--d);
-  width: var(--d);
-  flex-shrink: 0;
-  cursor: pointer;
-  box-sizing: border-box;
-}
-
-/* Hover rotation & morphing animation */
-#color-scheme label:hover input:not(:checked) {
-  --rotation: 90deg;
-  outline-color: var(--fs-cyan);
-}
-
-/* Checked state animation */
-#color-scheme input:checked {
-  --rotation: 0deg;
-  color: inherit;
-  outline-color: var(--fs-cyan);
-  outline-offset: 1px;
-}
-
-#color-scheme label:hover input:checked {
-  outline-color: var(--fs-cyan);
-}
-
-/* Vertical List Item Labels */
-#color-scheme label {
-  border-radius: 4px;
-
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-
-  user-select: none;
-  padding: 8px 12px;
-  height: 34px;
-  width: 100%;
-  cursor: pointer;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
-}
-
-#color-scheme label span {
-  display: inline-block;
-  font-size: 0.7rem;
-  line-height: 1;
-  letter-spacing: 1px;
-}
-
-#color-scheme label:has(:checked) {
-  background: var(--fs-cyan);
-  color: var(--fs-bg);
-  box-shadow: 0 0 10px var(--fs-cyan);
-  border-color: var(--fs-cyan);
-}
-
-#color-scheme label:has(:checked) input {
-  color: var(--fs-bg);
-}
-
-#color-scheme label:not(:has(:checked)):hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: color-mix(in oklab, var(--fs-cyan), transparent 60%);
-  transform: translateX(3px);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  #color-scheme,
-  #color-scheme label,
-  #color-scheme input {
-    transition-property: background, border-color, box-shadow, color, filter, rotate, transform;
-    transition-duration: 0.2s;
-    transition-timing-function: ease-out;
-  }
-
-  #color-scheme label,
-  #color-scheme input {
-    &:focus-within,
-    &:focus,
-    &:hover,
-    &:focus-visible {
-      transition-property: background, border-color, rotate, transform;
-      transition-duration: 0.2s;
-      transition-timing-function: ease-in;
-    }
-  }
 }
 
 /* ==========================================================================
@@ -548,24 +357,6 @@ canvas#snakeCanvas {
     opacity: 1;
   }
 }
-
-/* ==========================================================================
-   GAME BOARD THEME STYLES (SYNTHWAVE)
-   ========================================================================== */
-
-/* 1. Board Chassis */
-
-/* 2. Home Bays (Yards) */
-
-/* 3. Inner Yards */
-
-/* 4. Goal Counter Chips */
-
-/* 5. Center Triangle Cross */
-
-/* 6. Track Cells */
-
-/* 7. Die Styling */
 
 /* ==========================================================================
    CYBERPUNK GLITCH POPOVER MODAL & CYBER BUTTON DESIGN SYSTEM

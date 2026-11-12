@@ -36,16 +36,76 @@ const SWEPT = [
       /rgb\(\s*255\s+(?:230|176)\s+0\b/gi,
     ],
   },
+  {
+    // The first family of section 33 step 2. `--ink-rgb` is the neutral every surface
+    // tints with, `--shade-rgb` is the shadow under it, and `--text-main` is the ink
+    // as text. A literal here is a reader that stayed cold in the 70s.
+    token: '--ink-rgb / --shade-rgb / --text-main',
+    forms: [
+      /#(?:ffffff|fff)(?![\da-f])/gi,
+      /#(?:000000|000)(?![\da-f])/gi,
+      /rgba?\(\s*255\s*,\s*255\s*,\s*255\s*[,)]/gi,
+      /rgba?\(\s*0\s*,\s*0\s*,\s*0\s*[,)]/gi,
+      /rgb\(\s*255\s+255\s+255\b/gi,
+      /rgb\(\s*0\s+0\s+0\b/gi,
+      // Tailwind's own palette utilities bypass the tokens entirely, so they count.
+      /\b(?:text|bg|border|divide|ring|placeholder|from|to|via)-(?:white|black)(?![-a-z])/gi,
+    ],
+  },
 ];
 
 // The inventory: every literal the sweep keeps on purpose, one entry per file and
 // trimmed line, with the count that file carries. `why` is the reason a reader gets
 // when the entry goes stale, so the fix is obvious without reading this file's history.
 const INVENTORY = {
+  // Canvas and SVG painters: the colour is drawn, not read, on the line 26.6 drew for
+  // the hero. A sprite's specular dot is white because it is a specular dot, and a
+  // piece's shadow is black because it is a shadow on a board that is not the page.
   'game/pieceParts.ts': [
     { line: "blue: '#ffb000',", count: 1, why: 'the 70s piece accent, art not paint' },
+    { line: "const WHITE = '#ffffff';", count: 1, why: 'the sprite palette, art' },
+    { line: "shd: mix(base, '#000000', 0.22),", count: 1, why: 'a sprite shade, art' },
+    { line: "lo: mix(base, '#000000', 0.52),", count: 1, why: 'a sprite shade, art' },
+    { line: "deep: mix(base, '#000000', 0.74),", count: 1, why: 'a sprite shade, art' },
+    { line: "return { ...piecePalette(color), lo: mix(base, '#000000', LO_80) };", count: 1, why: 'a sprite shade, art' },
   ],
-  'heroBackdrops.ts': [{ line: "amber: '#ffb000',", count: 1, why: 'the 70s backdrop palette' }],
+  'heroBackdrops.ts': [
+    { line: "amber: '#ffb000',", count: 1, why: 'the 70s backdrop palette' },
+    { line: "star: '#ffffff',", count: 1, why: 'a star is white in both eras: the hero is art' },
+    { line: "sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');", count: 1, why: 'a fade to nothing, not a shade' },
+  ],
+  'game/ResultFx.tsx': [
+    { line: "<rect x={hotX} y={STRIKE_Y - 5} width='14' height='10' rx='4' fill='#ffffff' opacity='.7' />", count: 1, why: 'the strike spark, art' },
+    { line: "fill='#ffffff'", count: 1, why: 'the strike spark, art' },
+  ],
+  'components/GoalBurst.tsx': [
+    { line: "background: `linear-gradient(to top, ${i % 4 === 2 ? '#ffffff' : color}, #ffffff)`,", count: 2, why: 'a spark core, art' },
+    { line: "background: `radial-gradient(circle, #ffffff 22%, ${color} 62%, transparent 72%)`,", count: 1, why: 'a spark core, art' },
+  ],
+  'components/GoalConfetti.tsx': [{ line: "background: p.white ? '#ffffff' : color,", count: 1, why: 'a confetti spark, art' }],
+  'components/CaptureBurst.tsx': [{ line: "background: s.white ? '#ffffff' : color,", count: 1, why: 'a burst spark, art' }],
+  'components/Die.tsx': [
+    {
+      line: "'inset 0 2px 4px rgba(255,255,255,.8),inset 0 -6px 10px rgba(140,120,80,.35),0 14px 24px -10px rgba(0,0,0,.7)',",
+      count: 2,
+      why: 'the die is drawn in perspective: its specular edge and the shadow it casts, art',
+    },
+    { line: "boxShadow: 'inset 0 1px 1px rgba(0,0,0,.5)',", count: 1, why: 'the pip well on the die face, art' },
+  ],
+  'components/GoalCard.tsx': [{ line: 'stroke="#ffffff"', count: 1, why: 'the trophy glyph, art' }],
+  // `#1a1009`-type warm blacks and the two scrims sit on a surface another step owns,
+  // so this pass leaves them and names the step rather than moving someone's pixels.
+  'components/Board.tsx': [
+    { line: ": 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',", count: 1, why: "the board's own drawing, step 6 owns the fringes" },
+    { line: "color: goalCount > 0 ? 'var(--state-on)' : '#ffffff',", count: 1, why: 'a board counter, step 6 owns the fringes' },
+    { line: "const SAFE_STAR_COLOR = '#ffffff';", count: 1, why: 'the safe star, board art' },
+    { line: "const SAFE_STAR_OUTLINE = '#000000';", count: 1, why: 'the safe star, board art' },
+    { line: "boxShadow: '0 0 18px rgba(33, 33, 255, 0.6), inset 0 0 12px rgba(0,0,0,.7)',", count: 1, why: 'a cell ground, step 6 owns the fringes' },
+  ],
+  'game/ClashOverlay.tsx': [
+    { line: "background: 'rgba(0,0,0,.72)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
+    { line: "background: 'rgba(0, 0, 0, 0.94)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
+  ],
   'heroScenes.ts': [
     { line: "c1: 'rgba(255, 230, 0, 0.72)',", count: 1, why: 'the hero art, a painted scene' },
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },", count: 1, why: 'the hero art' },
@@ -69,12 +129,10 @@ const INVENTORY = {
       why: 'the room badge hues, whose pink, green and cyan siblings are literal too',
     },
     { line: "background: 'rgba(255, 230, 0, 0.24)',", count: 1, why: 'the level-2 ticket, kept whole with TICKET_YELLOW' },
-    { line: "border: '1.5px solid #ffe600',", count: 2, why: 'the level-2 ticket and its launch pill' },
-    { line: "color: '#ffe600',", count: 2, why: 'the level-2 ticket and its launch pill' },
+    { line: "border: '1.5px solid #ffe600',", count: 1, why: 'the level-2 ticket' },
+    { line: "color: '#ffe600',", count: 1, why: 'the level-2 ticket' },
     { line: "boxShadow: '0 0 12px rgba(255, 230, 0, 0.3)',", count: 1, why: 'the level-2 ticket' },
     { line: "borderRight: '2px dashed rgba(255, 230, 0, 0.45)',", count: 1, why: 'the level-2 ticket divider' },
-    { line: "background: 'rgba(255, 230, 0, 0.22)',", count: 1, why: 'the level-2 launch pill' },
-    { line: "boxShadow: '0 0 16px rgba(255, 230, 0, 0.4)',", count: 1, why: 'the level-2 launch pill' },
   ],
   'pages/Profile.tsx': [{ line: "YELLOW: '#ffe600',", count: 1, why: 'SEAT_COLOR: colour is the seat' }],
   'store.tsx': [
@@ -88,6 +146,8 @@ const INVENTORY = {
   // allowed to spell its own palette. One entry per name that carries a swept form.
   'styles/themes/retro80/theme.css': [
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
+    { line: '--text-main: #ffffff;', count: 1, why: 'the 80s token definition' },
+    { line: '--window-header-text: #ffffff;', count: 1, why: 'the 80s token definition' },
   ],
   'styles/themes/retro70/theme.css': [
     { line: '--accent-yellow: #ffb000;', count: 1, why: 'the 70s token definition' },
@@ -103,9 +163,14 @@ const INVENTORY = {
   ],
   'styles/tw.ts': [
     {
-      line: "'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';",
+      line: "'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';",
       count: 6,
       why: 'TICKET_YELLOW: the amber ticket, kept whole with its siblings',
+    },
+    {
+      line: "\"[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan,#00f0ff)] [--modal-shadow:var(--accent-pink,#ff007f)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]\";",
+      count: 2,
+      why: 'a mask channel: white is full coverage, not a colour, so it must not warm in the 70s',
     },
   ],
   'theme.ts': [{ line: "yellow: { base: '#ffe600' },", count: 1, why: 'the seat palette' }],
@@ -183,6 +248,82 @@ const files = [];
   }
 })(sourceRoot);
 
+// The channel gate (section 33, action C, ruled by shape on 2026-11-12). An inline
+// `style` object holding nothing but *paint*, every value a literal, is one a utility
+// could carry: `{ color: 'var(--text-main)' }` is `text-(--text-main)`. An object that
+// also carries typography or geometry is a style object **by rule** - the 71 single-use
+// recipes the ruling left alone - so it is not flagged and needs no inventory row. An
+// object with a computed value is rung 3 of the channel rule and is legal whatever it
+// holds, which is why the static test comes first: it is what separates a defect from a
+// declaration only JavaScript can make. A spread cannot be read, so it is never flagged.
+const PAINT = new Set([
+  'color', 'background', 'backgroundColor', 'backgroundImage', 'border', 'borderColor',
+  'borderTop', 'borderBottom', 'borderLeft', 'borderRight', 'borderTopColor',
+  'borderBottomColor', 'boxShadow', 'textShadow', 'outline', 'outlineColor', 'fill', 'stroke',
+]);
+const isLiteral = (v) =>
+  /^'(?:[^'\\]|\\.)*'$/.test(v) || /^"(?:[^"\\]|\\.)*"$/.test(v) || /^-?\d+(?:\.\d+)?$/.test(v);
+
+function styleObjects(src) {
+  const out = [];
+  const re = /style=\{\{/g;
+  let m;
+  while ((m = re.exec(src))) {
+    let i = re.lastIndex;
+    let depth = 2;
+    while (i < src.length && depth > 0) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') depth--;
+      i++;
+    }
+    const body = src.slice(re.lastIndex, i - 2);
+    const props = [];
+    let quote = null;
+    let nest = 0;
+    let start = 0;
+    for (let k = 0; k < body.length; k++) {
+      const c = body[k];
+      if (quote) {
+        if (c === quote && body[k - 1] !== '\\') quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === '`') quote = c;
+      else if (c === '(' || c === '[' || c === '{') nest++;
+      else if (c === ')' || c === ']' || c === '}') nest--;
+      else if (c === ',' && nest === 0) {
+        props.push(body.slice(start, k));
+        start = k + 1;
+      }
+    }
+    props.push(body.slice(start));
+    const parsed = props
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => {
+        const c = p.indexOf(':');
+        return c < 0 ? { spread: true } : { key: p.slice(0, c).trim(), val: p.slice(c + 1).trim() };
+      });
+    out.push({
+      line: src.slice(0, m.index).split('\n').length,
+      text: src.slice(m.index, i).replace(/\s+/g, ' '),
+      parsed,
+    });
+  }
+  return out;
+}
+
+const paintOnly = [];
+for (const full of files) {
+  if (!/\.(ts|tsx)$/.test(full)) continue;
+  const rel = path.relative(sourceRoot, full).split(path.sep).join('/');
+  for (const obj of styleObjects(readFileSync(full, 'utf8'))) {
+    const { parsed } = obj;
+    if (!parsed.length || parsed.some((p) => p.spread)) continue;
+    if (!parsed.every((p) => PAINT.has(p.key) && isLiteral(p.val))) continue;
+    paintOnly.push({ file: rel, ...obj });
+  }
+}
+
 const found = [];
 for (const full of files.sort()) {
   const rel = path.relative(sourceRoot, full).split(path.sep).join('/');
@@ -226,26 +367,63 @@ for (const [file, entries] of Object.entries(INVENTORY)) {
   }
 }
 
+// `--propose` prints the inventory rows the current tree would need, ready to paste:
+// a kept literal is a decision, and the tool writes the shape of the decision, not
+// the reason for it.
+if (process.argv.includes('--propose')) {
+  const byFile = new Map();
+  for (const hit of unexpected) {
+    const rows = byFile.get(hit.file) ?? new Map();
+    const row = rows.get(hit.text) ?? { count: 0, literal: hit.literal };
+    row.count += 1;
+    rows.set(hit.text, row);
+    byFile.set(hit.file, rows);
+  }
+  for (const [file, rows] of byFile) {
+    console.log(`'${file}': [`);
+    for (const [text, row] of rows) console.log(`  { line: ${JSON.stringify(text)}, count: ${row.count}, why: '' },`);
+    console.log('],');
+  }
+  if (byFile.size === 0) console.log('(nothing to propose: every swept literal is already on the inventory)');
+  process.exit(0);
+}
+
 const forms = new Set(found.map((hit) => hit.literal)).size;
-if (unexpected.length === 0 && stale.length === 0) {
+if (unexpected.length === 0 && stale.length === 0 && paintOnly.length === 0) {
   console.log(
     `check-theme-literals: ${SWEPT.length} swept colour(s), ${found.length} kept literals all on the inventory, ` +
-      `${seqFirst.length} token names in parity across ${TABLES.length} tables`,
+      `${seqFirst.length} token names in parity across ${TABLES.length} tables, ` +
+      `0 paint-only inline object(s)`,
   );
   process.exit(0);
 }
 
-console.error('check-theme-literals: the sweep regressed');
-for (const hit of unexpected) {
-  console.error(`  ${hit.file}:${hit.line}  ${hit.literal}  read ${hit.token} instead`);
-  console.error(`    ${hit.text.slice(0, 100)}`);
+if (paintOnly.length > 0) {
+  console.error('check-theme-literals: an inline `style` a utility could carry (section 33, the channel rule)');
+  for (const hit of paintOnly) {
+    console.error(`  ${hit.file}:${hit.line}  ${hit.text.slice(0, 110)}`);
+    console.error(`    every value is a literal and every property is paint: write the class instead`);
+  }
+  console.error(
+    '\nAn object that also carries typography or geometry is a style object by rule, and so is one with a\n' +
+      'computed value - neither is flagged. Only the paint-only static object is a defect.\n',
+  );
 }
-for (const s of stale) {
-  console.error(`  ${s.file}  inventory expects ${s.entry.count}, found ${s.actual}  ${s.entry.why}`);
-  console.error(`    ${s.entry.line.slice(0, 100)}`);
+
+if (unexpected.length > 0 || stale.length > 0) {
+  console.error('check-theme-literals: the sweep regressed');
+  for (const hit of unexpected) {
+    console.error(`  ${hit.file}:${hit.line}  ${hit.literal}  read ${hit.token} instead`);
+    console.error(`    ${hit.text.slice(0, 100)}`);
+  }
+  for (const s of stale) {
+    console.error(`  ${s.file}  inventory expects ${s.entry.count}, found ${s.actual}  ${s.entry.why}`);
+    console.error(`    ${s.entry.line.slice(0, 100)}`);
+  }
 }
 console.error(
-  `\n${unexpected.length} unexpected literal(s), ${stale.length} stale inventor(ies), ${forms} distinct literal form(s) in play.`,
+  `\n${unexpected.length} unexpected literal(s), ${stale.length} stale inventor(ies), ` +
+    `${paintOnly.length} paint-only object(s), ${forms} distinct literal form(s) in play.`,
 );
 process.exit(1);
 

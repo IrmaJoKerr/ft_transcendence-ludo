@@ -408,7 +408,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
             padding: 0,
             borderRadius: 12,
             fontSize: '0.85rem',
-            color: cardOpen ? '#ffffff' : 'var(--text-main)',
+            color: cardOpen ? 'var(--text-main)' : 'var(--text-main)',
             fontWeight: 900,
             letterSpacing: '1px',
           }}
@@ -492,7 +492,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
             fontWeight: 900,
             letterSpacing: '0.5px',
             color: open ? 'var(--accent-cyan)' : 'var(--text-muted)',
-            background: open ? 'rgba(0, 240, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+            background: open ? 'rgba(0, 240, 255, 0.12)' : 'rgb(var(--ink-rgb) / 0.05)',
             border: `1px solid ${open ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
             boxShadow: open ? '0 0 10px rgba(0, 240, 255, 0.28)' : 'none',
             transition: 'all 0.18s ease',
@@ -573,9 +573,9 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  <span style={{ color: 'var(--accent-cyan)' }}>{line.senderName}</span>
-                  <span style={{ color: 'var(--text-muted)' }}> &gt; </span>
-                  <span style={{ color: 'var(--text-main)' }}>{line.text}</span>
+                  <span className="text-(--accent-cyan)">{line.senderName}</span>
+                  <span className="text-(--text-muted)"> &gt; </span>
+                  <span className="text-(--text-main)">{line.text}</span>
                 </p>
               ))
             )}

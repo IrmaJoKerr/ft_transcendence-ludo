@@ -81,7 +81,7 @@ export function RetroAuthLayout({
 
         {/* Glass card */}
         <div
-          className="w-full max-w-155 rounded-[22px] bg-[rgba(13,2,33,0.78)] px-13 py-12 shadow-[0_0_45px_rgba(0,240,255,0.18),0_0_90px_rgba(255,0,127,0.12),0_28px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl backdrop-saturate-[1.8] [border:1.5px_solid_rgba(0,240,255,0.35)]"
+          className="w-full max-w-155 rounded-[22px] bg-[rgba(13,2,33,0.78)] px-13 py-12 shadow-[0_0_45px_rgba(0,240,255,0.18),0_0_90px_rgba(255,0,127,0.12),0_28px_70px_rgb(var(--shade-rgb)/0.65),inset_0_1px_0_rgb(var(--ink-rgb)/0.08)] backdrop-blur-xl backdrop-saturate-[1.8] [border:1.5px_solid_rgba(0,240,255,0.35)]"
           style={{
             position: 'relative',
             width: '100%',
@@ -135,7 +135,7 @@ export function NeonCheck({
         border: '1px solid rgba(0, 240, 255, 0.6)',
         display: 'inline-grid',
         placeItems: 'center',
-        color: '#ffffff',
+        color: 'var(--text-main)',
         fontSize: 10,
         fontWeight: 900,
         boxShadow: checked ? '0 0 8px rgba(0, 240, 255, 0.4)' : 'none',

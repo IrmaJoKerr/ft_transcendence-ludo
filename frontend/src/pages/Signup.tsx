@@ -92,12 +92,12 @@ export function Signup() {
             {t('auth.checkInboxTitle')}
           </div>
           <div className={RETRO_AUTH_MUTED} style={{ lineHeight: 1.5, fontSize: '14px' }}>
-            {t('auth.verificationSentPrefix')} <b style={{ color: '#00f0ff' }}>{email}</b>.{' '}
+            {t('auth.verificationSentPrefix')} <b className="text-(--accent-cyan)">{email}</b>.{' '}
             {t('auth.verificationSentSuffix')}
           </div>
           {assigned && (
             <div className={RETRO_AUTH_MUTED} style={{ lineHeight: 1.5, fontSize: '14px' }}>
-              {t('auth.assignedUsernamePrefix')} <b style={{ color: '#00f0ff' }}>{assigned}</b>
+              {t('auth.assignedUsernamePrefix')} <b className="text-(--accent-cyan)">{assigned}</b>
             </div>
           )}
           <div className={RETRO_AUTH_MUTED} style={{ fontSize: '13px' }}>

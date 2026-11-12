@@ -341,7 +341,7 @@ on 'game_ended' { winner, resultDetail }
 | `utils/device.ts` | `isMobileOS()` for the ClashOverlay touch path |
 | `theme.ts` | `SEAT_COLORS` for the roster rail and the turn order, `BOARD_QUADRANTS` for the palette grid, `COLOR_KEYS` for the colour words, `COL` for the board/base fills |
 | `styles/tw.ts` | Shared layout/class constants used by the page |
-| `styles/retrowave.css` | Theme variables, clash colors and keyframes |
+| `styles/themes/*/theme.css` | Theme variables (one table per era), clash colors and keyframes |
 | `api.ts` | `getApi`, `postApi` and `translateErrorCode` |
 | `router.ts` | `navigate` for lobby/login/game transitions |
 | `utils/audio.ts` | `retroAudio` sound effects |

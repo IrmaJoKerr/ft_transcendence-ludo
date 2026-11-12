@@ -81,7 +81,7 @@ export function PasswordInfo() {
             textTransform: 'none',
             textAlign: 'left',
             whiteSpace: 'normal',
-            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 240, 255, 0.15)',
+            boxShadow: '0 8px 22px rgb(var(--shade-rgb) / 0.6), 0 0 16px rgba(0, 240, 255, 0.15)',
             pointerEvents: 'none',
           }}
         >

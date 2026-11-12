@@ -22,6 +22,7 @@ import {
   THEME_POPOVER_MENU_BASE,
   THEME_POPOVER_MENU_ACTIVE_DOWN,
   RETRO_FLOATING_DOCK,
+  DISPLAY_LABEL,
 } from '../styles/tw';
 
 
@@ -320,8 +321,8 @@ export function RetroNavbar({
         border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgba(0, 240, 255, 0.35)',
         borderRadius: 22,
         boxShadow: SEVENTIES
-          ? '0 28px 70px rgba(0, 0, 0, 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
-          : '0 28px 70px rgba(0, 0, 0, 0.8), 0 0 32px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
+          ? '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
+          : '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
         boxSizing: 'border-box',
         overflow: 'visible',
         ...style,
@@ -336,7 +337,7 @@ export function RetroNavbar({
           alignItems: 'center',
           gap: 12,
           paddingBottom: 14,
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: '1px solid rgb(var(--ink-rgb) / 0.08)',
         }}
       >
         {/* User Profile Pill Button -> Opens Account & Settings Popover Menu */}
@@ -360,7 +361,7 @@ export function RetroNavbar({
               alignItems: 'center',
               justifyContent: isCompact ? 'center' : 'space-between',
               gap: 10,
-              color: '#ffffff',
+              color: 'var(--text-main)',
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -405,7 +406,7 @@ export function RetroNavbar({
                     fontFamily: 'var(--font-display)',
                     fontSize: '0.94rem',
                     fontWeight: 900,
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -456,8 +457,8 @@ export function RetroNavbar({
                   backdropFilter: 'blur(32px) saturate(220%)',
                   border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgba(0, 240, 255, 0.45)',
                   boxShadow: SEVENTIES
-                    ? '0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgb(var(--accent-yellow-rgb) / 0.25)'
-                    : '0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 240, 255, 0.25)',
+                    ? '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgb(var(--accent-yellow-rgb) / 0.25)'
+                    : '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgba(0, 240, 255, 0.25)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 12,
@@ -505,10 +506,10 @@ export function RetroNavbar({
                     borderRadius: 8,
                     background: !soundMuted
                       ? 'rgb(var(--state-on-rgb) / 0.12)'
-                      : 'rgba(255, 255, 255, 0.04)',
+                      : 'rgb(var(--ink-rgb) / 0.04)',
                     border: !soundMuted
                       ? '1px solid var(--state-on)'
-                      : '1px solid rgba(255, 255, 255, 0.1)',
+                      : '1px solid rgb(var(--ink-rgb) / 0.1)',
                     boxShadow: !soundMuted ? '0 0 10px rgb(var(--state-on-rgb) / 0.2)' : 'none',
                     cursor: 'pointer',
                     transition: 'all 0.18s ease',
@@ -519,12 +520,7 @@ export function RetroNavbar({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: '1rem' }}>{soundMuted ? '🔇' : '🔊'}</span>
                     <span
-                      style={{
-                        fontFamily: 'var(--font-display)',
-                        fontSize: '0.84rem',
-                        fontWeight: 900,
-                        color: '#ffffff',
-                      }}
+                      className={DISPLAY_LABEL}
                     >
                       {t('navbar.audioLabel')}
                     </span>
@@ -536,11 +532,11 @@ export function RetroNavbar({
                       fontWeight: 900,
                       padding: '3px 8px',
                       borderRadius: 4,
-                      background: !soundMuted ? 'var(--state-on)' : 'rgba(255, 255, 255, 0.12)',
+                      background: !soundMuted ? 'var(--state-on)' : 'rgb(var(--ink-rgb) / 0.12)',
                       color: !soundMuted ? 'var(--state-on-ink)' : 'var(--text-muted)',
                       border: !soundMuted
                         ? '1px solid var(--state-on)'
-                        : '1px solid rgba(255, 255, 255, 0.18)',
+                        : '1px solid rgb(var(--ink-rgb) / 0.18)',
                     }}
                   >
                     {!soundMuted ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}
@@ -571,7 +567,7 @@ export function RetroNavbar({
                       ? 'linear-gradient(90deg, rgba(229, 52, 11, 0.25), rgb(var(--accent-yellow-rgb) / 0.35))'
                       : 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgba(255, 0, 127, 0.35))',
                     border: SEVENTIES ? '1.5px solid #e5340b' : '1.5px solid #ff0055',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     boxShadow: SEVENTIES ? '0 0 12px rgba(229, 52, 11, 0.3)' : '0 0 12px rgba(255, 0, 85, 0.3)',
                     borderRadius: 8,
                     cursor: 'pointer',
@@ -634,7 +630,7 @@ export function RetroNavbar({
               justifyContent: 'space-between',
               gap: 8,
               cursor: isRejoining ? 'wait' : 'pointer',
-              color: '#ffffff',
+              color: 'var(--text-main)',
               fontFamily: 'var(--font-display)',
               fontWeight: 900,
               boxSizing: 'border-box',
@@ -659,7 +655,7 @@ export function RetroNavbar({
                 <span
                   style={{
                     fontSize: '0.8rem',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     fontWeight: 900,
                     letterSpacing: '0.04em',
                     whiteSpace: 'nowrap',
@@ -757,7 +753,7 @@ export function RetroNavbar({
                   padding: isCompact ? 0 : '0 14px',
                   fontSize: '0.85rem',
                   borderRadius: 12,
-                  color: isActive ? '#ffffff' : 'var(--text-main)',
+                  color: isActive ? 'var(--text-main)' : 'var(--text-main)',
                   fontWeight: 900,
                   letterSpacing: '1px',
                 }}
@@ -822,7 +818,7 @@ export function RetroNavbar({
           flexDirection: 'column',
           gap: 8,
           paddingTop: 10,
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          borderTop: '1px solid rgb(var(--ink-rgb) / 0.08)',
         }}
       >
         {/* Notifications Bell -> Accessible across ALL pages. The block is the

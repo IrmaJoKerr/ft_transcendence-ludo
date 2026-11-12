@@ -736,7 +736,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   ├── .npmrc / .oxlintrc.json    # npm registry config / oxlint rules
 │   ├── publish.sh                # Build, publish, watch src/ (long-running)
 │   ├── dev.sh                    # Sync, hand the copy back, then Vite (dev profile)
-│   ├── public/                   # Static assets copied as-is: logo.png, google.png, github.png, forty_two.png, synthwave-cityscape.jpeg
+│   ├── public/                   # Static assets copied as-is: logo.png, google.png, github.png, forty_two.png, pieces/, fonts/ (self-hosted woff2), and 1970s-Utopia-Sunset-Mod-Desert-City.jpg — the 70s shell's reserve plate, unreferenced on purpose (styles/theme-base.css)
 │   │
 │   └── src/
 │       ├── main.tsx              # React entry point
@@ -746,13 +746,13 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── api.ts                # Typed fetch wrapper (refresh + retry, CSRF, ngrok, error-code translation)
 │       ├── socket.ts             # Socket.IO client types + connectSocket()
 │       ├── i18n.ts               # i18next init
-│       ├── theme.ts              # Shared style constants + bot pool
+│       ├── theme.ts              # Seat palette + data constants (style objects deleted 2026-11-12)
 │       ├── index.css             # Global styles
 │       ├── avatarCache.ts        # avatar state store (userId-keyed overrides)
 │       ├── dicebear.ts           # @dicebear avatar style resolution
 │       ├── validateEmail.ts      # Client-side email-format check (mirror of @IsEmail)
 │       ├── validatePassword.ts   # Client-side password policy mirror
-│       ├── styles/               # retrowave.css (theme tokens/CSS) + tw.ts (helpers)
+│       ├── styles/               # themes/*/theme.css (one palette per era) + app.css + tw.ts
 │       ├── pages/                # Home, Login, Signup, TwoFactor, ForgotPassword,
 │       │                         # ResetPassword, VerifyEmail, LudoLobby, Lobby, Game,
 │       │                         # Friends, Leaderboard, Profile, LegalPage

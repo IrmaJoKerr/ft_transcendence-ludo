@@ -7,15 +7,10 @@ export const THEME_TRIGGER_BTN_BASE =
   "font-['Atkinson_Hyperlegible_Next',sans-serif] text-[0.65rem] h-[38px] w-[125px] px-2.5 box-border inline-flex items-center justify-between rounded gap-1 relative shrink-0 cursor-pointer outline-none [transition:background_0.2s_ease,border-color_0.2s_ease,box-shadow_0.2s_ease,color_0.2s_ease]";
 
 export const THEME_POPOVER_MENU_BASE =
-  'absolute top-[calc(100%+10px)] right-0 z-[10001] bg-[var(--fs-bg)] border-2 border-[var(--fs-border)] shadow-[0_14px_40px_rgba(0,0,0,.9),0_0_25px_var(--fs-glow)] p-2.5 rounded-md min-w-[240px] [transform-origin:top_right] backdrop-blur-[10px]';
-
-export const THEME_POPOVER_MENU_HIDDEN = 'hidden';
+  'absolute top-[calc(100%+10px)] right-0 z-[10001] bg-[var(--fs-bg)] border-2 border-[var(--fs-border)] shadow-[0_14px_40px_rgb(var(--shade-rgb)/.9),0_0_25px_var(--fs-glow)] p-2.5 rounded-md min-w-[240px] [transform-origin:top_right] backdrop-blur-[10px]';
 
 export const THEME_POPOVER_MENU_ACTIVE_DOWN =
   'block [animation:popover-slide-down_0.3s_cubic-bezier(.175,.885,.32,1.275)_forwards]';
-
-export const THEME_POPOVER_MENU_ACTIVE_UP =
-  'block [animation:popover-slide-up_0.3s_cubic-bezier(.175,.885,.32,1.275)_forwards]';
 
 // RetroNavbar's `#mainNav`
 export const RETRO_FLOATING_DOCK =
@@ -33,13 +28,13 @@ export const RETRO_AUTH_LABEL =
   "font-['Atkinson_Hyperlegible_Next',sans-serif] text-xs font-bold tracking-[1.5px] text-[rgba(0,240,255,.75)] uppercase";
 
 export const RETRO_AUTH_INPUT =
-  "w-full [border:1.5px_solid_rgba(0,240,255,.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-white bg-[rgba(0,0,0,.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-[#00f0ff] focus:shadow-[0_0_18px_rgba(0,240,255,.35),inset_0_0_8px_rgba(0,240,255,.1)] focus:bg-[rgba(0,0,0,.6)]";
+  "w-full [border:1.5px_solid_rgba(0,240,255,.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-(--text-main) bg-[rgb(var(--shade-rgb)/.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-[#00f0ff] focus:shadow-[0_0_18px_rgba(0,240,255,.35),inset_0_0_8px_rgba(0,240,255,.1)] focus:bg-[rgb(var(--shade-rgb)/.6)]";
 
 export const RETRO_AUTH_BTN =
-  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-white cursor-pointer bg-[linear-gradient(135deg,#ff007f,#9d00ff)] shadow-[0_0_22px_rgba(255,0,127,.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgba(255,0,127,.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgba(0,240,255,.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
+  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,#ff007f,#9d00ff)] shadow-[0_0_22px_rgba(255,0,127,.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgba(255,0,127,.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgba(0,240,255,.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
 
 export const RETRO_AUTH_BTN_OUTLINE =
-  "[border:1.5px_solid_rgba(0,240,255,.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Atkinson_Hyperlegible_Mono',monospace] text-[rgba(255,255,255,.88)] cursor-pointer bg-[rgba(0,240,255,.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-[#00f0ff] hover:bg-[rgba(0,240,255,.15)] hover:shadow-[0_0_16px_rgba(0,240,255,.3)] hover:text-white";
+  "[border:1.5px_solid_rgba(0,240,255,.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Atkinson_Hyperlegible_Mono',monospace] text-[rgb(var(--ink-rgb)/.88)] cursor-pointer bg-[rgba(0,240,255,.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-[#00f0ff] hover:bg-[rgba(0,240,255,.15)] hover:shadow-[0_0_16px_rgba(0,240,255,.3)] hover:text-(--text-main)";
 
 export const RETRO_AUTH_DIVIDER =
   "flex items-center gap-3.5 text-[rgba(184,166,228,.45)] [font:700_11px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[2px]";
@@ -82,7 +77,7 @@ export const HERO_SECTION =
   'text-center p-[18px_20px_16px] bg-(--bg-card) [border:var(--card-border-style)] shadow-(--box-shadow) mb-[18px] relative overflow-hidden rounded';
 
 export const HERO_TITLE =
-  '[font-family:var(--font-heading)] text-[2.2rem] leading-[1.25] text-white [text-shadow:3px_3px_0_var(--accent-pink),-2px_-2px_0_var(--accent-cyan),0_0_22px_rgba(255,0,127,.85)] mb-2 tracking-[2px]';
+  '[font-family:var(--font-heading)] text-[2.2rem] leading-[1.25] text-(--text-main) [text-shadow:3px_3px_0_var(--accent-pink),-2px_-2px_0_var(--accent-cyan),0_0_22px_rgba(255,0,127,.85)] mb-2 tracking-[2px]';
 
 export const HERO_SUBTITLE =
   '[font-family:var(--font-display)] text-[1.35rem] text-(--accent-yellow) [text-shadow:0_0_12px_var(--accent-yellow)] mb-0';
@@ -98,7 +93,7 @@ export const RETRO_WINDOW =
 export const WINDOW_HEADER =
   'bg-(--window-header-bg) text-(--window-header-text) py-2 px-3.5 [font-family:var(--font-heading)] text-[0.75rem] flex justify-between items-center select-none';
 
-export const GAME_WINDOW_HEADER_EXTRA = '!bg-[#140a35] border-b-2 border-b-[#2121ff] !text-white';
+export const GAME_WINDOW_HEADER_EXTRA = '!bg-[#140a35] border-b-2 border-b-[#2121ff] !text-(--text-main)';
 
 export const WINDOW_BODY = 'p-5 grow';
 
@@ -107,10 +102,10 @@ export const WINDOW_CONTROLS = 'flex gap-1.5';
 // Decorative traffic-light squares in a window header: pure chrome, so they take
 // no pointer events and never show a hand. Nothing here is clickable.
 export const WINDOW_BTN_MIN =
-  'w-3.5 h-3.5 rounded-xs border border-black/40 bg-[#ffbd2e] pointer-events-none';
+  'w-3.5 h-3.5 rounded-xs border border-[rgb(var(--shade-rgb)/.4)] bg-[#ffbd2e] pointer-events-none';
 
 export const WINDOW_BTN_MAX =
-  'w-3.5 h-3.5 rounded-xs border border-black/40 bg-[#27c93f] pointer-events-none';
+  'w-3.5 h-3.5 rounded-xs border border-[rgb(var(--shade-rgb)/.4)] bg-[#27c93f] pointer-events-none';
 
 export const APEX_CHAMPION_CARD =
   'scale-[1.02] shadow-[0_0_28px_rgba(255,23,68,.55),0_0_45px_rgba(255,215,0,.25),inset_0_0_16px_rgba(255,215,0,.15)] animate-none';
@@ -126,26 +121,26 @@ export const RETRO_TICKET_PASS =
   'relative flex items-center justify-between rounded-xl py-[26px] px-8 min-h-[124px] gap-6 flex-wrap box-border cursor-pointer select-none [transition:box-shadow_0.22s_cubic-bezier(.16,1,.3,1),border-color_0.22s_ease,background_0.22s_ease]';
 
 export const TICKET_PINK =
-  'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';
+  'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';
 
 export const TICKET_YELLOW =
-  'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';
+  'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';
 
 export const TICKET_GREEN =
-  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgba(0,0,0,.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgba(0,0,0,.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
+  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
 // The right-hand action pill inside a pass. The 1.5 px transparent border is not
 // decoration: all three pills share one width (the widest label, see
 // `PassActionPill`), and a pill without a border would be 3 px narrower than the
 // two with one. Pills that want a coloured edge override only the colour.
 export const TICKET_ACTION_PILL =
-  'inline-flex items-center justify-center py-3 px-6 rounded-md border-[1.5px] border-solid border-transparent [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
+  'inline-flex items-center justify-center py-3 px-6 rounded-md border-[1.5px] border-solid [border-color:var(--pill-border,transparent)] [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
 
 // Home.tsx arcade cabinet + grid columns + footer.
 export const ARCADE_CONTAINER = 'flex flex-col items-center gap-[15px]';
 
 export const ARCADE_SCREEN_FRAME =
-  'bg-black p-0 border-4 border-[#333333] shadow-[inset_0_0_20px_#000000,0_0_15px_var(--accent-cyan)] relative overflow-hidden w-full h-full cursor-pointer [transition:all_0.2s_ease]';
+  'bg-[rgb(var(--shade-rgb))] p-0 border-4 border-[#333333] shadow-[inset_0_0_20px_rgb(var(--shade-rgb)),0_0_15px_var(--accent-cyan)] relative overflow-hidden w-full h-full cursor-pointer [transition:all_0.2s_ease]';
 
 export const ARCADE_START_OVERLAY =
   'absolute bottom-6 left-1/2 -translate-x-1/2 w-[82%] max-w-[580px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-none [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
@@ -194,13 +189,13 @@ export const CYBER_MODAL_VERSION =
   'absolute right-3 top-2 text-[0.62rem] [font-family:var(--font-mono,monospace)] opacity-65 text-(--modal-accent)';
 
 export const CYBER_MODAL_H2 =
-  "pb-[0.6rem] mt-0 mb-4 mx-0 uppercase relative text-[1.15rem] [font-family:var(--font-heading)] tracking-[1px] text-white after:content-[''] after:h-(--border) after:bottom-0 after:left-0 after:right-0 after:bg-(--modal-accent) after:shadow-[0_0_8px_var(--modal-accent)] after:absolute after:[transform-origin:0_50%] after:duration-[260ms] after:[transition-property:scale] after:ease-in after:[scale:0_1] group-data-[modal-state=open]/modal:after:[scale:1_1] group-data-[modal-state=open]/modal:after:[transition-delay:325ms] group-data-[modal-state=open]/modal:after:ease-out";
+  "pb-[0.6rem] mt-0 mb-4 mx-0 uppercase relative text-[1.15rem] [font-family:var(--font-heading)] tracking-[1px] text-(--text-main) after:content-[''] after:h-(--border) after:bottom-0 after:left-0 after:right-0 after:bg-(--modal-accent) after:shadow-[0_0_8px_var(--modal-accent)] after:absolute after:[transform-origin:0_50%] after:duration-[260ms] after:[transition-property:scale] after:ease-in after:[scale:0_1] group-data-[modal-state=open]/modal:after:[scale:1_1] group-data-[modal-state=open]/modal:after:[transition-delay:325ms] group-data-[modal-state=open]/modal:after:ease-out";
 
 export const CYBER_MODAL_H2_SPAN =
   'opacity-0 [transition-property:opacity] ease-out duration-[260ms] group-data-[modal-state=open]/modal:opacity-100 group-data-[modal-state=open]/modal:[transition-delay:325ms]';
 
 export const CYBER_MODAL_BODY_TEXT =
-  '[font-family:var(--font-mono,monospace)] text-[0.85rem] leading-[1.6] text-white/88 opacity-0 [translate:0_-1lh] [transition-property:opacity,translate] duration-[260ms] ease-out group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:opacity-100 group-data-[modal-state=open]/modal:[transition-delay:325ms] [&>p]:m-0 [&>p]:mb-[0.8rem] [&>p:last-child]:mb-0 [&>p:last-child]:font-bold [&>p:last-child]:text-(--accent-yellow)';
+  '[font-family:var(--font-mono,monospace)] text-[0.85rem] leading-[1.6] text-[rgb(var(--ink-rgb)/.88)] opacity-0 [translate:0_-1lh] [transition-property:opacity,translate] duration-[260ms] ease-out group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:opacity-100 group-data-[modal-state=open]/modal:[transition-delay:325ms] [&>p]:m-0 [&>p]:mb-[0.8rem] [&>p:last-child]:mb-0 [&>p:last-child]:font-bold [&>p:last-child]:text-(--accent-yellow)';
 
 export const CYBER_MODAL_ACTIONS =
   'flex items-center gap-[0.8rem] pt-[1.2rem] [transition-property:translate,opacity] duration-100 ease-out opacity-0 [translate:-24px_0] group-data-[modal-state=open]/modal:opacity-100 group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:[transition-delay:500ms]';
@@ -220,7 +215,7 @@ export const CYBER_BTN_YELLOW =
 export const CYBER_BTN_DANGER = '![--btn-accent:#ff0055] ![--btn-shadow:#ff0000]';
 
 const CYBER_BTN_BACKDROP_SHARED =
-  "absolute z-[1] inset-0 bg-[rgba(15,5,32,.85)] backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:var(--clip)] pointer-events-none [transition:background_0.2s_ease,box-shadow_0.2s_ease] before:content-[''] before:absolute before:inset-0 before:bg-(--btn-accent) before:[border:var(--border)_solid_transparent] before:[clip-path:var(--clip)] before:[mask:linear-gradient(#0000_0%_100%),linear-gradient(#fff_0%_100%)] before:![mask-clip:padding-box,border-box] before:![mask-repeat:no-repeat] before:![mask-composite:intersect] before:z-[2]";
+  "absolute z-[1] inset-0 bg-[rgba(15,5,32,.85)] backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:var(--clip)] pointer-events-none [transition:background_0.2s_ease,box-shadow_0.2s_ease] before:content-[''] before:absolute before:inset-0 before:bg-(--btn-accent) before:[border:var(--border)_solid_transparent] before:[clip-path:var(--clip)] before:[mask:linear-gradient(#0000_0%_100%),linear-gradient(rgb(var(--ink-rgb))_0%_100%)] before:![mask-clip:padding-box,border-box] before:![mask-repeat:no-repeat] before:![mask-composite:intersect] before:z-[2]";
 
 export const CYBER_BTN_BACKDROP = `${CYBER_BTN_BACKDROP_SHARED} group-hover:bg-(--btn-accent) group-hover:shadow-[0_0_16px_var(--btn-accent)]`;
 
@@ -247,10 +242,10 @@ export const RESULTS_INVOICE_CONTAINER =
   'relative z-[100] w-full h-[660px] mx-auto mb-8 flex flex-col items-center box-border';
 
 export const INVOICE_SLOT_BOTTOM =
-  'absolute top-0 left-0 w-full h-[115px] z-[2] box-border flex flex-col items-center justify-end pt-2.5 px-3.5 pb-3.5 bg-(--bg-secondary) border-[2.5px] border-(--accent-pink) rounded-[1.2em_1.2em_0.4em_0.4em] shadow-[0_10px_30px_rgba(0,0,0,.85)]';
+  'absolute top-0 left-0 w-full h-[115px] z-[2] box-border flex flex-col items-center justify-end pt-2.5 px-3.5 pb-3.5 bg-(--bg-secondary) border-[2.5px] border-(--accent-pink) rounded-[1.2em_1.2em_0.4em_0.4em] shadow-[0_10px_30px_rgb(var(--shade-rgb)/.85)]';
 
 export const SLOT_HOLE_BOTTOM =
-  'mx-auto w-[88%] h-8 box-border rounded-full border-[2.5px] border-[#ff007f] shadow-[inset_0_0_14px_#000] bg-[#020006]';
+  'mx-auto w-[88%] h-8 box-border rounded-full border-[2.5px] border-[#ff007f] shadow-[inset_0_0_14px_rgb(var(--shade-rgb))] bg-[#020006]';
 
 export const INVOICE_SLOT_TOP =
   'absolute top-0 left-0 w-full h-[82px] z-20 box-border flex flex-col items-center justify-between pt-2.5 px-3.5 pointer-events-none bg-(--bg-secondary) border-[2.5px] border-b-0 border-(--accent-pink) rounded-t-[1.2em]';
@@ -265,13 +260,13 @@ export const TICKET_PAPER_WRAPPER =
   'w-[80%] mt-[70px] mx-auto relative z-10 flex flex-col items-center box-border [clip-path:inset(0px_-50px_-10000px_-50px)]';
 
 export const RESULTS_INVOICE =
-  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgba(18,7,42,.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgba(0,0,0,.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
+  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgba(18,7,42,.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgb(var(--shade-rgb)/.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
 
 const TICKET_NOTCH_BASE = 'absolute top-[55px] w-4 h-4 rounded-full z-[6] bg-(--bg-primary)';
 
-export const TICKET_NOTCH_LEFT = `${TICKET_NOTCH_BASE} -left-[9px] shadow-[inset_-2px_0_4px_rgba(0,0,0,.6)]`;
+export const TICKET_NOTCH_LEFT = `${TICKET_NOTCH_BASE} -left-[9px] shadow-[inset_-2px_0_4px_rgb(var(--shade-rgb)/.6)]`;
 
-export const TICKET_NOTCH_RIGHT = `${TICKET_NOTCH_BASE} -right-[9px] shadow-[inset_2px_0_4px_rgba(0,0,0,.6)]`;
+export const TICKET_NOTCH_RIGHT = `${TICKET_NOTCH_BASE} -right-[9px] shadow-[inset_2px_0_4px_rgb(var(--shade-rgb)/.6)]`;
 
 export const INVOICE_TITLE =
   "relative text-[1.12rem] [font-family:var(--font-heading)] py-[0.7em] tracking-[1px] text-center mb-[1.4em] font-bold text-(--text-main) uppercase before:content-[''] before:absolute before:h-0.5 before:w-full before:top-0 before:left-0 before:[background-image:repeating-linear-gradient(90deg,var(--accent-pink),var(--accent-pink)_10px,transparent_10px,transparent_20px)] after:content-[''] after:absolute after:h-0.5 after:w-full after:bottom-0 after:left-0 after:[background-image:repeating-linear-gradient(90deg,var(--accent-pink),var(--accent-pink)_10px,transparent_10px,transparent_20px)] max-[520px]:text-[0.9rem] max-[520px]:py-[0.5em]";
@@ -303,7 +298,56 @@ export const PAY_TAG_RUNNER =
 
 export const PAY_TAG_THIRD = 'border-[#ff9900] text-[#ff9900] bg-[rgba(255,153,0,.15)]';
 
-export const PAY_TAG_FOURTH = 'border-white/35 text-(--text-muted) bg-white/[0.08]';
+export const PAY_TAG_FOURTH = 'border-[rgb(var(--ink-rgb)/.35)] text-(--text-muted) bg-[rgb(var(--ink-rgb)/0.08)]';
 
 export const PAY_NOW_BTN =
-  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-white py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgba(255,0,127,.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-[#00f0ff] hover:border-[#00f0ff] hover:text-[#0d0221] hover:shadow-[0_0_28px_#00f0ff] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
+  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgba(255,0,127,.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-[#00f0ff] hover:border-[#00f0ff] hover:text-[#0d0221] hover:shadow-[0_0_28px_#00f0ff] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
+
+// OAuthButtons' provider button: the one survivor of `theme.ts`'s twelve `CSSProperties`
+// constants. It was `btnOutline` spread at the call site and then overridden there (font
+// 14, padding 11/10, a flex row), so this string writes the recipe the button actually
+// rendered: section 33's action D, which deleted the other eleven because nothing
+// imported them. The browns are the 70s palette's warm chrome and stay literals until
+// their own family lands.
+export const OAUTH_BTN =
+  "flex items-center justify-center gap-2 cursor-pointer rounded-xl px-[10px] py-[11px] [border:1px_solid_#4a3826] text-[#e8dcc6] bg-[linear-gradient(180deg,#2b2118,#20180f)] [font:700_14px_'Atkinson_Hyperlegible_Next',sans-serif]";
+
+// Section 33, action A: the twelve recipes that passes 1 and 2 left in an inline `style`
+// and used in more than one place, as class strings. Each was a fully static object, so
+// nothing computed is being frozen into a class; the constant is the channel rule's
+// second rung, and the 30 sites that carried the recipe now read it instead of restating
+// it. The twelfth recipe - six paint-only `{ color: 'var(--text-main)' }` - needed no
+// constant, because `text-(--text-main)` is one utility. The 71 single-use recipes are
+// style objects by rule and are not here (todo.md section 33, the ruling).
+export const DISPLAY_TITLE =
+  'text-[1.05rem] font-black leading-none text-(--text-main) [font-family:var(--font-display)]';
+
+export const LOBBY_SECTION_TITLE =
+  '[font-family:var(--font-heading)] text-[1.22rem] font-black text-(--text-main) tracking-[1.8px] mb-[6px]';
+
+export const DISPLAY_LABEL = '[font-family:var(--font-display)] text-[0.84rem] font-black text-(--text-main)';
+
+export const DISPLAY_TAG =
+  '[font-family:var(--font-display)] text-[0.78rem] font-black tracking-[1px] text-(--text-main)';
+
+export const DISPLAY_SUBTITLE =
+  'text-[0.8rem] font-black [font-family:var(--font-display)] text-(--text-main) mb-[8px]';
+
+export const INLINE_CHIP =
+  'bg-[rgb(var(--shade-rgb)/0.6)] text-(--text-main) border border-(--border-color) rounded-[3px] [font-family:var(--font-mono)] text-[0.72rem] [padding:1px_3px] cursor-pointer';
+
+export const DISPLAY_ELLIPSIS =
+  'text-[0.92rem] font-black text-(--text-main) [font-family:var(--font-display)] whitespace-nowrap overflow-hidden text-ellipsis tracking-[0.02em]';
+
+export const DISPLAY_MEDIUM =
+  'text-[1.1rem] font-bold text-(--text-main) [font-family:var(--font-display)] tracking-[0.04em]';
+
+export const DISPLAY_STAT =
+  'text-[1.35rem] font-black text-(--text-main) [font-family:var(--font-display)] tracking-[0.04em] mt-[2px]';
+
+export const STAT_FOOTER =
+  'flex justify-between mt-[16px] pt-[12px] border-t border-[rgb(var(--ink-rgb)/0.08)] text-[0.78rem] text-(--text-muted) [font-family:var(--font-display)] tracking-[0.03em]';
+
+export const HEADING_ELLIPSIS =
+  'font-extrabold text-[0.92rem] text-(--text-main) [font-family:var(--font-heading)] overflow-hidden text-ellipsis whitespace-nowrap';
+

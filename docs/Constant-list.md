@@ -19,7 +19,7 @@ is a mirror, named in the row and collected again in §18.
 | ⚙️ | Ludo engine — `backend/app/ludo-engine/src` |
 | 🗄️ | Backend API — `backend/src` |
 | 🖥️ | Frontend SPA — `frontend/src` |
-| 🎨 | Stylesheet — `frontend/src/styles/retrowave.css` |
+| 🎨 | Stylesheet — `frontend/src/styles/` (a theme table per era, plus `app.css`) |
 | 📦 | Shared — declared once in `common/src`, copied into each tree at `src/__shared__` by `npm run sync:shared` |
 | 🔗 | Mirrored — the same value exists on the other side of the wire (see [§18](#18-mirrored-values)) |
 
@@ -590,8 +590,10 @@ presence share one definition without circular dependencies.
 
 ### **12. Theme and palette**
 
-**Owners:** `frontend/src/theme.ts` 🖥️ (the player colours and the shared style objects),
-`frontend/src/styles/retrowave.css` 🎨 (the design tokens), `frontend/src/game/ClashOverlay.tsx` 🖥️
+**Owners:** `frontend/src/theme.ts` 🖥️ (the seat colours and the data constants - `COL`, `SEAT_COLORS`,
+`BOARD_QUADRANTS`, `COLOR_KEYS`, `BOT_POOL`, `STATUS_STYLE`; its style objects were deleted 2026-11-12,
+`todo.md` [33](todo.md#rv33-ruled)),
+`frontend/src/styles/themes/*/theme.css` 🎨 (the design tokens, one table per era), `frontend/src/game/ClashOverlay.tsx` 🖥️
 (clash plate colours).
 
 **Player colours — `COL`** — the one place a Ludo colour is defined; `base` fills a piece, `dark` is the
@@ -613,12 +615,14 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 | `BASE_MODE_HUE` | `#b8a6e4` | the lobby's "base game" room chip: a room with no mutator is a category, not an empty cell |
 | `STATUS_STYLE` (theme) | online `#4bbf7b`, playing `#f0c24e`, offline `#6b6255` | presence dot colour, mirroring the backend's `PresenceStatus` |
 | `THEMES` | `synthwave` (`SYNTHWAVE '84`, `#ff007f`/`#00f0ff`), `retro70` (`RETRO 70'S`, `#e5340b`/`#ffb000`) | the account menu's theme rows. One list, three readers: the switcher renders it, `storedTheme()` validates `retro_theme` against it, and the CSS token blocks are keyed by the same ids. The labels are not translated: a decade is spelled the same way in all three locales |
-| Clash plate colours | red `#e05050`, green `#5fd08a`, yellow `#f0d18a`, blue `#4a92e0` | the clash overlay's plates and bars, read as `var(--clash-<colour>, <fallback>)`. The vars are **not** defined in `retrowave.css`, so the fallback is the effective value |
+| Clash plate colours | red `#e05050`, green `#5fd08a`, yellow `#f0d18a`, blue `#4a92e0` | the clash overlay's plates and bars, read as `var(--clash-<colour>, <fallback>)`. The vars are **not** defined in the theme tables, so the fallback is the effective value |
 
-**Design tokens — `retrowave.css`** 🎨 — `:root, [data-theme='synthwave']` is the default block and
-`[data-theme='retro70']` is the second theme. The attributes are set on both `<html>` and `<body>`;
-the 70s block is placed **after** the default one because `:root` and `[data-theme='synthwave']` are
-both specificity 0-1-0, so only source order decides.
+**Design tokens — `styles/themes/retro80/theme.css`** 🎨 — `:root, [data-theme='retro80']` is the default block and
+`styles/themes/retro70/theme.css` is the second theme. The attributes are set on both `<html>` and `<body>`;
+the 70s table is placed **after** the default one because `:root` and `[data-theme='retro80']` are
+both specificity 0-1-0, so only source order decides. The two tables must declare the same names in the
+same order (`scripts/check-theme-literals.mjs` gates it), because a name one table has and the other
+lacks paints as `unset` under that era and no screenshot catches it.
 
 | Token | Value | Role |
 |---|---|---|
@@ -647,7 +651,9 @@ both specificity 0-1-0, so only source order decides.
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
 | `--fs-border` / `--fs-text` / `--fs-accent` | `#ff007f` / `#ffffff` / `#ff007f` | custom fieldset + colour-scheme component (global `:root`, not theme-scoped) |
 | `--fs-cyan` / `--fs-bg` / `--fs-glow` | `#00f0ff` / `rgba(25,10,56,.9)` / `rgba(255,0,127,.5)` | the same component's outline, fill and glow |
-| `--shell-image` | `url('/synthwave-cityscape.jpeg')` | the `html, body` ground; `none` in the 70s theme, where `--bg-primary` shows through |
+| `--shell-image` | `url('./80s-Synthwave-Cityscape.jpg')` + a dim gradient | the `html, body` ground; the plate lives in the theme's own folder and Vite hashes it into `/assets/` |
+| `--accent-*-rgb` | `255 0 127` / `0 240 255` / `255 230 0` / `157 0 255` | the four accents as `r g b`, read as `rgb(var(--accent-*-rgb) / a)` so a tint can carry an alpha and still follow the theme |
+| `--ink-rgb` / `--shade-rgb` / `--bg-primary-rgb` | `255 255 255` / `0 0 0` / `13 2 33` | the neutrals as `r g b`: the ink every surface tints with, the shadow under it, the ground |
 | `--start-overlay-bg` | `rgba(13, 2, 33, 0.45)` | the press-start card's fill |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgba(0,240,255,.2)` | the two layers of that card's shadow |
 | `--state-on` / `--state-on-rgb` | `#00ff88` / `0 255 136` | the state pair's **on**: met, ready, valid, online, sent. Only a condition reads it, never a seat, a mode or a rule |
@@ -682,7 +688,9 @@ reaches 4.6:1.
 | `--crt-scanline-opacity` / `--crt-flicker-opacity` | `0.1` / `0.02` | CRT overlays |
 | `--window-header-bg` / `--window-header-text` | `linear-gradient(90deg, #e5340b, #ffb000)` / `#ffe7bd` | OS-window title bar |
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
-| `--shell-image` | `none` | a neon skyline behind a walnut console is the one thing a 70s shell cannot wear |
+| `--shell-image` | `url('./1970s-Orbital-Colony.jpg')` + a dim gradient | the orbital colony is the 70s shell's ground, painted the way the 80s shell wears its cityscape; the plate sits in the theme's own folder |
+| `--accent-*-rgb` | `229 52 11` / `95 179 176` / `255 176 0` / `12 86 121` | the same channel forms in the 70s palette, so a tint follows the era |
+| `--ink-rgb` / `--shade-rgb` / `--bg-primary-rgb` | `255 231 189` / `26 16 9` / `20 16 14` | warm ink and warm black: a cold white or a cold black reads purple and blue-grey over walnut |
 | `--start-overlay-bg` | `rgba(11, 8, 5, 0.55)` | black at 55%: the navy card reads purple over walnut |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,176,0,.35)` / `rgba(229,52,11,.22)` | the card's shadow, in the palette's amber and red |
 | `--state-on` / `--state-on-rgb` | `#82903f` / `130 144 63` | avocado, 4.75:1 on `--bg-card` and 5.41:1 on `--bg-primary` |
@@ -1066,8 +1074,10 @@ copied at build time, so they have no row here.
 4. **A limit or lifetime the backend enforces → the owning service's knob block** (`AUTH` in
    `auth.constants.ts`, `GUEST_LIMITS` in `guest-limit.service.ts`) or the shared table
    (`common/throttles.ts`, `common/scoring.ts`). Do not scatter a limit across controllers.
-5. **A colour, token or size → `theme.ts` or `retrowave.css`**, and a row in §12 or §15. A raw hex in a
-   component is a bug unless it is a one-off illustration (the board art, the burst's sparks).
+5. **A colour, token or size → a Tailwind class first, then `styles/tw.ts`, then a theme table
+   (`styles/themes/*/theme.css`)**, and a row in §12 or §15. A static colour in an inline `style` is a defect
+   when a utility could carry it (`todo.md` [33](todo.md#rv33-policy)); a raw hex in a component is a bug unless
+   it is a one-off illustration (the board art, the burst's sparks).
 6. **A string the user reads → `locales/*.ts`**, never a hard-coded constant in a component.
 7. **When two files must agree and the value is not a knob, name the mirror in a comment** and add a
    §18 row, so the next reader does not have to rediscover the pair.

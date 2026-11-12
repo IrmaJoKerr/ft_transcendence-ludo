@@ -408,7 +408,7 @@ function Toast({
     width: 430,
     background: 'rgba(10, 4, 24, 0.97)',
     border: '2px solid var(--accent-pink, #ff007f)',
-    boxShadow: '0 0 24px rgba(255, 0, 127, 0.4), 0 20px 48px rgba(0, 0, 0, 0.95)',
+    boxShadow: '0 0 24px rgba(255, 0, 127, 0.4), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
     borderRadius: 4,
     display: 'flex',
     flexDirection: 'column',
@@ -802,7 +802,7 @@ export function NotificationDigest({
         width: 380,
         background: 'rgba(10, 4, 24, 0.97)',
         border: '2px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 24px rgba(0, 240, 255, 0.35), 0 20px 48px rgba(0, 0, 0, 0.95)',
+        boxShadow: '0 0 24px rgba(0, 240, 255, 0.35), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 4,
         display: 'flex',
         flexDirection: 'column',
@@ -837,7 +837,7 @@ export function NotificationDigest({
             fontFamily: 'var(--font-mono, monospace)',
             fontSize: '0.78rem',
             fontWeight: 'bold',
-            color: '#ffffff',
+            color: 'var(--text-main)',
             letterSpacing: 0.5,
           }}
         >
@@ -852,7 +852,7 @@ export function NotificationDigest({
           aria-label={t('notifications.dismiss')}
           style={{
             background: 'transparent',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
+            border: '1px solid rgb(var(--ink-rgb) / 0.3)',
             color: 'var(--text-muted, #8a7a64)',
             fontFamily: 'var(--font-mono, monospace)',
             fontSize: '0.7rem',

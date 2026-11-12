@@ -79,13 +79,11 @@ export function Login() {
     <RetroAuthLayout
       tag={t('auth.loginTag')}
       topRight={
-        <LanguageSwitcher
-          value={lang}
-          onChange={setLang}
-          // Pinned on the card's corner, so an opaque fill stops the card's own
-          // cyan border from showing through the switch's translucent background.
-          style={{ backgroundColor: 'rgba(13, 2, 33, 0.94)' }}
-        />
+        // Pinned on the card's corner, so an opaque fill stops the card's own
+        // cyan border from showing through the switch's translucent background.
+        <span className="inline-flex rounded-lg bg-[rgb(var(--bg-primary-rgb)/.94)]">
+          <LanguageSwitcher value={lang} onChange={setLang} />
+        </span>
       }
     >
       <form

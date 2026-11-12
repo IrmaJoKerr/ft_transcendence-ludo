@@ -148,7 +148,7 @@ export function NotificationRow({
         gap: 10,
         padding: '12px 14px',
         cursor: interactive ? 'pointer' : 'default',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        borderBottom: '1px solid rgb(var(--ink-rgb) / 0.08)',
         background: restingBg,
         transition: 'background 0.15s ease',
       }}
@@ -206,7 +206,7 @@ export function NotificationRow({
           style={{
             fontSize: '0.78rem',
             fontWeight: notification.read ? 'normal' : 'bold',
-            color: notification.read ? 'var(--text-muted, #aaa)' : '#ffffff',
+            color: notification.read ? 'var(--text-muted, #aaa)' : 'var(--text-main)',
             lineHeight: 1.35,
             fontFamily: 'var(--font-mono, monospace)',
           }}

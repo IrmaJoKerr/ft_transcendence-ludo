@@ -46,7 +46,7 @@ export function ForgotPassword() {
             {t('auth.checkInboxTitle')}
           </div>
           <div className={RETRO_AUTH_MUTED} style={{ lineHeight: 1.5, fontSize: '14px' }}>
-            {t('auth.resetSentPrefix')} <b style={{ color: '#00f0ff' }}>{email}</b>{' '}
+            {t('auth.resetSentPrefix')} <b className="text-(--accent-cyan)">{email}</b>{' '}
             {t('auth.resetSentSuffix')}
           </div>
           <div className={RETRO_AUTH_MUTED} style={{ fontSize: '13px' }}>

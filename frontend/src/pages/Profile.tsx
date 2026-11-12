@@ -22,6 +22,8 @@ import {
   WINDOW_BTN_MAX,
   WINDOW_BODY,
   RETRO_BTN,
+  DISPLAY_ELLIPSIS,
+  DISPLAY_TITLE,
 } from '../styles/tw';
 
 // What the backend allows this viewer to see: `full`, or one of the two blocked
@@ -293,7 +295,7 @@ function UsernameCopyChip({ username }: { username: string }) {
       onClick={copyUsername}
       title={t('profile.copyUsernameTooltip')}
       style={{
-        background: 'rgba(0, 0, 0, 0.45)',
+        background: 'rgb(var(--shade-rgb) / 0.45)',
         border: '1px solid rgba(0, 240, 255, 0.45)',
         borderRadius: 4,
         padding: '2px 7px',
@@ -393,7 +395,7 @@ function BlockedProfileCard({
                       fontFamily: 'var(--font-display)',
                       fontSize: '2rem',
                       fontWeight: 900,
-                      color: '#ffffff',
+                      color: 'var(--text-main)',
                       letterSpacing: '0.04em',
                       lineHeight: 1.05,
                       textShadow: '0 0 20px rgba(0, 240, 255, 0.65)',
@@ -935,7 +937,7 @@ export function Profile() {
                         flexShrink: 0,
                         margin: 0,
                         padding: '1px 6px',
-                        background: 'rgba(0, 0, 0, 0.45)',
+                        background: 'rgb(var(--shade-rgb) / 0.45)',
                         border: '1px solid rgba(0, 240, 255, 0.45)',
                         borderRadius: 4,
                         cursor: 'pointer',
@@ -998,7 +1000,7 @@ export function Profile() {
                         height: 260,
                         borderRadius: '50%',
                         background:
-                          'radial-gradient(circle, rgba(0, 240, 255, 0.4) 0%, rgba(0,0,0,0) 70%)',
+                          'radial-gradient(circle, rgba(0, 240, 255, 0.4) 0%, rgb(var(--shade-rgb) / 0) 70%)',
                         opacity: 0.25,
                         pointerEvents: 'none',
                       }}
@@ -1109,7 +1111,7 @@ export function Profile() {
                             fontFamily: 'var(--font-display)',
                             fontSize: '2.3rem',
                             fontWeight: 900,
-                            color: '#ffffff',
+                            color: 'var(--text-main)',
                             letterSpacing: '0.04em',
                             lineHeight: 1.05,
                             textShadow: '0 0 20px rgba(0, 240, 255, 0.65)',
@@ -1136,7 +1138,7 @@ export function Profile() {
                               fontSize: '0.72rem',
                               fontFamily: 'var(--font-display)',
                               fontWeight: 900,
-                              background: 'rgba(0, 0, 0, 0.45)',
+                              background: 'rgb(var(--shade-rgb) / 0.45)',
                               border: `1px solid ${statusStyle.color}`,
                               padding: '2px 7px',
                               borderRadius: 4,
@@ -1292,7 +1294,7 @@ export function Profile() {
                           'radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgba(8, 2, 26, 0.95) 85%)',
                         border: '2px solid var(--accent-cyan)',
                         boxShadow:
-                          '0 0 24px rgba(0, 240, 255, 0.35), inset 0 0 16px rgba(0, 0, 0, 0.7)',
+                          '0 0 24px rgba(0, 240, 255, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
                         padding: '14px 18px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1317,7 +1319,7 @@ export function Profile() {
                         style={{
                           fontSize: '2.2rem',
                           fontWeight: 900,
-                          color: '#ffffff',
+                          color: 'var(--text-main)',
                           fontFamily: 'var(--font-display)',
                           margin: '3px 0 6px',
                           textShadow:
@@ -1386,7 +1388,7 @@ export function Profile() {
                           'radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, rgba(8, 2, 26, 0.95) 85%)',
                         border: '2px solid #ffd700',
                         boxShadow:
-                          '0 0 24px rgba(255, 215, 0, 0.35), inset 0 0 16px rgba(0, 0, 0, 0.7)',
+                          '0 0 24px rgba(255, 215, 0, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
                         padding: '14px 18px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1578,7 +1580,7 @@ export function Profile() {
                         style={{
                           width: '75%',
                           height: 3.5,
-                          background: 'rgba(255,255,255,0.1)',
+                          background: 'rgb(var(--ink-rgb) / 0.1)',
                           margin: '5px auto 0',
                           borderRadius: 2,
                           overflow: 'hidden',
@@ -1780,13 +1782,13 @@ export function Profile() {
                               fontFamily: 'var(--font-display)',
                               fontWeight: 900,
                               borderRadius: 4,
-                              color: mainTab === 'history' ? '#ffffff' : 'var(--text-muted)',
+                              color: mainTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
                               background:
                                 mainTab === 'history' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
                               borderColor:
                                 mainTab === 'history'
                                   ? 'var(--accent-cyan)'
-                                  : 'rgba(255, 255, 255, 0.15)',
+                                  : 'rgb(var(--ink-rgb) / 0.15)',
                               boxShadow:
                                 mainTab === 'history' ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
                             }}
@@ -1805,7 +1807,7 @@ export function Profile() {
                               fontFamily: 'var(--font-display)',
                               fontWeight: 900,
                               borderRadius: 4,
-                              color: mainTab === 'achievements' ? '#ffffff' : 'var(--text-muted)',
+                              color: mainTab === 'achievements' ? 'var(--text-main)' : 'var(--text-muted)',
                               background:
                                 mainTab === 'achievements'
                                   ? 'rgb(var(--accent-yellow-rgb) / 0.22)'
@@ -1813,7 +1815,7 @@ export function Profile() {
                               borderColor:
                                 mainTab === 'achievements'
                                   ? 'var(--accent-yellow)'
-                                  : 'rgba(255, 255, 255, 0.15)',
+                                  : 'rgb(var(--ink-rgb) / 0.15)',
                               boxShadow:
                                 mainTab === 'achievements'
                                   ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.35)'
@@ -1974,7 +1976,7 @@ export function Profile() {
                                           style={{
                                             fontSize: '0.78rem',
                                             fontWeight: 900,
-                                            color: '#ffffff',
+                                            color: 'var(--text-main)',
                                             letterSpacing: '0.04em',
                                           }}
                                         >
@@ -2062,7 +2064,7 @@ export function Profile() {
                                       {counters.map(([label, value]) => (
                                         <span key={label}>
                                           {label}{' '}
-                                          <b style={{ color: '#ffffff' }}>{value}</b>
+                                          <b className="text-(--text-main)">{value}</b>
                                         </span>
                                       ))}
                                     </div>
@@ -2086,7 +2088,7 @@ export function Profile() {
                                             gap: 5,
                                             color:
                                               seat.color === g.color
-                                                ? '#ffffff'
+                                                ? 'var(--text-main)'
                                                 : 'var(--text-muted)',
                                             fontWeight: seat.color === g.color ? 900 : 500,
                                           }}
@@ -2150,7 +2152,7 @@ export function Profile() {
                                 style={{
                                   width: '100%',
                                   height: 7,
-                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  background: 'rgb(var(--ink-rgb) / 0.08)',
                                   borderRadius: 4,
                                   overflow: 'hidden',
                                 }}
@@ -2197,7 +2199,7 @@ export function Profile() {
                                         : 'rgba(10, 4, 25, 0.45)',
                                       border: isUnlocked
                                         ? '1.5px solid var(--accent-yellow)'
-                                        : '1px dashed rgba(255, 255, 255, 0.12)',
+                                        : '1px dashed rgb(var(--ink-rgb) / 0.12)',
                                       boxShadow: isUnlocked
                                         ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.18)'
                                         : 'none',
@@ -2215,14 +2217,14 @@ export function Profile() {
                                           borderRadius: 6,
                                           background: isUnlocked
                                             ? 'rgb(var(--accent-yellow-rgb) / 0.18)'
-                                            : 'rgba(255, 255, 255, 0.05)',
-                                          border: `1.5px solid ${isUnlocked ? 'var(--accent-yellow)' : 'rgba(255,255,255,0.1)'}`,
+                                            : 'rgb(var(--ink-rgb) / 0.05)',
+                                          border: `1.5px solid ${isUnlocked ? 'var(--accent-yellow)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
                                           display: 'grid',
                                           placeItems: 'center',
                                           fontSize: '1.2rem',
                                           color: isUnlocked
                                             ? 'var(--accent-yellow)'
-                                            : 'rgba(255, 255, 255, 0.4)',
+                                            : 'rgb(var(--ink-rgb) / 0.4)',
                                           flexShrink: 0,
                                         }}
                                       >
@@ -2234,7 +2236,7 @@ export function Profile() {
                                             fontSize: '0.8rem',
                                             fontWeight: 900,
                                             fontFamily: 'var(--font-display)',
-                                            color: isUnlocked ? '#ffffff' : 'var(--text-muted)',
+                                            color: isUnlocked ? 'var(--text-main)' : 'var(--text-muted)',
                                             letterSpacing: '0.03em',
                                             whiteSpace: 'nowrap',
                                             overflow: 'hidden',
@@ -2248,8 +2250,8 @@ export function Profile() {
                                             fontSize: '0.76rem',
                                             fontFamily: 'var(--font-display)',
                                             color: isUnlocked
-                                              ? 'rgba(255, 255, 255, 0.8)'
-                                              : 'rgba(255, 255, 255, 0.35)',
+                                              ? 'rgb(var(--ink-rgb) / 0.8)'
+                                              : 'rgb(var(--ink-rgb) / 0.35)',
                                             marginTop: 2,
                                             lineHeight: 1.2,
                                           }}
@@ -2273,7 +2275,7 @@ export function Profile() {
                                           style={{
                                             height: 4,
                                             borderRadius: 2,
-                                            background: 'rgba(255, 255, 255, 0.08)',
+                                            background: 'rgb(var(--ink-rgb) / 0.08)',
                                             overflow: 'hidden',
                                           }}
                                         >
@@ -2353,7 +2355,7 @@ export function Profile() {
                               fontSize: '0.82rem',
                               fontWeight: 900,
                               fontFamily: 'var(--font-display)',
-                              color: '#ffffff',
+                              color: 'var(--text-main)',
                             }}
                           >
                             {t('profile.friendsBoxTitle', { count: friendsData?.length ?? 0 })}
@@ -2498,16 +2500,7 @@ export function Profile() {
                                         }}
                                       >
                                         <span
-                                          style={{
-                                            fontSize: '0.92rem',
-                                            fontWeight: 900,
-                                            color: '#ffffff',
-                                            fontFamily: 'var(--font-display)',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            letterSpacing: '0.02em',
-                                          }}
+                                          className={DISPLAY_ELLIPSIS}
                                         >
                                           {f.displayName ?? f.username}
                                         </span>
@@ -2537,13 +2530,7 @@ export function Profile() {
                                     }}
                                   >
                                     <span
-                                      style={{
-                                        fontSize: '1.05rem',
-                                        fontWeight: 900,
-                                        color: '#ffffff',
-                                        fontFamily: 'var(--font-display)',
-                                        lineHeight: 1,
-                                      }}
+                                      className={DISPLAY_TITLE}
                                     >
                                       {f.rating}
                                     </span>
@@ -2660,7 +2647,7 @@ function TranscriptRow({
             maxHeight: 220,
             overflowY: 'auto',
             borderRadius: 6,
-            background: 'rgba(0, 0, 0, 0.45)',
+            background: 'rgb(var(--shade-rgb) / 0.45)',
             border: '1px solid rgba(0, 240, 255, 0.16)',
           }}
         >

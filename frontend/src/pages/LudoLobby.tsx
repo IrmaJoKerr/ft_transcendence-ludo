@@ -28,6 +28,7 @@ import {
   TICKET_YELLOW,
   TICKET_GREEN,
   TICKET_ACTION_PILL,
+  LOBBY_SECTION_TITLE,
 } from '../styles/tw';
 
 // The lobby list and the "am I already seated?" flag are pushed over the session
@@ -156,13 +157,16 @@ interface PassActionPillProps {
   label: string;
   /** Every label the three pills can show, in the active language. */
   probes: string[];
+  /** The pill's tone: its border, ground and ink. */
+  className?: string;
+  /** A computed remainder the caller owns (the host pill dims itself while busy). */
   style?: CSSProperties;
 }
 
-function PassActionPill({ label, probes, style }: PassActionPillProps) {
+function PassActionPill({ label, probes, className, style }: PassActionPillProps) {
   return (
     <div
-      className={TICKET_ACTION_PILL}
+      className={`${TICKET_ACTION_PILL} ${className ?? ''}`}
       style={{ display: 'inline-grid', placeItems: 'center', ...style }}
     >
       <span style={{ gridArea: '1 / 1' }}>{label}</span>
@@ -508,13 +512,7 @@ export function LudoLobby() {
                 >
                   {t('ludoLobbyExtra.activeSectors', { count: rooms ? rooms.length : 0 })}
                 </span>
-                <span
-                  className={RETRO_BADGE}
-                  style={{
-                    border: '1px solid var(--state-on)',
-                    color: 'var(--state-on)',
-                  }}
-                >
+                <span className={`${RETRO_BADGE} border border-(--state-on) text-(--state-on)`}>
                   {t('ludoLobbyExtra.pilotLabel', {
                     name:
                       (user?.displayName ?? user?.username)?.toUpperCase() ??
@@ -526,7 +524,7 @@ export function LudoLobby() {
                   style={{
                     border: lockedByActiveGame
                       ? '1px solid var(--accent-yellow)'
-                      : '1px dashed rgba(255,255,255,0.2)',
+                      : '1px dashed rgb(var(--ink-rgb) / 0.2)',
                     color: lockedByActiveGame ? 'var(--accent-yellow)' : 'var(--text-soft)',
                   }}
                 >
@@ -607,14 +605,7 @@ export function LudoLobby() {
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div
-                        style={{
-                          fontFamily: 'var(--font-heading)',
-                          fontSize: '1.22rem',
-                          fontWeight: 900,
-                          color: '#ffffff',
-                          letterSpacing: '1.8px',
-                          marginBottom: 6,
-                        }}
+                        className={LOBBY_SECTION_TITLE}
                       >
                         {t('ludoLobbyPasses.hostNewTable')}
                       </div>
@@ -640,7 +631,7 @@ export function LudoLobby() {
                     probes={passActionProbes}
                     style={{
                       background: 'var(--accent-pink)',
-                      color: '#ffffff',
+                      color: 'var(--text-main)',
                       boxShadow: '0 0 18px rgba(255, 0, 127, 0.5)',
                       opacity: hostLocked ? 0.6 : 1,
                     }}
@@ -699,14 +690,7 @@ export function LudoLobby() {
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div
-                        style={{
-                          fontFamily: 'var(--font-heading)',
-                          fontSize: '1.22rem',
-                          fontWeight: 900,
-                          color: '#ffffff',
-                          letterSpacing: '1.8px',
-                          marginBottom: 6,
-                        }}
+                        className={LOBBY_SECTION_TITLE}
                       >
                         {t('ludoLobbyPasses.hotseatMode')}
                       </div>
@@ -726,12 +710,7 @@ export function LudoLobby() {
                   <PassActionPill
                     label={`▶ ${t('ludoLobbyPasses.launchHotseat')}`}
                     probes={passActionProbes}
-                    style={{
-                      background: 'rgba(255, 230, 0, 0.22)',
-                      border: '1.5px solid #ffe600',
-                      color: '#ffe600',
-                      boxShadow: '0 0 16px rgba(255, 230, 0, 0.4)',
-                    }}
+                    className="[--pill-border:var(--accent-yellow)] bg-[rgb(var(--accent-yellow-rgb)/.22)] text-(--accent-yellow) shadow-[0_0_16px_rgb(var(--accent-yellow-rgb)/.4)]"
                   />
                 </div>
 
@@ -787,14 +766,7 @@ export function LudoLobby() {
                     />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div
-                        style={{
-                          fontFamily: 'var(--font-heading)',
-                          fontSize: '1.22rem',
-                          fontWeight: 900,
-                          color: '#ffffff',
-                          letterSpacing: '1.8px',
-                          marginBottom: 6,
-                        }}
+                        className={LOBBY_SECTION_TITLE}
                       >
                         {t('ludoLobbyPasses.botMode')}
                       </div>
@@ -814,12 +786,7 @@ export function LudoLobby() {
                   <PassActionPill
                     label={`▶ ${t('ludoLobbyPasses.playVsBots')}`}
                     probes={passActionProbes}
-                    style={{
-                      background: 'rgb(var(--state-on-rgb) / 0.22)',
-                      border: '1.5px solid var(--state-on)',
-                      color: 'var(--state-on)',
-                      boxShadow: '0 0 16px rgb(var(--state-on-rgb) / 0.4)',
-                    }}
+                    className="[--pill-border:var(--state-on)] bg-[rgb(var(--state-on-rgb)/.22)] text-(--state-on) shadow-[0_0_16px_rgb(var(--state-on-rgb)/.4)]"
                   />
                 </div>
               </div>
@@ -924,7 +891,7 @@ export function LudoLobby() {
                             fontSize: '0.75rem',
                             fontWeight: 700,
                             letterSpacing: '0.4px',
-                            color: '#ffffff',
+                            color: 'var(--text-main)',
                             textShadow: '0 0 10px rgb(var(--state-off-rgb) / 0.65)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -1118,7 +1085,7 @@ export function LudoLobby() {
                                   gridTemplateColumns: ROOM_GRID_COLUMNS,
                                   gap: 8,
                                   padding: '12px 14px',
-                                  borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+                                  borderBottom: '1px solid rgb(var(--ink-rgb) / 0.07)',
                                   alignItems: 'center',
                                   textAlign: 'left',
                                   background: isMySeat ? 'rgba(255, 0, 127, 0.12)' : 'transparent',
@@ -1160,7 +1127,7 @@ export function LudoLobby() {
                                       style={{
                                         fontWeight: 'bold',
                                         fontSize: '0.82rem',
-                                        color: '#ffffff',
+                                        color: 'var(--text-main)',
                                         fontFamily: 'var(--font-mono)',
                                         whiteSpace: 'nowrap',
                                         overflow: 'hidden',

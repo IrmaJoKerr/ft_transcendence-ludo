@@ -1,4 +1,4 @@
-import { btnOutline } from '../theme';
+import { OAUTH_BTN } from '../styles/tw';
 
 const PROVIDERS = [
   { name: '42', icon: '/forty_two.png', path: '/api/auth/42' },
@@ -16,15 +16,7 @@ export function OAuthButtons() {
           onClick={() => {
             window.location.href = p.path;
           }}
-          style={{
-            ...btnOutline,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '11px 10px',
-            fontSize: 14,
-          }}
+          className={OAUTH_BTN}
         >
           <img src={p.icon} alt={p.name} style={{ width: 18, height: 18, objectFit: 'contain' }} />
           {p.name}

@@ -32,7 +32,7 @@ const ROW = {
 
 /** The key cap, sized for a popover rather than a column-wide box. */
 const KEY_CHIP = {
-  color: '#fff',
+  color: 'var(--text-main)',
   fontFamily: 'var(--font-mono)',
   padding: '2px 6px',
   borderRadius: 3,
@@ -110,7 +110,7 @@ export function ControlsSettingsModal({
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_35px_rgba(0,240,255,0.25)]`}
+        className={`${RETRO_WINDOW} flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)]`}
         // The window never grows past the viewport either: the header, the rows and
         // the audio switch are one column, and the rows are the only part that yields.
         style={{ maxHeight: 'calc(100dvh - 2rem)' }}
@@ -130,7 +130,7 @@ export function ControlsSettingsModal({
             flexShrink: 0,
           }}
         >
-          <span className="font-display text-sm font-black tracking-wider text-[#ffffff]">
+          <span className="font-display text-sm font-black tracking-wider text-(--text-main)">
             {title}
           </span>
           <button
@@ -200,7 +200,7 @@ export function ControlsSettingsModal({
             </div>
           </div>
 
-          <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
+          <div style={{ borderTop: '1px solid rgb(var(--ink-rgb) / 0.1)', margin: '2px 0' }} />
 
           {/* The second home of the auto-close preference (22.5): the same row as the
               dock's, reading and writing the same store field. The two switches that
@@ -230,7 +230,7 @@ export function ControlsSettingsModal({
           style={{
             flexShrink: 0,
             padding: '10px 12px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            borderTop: '1px solid rgb(var(--ink-rgb) / 0.1)',
             background: 'rgba(12, 4, 28, 0.92)',
           }}
         >

@@ -233,7 +233,7 @@ export function PendingOffers() {
                   gap: 10,
                   minHeight: ROW_HEIGHT,
                   padding: '0 2px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderBottom: '1px solid rgb(var(--ink-rgb) / 0.06)',
                   opacity: lapsed ? 0.55 : 1,
                 }}
               >
@@ -245,7 +245,7 @@ export function PendingOffers() {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     fontSize: '0.74rem',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     fontFamily: 'var(--font-mono, monospace)',
                   }}
                 >

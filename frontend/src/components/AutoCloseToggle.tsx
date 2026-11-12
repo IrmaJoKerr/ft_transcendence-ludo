@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
+import { DISPLAY_LABEL } from '../styles/tw';
 
 /**
  * The auto-close switch, one row, two homes (22.5): the dock's account popover and
@@ -31,8 +32,8 @@ export function AutoCloseToggle() {
         width: '100%',
         padding: '10px 12px',
         borderRadius: 8,
-        background: notifAutoClose ? 'rgb(var(--state-on-rgb) / 0.12)' : 'rgba(255, 255, 255, 0.04)',
-        border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgba(255, 255, 255, 0.1)',
+        background: notifAutoClose ? 'rgb(var(--state-on-rgb) / 0.12)' : 'rgb(var(--ink-rgb) / 0.04)',
+        border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgb(var(--ink-rgb) / 0.1)',
         boxShadow: notifAutoClose ? '0 0 10px rgb(var(--state-on-rgb) / 0.2)' : 'none',
         cursor: 'pointer',
         transition: 'all 0.18s ease',
@@ -43,12 +44,7 @@ export function AutoCloseToggle() {
       }}
     >
       <span
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.84rem',
-          fontWeight: 900,
-          color: '#ffffff',
-        }}
+        className={DISPLAY_LABEL}
       >
         {t('notifications.autoCloseToggle')}
       </span>
@@ -59,9 +55,9 @@ export function AutoCloseToggle() {
           fontWeight: 900,
           padding: '3px 8px',
           borderRadius: 4,
-          background: notifAutoClose ? 'var(--state-on)' : 'rgba(255, 255, 255, 0.12)',
+          background: notifAutoClose ? 'var(--state-on)' : 'rgb(var(--ink-rgb) / 0.12)',
           color: notifAutoClose ? 'var(--state-on-ink)' : 'var(--text-muted)',
-          border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgba(255, 255, 255, 0.18)',
+          border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgb(var(--ink-rgb) / 0.18)',
         }}
       >
         {notifAutoClose ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}

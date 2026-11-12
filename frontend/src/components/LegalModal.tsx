@@ -73,7 +73,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_35px_rgba(0,240,255,0.25)]`}
+        className={`${RETRO_WINDOW} flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)]`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Title, Controls & Switchers */}
@@ -87,7 +87,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
           }}
         >
           <div className="flex items-center gap-3">
-            <span className="font-display text-sm font-black tracking-wider text-[#ffffff]">
+            <span className="font-display text-sm font-black tracking-wider text-(--text-main)">
               {activeDoc === 'privacy'
                 ? '🛡️ ' + t('legal.privacyPolicy', 'PRIVACY POLICY')
                 : '📜 ' + t('legal.termsOfService', 'TERMS OF SERVICE')}
@@ -96,13 +96,13 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
 
           <div className="flex items-center gap-3">
             {/* Document Tabs */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
+            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
               <button
                 type="button"
                 className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'privacy'
-                    ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
-                    : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+                    ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                    : 'text-[var(--text-muted)] hover:text-(--text-main)'
                 }`}
                 onClick={() => {
                   retroAudio.playUiBeep(720, 0.05);
@@ -115,8 +115,8 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
                 type="button"
                 className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'terms'
-                    ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
-                    : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+                    ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                    : 'text-[var(--text-muted)] hover:text-(--text-main)'
                 }`}
                 onClick={() => {
                   retroAudio.playUiBeep(720, 0.05);
@@ -128,7 +128,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             </div>
 
             {/* Language Switcher */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
+            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
               {(['en', 'ms', 'fr'] as const).map((l) => (
                 <button
                   key={l}
@@ -136,7 +136,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
                   className={`rounded px-2 py-1 font-mono text-[0.68rem] font-bold transition-all ${
                     docLang === l
                       ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
-                      : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+                      : 'text-[var(--text-muted)] hover:text-(--text-main)'
                   }`}
                   onClick={() => {
                     retroAudio.playUiBeep(880, 0.05);
@@ -179,7 +179,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
           </span>
           <button
             type="button"
-            className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] bg-[linear-gradient(90deg,rgba(0,240,255,0.3),rgba(255,0,127,0.3))] px-4 py-1.5 text-xs font-black text-[#ffffff] hover:shadow-[0_0_15px_rgba(0,240,255,0.4)]`}
+            className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] bg-[linear-gradient(90deg,rgba(0,240,255,0.3),rgba(255,0,127,0.3))] px-4 py-1.5 text-xs font-black text-(--text-main) hover:shadow-[0_0_15px_rgba(0,240,255,0.4)]`}
             onClick={() => {
               retroAudio.playUiBeep(440, 0.05);
               onClose();

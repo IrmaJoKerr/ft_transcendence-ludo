@@ -6,11 +6,12 @@
   "scripts": {
     "sync:shared": "node scripts/sync-shared.mjs",
     "check:literals": "node scripts/check-theme-literals.mjs",
+    "check:dead-refs": "node scripts/dead-refs.mjs",
     "predev": "npm run sync:shared",
     "dev": "vite",
-    "prebuild": "npm run sync:shared && npm run check:literals",
+    "prebuild": "npm run sync:shared && npm run check:literals && npm run check:dead-refs",
     "build": "tsc -b && vite build",
-    "lint": "oxlint && npm run check:literals",
+    "lint": "oxlint && npm run check:literals && npm run check:dead-refs",
     "preview": "vite preview"
   },
   "supportedArchitectures": {

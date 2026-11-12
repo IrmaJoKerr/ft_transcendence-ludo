@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useChallenges } from '../hooks/useChallenges';
 import type { FriendRow } from '../friendshipFeed';
-import { RETRO_BTN } from '../styles/tw';
+import { RETRO_BTN, DISPLAY_TAG } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 import type { ChatCardStatus } from './chatCardTypes';
 import { CHAT_SURFACE } from './chatSurface';
@@ -139,7 +139,7 @@ export function InviteComms({
           padding: 10,
           overflowY: 'auto',
           borderRadius: 8,
-          background: 'rgba(0, 0, 0, 0.45)',
+          background: 'rgb(var(--shade-rgb) / 0.45)',
           border: '1px solid rgba(0, 240, 255, 0.16)',
           textAlign: listed.length === 0 ? 'center' : 'left',
         }}
@@ -147,13 +147,7 @@ export function InviteComms({
         {listed.length === 0 ? (
           <>
             <span
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: '0.78rem',
-                fontWeight: 900,
-                letterSpacing: '1px',
-                color: 'var(--text-main)',
-              }}
+              className={DISPLAY_TAG}
             >
               {t('gameChat.inviteEmpty')}
             </span>

@@ -25,6 +25,7 @@ import {
   WINDOW_BTN_MAX,
   WINDOW_BODY,
   RETRO_BTN,
+  DISPLAY_TITLE,
 } from '../styles/tw';
 
 const STATUS_KEYS: Record<PresenceStatus, string> = {
@@ -306,7 +307,7 @@ export function Friends() {
                     border:
                       requests.length > 0
                         ? '1.5px solid var(--accent-pink)'
-                        : '1px dashed rgba(255,255,255,0.2)',
+                        : '1px dashed rgb(var(--ink-rgb) / 0.2)',
                     color: requests.length > 0 ? '#ff007f' : 'var(--text-muted)',
                     background: requests.length > 0 ? 'rgba(255, 0, 127, 0.18)' : 'transparent',
                     boxShadow: requests.length > 0 ? '0 0 14px rgba(255, 0, 127, 0.4)' : 'none',
@@ -405,7 +406,7 @@ export function Friends() {
                     background: 'rgba(12, 3, 30, 0.85)',
                     border: '1.5px solid rgba(0, 240, 255, 0.28)',
                     boxShadow:
-                      '0 0 16px rgba(0, 240, 255, 0.08), inset 0 0 20px rgba(0, 0, 0, 0.6)',
+                      '0 0 16px rgba(0, 240, 255, 0.08), inset 0 0 20px rgb(var(--shade-rgb) / 0.6)',
                     borderRadius: 8,
                     overflow: 'hidden',
                     minHeight: 0,
@@ -448,13 +449,13 @@ export function Friends() {
                           fontFamily: 'var(--font-display)',
                           fontWeight: 900,
                           borderRadius: 4,
-                          color: activeTab === 'friends' ? '#ffffff' : 'var(--text-muted)',
+                          color: activeTab === 'friends' ? 'var(--text-main)' : 'var(--text-muted)',
                           background:
                             activeTab === 'friends' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
                           borderColor:
                             activeTab === 'friends'
                               ? 'var(--accent-cyan)'
-                              : 'rgba(255, 255, 255, 0.15)',
+                              : 'rgb(var(--ink-rgb) / 0.15)',
                           boxShadow:
                             activeTab === 'friends' ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
                         }}
@@ -473,11 +474,11 @@ export function Friends() {
                           fontFamily: 'var(--font-display)',
                           fontWeight: 900,
                           borderRadius: 4,
-                          color: activeTab === 'blocked' ? '#ffffff' : 'var(--text-muted)',
+                          color: activeTab === 'blocked' ? 'var(--text-main)' : 'var(--text-muted)',
                           background:
                             activeTab === 'blocked' ? 'rgb(var(--state-off-rgb) / 0.22)' : 'transparent',
                           borderColor:
-                            activeTab === 'blocked' ? 'var(--state-off)' : 'rgba(255, 255, 255, 0.15)',
+                            activeTab === 'blocked' ? 'var(--state-off)' : 'rgb(var(--ink-rgb) / 0.15)',
                           boxShadow:
                             activeTab === 'blocked' ? '0 0 10px rgb(var(--state-off-rgb) / 0.35)' : 'none',
                         }}
@@ -496,7 +497,7 @@ export function Friends() {
                             background: 'rgba(5, 2, 18, 0.85)',
                             border: '1px solid rgba(0, 240, 255, 0.35)',
                             borderRadius: 4,
-                            color: '#ffffff',
+                            color: 'var(--text-main)',
                             padding: '4px 10px',
                             fontSize: '0.72rem',
                             fontFamily: 'var(--font-display)',
@@ -565,7 +566,7 @@ export function Friends() {
                                 padding: '11px 16px',
                                 borderRadius: 6,
                                 background: 'rgba(18, 6, 42, 0.82)',
-                                border: `1.5px solid ${f.status === 'online' || f.status === 'playing' ? 'rgba(0, 240, 255, 0.28)' : 'rgba(255, 255, 255, 0.1)'}`,
+                                border: `1.5px solid ${f.status === 'online' || f.status === 'playing' ? 'rgba(0, 240, 255, 0.28)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
                                 boxShadow:
                                   f.status === 'online' || f.status === 'playing'
                                     ? '0 0 10px rgba(0, 240, 255, 0.08)'
@@ -586,7 +587,7 @@ export function Friends() {
                                 e.currentTarget.style.borderColor =
                                   f.status === 'online' || f.status === 'playing'
                                     ? 'rgba(0, 240, 255, 0.28)'
-                                    : 'rgba(255, 255, 255, 0.1)';
+                                    : 'rgb(var(--ink-rgb) / 0.1)';
                                 e.currentTarget.style.boxShadow =
                                   f.status === 'online' || f.status === 'playing'
                                     ? '0 0 10px rgba(0, 240, 255, 0.08)'
@@ -654,7 +655,7 @@ export function Friends() {
                                     style={{
                                       fontSize: '0.94rem',
                                       fontWeight: 900,
-                                      color: '#ffffff',
+                                      color: 'var(--text-main)',
                                       fontFamily: 'var(--font-display)',
                                       whiteSpace: 'nowrap',
                                       overflow: 'hidden',
@@ -681,13 +682,7 @@ export function Friends() {
                               {/* Middle: Rating + Rank Badge */}
                               <div style={{ textAlign: 'right', flexShrink: 0, marginRight: 6 }}>
                                 <div
-                                  style={{
-                                    fontSize: '1.05rem',
-                                    fontWeight: 900,
-                                    color: '#ffffff',
-                                    fontFamily: 'var(--font-display)',
-                                    lineHeight: 1,
-                                  }}
+                                  className={DISPLAY_TITLE}
                                 >
                                   {f.rating}
                                 </div>
@@ -729,7 +724,7 @@ export function Friends() {
                                     fontFamily: 'var(--font-display)',
                                     fontWeight: 900,
                                     background: 'linear-gradient(90deg, #ff007f, #9d00ff)',
-                                    color: '#ffffff',
+                                    color: 'var(--text-main)',
                                     borderColor: '#ff007f',
                                     boxShadow: '0 0 10px rgba(255, 0, 127, 0.4)',
                                     opacity: invitingId === f.id || isSent(f.id) ? 0.6 : 1,
@@ -758,9 +753,9 @@ export function Friends() {
                                     fontSize: '0.72rem',
                                     fontFamily: 'var(--font-display)',
                                     fontWeight: 900,
-                                    color: '#ffffff',
-                                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                                    background: 'rgba(255, 255, 255, 0.06)',
+                                    color: 'var(--text-main)',
+                                    borderColor: 'rgb(var(--ink-rgb) / 0.2)',
+                                    background: 'rgb(var(--ink-rgb) / 0.06)',
                                     borderRadius: 4,
                                   }}
                                   title={t('friends.removeTooltip')}
@@ -784,7 +779,7 @@ export function Friends() {
                                     fontSize: '0.72rem',
                                     fontFamily: 'var(--font-display)',
                                     fontWeight: 900,
-                                    color: '#ffffff',
+                                    color: 'var(--text-main)',
                                     borderColor: 'rgb(var(--state-off-rgb) / 0.5)',
                                     background: 'rgb(var(--state-off-rgb) / 0.14)',
                                     borderRadius: 4,
@@ -847,7 +842,7 @@ export function Friends() {
                                 style={{
                                   fontWeight: 900,
                                   fontSize: '0.9rem',
-                                  color: '#ffffff',
+                                  color: 'var(--text-main)',
                                   fontFamily: 'var(--font-display)',
                                 }}
                               >
@@ -936,7 +931,7 @@ export function Friends() {
                           background: 'rgba(5, 2, 18, 0.95)',
                           border: '1.5px solid rgba(0, 240, 255, 0.45)',
                           borderRadius: 4,
-                          color: '#ffffff',
+                          color: 'var(--text-main)',
                           padding: '10px 12px',
                           fontSize: '0.85rem',
                           fontFamily: 'var(--font-display)',
@@ -955,7 +950,7 @@ export function Friends() {
                           fontFamily: 'var(--font-display)',
                           fontWeight: 900,
                           background: 'rgba(0, 240, 255, 0.22)',
-                          color: '#ffffff',
+                          color: 'var(--text-main)',
                           borderColor: 'var(--accent-cyan)',
                           boxShadow: '0 0 12px rgba(0, 240, 255, 0.3)',
                           borderRadius: 4,
@@ -998,7 +993,7 @@ export function Friends() {
                       border:
                         requests.length > 0
                           ? '1.5px solid var(--accent-pink)'
-                          : '1.5px solid rgba(255, 255, 255, 0.15)',
+                          : '1.5px solid rgb(var(--ink-rgb) / 0.15)',
                       boxShadow: requests.length > 0 ? '0 0 20px rgba(255, 0, 127, 0.25)' : 'none',
                       borderRadius: 8,
                       display: 'flex',
@@ -1014,11 +1009,11 @@ export function Friends() {
                         background:
                           requests.length > 0
                             ? 'rgba(255, 0, 127, 0.15)'
-                            : 'rgba(255, 255, 255, 0.04)',
+                            : 'rgb(var(--ink-rgb) / 0.04)',
                         borderBottom:
                           requests.length > 0
                             ? '1px solid rgba(255, 0, 127, 0.3)'
-                            : '1px solid rgba(255, 255, 255, 0.08)',
+                            : '1px solid rgb(var(--ink-rgb) / 0.08)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -1038,7 +1033,7 @@ export function Friends() {
                         <span
                           style={{
                             fontSize: '0.78rem',
-                            color: requests.length > 0 ? '#ff007f' : '#ffffff',
+                            color: requests.length > 0 ? '#ff007f' : 'var(--text-main)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 900,
                             letterSpacing: '1px',
@@ -1055,7 +1050,7 @@ export function Friends() {
                             padding: '2px 7px',
                             borderRadius: 3,
                             background: 'linear-gradient(90deg, #ff007f, #9d00ff)',
-                            color: '#ffffff',
+                            color: 'var(--text-main)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 900,
                             boxShadow: '0 0 8px rgba(255, 0, 127, 0.4)',
@@ -1094,7 +1089,7 @@ export function Friends() {
                             padding: '20px 10px',
                           }}
                         >
-                          <span style={{ fontSize: '1.2rem', color: 'rgba(255, 255, 255, 0.2)' }}>
+                          <span style={{ fontSize: '1.2rem', color: 'rgb(var(--ink-rgb) / 0.2)' }}>
                             ✦
                           </span>
                           <span>{t('friends.noPendingRequestsPrompt')}</span>
@@ -1145,7 +1140,7 @@ export function Friends() {
                                   style={{
                                     fontSize: '0.86rem',
                                     fontWeight: 900,
-                                    color: '#ffffff',
+                                    color: 'var(--text-main)',
                                     fontFamily: 'var(--font-display)',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',

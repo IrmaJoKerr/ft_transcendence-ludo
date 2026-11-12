@@ -8,7 +8,7 @@ import { useApp } from '../store';
 import { DeleteAccountModal } from './DeleteAccountModal';
 import { PasswordInfo } from './PasswordInfo';
 import { FieldError } from './FieldError';
-import { RETRO_BTN } from '../styles/tw';
+import { RETRO_BTN, DISPLAY_SUBTITLE } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
 const OTP = { '42': '/forty_two.png', github: '/github.png', google: '/google.png' } as const;
@@ -73,7 +73,7 @@ function inputStyle(): CSSProperties {
     padding: '7px 9px',
     marginBottom: 12,
     borderRadius: 4,
-    background: 'rgba(0,0,0,0.4)',
+    background: 'rgb(var(--shade-rgb) / 0.4)',
     color: 'var(--text-main)',
     border: '1px solid var(--border-color)',
     outline: 'none',
@@ -408,7 +408,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           <input
             style={{
               ...inputStyle(),
-              background: 'rgba(0,0,0,0.25)',
+              background: 'rgb(var(--shade-rgb) / 0.25)',
               color: 'var(--text-muted)',
               cursor: 'not-allowed',
             }}
@@ -553,13 +553,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
             style={{ borderTop: '1px solid var(--border-color)', margin: '10px 0', paddingTop: 10 }}
           >
             <div
-              style={{
-                fontSize: '0.8rem',
-                fontWeight: 900,
-                fontFamily: 'var(--font-display)',
-                color: 'var(--text-main)',
-                marginBottom: 8,
-              }}
+              className={DISPLAY_SUBTITLE}
             >
               {hasPassword ? t('profileEdit.password') : t('profileEdit.passwordSet')}
             </div>
@@ -634,13 +628,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
             style={{ borderTop: '1px solid var(--border-color)', margin: '10px 0', paddingTop: 10 }}
           >
             <div
-              style={{
-                fontSize: '0.8rem',
-                fontWeight: 900,
-                fontFamily: 'var(--font-display)',
-                color: 'var(--text-main)',
-                marginBottom: 8,
-              }}
+              className={DISPLAY_SUBTITLE}
             >
               {t('profileEdit.oauthMethods')}
             </div>

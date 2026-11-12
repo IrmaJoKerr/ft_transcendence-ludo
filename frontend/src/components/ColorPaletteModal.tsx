@@ -120,7 +120,7 @@ export function ColorPaletteModal({
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex w-full max-w-lg flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgba(0,0,0,0.95),0_0_35px_rgba(0,240,255,0.25)] sm:max-w-2xl`}
+        className={`${RETRO_WINDOW} flex w-full max-w-lg flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)] sm:max-w-2xl`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -135,7 +135,7 @@ export function ColorPaletteModal({
             padding: '10px 16px',
           }}
         >
-          <span className="font-display text-sm font-black tracking-wider text-[#ffffff]">
+          <span className="font-display text-sm font-black tracking-wider text-(--text-main)">
             {title}
           </span>
           <button
@@ -198,7 +198,7 @@ export function ColorPaletteModal({
                       y={cy}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fill="#ffffff"
+                      fill="rgb(var(--ink-rgb))"
                       fontSize={10}
                       fontWeight={900}
                     >
@@ -241,7 +241,7 @@ export function ColorPaletteModal({
                       key={color}
                       aria-hidden="true"
                       style={{
-                        border: '1.5px dashed rgba(255, 255, 255, 0.12)',
+                        border: '1.5px dashed rgb(var(--ink-rgb) / 0.12)',
                         borderRadius: 6,
                         padding: '12px 14px',
                       }}
@@ -307,7 +307,7 @@ export function ColorPaletteModal({
             <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
               <button
                 type="button"
-                className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] px-4 py-1.5 text-xs font-black text-[#ffffff]`}
+                className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] px-4 py-1.5 text-xs font-black text-(--text-main)`}
                 onClick={() => {
                   retroAudio.playUiBeep(440, 0.05);
                   onCancel();

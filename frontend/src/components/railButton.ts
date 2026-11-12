@@ -20,7 +20,7 @@ export function railButtonStyle(active: boolean): CSSProperties {
           boxShadow: '0 0 16px rgb(var(--accent-pink-rgb) / 0.4)',
         }
       : {
-          background: 'rgba(255, 255, 255, 0.04)',
+          background: 'rgb(var(--ink-rgb) / 0.04)',
           border: `1px solid ${REST_BORDER}`,
           boxShadow: 'none',
         }),
@@ -36,14 +36,14 @@ export function railGlyphFrameStyle(lit: boolean): CSSProperties {
     width: 34,
     height: 34,
     borderRadius: 7,
-    background: lit ? 'rgba(255, 255, 255, 0.2)' : 'rgb(var(--accent-cyan-rgb) / 0.08)',
+    background: lit ? 'rgb(var(--ink-rgb) / 0.2)' : 'rgb(var(--accent-cyan-rgb) / 0.08)',
     display: 'grid',
     placeItems: 'center',
     // No font rules: the mark is an SVG stroke, and `currentColor` is what makes it
     // follow the theme and the active state.
-    color: lit ? '#ffffff' : 'var(--accent-cyan)',
+    color: lit ? 'var(--text-main)' : 'var(--accent-cyan)',
     flexShrink: 0,
-    filter: lit ? 'drop-shadow(0 0 6px #ffffff)' : 'none',
+    filter: lit ? 'drop-shadow(0 0 6px rgb(var(--ink-rgb)))' : 'none',
   };
 }
 

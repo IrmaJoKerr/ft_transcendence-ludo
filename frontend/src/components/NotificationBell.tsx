@@ -154,7 +154,7 @@ export function NotificationBell({
         maxHeight: 460,
         background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.96), rgba(10, 2, 28, 0.98))',
         border: '1.5px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 20px 60px rgba(0, 0, 0, 0.95)',
+        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 20px 60px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 14,
         // Portaled to <body> (see useLayoutEffect above), so this z-index
         // only has to beat other <body>-level layers (modals at 10002).
@@ -176,7 +176,7 @@ export function NotificationBell({
         maxHeight: 460,
         background: 'rgba(10, 4, 24, 0.96)',
         border: '1.5px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 16px 40px rgba(0, 0, 0, 0.9)',
+        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 16px 40px rgb(var(--shade-rgb) / 0.9)',
         borderRadius: 4,
         // Portaled to <body> (see useLayoutEffect above) so this always
         // renders above every other element, regardless of which stacking
@@ -268,8 +268,8 @@ export function NotificationBell({
                 fontWeight: 900,
                 padding: '2px 7px',
                 borderRadius: 4,
-                background: count > 0 ? '#ff007f' : 'rgba(255, 255, 255, 0.1)',
-                color: count > 0 ? '#ffffff' : 'var(--text-muted)',
+                background: count > 0 ? '#ff007f' : 'rgb(var(--ink-rgb) / 0.1)',
+                color: count > 0 ? 'var(--text-main)' : 'var(--text-muted)',
                 boxShadow: count > 0 ? '0 0 8px #ff007f' : 'none',
               }}
             >

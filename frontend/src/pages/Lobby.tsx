@@ -24,6 +24,8 @@ import {
   WINDOW_BTN_MAX,
   WINDOW_BODY,
   RETRO_BTN,
+  HEADING_ELLIPSIS,
+  INLINE_CHIP,
 } from '../styles/tw';
 
 const SEAT_HUES: Record<ColorKey, string> = {
@@ -319,7 +321,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   style={{
                     fontFamily: 'var(--font-heading)',
                     fontSize: '0.82rem',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     letterSpacing: '0.5px',
                   }}
                 >
@@ -333,7 +335,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   width: '100%',
                   maxWidth: 740,
                   padding: '10px 16px',
-                  background: 'rgba(0, 0, 0, 0.6)',
+                  background: 'rgb(var(--shade-rgb) / 0.6)',
                   border: '1px solid rgba(0, 240, 255, 0.35)',
                   borderRadius: 4,
                   textAlign: 'center',
@@ -502,15 +504,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                 />
                                 <div style={{ minWidth: 0 }}>
                                   <div
-                                    style={{
-                                      fontWeight: 800,
-                                      fontSize: '0.92rem',
-                                      color: '#ffffff',
-                                      fontFamily: 'var(--font-heading)',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                    }}
+                                    className={HEADING_ELLIPSIS}
                                     title={
                                       (user?.displayName ?? user?.username ?? '') ||
                                       (guest ? t('guest.playerName') : t('common.you'))
@@ -598,15 +592,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                   />
                                   <div style={{ minWidth: 0 }}>
                                     <div
-                                      style={{
-                                        fontWeight: 800,
-                                        fontSize: '0.92rem',
-                                        color: '#ffffff',
-                                        fontFamily: 'var(--font-heading)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
+                                      className={HEADING_ELLIPSIS}
                                       title={seat.name}
                                     >
                                       {seat.name}
@@ -718,10 +704,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                         }}
                                         style={{
                                           width: '90%',
-                                          background: 'rgba(0,0,0,0.8)',
+                                          background: 'rgb(var(--shade-rgb) / 0.8)',
                                           border: `1px solid ${hue}`,
                                           borderRadius: 4,
-                                          color: '#ffffff',
+                                          color: 'var(--text-main)',
                                           padding: '3px 8px',
                                           fontSize: '0.86rem',
                                           fontFamily: 'var(--font-mono)',
@@ -741,7 +727,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                           minWidth: 0,
                                           fontWeight: 800,
                                           fontSize: '0.92rem',
-                                          color: '#ffffff',
+                                          color: 'var(--text-main)',
                                           fontFamily: 'var(--font-heading)',
                                           cursor: 'pointer',
                                         }}
@@ -817,7 +803,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                 justifyContent: 'center',
                                 gap: 6,
                                 cursor: 'pointer',
-                                background: 'rgba(0,0,0,0.4)',
+                                background: 'rgb(var(--shade-rgb) / 0.4)',
                                 transition: 'all 0.2s ease',
                                 marginTop: 4,
                               }}
@@ -925,10 +911,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-(--text-muted)">
                         {t('lobby.activePilotsLabel')}
                       </span>
-                      <span style={{ color: '#ffffff', fontWeight: 'bold' }}>
+                      <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>
                         {playerCount - emptyCount} / {playerCount}
                       </span>
                     </div>
@@ -945,7 +931,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           fontFamily: 'var(--font-mono)',
                         }}
                       >
-                        <span style={{ color: 'var(--text-muted)' }}>
+                        <span className="text-(--text-muted)">
                           {t('lobby.botUnitsLabel')}
                         </span>
                         <span style={{ color: 'var(--state-on)', fontWeight: 'bold' }}>
@@ -965,7 +951,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-(--text-muted)">
                         {t('lobby.arenaModeLabel')}
                       </span>
                       <span style={{ color: 'var(--accent-yellow)', fontWeight: 'bold' }}>
@@ -981,7 +967,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-(--text-muted)">
                         {t('lobby.sectorMatrixLabel')}
                       </span>
                       <span style={{ color: 'var(--accent-cyan)', fontWeight: 'bold' }}>
@@ -997,7 +983,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-(--text-muted)">
                         {t('lobby.winConditionLabel')}
                       </span>
                       <span style={{ color: 'var(--state-on)', fontWeight: 'bold' }}>
@@ -1058,7 +1044,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                           border: '1px solid var(--border-color)',
                           borderRadius: 4,
                           padding: '7px 10px',
-                          background: 'rgba(0, 0, 0, 0.4)',
+                          background: 'rgb(var(--shade-rgb) / 0.4)',
                         }}
                       >
                         <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
@@ -1078,16 +1064,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                               retroAudio.playUiBeep(520, 0.05);
                               if (clashKeyShift > 0) setClashKeyShift(next);
                             }}
-                            style={{
-                              background: 'rgba(0, 0, 0, 0.6)',
-                              color: 'var(--text-main)',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: 3,
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.72rem',
-                              padding: '1px 3px',
-                              cursor: 'pointer',
-                            }}
+                            className={INLINE_CHIP}
                           >
                             <option value={1}>1</option>
                             <option value={2}>2</option>
@@ -1144,7 +1121,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                     <div
                       style={{
                         padding: '16px 18px',
-                        background: 'rgba(0, 0, 0, 0.5)',
+                        background: 'rgb(var(--shade-rgb) / 0.5)',
                         border: '1px solid rgba(0, 240, 255, 0.3)',
                         borderRadius: 4,
                         textAlign: 'center',
@@ -1182,10 +1159,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         letterSpacing: '1.2px',
                         background: canLaunch
                           ? 'rgb(var(--state-on-rgb) / 0.2)'
-                          : 'rgba(255, 255, 255, 0.05)',
+                          : 'rgb(var(--ink-rgb) / 0.05)',
                         border: canLaunch
                           ? '1px solid var(--state-on)'
-                          : '1px solid rgba(255, 255, 255, 0.2)',
+                          : '1px solid rgb(var(--ink-rgb) / 0.2)',
                         color: canLaunch ? 'var(--state-on)' : 'var(--text-muted)',
                         cursor: canLaunch ? 'pointer' : 'not-allowed',
                         boxShadow: canLaunch ? '0 0 15px rgb(var(--state-on-rgb) / 0.4)' : 'none',

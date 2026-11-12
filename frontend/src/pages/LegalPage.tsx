@@ -95,13 +95,13 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
 
               <div className="flex items-center gap-3">
                 {/* Document Switcher */}
-                <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5">
+                <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
                   <button
                     type="button"
                     className={`font-display rounded px-3 py-1 text-xs font-bold transition-all ${
                       activeDoc === 'privacy'
-                        ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
-                        : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+                        ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                        : 'text-[var(--text-muted)] hover:text-(--text-main)'
                     }`}
                     onClick={() => {
                       retroAudio.playUiBeep(720, 0.05);
@@ -115,8 +115,8 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
                     type="button"
                     className={`font-display rounded px-3 py-1 text-xs font-bold transition-all ${
                       activeDoc === 'terms'
-                        ? 'bg-[var(--accent-pink)] text-[#ffffff] shadow-[0_0_10px_rgba(255,0,127,0.5)]'
-                        : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+                        ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                        : 'text-[var(--text-muted)] hover:text-(--text-main)'
                     }`}
                     onClick={() => {
                       retroAudio.playUiBeep(720, 0.05);

@@ -235,7 +235,7 @@ export function ChatNameCard({
         background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.97), rgba(10, 2, 28, 0.985))',
         backdropFilter: 'blur(24px) saturate(180%)',
         border: '1px solid rgba(0, 240, 255, 0.45)',
-        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 240, 255, 0.2)',
+        boxShadow: '0 24px 60px rgb(var(--shade-rgb) / 0.85), 0 0 20px rgba(0, 240, 255, 0.2)',
       }}
     >
       <span

@@ -10,6 +10,7 @@ import {
   WINDOW_HEADER,
   WINDOW_BODY,
   GAME_WINDOW_HEADER_EXTRA,
+  DISPLAY_TAG,
 } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 import { CHAT_MAX_CHARS, chatLength } from '../__shared__/chat.constants';
@@ -212,7 +213,7 @@ export function ChatCardHead({
               borderRadius: 5,
               outline: 'none',
               color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              background: glyph.pressed ? 'rgba(0, 240, 255, 0.14)' : 'rgba(255, 255, 255, 0.05)',
+              background: glyph.pressed ? 'rgba(0, 240, 255, 0.14)' : 'rgb(var(--ink-rgb) / 0.05)',
               border: `1px solid ${glyph.pressed ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
               transition: 'all 0.18s ease',
             }}
@@ -307,7 +308,7 @@ export function ChatCardFeed({
         padding: 10,
         overflowY: 'auto',
         borderRadius: 8,
-        background: 'rgba(0, 0, 0, 0.45)',
+        background: 'rgb(var(--shade-rgb) / 0.45)',
         border: '1px solid rgba(0, 240, 255, 0.16)',
         textAlign: lines.length === 0 ? 'center' : 'left',
       }}
@@ -411,13 +412,7 @@ function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string })
   return (
     <>
       <span
-        style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '0.78rem',
-          fontWeight: 900,
-          letterSpacing: '1px',
-          color: 'var(--text-main)',
-        }}
+        className={DISPLAY_TAG}
       >
         {t(titleKey)}
       </span>
@@ -596,7 +591,7 @@ export function ChatCardComposer({
             boxSizing: 'border-box',
             padding: '6px 10px',
             borderRadius: 6,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'rgb(var(--shade-rgb) / 0.5)',
             color: 'var(--text-main)',
             border: `1px solid ${over ? 'rgba(255, 82, 120, 0.6)' : 'var(--border-color)'}`,
             outline: 'none',
@@ -883,11 +878,11 @@ export function ChatCard({
                   }}
                 >
                   {line.kind === 'system' ? (
-                    <span style={{ color: 'var(--text-muted)' }}>{systemLineText(t, line)}</span>
+                    <span className="text-(--text-muted)">{systemLineText(t, line)}</span>
                   ) : (
                     <>
-                      <span style={{ color: 'var(--accent-cyan)' }}>{line.senderName}</span>
-                      <span style={{ color: 'var(--text-muted)' }}> &gt; </span>
+                      <span className="text-(--accent-cyan)">{line.senderName}</span>
+                      <span className="text-(--text-muted)"> &gt; </span>
                       <span>{line.text}</span>
                     </>
                   )}

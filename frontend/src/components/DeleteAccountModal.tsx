@@ -35,7 +35,7 @@ function inputStyle(): CSSProperties {
     padding: '7px 9px',
     marginBottom: 12,
     borderRadius: 4,
-    background: 'rgba(0,0,0,0.4)',
+    background: 'rgb(var(--shade-rgb) / 0.4)',
     color: 'var(--text-main)',
     border: '1px solid var(--border-color)',
     outline: 'none',

@@ -156,7 +156,7 @@ export function ResultsModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0, 0, 0, 0.82)',
+        background: 'rgb(var(--shade-rgb) / 0.82)',
         backdropFilter: 'blur(8px)',
         padding: '20px 10px',
         boxSizing: 'border-box',
@@ -206,7 +206,7 @@ export function ResultsModal({
                   style={{
                     border: 'none',
                     height: 1,
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                    backgroundColor: 'rgb(var(--ink-rgb) / 0.15)',
                     margin: '0.75em 0',
                   }}
                 />
@@ -329,7 +329,7 @@ export function ResultsModal({
                       style={{
                         width: '100%',
                         justifyContent: 'center',
-                        background: 'rgba(255, 255, 255, 0.08)',
+                        background: 'rgb(var(--ink-rgb) / 0.08)',
                         borderColor: 'rgba(0, 240, 255, 0.4)',
                         color: 'var(--accent-cyan)',
                         fontSize: '0.76rem',

@@ -34,6 +34,8 @@ import {
   COL_4,
   COL_8,
   RETRO_FOOTER,
+  DISPLAY_ELLIPSIS,
+  DISPLAY_TITLE,
 } from '../styles/tw';
 
 const STATUS_STYLE: Record<string, { label: string; color: string; border: string; bg: string }> = {
@@ -199,8 +201,8 @@ export function Home() {
                     style={
                       isWarpingToLobby
                         ? {
-                            border: '4px solid #ffffff',
-                            boxShadow: '0 0 35px #ffffff, 0 0 50px var(--accent-cyan)',
+                            border: '4px solid rgb(var(--ink-rgb))',
+                            boxShadow: '0 0 35px rgb(var(--ink-rgb)), 0 0 50px var(--accent-cyan)',
                           }
                         : undefined
                     }
@@ -231,7 +233,7 @@ export function Home() {
                         style={{
                           position: 'absolute',
                           inset: 0,
-                          background: 'rgba(255, 255, 255, 0.85)',
+                          background: 'rgb(var(--ink-rgb) / 0.85)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -259,7 +261,7 @@ export function Home() {
                       <button
                         style={{
                           background: 'var(--accent-pink)',
-                          color: '#fff',
+                          color: 'var(--text-main)',
                           fontSize: '0.6rem',
                           padding: '2px 6px',
                           borderRadius: 3,
@@ -439,16 +441,7 @@ export function Home() {
                                 }}
                               >
                                 <span
-                                  style={{
-                                    fontSize: '0.92rem',
-                                    fontWeight: 900,
-                                    color: '#ffffff',
-                                    fontFamily: 'var(--font-display)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    letterSpacing: '0.02em',
-                                  }}
+                                  className={DISPLAY_ELLIPSIS}
                                 >
                                   {f.displayName ?? f.username}
                                 </span>
@@ -477,13 +470,7 @@ export function Home() {
                             }}
                           >
                             <span
-                              style={{
-                                fontSize: '1.05rem',
-                                fontWeight: 900,
-                                color: '#ffffff',
-                                fontFamily: 'var(--font-display)',
-                                lineHeight: 1,
-                              }}
+                              className={DISPLAY_TITLE}
                             >
                               {f.rating}
                             </span>
@@ -537,7 +524,7 @@ export function Home() {
                 >
                   {t('legal.privacyPolicy', 'PRIVACY POLICY')}
                 </button>
-                <span style={{ color: 'var(--text-muted)' }}>//</span>
+                <span className="text-(--text-muted)">//</span>
                 <button
                   type="button"
                   onClick={() => {

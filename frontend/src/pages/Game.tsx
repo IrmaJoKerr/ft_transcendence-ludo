@@ -65,6 +65,7 @@ import {
   GAME_WINDOW_HEADER_EXTRA,
   WINDOW_BODY,
   RETRO_BTN,
+  INLINE_CHIP,
 } from '../styles/tw';
 
 const SEAT_HUES: Record<PlayerColor, string> = {
@@ -1954,7 +1955,7 @@ export function Game() {
                       style={{
                         fontFamily: 'var(--font-heading)',
                         fontSize: '0.75rem',
-                        color: '#ffffff',
+                        color: 'var(--text-main)',
                         letterSpacing: '0.5px',
                       }}
                     >
@@ -2162,7 +2163,7 @@ export function Game() {
                       alignItems: 'stretch',
                       ...(showWallBreakerColumn
                         ? {
-                            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderBottom: '1px solid rgb(var(--ink-rgb) / 0.12)',
                             paddingBottom: 6,
                           }
                         : {}),
@@ -2204,7 +2205,7 @@ export function Game() {
                           flex: 'none',
                           boxSizing: 'border-box',
                           paddingLeft: 10,
-                          borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderLeft: '1px solid rgb(var(--ink-rgb) / 0.12)',
                           display: 'flex',
                           alignItems: 'center',
                           fontFamily: 'var(--font-mono)',
@@ -2279,7 +2280,7 @@ export function Game() {
                                   ? `1.5px solid ${colorAccent}`
                                   : occupied
                                     ? `1px solid ${colorAccent}66`
-                                    : '1px dashed rgba(255, 255, 255, 0.15)',
+                                    : '1px dashed rgb(var(--ink-rgb) / 0.15)',
                                 background: isYou
                                   ? `${colorAccent}26`
                                   : occupied
@@ -2340,7 +2341,7 @@ export function Game() {
                                   style={{
                                     fontWeight: 'bold',
                                     fontSize: '0.82rem',
-                                    color: '#ffffff',
+                                    color: 'var(--text-main)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 6,
@@ -2435,7 +2436,7 @@ export function Game() {
                                 ? `1.5px solid ${colorAccent}`
                                 : occupied
                                   ? `1.5px solid ${colorAccent}44`
-                                  : '1.5px dashed rgba(255, 255, 255, 0.12)',
+                                  : '1.5px dashed rgb(var(--ink-rgb) / 0.12)',
                               background: isActiveSeat
                                 ? `rgba(35, 12, 70, 0.95)`
                                 : 'rgba(25, 10, 56, 0.65)',
@@ -2517,7 +2518,7 @@ export function Game() {
                                 style={{
                                   fontWeight: 'bold',
                                   fontSize: '0.84rem',
-                                  color: '#ffffff',
+                                  color: 'var(--text-main)',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 6,
@@ -2611,7 +2612,7 @@ export function Game() {
                           // make the toggle section read as separate from the roster, and
                           // stretching it keeps that divider running the cards' full height.
                           paddingLeft: 10,
-                          borderLeft: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderLeft: '1px solid rgb(var(--ink-rgb) / 0.12)',
                           alignSelf: 'stretch',
                         }}
                       >
@@ -2659,12 +2660,12 @@ export function Game() {
                                     ? 'var(--accent-yellow)'
                                     : canArm
                                       ? SEAT_HUES[ck]
-                                      : 'rgba(255, 255, 255, 0.14)'
+                                      : 'rgb(var(--ink-rgb) / 0.14)'
                                 }`,
                                 background: armed
                                   ? 'rgb(var(--accent-yellow-rgb) / 0.2)'
                                   : 'rgba(25, 10, 56, 0.65)',
-                                color: armed ? 'var(--accent-yellow)' : '#ffffff',
+                                color: armed ? 'var(--accent-yellow)' : 'var(--text-main)',
                                 boxShadow: armed ? '0 0 14px var(--accent-yellow)' : 'none',
                                 fontFamily: 'var(--font-mono)',
                                 cursor: canArm ? 'pointer' : 'not-allowed',
@@ -2773,7 +2774,7 @@ export function Game() {
                       letterSpacing: '1px',
                       background: 'linear-gradient(135deg, #ff007f, #9d00ff)',
                       borderColor: 'var(--accent-pink)',
-                      color: '#ffffff',
+                      color: 'var(--text-main)',
                       boxShadow: '0 0 16px rgba(255, 0, 127, 0.4)',
                       borderRadius: 4,
                       justifyContent: 'center',
@@ -2992,7 +2993,7 @@ export function Game() {
                             fontSize: '0.8rem',
                             background: alreadyReady ? 'rgb(var(--state-on-rgb) / 0.2)' : 'var(--btn-bg)',
                             borderColor: alreadyReady ? 'var(--state-on)' : 'var(--accent-pink)',
-                            color: alreadyReady ? 'var(--state-on)' : '#ffffff',
+                            color: alreadyReady ? 'var(--state-on)' : 'var(--text-main)',
                             opacity: disabled ? 0.6 : 1,
                             cursor: disabled ? 'default' : 'pointer',
                           }}
@@ -3065,7 +3066,7 @@ export function Game() {
                               border: '1px solid var(--border-color)',
                               borderRadius: 4,
                               padding: '7px 10px',
-                              background: 'rgba(0, 0, 0, 0.4)',
+                              background: 'rgb(var(--shade-rgb) / 0.4)',
                             }}
                           >
                             <span
@@ -3088,16 +3089,7 @@ export function Game() {
                                   // A count only means something with the mutator on.
                                   emitKeyShift(view.clashKeyShift > 0 ? next : 0);
                                 }}
-                                style={{
-                                  background: 'rgba(0, 0, 0, 0.6)',
-                                  color: 'var(--text-main)',
-                                  border: '1px solid var(--border-color)',
-                                  borderRadius: 3,
-                                  fontFamily: 'var(--font-mono)',
-                                  fontSize: '0.72rem',
-                                  padding: '1px 3px',
-                                  cursor: 'pointer',
-                                }}
+                                className={INLINE_CHIP}
                               >
                                 <option value={1}>1</option>
                                 <option value={2}>2</option>
@@ -3209,7 +3201,7 @@ export function Game() {
                             fontSize: '0.78rem',
                             fontFamily: 'var(--font-mono)',
                             fontWeight: 'bold',
-                            color: '#ffffff',
+                            color: 'var(--text-main)',
                             letterSpacing: '0.5px',
                           }}
                         >
@@ -3278,7 +3270,7 @@ export function Game() {
                         background:
                           canRoll && !isRolling ? 'var(--btn-bg)' : 'rgba(25, 10, 56, 0.5)',
                         borderColor:
-                          canRoll && !isRolling ? 'var(--accent-pink)' : 'rgba(255, 255, 255, 0.2)',
+                          canRoll && !isRolling ? 'var(--accent-pink)' : 'rgb(var(--ink-rgb) / 0.2)',
                         boxShadow: canRoll && !isRolling ? '0 0 20px var(--accent-pink)' : 'none',
                         animation: canRoll && !isRolling ? 'pulse-glow 1.5s infinite' : 'none',
                         cursor: canRoll && !isRolling ? 'pointer' : 'default',
@@ -3315,7 +3307,7 @@ export function Game() {
                           textAlign: 'center',
                           background: breakerArmed ? 'rgb(var(--accent-yellow-rgb) / 0.22)' : 'var(--btn-bg)',
                           borderColor: breakerArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
-                          color: breakerArmed ? 'var(--accent-yellow)' : '#ffffff',
+                          color: breakerArmed ? 'var(--accent-yellow)' : 'var(--text-main)',
                           boxShadow: breakerArmed ? '0 0 18px var(--accent-yellow)' : 'none',
                           animation: breakerArmed ? 'pulse-glow 1.5s infinite' : 'none',
                           cursor: 'pointer',
@@ -3411,7 +3403,7 @@ export function Game() {
                               display: 'flex',
                               gap: 8,
                               fontSize: '0.72rem',
-                              color: '#ffffff',
+                              color: 'var(--text-main)',
                               fontFamily: 'var(--font-mono)',
                               lineHeight: 1.3,
                             }}
@@ -3454,7 +3446,7 @@ export function Game() {
                       ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(157, 0, 255, 0.25))'
                       : 'rgba(0, 240, 255, 0.12)',
                     border: '1.5px solid var(--accent-cyan)',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     boxShadow: isGameEnded ? '0 0 16px rgba(0, 240, 255, 0.4)' : 'none',
                     cursor: 'pointer',
                     textAlign: 'center',
@@ -3656,12 +3648,12 @@ export function Game() {
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 'bold',
                     background:
-                      rulesPage === p.id ? 'rgba(0, 240, 255, 0.22)' : 'rgba(255, 255, 255, 0.04)',
+                      rulesPage === p.id ? 'rgba(0, 240, 255, 0.22)' : 'rgb(var(--ink-rgb) / 0.04)',
                     border:
                       rulesPage === p.id
                         ? '1.5px solid var(--accent-cyan)'
-                        : '1px solid rgba(255, 255, 255, 0.1)',
-                    color: rulesPage === p.id ? '#ffffff' : 'var(--text-muted)',
+                        : '1px solid rgb(var(--ink-rgb) / 0.1)',
+                    color: rulesPage === p.id ? 'var(--text-main)' : 'var(--text-muted)',
                     boxShadow: rulesPage === p.id ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
                     borderRadius: 4,
                     cursor: 'pointer',
@@ -3732,7 +3724,7 @@ export function Game() {
                     </span>
                     <span
                       style={{
-                        color: '#fff',
+                        color: 'var(--text-main)',
                         fontFamily: 'var(--font-mono)',
                         background: 'rgba(0, 240, 255, 0.2)',
                         padding: '3px 10px',
@@ -3757,7 +3749,7 @@ export function Game() {
                     </span>
                     <span
                       style={{
-                        color: '#fff',
+                        color: 'var(--text-main)',
                         fontFamily: 'var(--font-mono)',
                         background: 'rgba(255, 0, 127, 0.2)',
                         padding: '3px 10px',

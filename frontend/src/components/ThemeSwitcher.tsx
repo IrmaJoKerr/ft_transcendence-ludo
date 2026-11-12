@@ -85,7 +85,7 @@ export function ThemeSwitcher() {
                   borderRadius: 3,
                   overflow: 'hidden',
                   flexShrink: 0,
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  border: '1px solid rgb(var(--ink-rgb) / 0.18)',
                   opacity: isActive ? 1 : 0.55,
                 }}
               >

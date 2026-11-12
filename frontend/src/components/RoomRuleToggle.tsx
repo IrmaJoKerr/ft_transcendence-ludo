@@ -18,7 +18,7 @@ const ROW: CSSProperties = {
   border: '1px solid var(--border-color)',
   borderRadius: 4,
   padding: '7px 10px',
-  background: 'rgba(0, 0, 0, 0.4)',
+  background: 'rgb(var(--shade-rgb) / 0.4)',
 };
 
 const TEXT: CSSProperties = { display: 'flex', flexDirection: 'column', lineHeight: 1.3 };

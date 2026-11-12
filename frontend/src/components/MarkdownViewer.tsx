@@ -33,7 +33,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[rgba(255,255,255,0.08)]">
+          <tbody className="divide-y divide-[rgb(var(--ink-rgb)/0.08)]">
             {cleanRows.map((row, rIdx) => (
               <tr key={rIdx}>
                 {row.map((cell, cIdx) => (
@@ -178,7 +178,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       elements.push(
         <h1
           key={`h1-${i}`}
-          className="font-display mt-2 mb-4 text-xl font-black tracking-wider text-[#ffffff] [text-shadow:0_0_12px_var(--accent-cyan)]"
+          className="font-display mt-2 mb-4 text-xl font-black tracking-wider text-(--text-main) [text-shadow:0_0_12px_var(--accent-cyan)]"
         >
           {renderInline(trimmed.slice(2))}
         </h1>,

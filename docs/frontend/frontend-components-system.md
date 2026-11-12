@@ -295,9 +295,9 @@ sequenceDiagram
 
 Rules that apply to the whole file:
 
-- **No theme logic.** Every colour comes from the custom properties declared on `:root, [data-theme='synthwave']` in `retrowave.css`.
+- **No theme logic.** Every colour comes from the custom properties declared on `:root, [data-theme='retro80']` in `styles/themes/retro80/theme.css`, whose sibling table `styles/themes/retro70/theme.css` declares the same names with the other era's values.
 - **`!` (the important modifier) marks a real specificity conflict.** Four constants need it: `GAME_WINDOW_HEADER_EXTRA`, `CYBER_BTN_PINK`, `CYBER_BTN_YELLOW` and `CYBER_BTN_DANGER`, where another utility of the same specificity would otherwise win.
-- **`@keyframes` and custom easing curves** (`--flicker`) cannot be written as utility classes, so they stay in `retrowave.css` and are referenced with `var()` or arbitrary `animation:` values.
+- **`@keyframes` and custom easing curves** (`--flicker`) cannot be written as utility classes, so they stay in `styles/app.css` and are referenced with `var()` or arbitrary `animation:` values.
 - **State controlled by JavaScript** (open/closed, glitching, an active LED) is written as a literal or conditional class, or as a `data-*` attribute read through a `group-data-` variant.
 
 Per-constant notes:
@@ -349,6 +349,6 @@ Per-constant notes:
 | `GoalConfetti` | `react`, `__shared__/timing.constants` | Its own keyframes and `GOAL_FX_MS`, the shared figure the engine's bot waits on too; no theme import |
 | `GoalCard` | `react`, `theme.ts`, `store.tsx`, `PieceFigure`, `__shared__/timing.constants` | `COL` for the seat's hue, `useApp` for the theme — which picks the piece set the climbing figure is drawn in (`retro70` or `retro80`), the same choice the board makes, so a card can never show the other decade's cast — `PieceFigure` itself, and `GOAL_CARD_MS` for the climb's own timeline |
 | `Die` | `react` | Inline `shake` animation and pip-grid faces (no theme import) |
-| `OAuthButtons` | `theme.ts` | `btnOutline` style |
+| `OAuthButtons` | `styles/tw.ts` | `OAUTH_BTN`, the class form of the deleted `btnOutline` style object |
 | `NavDock` | `hooks/useDockPrefs.ts`, `RetroNavbar`, `LobbyChat` | The dock's width and chat preference, forwarded into the bar |
 | `RetroNavbar` | `store.tsx` | `useApp` for `user`, `lang`, `setLang`, `logout` |

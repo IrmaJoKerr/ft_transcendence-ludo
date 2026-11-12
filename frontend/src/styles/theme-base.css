@@ -22,21 +22,32 @@
    in `retro80/` and `1970s-Orbital-Colony.jpg` in `retro70/`, and is read by that
    table's `--shell-image`. Nothing is left in `public/`; if an asset ever cannot be
    imported from its theme folder, it stays in `public/` and this header says which
-   and why. */
+   and why.
+
+   One plate does stay behind, unreferenced on purpose:
+   `public/1970s-Utopia-Sunset-Mod-Desert-City.jpg` is the 70s shell's reserve. The
+   orbital colony is the plate that ships; if it ever reads badly at the sizes the
+   shell paints it, this is the one to swap in, and swapping it is an import plus a
+   `--shell-image` line. Until then it is dead weight deliberately, so it is not swept
+   up by the next tidy-up (todo.md section 33). It is the only file in `public/` that no
+   code reads. */
 
 @import './themes/retro80/theme.css';
 @import './themes/retro70/theme.css';
 
-/* The fieldset's six tokens, derived rather than spelled. They used to be a literal
-   `:root` at the end of the one stylesheet, at the same specificity as the theme
-   blocks and after them, so a piece of chrome read synthwave's pinks under both
-   eras and a themed fieldset was impossible. Read off the theme instead: the fieldset
-   is chrome, and chrome follows the era. */
+/* The fieldset's three tokens, derived rather than spelled, for the one surface that
+   still reads them: the theme popover (`THEME_POPOVER_MENU_BASE`). They used to be a
+   literal `:root` at the end of the one stylesheet, at the same specificity as the
+   theme blocks and after them, so a piece of chrome read synthwave's pinks under both
+   eras and a themed popover was impossible. Read off the theme instead: the popover is
+   chrome, and chrome follows the era.
+
+   Three more - `--fs-text`, `--fs-accent` and `--fs-cyan` - lived here for the
+   `#color-scheme` fieldset sheet `app.css` carried until 2026-11-12. No component ever
+   mounted that fieldset, so the sheet and the tokens went together (todo.md section 33,
+   the ruling of 2026-11-12); git holds both. */
 :root {
   --fs-border: var(--accent-pink);
-  --fs-text: var(--text-main);
-  --fs-accent: var(--accent-pink);
-  --fs-cyan: var(--accent-cyan);
   --fs-bg: var(--bg-card);
   --fs-glow: rgb(var(--accent-pink-rgb) / 0.5);
 }

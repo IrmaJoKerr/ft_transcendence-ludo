@@ -38,7 +38,7 @@ export function LanguageSwitcher({
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 6,
-          background: 'rgba(0, 0, 0, 0.45)',
+          background: 'rgb(var(--shade-rgb) / 0.45)',
           padding: 4,
           borderRadius: 8,
           border: '1px solid rgba(0, 240, 255, 0.2)',
@@ -64,7 +64,7 @@ export function LanguageSwitcher({
                 background: isSelected
                   ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.2))'
                   : 'transparent',
-                color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
                 cursor: 'pointer',
                 boxShadow: isSelected ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
                 transition: 'all 0.18s ease',
@@ -101,7 +101,7 @@ export function LanguageSwitcher({
     <div
       role="group"
       aria-label={t('common.language')}
-      className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgba(0,0,0,0.5)] p-0.5"
+      className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5"
       style={style}
     >
       {LANGS.map((item) => (
@@ -112,7 +112,7 @@ export function LanguageSwitcher({
           className={`rounded px-2.5 py-1 font-mono text-xs font-bold transition-all ${
             value === item.code
               ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
-              : 'text-[var(--text-muted)] hover:text-[#ffffff]'
+              : 'text-[var(--text-muted)] hover:text-(--text-main)'
           }`}
           onClick={() => pick(item.code)}
         >
