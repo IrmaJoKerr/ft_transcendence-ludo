@@ -21,10 +21,10 @@ const EXTS = new Set(['.ts', '.tsx', '.css']);
 // Generated from `common/src` by `sync-shared.mjs`: never audited, never edited here.
 const SKIP_DIRS = new Set(['__shared__']);
 
-// One row per swept colour. The array exists because the guard is meant to grow: yellow,
-// the ink and its shadow, and the cyan, pink and purple accents are swept, and the state
-// pair joins them as its own pass lands. Until then its literals are out of scope rather
-// than silently allowed.
+// One row per swept colour. The array exists because the guard is meant to grow: the
+// yellow, the ink and its shadow, the cyan, pink and purple accents, and the state pair
+// are all swept now, and the six rows below are the whole vocabulary the themes share.
+// A seventh colour that starts painting surfaces is a seventh row here, not a fallback.
 const SWEPT = [
   {
     token: '--accent-yellow',
@@ -93,6 +93,30 @@ const SWEPT = [
       /rgb\(\s*157\s+0\s+255\b/gi,
     ],
   },
+  {
+    // Family 6 of section 33 step 2, and the last family: the state pair. It is the one
+    // vocabulary in the app that names a *condition* rather than a thing, which is why
+    // the inventory below is the longest one here: its 80s green is also the green seat
+    // (`theme.ts`, the two `SEAT_HUES`, `SEAT_COLOR`), its red is also the destructive
+    // action's, and both are painted into the hero and the mode chrome. Every kept row
+    // says which of those it is. The 70s values (`#82903f`, `#e8697d`) are not forms, for
+    // the reason cyan's is not: they exist only in that table, declaration and prose.
+    // The drifted pair is swept here rather than with the accents that deferred it
+    // (`#33ff88` in the bell's LED, the Material pink `#ff4081` in the auth message):
+    // section 26.1 gives both readings to this pair, and after this pass neither hue is
+    // spelled anywhere, so the gate can hold them shut.
+    token: '--state-on / --state-off / --state-on-rgb / --state-off-rgb',
+    forms: [
+      /#00ff88/gi,
+      /#ff0055/gi,
+      /#33ff88/gi,
+      /#ff4081/gi,
+      /rgba?\(\s*(?:0|51)\s*,\s*255\s*,\s*136\s*[,)]/gi,
+      /rgba?\(\s*255\s*,\s*(?:0|64)\s*,\s*(?:85|129)\s*[,)]/gi,
+      /rgb\(\s*(?:0|51)\s+255\s+136\b/gi,
+      /rgb\(\s*255\s+(?:0|64)\s+(?:85|129)\b/gi,
+    ],
+  },
 ];
 
 // The inventory: every literal the sweep keeps on purpose, one entry per file and
@@ -148,11 +172,21 @@ const INVENTORY = {
     { line: "background: 'rgba(0,0,0,.72)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
     { line: "background: 'rgba(0, 0, 0, 0.94)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
   ],
-  'components/NotificationBell.tsx': [
+  'components/RetroNavbar.tsx': [
     {
-      line: "boxShadow: count > 0 ? '0 0 8px #ff007f' : '0 0 6px #33ff88',",
+      line: ": 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgb(var(--accent-pink-rgb) / 0.35))',",
       count: 1,
-      why: 'a lit/unlit LED pair whose green is the drifted #33ff88: the state pair owns that reading, and its pink half stays with it',
+      why: "the logout button's red, action chrome rather than a report (26.6): it is era-branched, and no token is both #e5340b and #ff0055",
+    },
+    {
+      line: "border: SEVENTIES ? '1.5px solid #e5340b' : '1.5px solid #ff0055',",
+      count: 1,
+      why: "the logout button's border, era-branched: the 70s edge is the span's vermilion, the 80s one is the pair's red",
+    },
+    {
+      line: "boxShadow: SEVENTIES ? '0 0 12px rgba(229, 52, 11, 0.3)' : '0 0 12px rgba(255, 0, 85, 0.3)',",
+      count: 1,
+      why: "the logout button's glow, era-branched with the two lines above",
     },
   ],
   'heroScenes.ts': [
@@ -166,8 +200,13 @@ const INVENTORY = {
     { line: "{ label: 'BLUE', color: '#00f0ff', x: 635, y: 350 },", count: 1, why: 'the hero art' },
     { line: "marqueeColor: '#00f0ff',", count: 1, why: 'the hero art' },
     { line: "{ label: 'BLUE', color: '#00f0ff', x: 606 },", count: 1, why: 'the hero art' },
+    { line: "{ label: 'RED', color: '#ff0055', x: 85, y: 350 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
+    { line: "{ label: 'GREEN', color: '#00ff88', x: 230, y: 360 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
+    { line: "{ label: 'GREEN', color: '#00ff88', x: 286 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
   ],
   'pages/Game.tsx': [
+    { line: "green: '#00ff88',", count: 1, why: 'SEAT_HUES: colour is the seat' },
+    { line: "? '#00ff88'", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
     { line: "red: '#ff007f',", count: 1, why: 'SEAT_HUES: colour is the seat' },
     { line: "yellow: '#ffe600',", count: 1, why: 'SEAT_HUES: colour is the seat' },
     { line: "? '#ff007f'", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
@@ -178,11 +217,22 @@ const INVENTORY = {
     { line: "const turnColorHex = SEAT_HUES[effectiveTurn] || '#00f0ff';", count: 1, why: 'a turn hue falling back to the blue seat' },
   ],
   'pages/Lobby.tsx': [
+    { line: "green: '#00ff88',", count: 1, why: 'COL: colour is the seat' },
     { line: "red: '#ff007f',", count: 1, why: 'COL: colour is the seat' },
     { line: "yellow: '#ffe600',", count: 1, why: 'COL: colour is the seat' },
     { line: "blue: '#00f0ff',", count: 1, why: 'COL: colour is the seat' },
   ],
   'pages/LudoLobby.tsx': [
+    {
+      line: "{ key: 'captureFx', icon: '💥', label: 'game.captureFx', hue: '#00ff88' },",
+      count: 1,
+      why: 'ROOM_MODES: a mode colour is its name',
+    },
+    {
+      line: "? '#00ff88'",
+      count: 1,
+      why: 'the room badge hues, whose yellow, pink and cyan siblings are literal too',
+    },
     {
       line: "{ key: 'freeExit', icon: '🚪', label: 'game.freeExit', hue: '#ffe600' },",
       count: 1,
@@ -228,7 +278,10 @@ const INVENTORY = {
     { line: "boxShadow: '0 0 12px rgba(255, 0, 127, 0.3)',", count: 1, why: 'the level-1 ticket' },
     { line: "borderRight: '2px dashed rgba(255, 0, 127, 0.45)',", count: 1, why: 'the level-1 ticket divider' },
   ],
-  'pages/Profile.tsx': [{ line: "YELLOW: '#ffe600',", count: 1, why: 'SEAT_COLOR: colour is the seat' }],
+  'pages/Profile.tsx': [
+    { line: "GREEN: '#00ff88',", count: 1, why: 'SEAT_COLOR: colour is the seat' },
+    { line: "YELLOW: '#ffe600',", count: 1, why: 'SEAT_COLOR: colour is the seat' },
+  ],
   'store.tsx': [
     {
       line: "{ id: 'retro70', label: \"RETRO 70'S\", swatch: ['#e5340b', '#ffb000'] },",
@@ -245,6 +298,8 @@ const INVENTORY = {
   // allowed to spell its own palette. One entry per name that carries a swept form.
   'styles/themes/retro80/theme.css': [
     { line: '--accent-cyan: #00f0ff;', count: 1, why: 'the 80s token definition' },
+    { line: '--state-off: #ff0055;', count: 1, why: 'the 80s token definition' },
+    { line: '--state-on: #00ff88;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-pink: #ff007f;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-purple: #9d00ff;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
@@ -280,9 +335,19 @@ const INVENTORY = {
       count: 2,
       why: 'a mask channel: white is full coverage, not a colour, so it must not warm in the 70s',
     },
-    { line: "\"text-[#ff4081] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]\";", count: 2, why: "RETRO_AUTH_ERROR: the drifted Material pink reports a failure, and the state pair owns that reading" },
+    {
+      line: "'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgb(var(--accent-pink-rgb)/.55),inset_0_0_16px_rgba(0,255,136,.18)]';",
+      count: 5,
+      why: 'TICKET_GREEN: the third lobby ticket, kept whole with its amber and pink siblings; its hover border #33ffaa is a distinct shade and not a swept form',
+    },
+    {
+      line: "export const CYBER_BTN_DANGER = '![--btn-accent:#ff0055] ![--btn-shadow:#ff0000]';",
+      count: 1,
+      why: 'the destructive button recipe, kept with the accents (26.6): the red seat is the accent pink, and this red is the danger action',
+    },
   ],
   'theme.ts': [
+    { line: "green: { base: '#00ff88' },", count: 1, why: 'the seat palette: the 80s state green and the green seat share one value' },
     { line: "red: { base: '#ff007f' },", count: 1, why: 'the seat palette: the accent and the red seat share one value' },
     { line: "yellow: { base: '#ffe600' },", count: 1, why: 'the seat palette' },
     { line: "blue: { base: '#00f0ff' },", count: 1, why: 'the seat palette: the accent and the blue seat share one value' },

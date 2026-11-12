@@ -3136,7 +3136,7 @@ export function Game() {
                             label={t('game.captureFx')}
                             desc={t('game.captureFxDesc')}
                             checked={view.captureFx}
-                            accent="#00ff88"
+                            accent="var(--state-on)"
                             onToggle={(next) => emitRule({ captureFx: next })}
                           />
                         </div>
@@ -3868,7 +3868,7 @@ export function Game() {
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
                   >
-                    <span style={{ color: '#00ff88', fontSize: '1.2rem' }}>✦</span>
+                    <span style={{ color: 'var(--state-on)', fontSize: '1.2rem' }}>✦</span>
                     <span>{t('gameExtra.rulesPage2Line2')}</span>
                   </div>
                 </div>
@@ -3934,7 +3934,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#00ff88',
+                    color: 'var(--state-on)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -3948,14 +3948,14 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    borderLeft: '4px solid #00ff88',
-                    border: '1px solid rgba(0, 255, 136, 0.2)',
+                    borderLeft: '4px solid var(--state-on)',
+                    border: '1px solid rgb(var(--state-on-rgb) / 0.2)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                   }}
                 >
-                  <div style={{ color: '#00ff88', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  <div style={{ color: 'var(--state-on)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                     {t('gameExtra.rulesPage4Title')}
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
@@ -4104,7 +4104,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#ff0055',
+                    color: 'var(--state-off)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -4118,13 +4118,13 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    border: '1px solid rgba(255, 0, 85, 0.25)',
+                    border: '1px solid rgb(var(--state-off-rgb) / 0.25)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                   }}
                 >
-                  <div style={{ color: '#ff0055', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  <div style={{ color: 'var(--state-off)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                     {t('gameExtra.rulesPage7Title')}
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>

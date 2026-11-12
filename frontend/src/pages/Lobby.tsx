@@ -1112,7 +1112,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         label={t('game.captureFx')}
                         desc={t('game.captureFxDesc')}
                         checked={captureFx}
-                        accent="#00ff88"
+                        accent="var(--state-on)"
                         onToggle={setCaptureFx}
                       />
                     </div>

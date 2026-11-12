@@ -11,7 +11,7 @@ const SLOT: CSSProperties = {
   fontFamily: 'var(--font-mono)',
   fontSize: '0.68rem',
   lineHeight: 1.45,
-  color: '#ff4081',
+  color: 'var(--state-off)',
   overflowWrap: 'anywhere',
 };
 

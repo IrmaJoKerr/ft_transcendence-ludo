@@ -46,10 +46,10 @@ export const RETRO_AUTH_LINK =
   'text-(--accent-cyan) cursor-pointer font-bold no-underline [transition:color_0.18s_ease,text-shadow_0.18s_ease] hover:text-(--accent-pink) hover:[text-shadow:0_0_10px_rgb(var(--accent-pink-rgb)/.5)]';
 
 export const RETRO_AUTH_ERROR =
-  "text-[#ff4081] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]";
+  "text-(--state-off) text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgb(var(--state-off-rgb)/.08)] border border-[rgb(var(--state-off-rgb)/.2)]";
 
 export const RETRO_AUTH_SUCCESS =
-  "text-[#33ff88] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(51,255,136,.08)] border border-[rgba(51,255,136,.2)]";
+  "text-(--state-on) text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgb(var(--state-on-rgb)/.08)] border border-[rgb(var(--state-on-rgb)/.2)]";
 
 export const RETRO_AUTH_MUTED =
   "text-[rgba(184,166,228,.6)] text-[13px] font-['Atkinson_Hyperlegible_Mono',monospace]";

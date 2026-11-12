@@ -761,6 +761,29 @@ it did was close the loose end the pink pass left: the five application gradient
 instead of into neon violet — and `CYBER_BTN_PINK`'s shadow reads it too. The 70s value is not a swept form for the
 reason cyan's is not: nothing in the tree has ever spelled `#0c5679` outside its own table.
 
+**The state pair (`--state-on` / `--state-off`, with their channels)** 🎨 — the sixth and last family
+(`todo.md` [33](todo.md#rv33-family6)), run 2026-11-13, and the only family whose tokens had already been themed
+before it began: the five were declared in both tables on 2026-11-09, when section [26](todo.md#state-colour) moved 133
+readers onto them in one pass, so this family's subject is the residue that pass left and the gate that keeps it shut.
+So this pass is not the one that themes a
+vocabulary, it is the one that closes it: `#00ff88` and `#ff0055` are now swept in every form, and the census found
+the residue 26.6 listed as kept — plus the two drifted hues family 4 deferred to it, `#33ff88` and the Material pink
+`#ff4081`. **15 lines across 5 files**: nine in `Game.tsx` (the `captureFx` rule chip, whose three siblings already
+read accents, and the two rule pages that were still literal), one on the create screen's chip, the bell's LED and
+its glow, the two auth message recipes, and `FieldError`. The ten rules-page and chip lines are byte-identical under
+Synthwave; the five that are not are the drift, and each moves a few units in one direction on purpose. **The drifted
+pair is not a third state:** `#ff4081` reports a *failure* and `#33ff88` a *lit condition*, which are 26.1's two
+readings, so both fold onto the pair — the auth error's 13 px sentence measures 5.28:1 on its own pill where
+`--state-off` measures 4.53:1, still AA at that size (barely), and the success line 12.37 against 12.36, so the
+readability the drift bought is three quarters of a ratio point while the leak it kept (Material pink and mint on
+walnut) is the whole family's subject.
+What stays literal is the identity list 26.6 drew: `COL`, the two `SEAT_HUES`, `SEAT_COLOR`, `theme.ts`'s green, the
+hero's RED and two GREENs, `ROOM_MODES` and the room badge arms, the third lobby ticket (`TICKET_GREEN`, kept whole
+with its amber and pink siblings), `CYBER_BTN_DANGER`, and the logout button's era-branched red — **22 literals on 17
+inventory rows across 9 files**. Two sets are deliberately not swept forms: the 70s pair (`#82903f`, `#e8697d`) exists
+only in that table's declaration and prose, the reasoning cyan's `#5fb3b0` and purple's `#0c5679` carry, and the
+tickets' hover shades (`#33ffaa` beside `#ff3399` and `#ffff33`) are distinct hues nothing else spells.
+
 **The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
 hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder

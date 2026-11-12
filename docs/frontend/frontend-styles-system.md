@@ -109,6 +109,23 @@ and the table's `--btn-bg` with them, that ran `var(--accent-pink) → #9d00ff` 
 the 70s draws vermilion into deep petrol rather than into neon violet, and `CYBER_BTN_PINK`'s shadow reads the token
 too. `#0c5679` is not a swept form for the reason cyan's `#5fb3b0` is not: nothing outside that table spells it.
 
+**The state pair.** The sixth and last family (`todo.md` [33](todo.md#rv33-family6)) is the only one whose tokens were
+already themed before it started: `--state-on` (`#00ff88` / avocado `#82903f`), `--state-off` (`#ff0055` / cranberry
+rose `#e8697d`), their two `-rgb` channels and `--state-on-ink` were declared in both tables on 2026-11-09, and
+[section 26](todo.md#state-colour) moved 133 readers onto them in one pass. So its work is the residue that pass left
+and the gate that keeps it shut — **15 lines across 5 files**, all of them literals 26.6 had listed as kept: the
+`captureFx` rule chip on the create screen and on the waiting rail (whose three siblings already read accents, so the
+fourth now does), the two rule pages that paint a green box for "you may" and a red one for "you may not", the bell's
+lit LED and its glow, and the two auth message recipes with `FieldError`. **The two drifted hues fold onto the pair
+rather than onto a third token:** `#ff4081` is a Material pink that reports a *failure*, `#33ff88` is a mint that marks
+a *lit condition*, and those are 26.1's two readings, so the error reads `--state-off` (5.28:1 down to 4.53:1 on its
+own pill, still AA at 13 px) and the LED and the success line read `--state-on` (12.37 → 12.36). Twenty-two literals stay,
+because these two values are also identities: the four seat tables and the two seat maps, the room-mode hue and the
+room badge arms, the hero's RED and two GREENs, the third lobby ticket kept whole with its siblings,
+`CYBER_BTN_DANGER`, and the logout button's era-branched red, which no token can express because it is vermilion in
+one era and crimson in the other. The 70s values are not swept forms, for the reason cyan's is not: nothing outside
+that table spells `#82903f` or `#e8697d`.
+
 **The ink family.** `--ink-rgb` (`255 255 255` / warm cream `255 231 189`) is the neutral every surface tints with, `--shade-rgb` (`0 0 0` / warm black `26 16 9`) is the shadow under it, and `--text-main` is the ink as text; the 70s values are warm on purpose, because a cold white or a cold black reads purple and blue-grey over walnut. The first family of the sweep (`todo.md` [33](todo.md#rv33-plan) step 2) moved 242 reader lines across 35 files onto them: `rgba(255,255,255,a)` became `rgb(var(--ink-rgb) / a)`, a bare `#ffffff` used as text became `var(--text-main)`, `#000000` became `rgb(var(--shade-rgb))`, and Tailwind's own `text-white`/`bg-black` utilities — which bypass the tokens entirely — were folded into the same forms (`text-(--text-main)`, `bg-[rgb(var(--shade-rgb))]`), compact inside the brackets so the arbitrary value stays one class — and a space left in there does not make a longer class, it makes no class at all, which is what the accent cyan's pass later found thirteen of. Under `retro80` every one of the 242 resolves back to the literal it replaced, character for character; the change is the 70s. Canvas and SVG painters keep their literals, because their palette is drawn rather than read: `pieceParts`, the hero backdrops, the goal and capture sparks, the die, the result spark. So do the mask channel (white is full coverage there, not a colour, so it must not warm) and the surfaces another step owns — the board's fringes and the clash card. Each of those is on the guard's inventory with the reason, and `--propose` prints the rows a tree would need. `scripts/colour-census.mjs --groups` sizes the next family: distinct values, counts and files, grouped by hue band.
 
 **The third state.** `--accent-yellow` (`#ffe600` / amber `#ffb000`) is the caution: a warning, a caution or an in-progress row (an abandoned match, an empty photo slot, a room that cannot launch, a legal move). It is not a third `--state-*` token, because the accent already names the colour and a second name would drift from it, and it is never a verdict. It needed no new value: the 70s amber reads 9.05:1 on that theme's card and sits 29.0° of hue from the avocado and 50.8° from the rose, so the three conditions stay distinguishable. Seat hues, the hero art and the mode chrome stay literal (`todo.md` [27](todo.md#warn-colour)); everything that paints reads the token, and `scripts/check-theme-literals.mjs` (run by `prebuild` and `lint`) fails the build on a literal outside its named inventory.
