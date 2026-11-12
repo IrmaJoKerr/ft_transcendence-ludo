@@ -1,4 +1,6 @@
 import type { ThemeType } from './store';
+import cityscapeArt from './styles/themes/retro80/80s-Synthwave-Cityscape.jpg';
+import colonyArt from './styles/themes/retro70/1970s-Orbital-Colony.jpg';
 
 /** One member of the attract-mode crew: a node at (x, y) on the 720×400 card. */
 export type HeroPawn = { label: string; color: string; x: number; y: number };
@@ -22,6 +24,24 @@ export type Synthwave80sScene = {
   bgTop: string;
   bgMid: string;
   bgBot: string;
+  /**
+   * The card's own still: the cityscape the shell wears as its ground, which is
+   * the same shot the drawn sunset below approximates. The painter lays it over
+   * the gradient and retires the sun and the grid while it is up, because art
+   * that already carries a sun, a skyline and a grid must not be given a second
+   * of each. The drawn card is what shows until this decodes, and forever if it
+   * never does.
+   */
+  plate: {
+    src: string;
+    /** The art's own horizon as a fraction of its height (measured: 0.62), so the
+     *  card can put that row on its own horizon whatever the crop turns out to be. */
+    horizon: number;
+    /** Two stops over the plate, top first. A plate is dimmed under the chrome that
+     *  reads on it, and this is the shell's navy — lighter alphas, because what
+     *  reads over this one is a marquee and four labels rather than body text. */
+    dim: readonly [string, string];
+  };
   /** The disc: its centre is the card's midline (360 of 720) and its rim is `r`. */
   sun: { y: number; r: number; c1: string; c2: string; scanline: string };
   /** The perspective grid's stroke, drawn below `horizonY`. */
@@ -41,6 +61,11 @@ export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
   bgTop: '#070114',
   bgMid: '#160530',
   bgBot: '#05010d',
+  plate: {
+    src: cityscapeArt,
+    horizon: 0.62,
+    dim: ['rgba(13, 2, 33, 0.16)', 'rgba(13, 2, 33, 0.55)'],
+  },
   sun: {
     y: 250,
     r: 90,
@@ -74,6 +99,10 @@ export type RoomLegend = { label: string; color: string; x: number };
  * starts at 234 — the frame, the ledge and the card are three separate bands, and
  * no sky is spent where the card would hide it.
  *
+ * The view through that window is the era's still (`sceneArt`), placed by the
+ * painter rather than declared here: it is cover-cropped to the opening, not to
+ * the card, which is a different placement from the 80s plate's.
+ *
  * Only what varies lives here: the crew's placement and the two colours the canvas
  * prints. The room's own palette is fixed walnut and is not a theme knob.
  */
@@ -106,3 +135,15 @@ export const HERO_SCENES: Record<ThemeType, HeroScene> = {
   retro80: SYNTHWAVE_80S_CFG,
   retro70: RETRO70_CFG,
 };
+
+/**
+ * The still a scene is made of: the room's colony, the city's skyline. Each file
+ * sits in its own theme's folder beside that theme's table (todo.md 33, decision
+ * 19), and this is the one place that knows which is which — the hook preloads
+ * what this names, and each painter places it its own way. A painter importing an
+ * asset itself would put the path in two modules, and swapping one era's still
+ * would then be a two-file edit.
+ */
+export function sceneArt(scene: HeroScene): string {
+  return scene.kind === 'room' ? colonyArt : scene.plate.src;
+}

@@ -26,11 +26,11 @@ export type Meteor = { x: number; y: number; vx: number; vy: number; len: number
 export type HeroFrame = { time: number; gridOffset: number };
 
 /** What a scene carries between frames: its starfield, seeded once per scene, the
- *  room's colony image once it has loaded, and the room's meteors. */
+ *  scene's own still once it has decoded (`sceneArt`), and the room's meteors. */
 export type SceneState = {
   stars: Star[];
   room?: { key: string; canvas: HTMLCanvasElement | OffscreenCanvas };
-  colonyImg?: HTMLImageElement;
+  plateImg?: HTMLImageElement;
   meteors?: Meteor[];
 };
 
@@ -188,9 +188,19 @@ function flare(
   ctx.restore();
 }
 
+/** The four nudges that make a glyph's halo: left, right, up, down. */
+const LABEL_HALO = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+] as const;
+
 /**
- * The 80s card: deep gradient, a banded sun, drifting stars, a horizon grid running
- * towards the camera, four hologram nodes and the marquee on top.
+ * The 80s card: the era's own still, drifting stars, four hologram nodes and the
+ * marquee on top — or, until that still decodes, the sunset this card used to be:
+ * a banded sun, a horizon grid running towards the camera, and the same stars,
+ * nodes and marquee over it.
  */
 export function paintSynthwave(
   ctx: CanvasRenderingContext2D,
@@ -205,7 +215,9 @@ export function paintSynthwave(
 
   ctx.clearRect(0, 0, width, height);
 
-  // 1. Deep Canvas Background with gradient
+  // 1. Deep Canvas Background with gradient. Not decoration: this is what the card
+  //    shows for the frames before its still decodes, and forever if it never
+  //    does, because a plate that cannot resolve must not blank a surface.
   const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
   bgGrad.addColorStop(0, scene.bgTop);
   bgGrad.addColorStop(0.65, scene.bgMid);
@@ -213,36 +225,15 @@ export function paintSynthwave(
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  // 2. Distant Sun: the disc and its scanlines share one clip path, so a scanline
-  //    stroke cannot reach past the sun's silhouette.
-  const { y: sunY, r: sunRadius } = scene.sun;
-  const sunGrad = ctx.createRadialGradient(360, sunY, 7, 360, sunY, sunRadius);
-  sunGrad.addColorStop(0, scene.sun.c1);
-  sunGrad.addColorStop(0.5, scene.sun.c2);
-  sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  const plated = paintPlate(ctx, scene, state);
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(360, sunY, sunRadius, Math.PI, 0, false);
-  ctx.closePath();
-  ctx.clip();
+  // 2. Distant Sun — only as the fallback. The still carries a sun of its own,
+  //    drawn as the upper half of a disc with its rim on the horizon, so the two
+  //    compositions are the same shot: whichever is up, the frame does not jump.
+  if (!plated) paintSun(ctx, scene);
 
-  ctx.fillStyle = sunGrad;
-  ctx.fillRect(360 - sunRadius, sunY - sunRadius, sunRadius * 2, sunRadius);
-
-  // Sun horizon scanlines (kept translucent so they band the sun instead of
-  // painting solid black lines over it)
-  ctx.strokeStyle = scene.sun.scanline;
-  ctx.lineWidth = 2;
-  for (let sy = sunY - 60; sy < sunY; sy += 8) {
-    ctx.beginPath();
-    ctx.moveTo(360 - sunRadius, sy);
-    ctx.lineTo(360 + sunRadius, sy);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // 3. Floating Stars
+  // 3. Floating Stars — over either ground. The still's sky is a still; these are
+  //    the only thing in it that moves.
   state.stars.forEach((st) => {
     st.y += st.speed;
     if (st.y > horizonY) st.y = 0;
@@ -252,30 +243,10 @@ export function paintSynthwave(
     ctx.fill();
   });
 
-  // 4. Horizon Perspective Grid
-  ctx.save();
-  ctx.strokeStyle = scene.gridColor;
-  ctx.lineWidth = 1;
-
-  // Horizontal grid lines moving toward camera
-  for (let gy = 0; gy < 140; gy += 14) {
-    const y = horizonY + Math.pow((gy + frame.gridOffset) / 145, 1.8) * 140;
-    if (y <= height) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
-    }
-  }
-
-  // Perspective radiating vertical lines from vanishing point (360, 260)
-  for (let x = -250; x <= width + 250; x += 45) {
-    ctx.beginPath();
-    ctx.moveTo(360, horizonY);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  }
-  ctx.restore();
+  // 4. Horizon Perspective Grid — the other half of the drawn card, retired with
+  //    the sun: the still's ground already carries one, in the same perspective
+  //    from the same vanishing point, so a second would only fight it.
+  if (!plated) paintGrid(ctx, scene, frame.gridOffset);
 
   // 5. 4-Player Army Hologram Nodes
   scene.crew.forEach((p, idx) => {
@@ -297,6 +268,17 @@ export function paintSynthwave(
 
     ctx.font = '8.5px "Atkinson Hyperlegible Next", sans-serif';
     ctx.textAlign = 'center';
+    // The plate put a bright ground under this line, and the red seat over the
+    // still's magenta reflection measured 1.98:1 without help. A one-pixel halo in
+    // the card's own ground colour is the caption every photograph gets: the glyph
+    // keeps its seat hue and the ground stops competing with it. The halo carries
+    // the label alone — the node keeps its glow, which is what makes it a hologram.
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = scene.bgBot;
+    for (const [dx, dy] of LABEL_HALO) {
+      ctx.fillText(p.label, p.x + dx, p.y - 13 + pulse + dy);
+    }
+    ctx.fillStyle = p.color;
     ctx.fillText(p.label, p.x, p.y - 13 + pulse);
     ctx.restore();
   });
@@ -305,11 +287,112 @@ export function paintSynthwave(
   ctx.save();
   ctx.font = '13px "Atkinson Hyperlegible Next", sans-serif';
   ctx.textAlign = 'center';
+  // Same reason as the labels above, at 13px: the sky behind it is a photograph
+  // now, stars included, and one of those stars is the brightest pixel in the
+  // marquee's band.
+  ctx.fillStyle = scene.bgBot;
+  for (const [dx, dy] of LABEL_HALO) {
+    ctx.fillText(marquee, 360 + dx, 28 + dy);
+  }
   ctx.fillStyle = scene.marqueeColor;
   ctx.shadowColor = scene.marqueeColor;
   ctx.shadowBlur = 11;
   ctx.fillText(marquee, 360, 28);
   ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+/**
+ * The card's still, or `false` while it has not decoded.
+ *
+ * Cover-cropped to the card rather than stretched, then positioned by its own
+ * horizon instead of by its centre: the art draws its ground's haze line 62 per
+ * cent down, the card's own horizon is at 65, and putting one on the other is what
+ * keeps the skyline above the grid and makes the swap from the drawn fallback
+ * invisible. The dim over it is the navy the shell dims its plate with — lighter
+ * alphas, because what reads over this one is a marquee and four labels.
+ */
+function paintPlate(
+  ctx: CanvasRenderingContext2D,
+  scene: Synthwave80sScene,
+  state: SceneState,
+): boolean {
+  const img = state.plateImg;
+  if (!img?.complete || img.naturalWidth === 0) return false;
+
+  const { width, height } = ctx.canvas;
+  const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+  const w = img.naturalWidth * scale;
+  const h = img.naturalHeight * scale;
+  ctx.drawImage(img, (width - w) / 2, scene.horizonY - scene.plate.horizon * h, w, h);
+
+  const dim = ctx.createLinearGradient(0, 0, 0, height);
+  dim.addColorStop(0, scene.plate.dim[0]);
+  dim.addColorStop(1, scene.plate.dim[1]);
+  ctx.fillStyle = dim;
+  ctx.fillRect(0, 0, width, height);
+  return true;
+}
+
+/** The drawn sunset: the upper half of a disc, plus scanlines that share its clip
+ *  path so a stroke cannot reach past the silhouette. */
+function paintSun(ctx: CanvasRenderingContext2D, scene: Synthwave80sScene): void {
+  const { y: sunY, r: sunRadius } = scene.sun;
+  const sunGrad = ctx.createRadialGradient(360, sunY, 7, 360, sunY, sunRadius);
+  sunGrad.addColorStop(0, scene.sun.c1);
+  sunGrad.addColorStop(0.5, scene.sun.c2);
+  sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(360, sunY, sunRadius, Math.PI, 0, false);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.fillStyle = sunGrad;
+  ctx.fillRect(360 - sunRadius, sunY - sunRadius, sunRadius * 2, sunRadius);
+
+  // Kept translucent so they band the sun instead of painting solid black over it.
+  ctx.strokeStyle = scene.sun.scanline;
+  ctx.lineWidth = 2;
+  for (let sy = sunY - 60; sy < sunY; sy += 8) {
+    ctx.beginPath();
+    ctx.moveTo(360 - sunRadius, sy);
+    ctx.lineTo(360 + sunRadius, sy);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** The ground grid: lines running towards the camera, then the radiating ones from
+ *  the vanishing point at (360, `horizonY`). `gridOffset` scrolls the former. */
+function paintGrid(
+  ctx: CanvasRenderingContext2D,
+  scene: Synthwave80sScene,
+  gridOffset: number,
+): void {
+  const { width, height } = ctx.canvas;
+
+  ctx.save();
+  ctx.strokeStyle = scene.gridColor;
+  ctx.lineWidth = 1;
+
+  for (let gy = 0; gy < 140; gy += 14) {
+    const y = scene.horizonY + Math.pow((gy + gridOffset) / 145, 1.8) * 140;
+    if (y <= height) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+  }
+
+  for (let x = -250; x <= width + 250; x += 45) {
+    ctx.beginPath();
+    ctx.moveTo(360, scene.horizonY);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -330,9 +413,12 @@ const TAU = Math.PI * 2;
  * 200 tall and not 174: the colony centrepiece needs the room.
  *
  * **Painted once, then blitted.** Nothing in this room moves: not the stars, not the
- * lamps, not the planet's slow turn. The one thing that can change is the marquee,
- * which follows the language, so the sheet is cached under that string and rebuilt
- * only when it changes. That matters because every body gradient has to be built in
+ * lamps, not the planet's slow turn. The two things that can change are the marquee,
+ * which follows the language, and the still, which arrives on its own schedule — so
+ * the sheet is cached under both and rebuilt only when one of them changes. The
+ * still is the reason this key exists at all: a sheet painted before the colony
+ * decoded would otherwise be reused forever, and a cold load would show a window
+ * with no colony in it. That matters because every body gradient has to be built in
  * the current transform, so painting the room from scratch is more per-frame
  * allocation than the 80s card spends — and this card is a still.
  */
@@ -344,8 +430,13 @@ export function paintRoom(
   marquee: string,
 ): void {
   const { width, height } = ctx.canvas;
+  const img = state.plateImg;
+  const art = !!img?.complete && img.naturalWidth > 0;
+  // The readiness leads the key, so a sheet painted before the still arrived can
+  // never be mistaken for one painted after it, whatever the marquee says.
+  const key = `${art ? 'still' : 'empty'}:${marquee}`;
 
-  if (!state.room || state.room.key !== marquee || state.room.canvas.width !== width) {
+  if (!state.room || state.room.key !== key || state.room.canvas.width !== width) {
     const canvas = scratchCanvas(width, height);
     if (!canvas) {
       // No offscreen available (a test harness): draw straight onto the target, so
@@ -359,7 +450,7 @@ export function paintRoom(
       return;
     }
     paintRoomScene(scratch, scene, state, frame, marquee);
-    state.room = { key: marquee, canvas };
+    state.room = { key, canvas };
   }
 
   ctx.clearRect(0, 0, width, height);
@@ -500,13 +591,13 @@ function paintRoomScene(
   flare(ctx, 612, 62, 6, 0.7);
 
   // Centrepiece: the orbital colony, cover-cropped to the opening once it loads.
-  if (state.colonyImg?.complete && state.colonyImg.naturalWidth > 0) {
-    const img = state.colonyImg;
-    const scale = Math.max(WIN.w / img.naturalWidth, WIN.h / img.naturalHeight);
-    const sw = img.naturalWidth * scale;
-    const sh = img.naturalHeight * scale;
+  const colony = state.plateImg;
+  if (colony?.complete && colony.naturalWidth > 0) {
+    const scale = Math.max(WIN.w / colony.naturalWidth, WIN.h / colony.naturalHeight);
+    const sw = colony.naturalWidth * scale;
+    const sh = colony.naturalHeight * scale;
     ctx.globalAlpha = 0.82;
-    ctx.drawImage(img, WIN.x + (WIN.w - sw) / 2, WIN.y + (WIN.h - sh) / 2, sw, sh);
+    ctx.drawImage(colony, WIN.x + (WIN.w - sw) / 2, WIN.y + (WIN.h - sh) / 2, sw, sh);
     ctx.globalAlpha = 1;
   }
 
