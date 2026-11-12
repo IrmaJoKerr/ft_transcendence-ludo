@@ -100,7 +100,7 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
                     type="button"
                     className={`font-display rounded px-3 py-1 text-xs font-bold transition-all ${
                       activeDoc === 'privacy'
-                        ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                        ? 'bg-(--accent-pink) text-(--text-main) shadow-[0_0_10px_rgb(var(--accent-pink-rgb)/0.5)]'
                         : 'text-[var(--text-muted)] hover:text-(--text-main)'
                     }`}
                     onClick={() => {
@@ -115,7 +115,7 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
                     type="button"
                     className={`font-display rounded px-3 py-1 text-xs font-bold transition-all ${
                       activeDoc === 'terms'
-                        ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                        ? 'bg-(--accent-pink) text-(--text-main) shadow-[0_0_10px_rgb(var(--accent-pink-rgb)/0.5)]'
                         : 'text-[var(--text-muted)] hover:text-(--text-main)'
                     }`}
                     onClick={() => {

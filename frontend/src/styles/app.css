@@ -287,15 +287,15 @@ body:has(.game-page) .crt-screen {
   0%,
   100% {
     box-shadow:
-      0 0 20px rgba(255, 0, 127, 0.35),
+      0 0 20px rgb(var(--accent-pink-rgb) / 0.35),
       inset 0 0 12px rgb(var(--accent-cyan-rgb) / 0.2);
     transform: scale(1);
   }
   50% {
     box-shadow:
-      0 0 30px rgba(255, 0, 127, 0.7),
+      0 0 30px rgb(var(--accent-pink-rgb) / 0.7),
       inset 0 0 18px rgb(var(--accent-cyan-rgb) / 0.4),
-      0 0 10px #ff007f;
+      0 0 10px var(--accent-pink);
     transform: scale(1.02);
   }
 }

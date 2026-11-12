@@ -411,9 +411,9 @@ export function Leaderboard() {
                       <div
                         style={{
                           background: 'rgb(var(--bg-card-rgb) / 0.85)',
-                          border: '1.5px solid rgba(255, 0, 127, 0.45)',
+                          border: '1.5px solid rgb(var(--accent-pink-rgb) / 0.45)',
                           borderRadius: 8,
-                          boxShadow: '0 0 18px rgba(255, 0, 127, 0.22)',
+                          boxShadow: '0 0 18px rgb(var(--accent-pink-rgb) / 0.22)',
                           padding: '20px 22px',
                           cursor: 'pointer',
                           transition: 'transform 0.2s, box-shadow 0.2s',
@@ -591,15 +591,15 @@ export function Leaderboard() {
                               alignItems: 'center',
                               background: isRankOne
                                 ? isYou
-                                  ? 'linear-gradient(90deg, rgba(255, 0, 127, 0.3), rgba(255, 23, 68, 0.2))'
+                                  ? 'linear-gradient(90deg, rgb(var(--accent-pink-rgb) / 0.3), rgba(255, 23, 68, 0.2))'
                                   : 'linear-gradient(90deg, rgba(255, 23, 68, 0.18), rgba(255, 215, 0, 0.08))'
                                 : isYou
-                                  ? 'rgba(255, 0, 127, 0.18)'
+                                  ? 'rgb(var(--accent-pink-rgb) / 0.18)'
                                   : 'transparent',
                               boxShadow: isRankOne
                                 ? '0 0 22px rgba(255, 23, 68, 0.25)'
                                 : isYou
-                                  ? 'inset 0 0 15px rgba(255, 0, 127, 0.15)'
+                                  ? 'inset 0 0 15px rgb(var(--accent-pink-rgb) / 0.15)'
                                   : 'none',
                               transition: 'all 0.2s ease',
                               cursor: 'pointer',

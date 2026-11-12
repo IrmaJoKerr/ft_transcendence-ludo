@@ -140,7 +140,7 @@ export function ColorPaletteModal({
           </span>
           <button
             type="button"
-            className={`${RETRO_BTN} px-2 py-0.5 text-xs text-[var(--accent-pink)] hover:bg-[rgba(255,0,127,0.2)]`}
+            className={`${RETRO_BTN} px-2 py-0.5 text-xs text-(--accent-pink) hover:bg-[rgb(var(--accent-pink-rgb)/0.2)]`}
             onClick={() => {
               retroAudio.playUiBeep(440, 0.05);
               onCancel();

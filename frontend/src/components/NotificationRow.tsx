@@ -158,7 +158,7 @@ export function NotificationRow({
         style={{
           marginTop: 3,
           fontSize: '0.65rem',
-          color: notification.read ? 'transparent' : 'var(--accent-pink, #ff007f)',
+          color: notification.read ? 'transparent' : 'var(--accent-pink)',
         }}
       >
         ◆

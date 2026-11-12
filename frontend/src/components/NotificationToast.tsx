@@ -37,8 +37,8 @@ function getToastInfo(
       return {
         tag: t('notifications.linkReqTag'),
         badgeLabel: 'LINK',
-        badgeColor: 'var(--accent-pink, #ff007f)',
-        badgeBg: 'rgba(255, 0, 127, 0.18)',
+        badgeColor: 'var(--accent-pink)',
+        badgeBg: 'rgb(var(--accent-pink-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionFriendReq'),
       };
@@ -133,8 +133,8 @@ function getToastInfo(
       return {
         tag: t('notifications.friendRemovedTag'),
         badgeLabel: 'LINK',
-        badgeColor: 'var(--accent-pink, #ff007f)',
-        badgeBg: 'rgba(255, 0, 127, 0.18)',
+        badgeColor: 'var(--accent-pink)',
+        badgeBg: 'rgb(var(--accent-pink-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionFriendRemoved'),
       };
@@ -407,8 +407,8 @@ function Toast({
     zIndex: 99999,
     width: 430,
     background: 'rgb(var(--bg-panel-rgb) / 0.97)',
-    border: '2px solid var(--accent-pink, #ff007f)',
-    boxShadow: '0 0 24px rgba(255, 0, 127, 0.4), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
+    border: '2px solid var(--accent-pink)',
+    boxShadow: '0 0 24px rgb(var(--accent-pink-rgb) / 0.4), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
     borderRadius: 4,
     display: 'flex',
     flexDirection: 'column',
@@ -429,8 +429,8 @@ function Toast({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '10px 16px',
-          background: 'rgba(255, 0, 127, 0.22)',
-          borderBottom: '1.5px solid rgba(255, 0, 127, 0.4)',
+          background: 'rgb(var(--accent-pink-rgb) / 0.22)',
+          borderBottom: '1.5px solid rgb(var(--accent-pink-rgb) / 0.4)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -439,8 +439,8 @@ function Toast({
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: '#ff007f',
-              boxShadow: '0 0 8px #ff007f',
+              background: 'var(--accent-pink)',
+              boxShadow: '0 0 8px var(--accent-pink)',
               animation: 'pulse 1s infinite',
             }}
           />
@@ -448,7 +448,7 @@ function Toast({
             style={{
               fontFamily: 'var(--font-heading, monospace)',
               fontSize: '0.8rem',
-              color: 'var(--accent-pink, #ff007f)',
+              color: 'var(--accent-pink)',
               letterSpacing: 1,
               fontWeight: 'bold',
             }}
@@ -462,7 +462,7 @@ function Toast({
           style={{
             background: 'none',
             border: 'none',
-            color: 'var(--accent-pink, #ff007f)',
+            color: 'var(--accent-pink)',
             cursor: 'pointer',
             fontSize: '1.1rem',
             padding: '0 4px',
@@ -600,9 +600,9 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(255, 0, 127, 0.15)',
-                border: '2px solid rgba(255, 0, 127, 0.5)',
-                color: 'var(--accent-pink, #ff007f)',
+                background: 'rgb(var(--accent-pink-rgb) / 0.15)',
+                border: '2px solid rgb(var(--accent-pink-rgb) / 0.5)',
+                color: 'var(--accent-pink)',
                 boxSizing: 'border-box',
                 margin: 0,
               }}
@@ -680,9 +680,9 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(255, 0, 127, 0.15)',
-                border: '2px solid rgba(255, 0, 127, 0.5)',
-                color: 'var(--accent-pink, #ff007f)',
+                background: 'rgb(var(--accent-pink-rgb) / 0.15)',
+                border: '2px solid rgb(var(--accent-pink-rgb) / 0.5)',
+                color: 'var(--accent-pink)',
                 boxSizing: 'border-box',
                 margin: 0,
               }}

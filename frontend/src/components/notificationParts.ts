@@ -63,7 +63,7 @@ export function getNotificationTypeBadge(
       return {
         tagKey: 'notifications.linkReqTag',
         defaultTag: '[FRIEND_REQ]',
-        color: 'var(--accent-pink, #ff007f)',
+        color: 'var(--accent-pink)',
       };
     case 'friend_accepted':
       return {
@@ -99,7 +99,7 @@ export function getNotificationTypeBadge(
       return {
         tagKey: 'notifications.friendRemovedTag',
         defaultTag: '[LINK_SEVERED]',
-        color: 'var(--accent-pink, #ff007f)',
+        color: 'var(--accent-pink)',
       };
     case 'friend_declined':
       return {

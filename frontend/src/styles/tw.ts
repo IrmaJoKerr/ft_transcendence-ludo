@@ -19,7 +19,7 @@ export const RETRO_FLOATING_DOCK =
 // Auth form element styles (Login/Signup/ForgotPassword/ResetPassword/
 // TwoFactor).
 export const RETRO_AUTH_TITLE =
-  "font-['Atkinson_Hyperlegible_Next',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,var(--accent-cyan)_0%,#ff007f_50%,#9d00ff_100%)] bg-clip-text text-transparent";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,var(--accent-cyan)_0%,var(--accent-pink)_50%,#9d00ff_100%)] bg-clip-text text-transparent";
 
 export const RETRO_AUTH_SUBTITLE =
   "text-[rgba(184,166,228,.8)] text-base mt-2.5 font-['Atkinson_Hyperlegible_Mono',monospace]";
@@ -31,7 +31,7 @@ export const RETRO_AUTH_INPUT =
   "w-full [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-(--text-main) bg-[rgb(var(--shade-rgb)/.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-(--accent-cyan) focus:shadow-[0_0_18px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_8px_rgb(var(--accent-cyan-rgb)/.1)] focus:bg-[rgb(var(--shade-rgb)/.6)]";
 
 export const RETRO_AUTH_BTN =
-  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,#ff007f,#9d00ff)] shadow-[0_0_22px_rgba(255,0,127,.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgba(255,0,127,.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgb(var(--accent-cyan-rgb)/.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
+  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,var(--accent-pink),#9d00ff)] shadow-[0_0_22px_rgb(var(--accent-pink-rgb)/.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgb(var(--accent-pink-rgb)/.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgb(var(--accent-cyan-rgb)/.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
 
 export const RETRO_AUTH_BTN_OUTLINE =
   "[border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Atkinson_Hyperlegible_Mono',monospace] text-[rgb(var(--ink-rgb)/.88)] cursor-pointer bg-[rgb(var(--accent-cyan-rgb)/.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-(--accent-cyan) hover:bg-[rgb(var(--accent-cyan-rgb)/.15)] hover:shadow-[0_0_16px_rgb(var(--accent-cyan-rgb)/.3)] hover:text-(--text-main)";
@@ -43,7 +43,7 @@ export const RETRO_AUTH_DIVIDER_LINE =
   'flex-1 h-px bg-[linear-gradient(90deg,transparent,rgb(var(--accent-cyan-rgb)/.2),transparent)]';
 
 export const RETRO_AUTH_LINK =
-  'text-(--accent-cyan) cursor-pointer font-bold no-underline [transition:color_0.18s_ease,text-shadow_0.18s_ease] hover:text-[#ff007f] hover:[text-shadow:0_0_10px_rgba(255,0,127,.5)]';
+  'text-(--accent-cyan) cursor-pointer font-bold no-underline [transition:color_0.18s_ease,text-shadow_0.18s_ease] hover:text-(--accent-pink) hover:[text-shadow:0_0_10px_rgb(var(--accent-pink-rgb)/.5)]';
 
 export const RETRO_AUTH_ERROR =
   "text-[#ff4081] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]";
@@ -77,7 +77,7 @@ export const HERO_SECTION =
   'text-center p-[18px_20px_16px] bg-(--bg-card) [border:var(--card-border-style)] shadow-(--box-shadow) mb-[18px] relative overflow-hidden rounded';
 
 export const HERO_TITLE =
-  '[font-family:var(--font-heading)] text-[2.2rem] leading-[1.25] text-(--text-main) [text-shadow:3px_3px_0_var(--accent-pink),-2px_-2px_0_var(--accent-cyan),0_0_22px_rgba(255,0,127,.85)] mb-2 tracking-[2px]';
+  '[font-family:var(--font-heading)] text-[2.2rem] leading-[1.25] text-(--text-main) [text-shadow:3px_3px_0_var(--accent-pink),-2px_-2px_0_var(--accent-cyan),0_0_22px_rgb(var(--accent-pink-rgb)/.85)] mb-2 tracking-[2px]';
 
 export const HERO_SUBTITLE =
   '[font-family:var(--font-display)] text-[1.35rem] text-(--accent-yellow) [text-shadow:0_0_12px_var(--accent-yellow)] mb-0';
@@ -127,7 +127,7 @@ export const TICKET_YELLOW =
   'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';
 
 export const TICKET_GREEN =
-  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
+  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgb(var(--accent-pink-rgb)/.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
 // The right-hand action pill inside a pass. The 1.5 px transparent border is not
 // decoration: all three pills share one width (the widest label, see
@@ -171,7 +171,7 @@ export const CYBER_MODAL_OVERLAY =
   'group/modal fixed inset-0 bg-[rgba(5,2,14,.78)] backdrop-blur-[12px] backdrop-saturate-[1.8] z-[10002] grid place-items-center p-6 [transition:opacity_0.3s_ease] opacity-0 pointer-events-none data-[modal-state=open]:opacity-100 data-[modal-state=open]:pointer-events-auto';
 
 export const CYBER_MODAL_BOX =
-  "[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink,#ff007f)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]";
+  "[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]";
 
 export const CYBER_MODAL_BODY =
   'relative backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:inset(0_calc(100%_+_(2_*_var(--border)))_0_0)] [transition-property:clip-path] duration-[260ms] [transition-delay:75ms] group-data-[modal-state=open]/modal:[clip-path:inset(0_calc(var(--border)_*_-1)_0_0)] group-data-[modal-state=open]/modal:[transition-delay:220ms]';
@@ -180,7 +180,7 @@ export const CYBER_MODAL_BODY_BACKDROP =
   "absolute inset-0 [transition-property:translate] duration-[260ms] [translate:calc(-100%_-_(2_*_var(--border)))_0] [transition-delay:75ms] group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:[transition-delay:220ms] after:content-[''] after:absolute after:left-full after:top-8 after:w-[calc(2*var(--border))] after:h-[40%] after:bg-(--modal-accent) after:opacity-70 after:[clip-path:polygon(0_0,0_100%,100%_calc(100%_-_6px),100%_6px)]";
 
 export const CYBER_MODAL_BACKDROP_PLATE =
-  'absolute z-[-1] inset-0 bg-[rgb(var(--bg-primary-rgb)/.95)] [clip-path:var(--clip)] [border:var(--border)_solid_var(--modal-accent)] shadow-[0_0_35px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_20px_rgba(255,0,127,.15)]';
+  'absolute z-[-1] inset-0 bg-[rgb(var(--bg-primary-rgb)/.95)] [clip-path:var(--clip)] [border:var(--border)_solid_var(--modal-accent)] shadow-[0_0_35px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_20px_rgb(var(--accent-pink-rgb)/.15)]';
 
 export const CYBER_MODAL_CONTENT =
   'py-[1.4rem] px-[1.4rem] pb-[1.2rem] relative [clip-path:inset(0_calc(100%_+_(2_*_var(--border)))_0_0)] [transition-property:clip-path] duration-[260ms] [transition-delay:75ms] group-data-[modal-state=open]/modal:[clip-path:inset(0_calc(var(--border)_*_-1)_0_0)] group-data-[modal-state=open]/modal:[transition-delay:220ms]';
@@ -205,9 +205,9 @@ export const CYBER_MODAL_GLITCH =
 
 // **CyberButton**
 export const CYBER_BTN_BASE =
-  'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[rgb(var(--bg-primary-rgb))] focus-visible:text-[rgb(var(--bg-primary-rgb))]';
+  'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan)] [--btn-shadow:var(--accent-pink)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[rgb(var(--bg-primary-rgb))] focus-visible:text-[rgb(var(--bg-primary-rgb))]';
 
-export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink,#ff007f)] ![--btn-shadow:#9d00ff]';
+export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink)] ![--btn-shadow:#9d00ff]';
 
 export const CYBER_BTN_YELLOW =
   '![--btn-accent:var(--accent-yellow,#ffe600)] ![--btn-shadow:#ff5500]';
@@ -245,7 +245,7 @@ export const INVOICE_SLOT_BOTTOM =
   'absolute top-0 left-0 w-full h-[115px] z-[2] box-border flex flex-col items-center justify-end pt-2.5 px-3.5 pb-3.5 bg-(--bg-secondary) border-[2.5px] border-(--accent-pink) rounded-[1.2em_1.2em_0.4em_0.4em] shadow-[0_10px_30px_rgb(var(--shade-rgb)/.85)]';
 
 export const SLOT_HOLE_BOTTOM =
-  'mx-auto w-[88%] h-8 box-border rounded-full border-[2.5px] border-[#ff007f] shadow-[inset_0_0_14px_rgb(var(--shade-rgb))] bg-[#020006]';
+  'mx-auto w-[88%] h-8 box-border rounded-full border-[2.5px] border-(--accent-pink) shadow-[inset_0_0_14px_rgb(var(--shade-rgb))] bg-[#020006]';
 
 export const INVOICE_SLOT_TOP =
   'absolute top-0 left-0 w-full h-[82px] z-20 box-border flex flex-col items-center justify-between pt-2.5 px-3.5 pointer-events-none bg-(--bg-secondary) border-[2.5px] border-b-0 border-(--accent-pink) rounded-t-[1.2em]';
@@ -254,7 +254,7 @@ export const VENDING_HEADER_BAR =
   'w-full flex items-center justify-between text-[0.68rem] tracking-[1.5px] text-(--accent-yellow) uppercase [font-family:var(--font-heading)] font-extrabold px-1 box-border';
 
 export const SLOT_HOLE_TOP =
-  'mx-auto w-[88%] h-4 box-border rounded-t-full border-[2.5px] border-b-0 border-[#ff007f] shadow-none bg-[#020006]';
+  'mx-auto w-[88%] h-4 box-border rounded-t-full border-[2.5px] border-b-0 border-(--accent-pink) shadow-none bg-[#020006]';
 
 export const TICKET_PAPER_WRAPPER =
   'w-[80%] mt-[70px] mx-auto relative z-10 flex flex-col items-center box-border [clip-path:inset(0px_-50px_-10000px_-50px)]';
@@ -301,7 +301,7 @@ export const PAY_TAG_THIRD = 'border-[#ff9900] text-[#ff9900] bg-[rgba(255,153,0
 export const PAY_TAG_FOURTH = 'border-[rgb(var(--ink-rgb)/.35)] text-(--text-muted) bg-[rgb(var(--ink-rgb)/0.08)]';
 
 export const PAY_NOW_BTN =
-  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgba(255,0,127,.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-(--accent-cyan) hover:border-(--accent-cyan) hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_var(--accent-cyan)] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
+  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgb(var(--accent-pink-rgb)/.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-(--accent-cyan) hover:border-(--accent-cyan) hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_var(--accent-cyan)] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
 
 // OAuthButtons' provider button: the one survivor of `theme.ts`'s twelve `CSSProperties`
 // constants. It was `btnOutline` spread at the call site and then overridden there (font

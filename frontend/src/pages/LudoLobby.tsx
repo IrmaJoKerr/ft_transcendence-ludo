@@ -632,7 +632,7 @@ export function LudoLobby() {
                     style={{
                       background: 'var(--accent-pink)',
                       color: 'var(--text-main)',
-                      boxShadow: '0 0 18px rgba(255, 0, 127, 0.5)',
+                      boxShadow: '0 0 18px rgb(var(--accent-pink-rgb) / 0.5)',
                       opacity: hostLocked ? 0.6 : 1,
                     }}
                   />
@@ -1088,7 +1088,7 @@ export function LudoLobby() {
                                   borderBottom: '1px solid rgb(var(--ink-rgb) / 0.07)',
                                   alignItems: 'center',
                                   textAlign: 'left',
-                                  background: isMySeat ? 'rgba(255, 0, 127, 0.12)' : 'transparent',
+                                  background: isMySeat ? 'rgb(var(--accent-pink-rgb) / 0.12)' : 'transparent',
                                 }}
                               >
                                 <div

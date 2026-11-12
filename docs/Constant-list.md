@@ -733,7 +733,23 @@ guard's inventory with its reason**, and that is every place `#00f0ff` is still 
 The 70s value is deliberately not a swept form: nothing in the tree has ever spelled `#5fb3b0`, so sweeping it
 would inventory that table's own prose to catch a mistake nobody can make.
 
-**The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
+**The accent pink (`--accent-pink` / `--accent-pink-rgb`)** 🎨 — the fourth family of the sweep
+(`todo.md` [33](todo.md#rv33-family4)), run 2026-11-13. It added **no token** either: `--accent-pink`
+(`#ff007f` / vermilion `#e5340b`) and `--accent-pink-rgb` (`255 0 127` / `229 52 11`) were already declared in
+both tables, and the 70s table was not touched, so parity stayed at 44 names. It is 100 lines across 21 files,
+**15 of them `var(--accent-pink, #ff007f)`** — the default guessed the 80s value, so at the one moment a
+fallback matters it would have painted neon pink over walnut. The accent is also the red seat, so identity
+keeps its literal: the four seat tables and the two seat maps, the room-mode hue, the room badge's arm, the
+theme row's swatch, the level-1 pass ticket kept whole beside its amber twin, the `TICKET_PINK` constant, the
+bell's lit LED (kept as a pair with its green) and the auth error's drifted `#ff4081` — **18 lines, 17 of them
+rows on the guard's inventory with their reason**. The drifted Material pink is deliberately not a swept form:
+it reports a *failure*, and `--accent-pink` is a seat's own hue, so the state pair owns that reading. Nor is
+`#9d00ff` swept here: `--accent-purple` exists in both tables, but the family is pink, so five gradients are
+half-themed until purple's own pass. The 80s table's seven own pink readers (`--border-color`, `--box-shadow`,
+`--grid-line-color`, `--btn-bg`, `--btn-hover-shadow`, `--window-header-bg`, `--start-overlay-glow`) now read
+the token they name, so the only pink the table itself still spells is the declaration.
+
+
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
 hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
 with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s

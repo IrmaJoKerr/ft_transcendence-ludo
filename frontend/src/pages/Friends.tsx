@@ -308,9 +308,9 @@ export function Friends() {
                       requests.length > 0
                         ? '1.5px solid var(--accent-pink)'
                         : '1px dashed rgb(var(--ink-rgb) / 0.2)',
-                    color: requests.length > 0 ? '#ff007f' : 'var(--text-muted)',
-                    background: requests.length > 0 ? 'rgba(255, 0, 127, 0.18)' : 'transparent',
-                    boxShadow: requests.length > 0 ? '0 0 14px rgba(255, 0, 127, 0.4)' : 'none',
+                    color: requests.length > 0 ? 'var(--accent-pink)' : 'var(--text-muted)',
+                    background: requests.length > 0 ? 'rgb(var(--accent-pink-rgb) / 0.18)' : 'transparent',
+                    boxShadow: requests.length > 0 ? '0 0 14px rgb(var(--accent-pink-rgb) / 0.4)' : 'none',
                     fontSize: '0.74rem',
                     padding: '4px 12px',
                     borderRadius: 4,
@@ -723,10 +723,10 @@ export function Friends() {
                                     fontSize: '0.72rem',
                                     fontFamily: 'var(--font-display)',
                                     fontWeight: 900,
-                                    background: 'linear-gradient(90deg, #ff007f, #9d00ff)',
+                                    background: 'linear-gradient(90deg, var(--accent-pink), #9d00ff)',
                                     color: 'var(--text-main)',
-                                    borderColor: '#ff007f',
-                                    boxShadow: '0 0 10px rgba(255, 0, 127, 0.4)',
+                                    borderColor: 'var(--accent-pink)',
+                                    boxShadow: '0 0 10px rgb(var(--accent-pink-rgb) / 0.4)',
                                     opacity: invitingId === f.id || isSent(f.id) ? 0.6 : 1,
                                     borderRadius: 4,
                                   }}
@@ -994,7 +994,7 @@ export function Friends() {
                         requests.length > 0
                           ? '1.5px solid var(--accent-pink)'
                           : '1.5px solid rgb(var(--ink-rgb) / 0.15)',
-                      boxShadow: requests.length > 0 ? '0 0 20px rgba(255, 0, 127, 0.25)' : 'none',
+                      boxShadow: requests.length > 0 ? '0 0 20px rgb(var(--accent-pink-rgb) / 0.25)' : 'none',
                       borderRadius: 8,
                       display: 'flex',
                       flexDirection: 'column',
@@ -1008,11 +1008,11 @@ export function Friends() {
                         padding: '10px 14px',
                         background:
                           requests.length > 0
-                            ? 'rgba(255, 0, 127, 0.15)'
+                            ? 'rgb(var(--accent-pink-rgb) / 0.15)'
                             : 'rgb(var(--ink-rgb) / 0.04)',
                         borderBottom:
                           requests.length > 0
-                            ? '1px solid rgba(255, 0, 127, 0.3)'
+                            ? '1px solid rgb(var(--accent-pink-rgb) / 0.3)'
                             : '1px solid rgb(var(--ink-rgb) / 0.08)',
                         display: 'flex',
                         alignItems: 'center',
@@ -1026,14 +1026,14 @@ export function Friends() {
                             width: 8,
                             height: 8,
                             borderRadius: '50%',
-                            background: requests.length > 0 ? '#ff007f' : 'var(--text-muted)',
-                            boxShadow: requests.length > 0 ? '0 0 8px #ff007f' : 'none',
+                            background: requests.length > 0 ? 'var(--accent-pink)' : 'var(--text-muted)',
+                            boxShadow: requests.length > 0 ? '0 0 8px var(--accent-pink)' : 'none',
                           }}
                         />
                         <span
                           style={{
                             fontSize: '0.78rem',
-                            color: requests.length > 0 ? '#ff007f' : 'var(--text-main)',
+                            color: requests.length > 0 ? 'var(--accent-pink)' : 'var(--text-main)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 900,
                             letterSpacing: '1px',
@@ -1049,11 +1049,11 @@ export function Friends() {
                             fontSize: '0.66rem',
                             padding: '2px 7px',
                             borderRadius: 3,
-                            background: 'linear-gradient(90deg, #ff007f, #9d00ff)',
+                            background: 'linear-gradient(90deg, var(--accent-pink), #9d00ff)',
                             color: 'var(--text-main)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 900,
-                            boxShadow: '0 0 8px rgba(255, 0, 127, 0.4)',
+                            boxShadow: '0 0 8px rgb(var(--accent-pink-rgb) / 0.4)',
                           }}
                         >
                           {t('friends.badgeNewTag')}
@@ -1104,8 +1104,8 @@ export function Friends() {
                               justifyContent: 'space-between',
                               padding: '9px 12px',
                               background: 'rgb(var(--bg-raise-rgb) / 0.88)',
-                              border: '1px solid rgba(255, 0, 127, 0.32)',
-                              boxShadow: '0 0 10px rgba(255, 0, 127, 0.12)',
+                              border: '1px solid rgb(var(--accent-pink-rgb) / 0.32)',
+                              boxShadow: '0 0 10px rgb(var(--accent-pink-rgb) / 0.12)',
                               borderRadius: 6,
                               gap: 10,
                             }}

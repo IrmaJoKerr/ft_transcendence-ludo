@@ -81,7 +81,7 @@ export function RetroAuthLayout({
 
         {/* Glass card */}
         <div
-          className="w-full max-w-155 rounded-[22px] bg-[rgb(var(--bg-primary-rgb)/0.78)] px-13 py-12 shadow-[0_0_45px_rgb(var(--accent-cyan-rgb)/0.18),0_0_90px_rgba(255,0,127,0.12),0_28px_70px_rgb(var(--shade-rgb)/0.65),inset_0_1px_0_rgb(var(--ink-rgb)/0.08)] backdrop-blur-xl backdrop-saturate-[1.8] [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/0.35)]"
+          className="w-full max-w-155 rounded-[22px] bg-[rgb(var(--bg-primary-rgb)/0.78)] px-13 py-12 shadow-[0_0_45px_rgb(var(--accent-cyan-rgb)/0.18),0_0_90px_rgb(var(--accent-pink-rgb)/0.12),0_28px_70px_rgb(var(--shade-rgb)/0.65),inset_0_1px_0_rgb(var(--ink-rgb)/0.08)] backdrop-blur-xl backdrop-saturate-[1.8] [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/0.35)]"
           style={{
             position: 'relative',
             width: '100%',
@@ -130,7 +130,7 @@ export function NeonCheck({
         flex: 'none',
         borderRadius: 4,
         background: checked
-          ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.5), rgba(255, 0, 127, 0.4))'
+          ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.5), rgb(var(--accent-pink-rgb) / 0.4))'
           : 'transparent',
         border: '1px solid rgb(var(--accent-cyan-rgb) / 0.6)',
         display: 'inline-grid',

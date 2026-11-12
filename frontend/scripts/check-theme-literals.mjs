@@ -22,9 +22,9 @@ const EXTS = new Set(['.ts', '.tsx', '.css']);
 const SKIP_DIRS = new Set(['__shared__']);
 
 // One row per swept colour. The array exists because the guard is meant to grow: yellow,
-// the ink and its shadow, and the cyan accent are swept, and the pink accent and the state
-// pair join them as their own passes land. Until then their literals are out of scope
-// rather than silently allowed.
+// the ink and its shadow, and the cyan and pink accents are swept, and the purple the pink
+// gradients run into plus the state pair join them as their own passes land. Until then
+// their literals are out of scope rather than silently allowed.
 const SWEPT = [
   {
     token: '--accent-yellow',
@@ -64,6 +64,20 @@ const SWEPT = [
       /#00f0ff/gi,
       /rgba?\(\s*0\s*,\s*240\s*,\s*255\s*[,)]/gi,
       /rgb\(\s*0\s+240\s+255\b/gi,
+    ],
+  },
+  {
+    // Family 4 of section 33 step 2: the pink accent. Its 80s value is `#ff007f`, which
+    // is also the red seat, so the inventory again says which literals are identity.
+    // The drifted Material pink `#ff4081` is deliberately not a form: it is how the auth
+    // error and `FieldError` spell a *failure*, and the state pair owns both. `#ff3399`,
+    // the ticket's hover border, is not a form either, for the same reason cyan's 70s
+    // value is not: nothing outside a kept ticket spells it.
+    token: '--accent-pink / --accent-pink-rgb',
+    forms: [
+      /#ff007f/gi,
+      /rgba?\(\s*255\s*,\s*0\s*,\s*127\s*[,)]/gi,
+      /rgb\(\s*255\s+0\s+127\b/gi,
     ],
   },
 ];
@@ -121,9 +135,18 @@ const INVENTORY = {
     { line: "background: 'rgba(0,0,0,.72)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
     { line: "background: 'rgba(0, 0, 0, 0.94)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
   ],
+  'components/NotificationBell.tsx': [
+    {
+      line: "boxShadow: count > 0 ? '0 0 8px #ff007f' : '0 0 6px #33ff88',",
+      count: 1,
+      why: 'a lit/unlit LED pair whose green is the drifted #33ff88: the state pair owns that reading, and its pink half stays with it',
+    },
+  ],
   'heroScenes.ts': [
     { line: "c1: 'rgba(255, 230, 0, 0.72)',", count: 1, why: 'the hero art, a painted scene' },
+    { line: "c2: 'rgba(255, 0, 127, 0.38)',", count: 1, why: 'the hero art, a painted scene' },
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },", count: 1, why: 'the hero art' },
+    { line: "{ label: 'RED', color: '#ff007f', x: 128 },", count: 1, why: 'the hero art' },
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 470 },", count: 1, why: 'the hero art' },
     { line: "marqueeColor: '#ffb000',", count: 1, why: 'the hero art' },
     { line: "gridColor: 'rgba(0, 240, 255, 0.45)',", count: 1, why: 'the hero art, a painted scene' },
@@ -132,7 +155,9 @@ const INVENTORY = {
     { line: "{ label: 'BLUE', color: '#00f0ff', x: 606 },", count: 1, why: 'the hero art' },
   ],
   'pages/Game.tsx': [
+    { line: "red: '#ff007f',", count: 1, why: 'SEAT_HUES: colour is the seat' },
     { line: "yellow: '#ffe600',", count: 1, why: 'SEAT_HUES: colour is the seat' },
+    { line: "? '#ff007f'", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
     { line: "? '#ffe600'", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
     { line: "blue: '#00f0ff',", count: 1, why: 'SEAT_HUES: colour is the seat' },
     { line: ": '#00f0ff';", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
@@ -140,6 +165,7 @@ const INVENTORY = {
     { line: "const turnColorHex = SEAT_HUES[effectiveTurn] || '#00f0ff';", count: 1, why: 'a turn hue falling back to the blue seat' },
   ],
   'pages/Lobby.tsx': [
+    { line: "red: '#ff007f',", count: 1, why: 'COL: colour is the seat' },
     { line: "yellow: '#ffe600',", count: 1, why: 'COL: colour is the seat' },
     { line: "blue: '#00f0ff',", count: 1, why: 'COL: colour is the seat' },
   ],
@@ -169,6 +195,25 @@ const INVENTORY = {
       count: 1,
       why: 'the room badge hues, whose yellow, pink and green siblings are literal too',
     },
+    {
+      line: "{ key: 'clashEnabled', icon: '⚔️', label: 'game.clashMode', hue: '#ff007f' },",
+      count: 1,
+      why: 'ROOM_MODES: a mode colour is its name',
+    },
+    {
+      line: ": '#ff007f';",
+      count: 1,
+      why: 'the room badge hues, whose yellow, green and cyan siblings are literal too',
+    },
+    {
+      line: "background: 'rgba(255, 0, 127, 0.28)',",
+      count: 1,
+      why: 'the level-1 ticket, kept whole with TICKET_PINK',
+    },
+    { line: "border: '1.5px solid #ff007f',", count: 1, why: 'the level-1 ticket' },
+    { line: "color: '#ff007f',", count: 1, why: 'the level-1 ticket' },
+    { line: "boxShadow: '0 0 12px rgba(255, 0, 127, 0.3)',", count: 1, why: 'the level-1 ticket' },
+    { line: "borderRight: '2px dashed rgba(255, 0, 127, 0.45)',", count: 1, why: 'the level-1 ticket divider' },
   ],
   'pages/Profile.tsx': [{ line: "YELLOW: '#ffe600',", count: 1, why: 'SEAT_COLOR: colour is the seat' }],
   'store.tsx': [
@@ -179,7 +224,7 @@ const INVENTORY = {
     },
     {
       line: "{ id: 'retro80', label: \"RETRO 80'S\", swatch: ['#ff007f', '#00f0ff'] },",
-      count: 1,
+      count: 2,
       why: 'the theme row swatch, a picture of the palette',
     },
   ],
@@ -187,9 +232,15 @@ const INVENTORY = {
   // allowed to spell its own palette. One entry per name that carries a swept form.
   'styles/themes/retro80/theme.css': [
     { line: '--accent-cyan: #00f0ff;', count: 1, why: 'the 80s token definition' },
+    { line: '--accent-pink: #ff007f;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
     { line: '--text-main: #ffffff;', count: 1, why: 'the 80s token definition' },
     { line: '--window-header-text: #ffffff;', count: 1, why: 'the 80s token definition' },
+    {
+      line: 'an alpha, and `rgba(#ff007f, 0.3)` is not CSS — so without these the',
+      count: 1,
+      why: 'a comment in the table explaining why the channel tokens exist',
+    },
   ],
   'styles/themes/retro70/theme.css': [
     { line: '--accent-yellow: #ffb000;', count: 1, why: 'the 70s token definition' },
@@ -209,13 +260,16 @@ const INVENTORY = {
       count: 6,
       why: 'TICKET_YELLOW: the amber ticket, kept whole with its siblings',
     },
+    { line: "'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';", count: 6, why: "TICKET_PINK: the pink ticket, kept whole with TICKET_YELLOW's amber sibling, so the two levels of pass look alike in both eras" },
     {
-      line: "\"[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink,#ff007f)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]\";",
+      line: "\"[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]\";",
       count: 2,
       why: 'a mask channel: white is full coverage, not a colour, so it must not warm in the 70s',
     },
+    { line: "\"text-[#ff4081] text-[13px] leading-[1.4] font-['Atkinson_Hyperlegible_Mono',monospace] py-2 px-3 rounded-lg bg-[rgba(255,0,127,.08)] border border-[rgba(255,0,127,.2)]\";", count: 2, why: "RETRO_AUTH_ERROR: the drifted Material pink reports a failure, and the state pair owns that reading" },
   ],
   'theme.ts': [
+    { line: "red: { base: '#ff007f' },", count: 1, why: 'the seat palette: the accent and the red seat share one value' },
     { line: "yellow: { base: '#ffe600' },", count: 1, why: 'the seat palette' },
     { line: "blue: { base: '#00f0ff' },", count: 1, why: 'the seat palette: the accent and the blue seat share one value' },
   ],

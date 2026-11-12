@@ -1691,8 +1691,8 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgb(var(--bg-panel-rgb) / 0.9)',
-                        border: '1.5px solid rgba(255, 0, 127, 0.4)',
-                        boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
+                        border: '1.5px solid rgb(var(--accent-pink-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-pink-rgb) / 0.12)',
                         borderRadius: 7,
                         padding: '10px 14px',
                         textAlign: 'center',

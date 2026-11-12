@@ -101,7 +101,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
                 type="button"
                 className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'privacy'
-                    ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                    ? 'bg-(--accent-pink) text-(--text-main) shadow-[0_0_10px_rgb(var(--accent-pink-rgb)/0.5)]'
                     : 'text-[var(--text-muted)] hover:text-(--text-main)'
                 }`}
                 onClick={() => {
@@ -115,7 +115,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
                 type="button"
                 className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
                   activeDoc === 'terms'
-                    ? 'bg-[var(--accent-pink)] text-(--text-main) shadow-[0_0_10px_rgba(255,0,127,0.5)]'
+                    ? 'bg-(--accent-pink) text-(--text-main) shadow-[0_0_10px_rgb(var(--accent-pink-rgb)/0.5)]'
                     : 'text-[var(--text-muted)] hover:text-(--text-main)'
                 }`}
                 onClick={() => {
@@ -152,7 +152,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             {/* Close Button */}
             <button
               type="button"
-              className={`${RETRO_BTN} px-2 py-0.5 text-xs text-[var(--accent-pink)] hover:bg-[rgba(255,0,127,0.2)]`}
+              className={`${RETRO_BTN} px-2 py-0.5 text-xs text-(--accent-pink) hover:bg-[rgb(var(--accent-pink-rgb)/0.2)]`}
               onClick={() => {
                 retroAudio.playUiBeep(440, 0.05);
                 onClose();
@@ -179,7 +179,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
           </span>
           <button
             type="button"
-            className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) bg-[linear-gradient(90deg,rgb(var(--accent-cyan-rgb)/0.3),rgba(255,0,127,0.3))] px-4 py-1.5 text-xs font-black text-(--text-main) hover:shadow-[0_0_15px_rgb(var(--accent-cyan-rgb)/0.4)]`}
+            className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) bg-[linear-gradient(90deg,rgb(var(--accent-cyan-rgb)/0.3),rgb(var(--accent-pink-rgb)/0.3))] px-4 py-1.5 text-xs font-black text-(--text-main) hover:shadow-[0_0_15px_rgb(var(--accent-cyan-rgb)/0.4)]`}
             onClick={() => {
               retroAudio.playUiBeep(440, 0.05);
               onClose();

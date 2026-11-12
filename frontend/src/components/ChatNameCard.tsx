@@ -296,7 +296,7 @@ export function ChatNameCard({
             className={RETRO_BTN}
             style={{
               ...actionStyle,
-              color: addArmed ? 'var(--accent-pink, #ff007f)' : 'var(--accent-cyan)',
+              color: addArmed ? 'var(--accent-pink)' : 'var(--accent-cyan)',
             }}
             disabled={busy}
             aria-label={addArmed ? t('chat.card.addFriendConfirm') : t('chat.card.addFriend')}
@@ -314,7 +314,7 @@ export function ChatNameCard({
         <button
           type="button"
           className={RETRO_BTN}
-          style={{ ...actionStyle, color: 'var(--accent-pink, #ff007f)' }}
+          style={{ ...actionStyle, color: 'var(--accent-pink)' }}
           disabled={busy}
           aria-haspopup="dialog"
           onClick={() => {

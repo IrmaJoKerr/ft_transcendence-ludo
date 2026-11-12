@@ -61,7 +61,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       >
         {listItems.map((item, idx) => (
           <li key={idx} className="flex items-start gap-2">
-            <span className="text-[var(--accent-pink)] select-none">▸</span>
+            <span className="text-(--accent-pink) select-none">▸</span>
             <span className="flex-1">{renderInline(item)}</span>
           </li>
         ))}
@@ -189,7 +189,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       elements.push(
         <h2
           key={`h2-${i}`}
-          className="font-display mt-6 mb-3 text-base font-black tracking-wide text-[var(--accent-pink)] [text-shadow:0_0_8px_rgba(255,0,127,0.5)]"
+          className="font-display mt-6 mb-3 text-base font-black tracking-wide text-(--accent-pink) [text-shadow:0_0_8px_rgb(var(--accent-pink-rgb)/0.5)]"
         >
           {renderInline(trimmed.slice(3))}
         </h2>,

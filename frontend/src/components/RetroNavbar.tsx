@@ -85,7 +85,7 @@ export function RetroNavbar({
     borderColor: 'var(--accent-pink)',
     boxShadow: SEVENTIES
       ? '0 0 16px rgba(229, 52, 11, 0.55), inset 0 0 8px rgb(var(--accent-yellow-rgb) / 0.25)'
-      : '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgb(var(--accent-cyan-rgb) / 0.25)',
+      : '0 0 16px rgb(var(--accent-pink-rgb) / 0.55), inset 0 0 8px rgb(var(--accent-cyan-rgb) / 0.25)',
   };
 
   // Below `xl` (1280px) the sidebar collapses to an icon rail; the threshold and
@@ -322,7 +322,7 @@ export function RetroNavbar({
         borderRadius: 22,
         boxShadow: SEVENTIES
           ? '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
-          : '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-cyan-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
+          : '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-cyan-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgb(var(--accent-pink-rgb) / 0.08)',
         boxSizing: 'border-box',
         overflow: 'visible',
         ...style,
@@ -565,7 +565,7 @@ export function RetroNavbar({
                     fontWeight: 900,
                     background: SEVENTIES
                       ? 'linear-gradient(90deg, rgba(229, 52, 11, 0.25), rgb(var(--accent-yellow-rgb) / 0.35))'
-                      : 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgba(255, 0, 127, 0.35))',
+                      : 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgb(var(--accent-pink-rgb) / 0.35))',
                     border: SEVENTIES ? '1.5px solid #e5340b' : '1.5px solid #ff0055',
                     color: 'var(--text-main)',
                     boxShadow: SEVENTIES ? '0 0 12px rgba(229, 52, 11, 0.3)' : '0 0 12px rgba(255, 0, 85, 0.3)',
@@ -622,7 +622,7 @@ export function RetroNavbar({
               padding: '9px 12px',
               borderRadius: 12,
               background:
-                'linear-gradient(135deg, rgba(255, 0, 127, 0.35), rgb(var(--accent-cyan-rgb) / 0.35))',
+                'linear-gradient(135deg, rgb(var(--accent-pink-rgb) / 0.35), rgb(var(--accent-cyan-rgb) / 0.35))',
               border: `1.5px solid ${rejoinEdge.borderColor}`,
               boxShadow: rejoinEdge.boxShadow,
               display: 'flex',

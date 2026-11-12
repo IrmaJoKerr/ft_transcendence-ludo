@@ -95,7 +95,7 @@ function MiniDie({ value }: { value: number }) {
         height: 38,
         borderRadius: 8,
         background: '#190a38',
-        boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3), inset 0 0 4px rgba(255, 0, 127, 0.3)',
+        boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3), inset 0 0 4px rgb(var(--accent-pink-rgb) / 0.3)',
         border: '1.5px solid var(--accent-cyan)',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr 1fr',
@@ -2772,10 +2772,10 @@ export function Game() {
                       fontSize: '0.82rem',
                       fontFamily: 'var(--font-heading)',
                       letterSpacing: '1px',
-                      background: 'linear-gradient(135deg, #ff007f, #9d00ff)',
+                      background: 'linear-gradient(135deg, var(--accent-pink), #9d00ff)',
                       borderColor: 'var(--accent-pink)',
                       color: 'var(--text-main)',
-                      boxShadow: '0 0 16px rgba(255, 0, 127, 0.4)',
+                      boxShadow: '0 0 16px rgb(var(--accent-pink-rgb) / 0.4)',
                       borderRadius: 4,
                       justifyContent: 'center',
                     }}
@@ -3188,12 +3188,12 @@ export function Game() {
                           style={{
                             width: '100%',
                             padding: '8px 12px',
-                            background: isMyTurn ? 'rgba(255, 0, 127, 0.25)' : `${turnColorHex}18`,
+                            background: isMyTurn ? 'rgb(var(--accent-pink-rgb) / 0.25)' : `${turnColorHex}18`,
                             border: isMyTurn
                               ? '1.5px solid var(--accent-pink)'
                               : `1.5px solid ${turnColorHex}`,
                             boxShadow: isMyTurn
-                              ? '0 0 16px rgba(255, 0, 127, 0.6)'
+                              ? '0 0 16px rgb(var(--accent-pink-rgb) / 0.6)'
                               : `0 0 8px ${turnColorHex}44`,
                             animation: isMyTurn ? 'pulse-turn-banner 1.6s infinite' : 'none',
                             borderRadius: 4,
@@ -3699,7 +3699,7 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 14,
                     borderRadius: 6,
-                    border: '1px solid rgba(255, 0, 127, 0.3)',
+                    border: '1px solid rgb(var(--accent-pink-rgb) / 0.3)',
                   }}
                 >
                   <div
@@ -3751,7 +3751,7 @@ export function Game() {
                       style={{
                         color: 'var(--text-main)',
                         fontFamily: 'var(--font-mono)',
-                        background: 'rgba(255, 0, 127, 0.2)',
+                        background: 'rgb(var(--accent-pink-rgb) / 0.2)',
                         padding: '3px 10px',
                         borderRadius: 4,
                         border: '1px solid var(--accent-pink)',
@@ -3856,7 +3856,7 @@ export function Game() {
                     padding: 16,
                     borderRadius: 6,
                     borderLeft: '4px solid var(--accent-pink)',
-                    border: '1px solid rgba(255, 0, 127, 0.2)',
+                    border: '1px solid rgb(var(--accent-pink-rgb) / 0.2)',
                   }}
                 >
                   <div

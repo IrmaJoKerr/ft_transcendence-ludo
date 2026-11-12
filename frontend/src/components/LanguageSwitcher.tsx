@@ -62,7 +62,7 @@ export function LanguageSwitcher({
                 borderRadius: 6,
                 border: isSelected ? '1.5px solid var(--accent-cyan)' : '1px solid transparent',
                 background: isSelected
-                  ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgba(255, 0, 127, 0.2))'
+                  ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgb(var(--accent-pink-rgb) / 0.2))'
                   : 'transparent',
                 color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
                 cursor: 'pointer',

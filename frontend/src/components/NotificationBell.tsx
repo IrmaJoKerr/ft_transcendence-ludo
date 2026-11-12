@@ -223,8 +223,8 @@ export function NotificationBell({
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: '#ff007f',
-                  boxShadow: '0 0 6px #ff007f',
+                  background: 'var(--accent-pink)',
+                  boxShadow: '0 0 6px var(--accent-pink)',
                 }}
               />
             )}
@@ -268,9 +268,9 @@ export function NotificationBell({
                 fontWeight: 900,
                 padding: '2px 7px',
                 borderRadius: 4,
-                background: count > 0 ? '#ff007f' : 'rgb(var(--ink-rgb) / 0.1)',
+                background: count > 0 ? 'var(--accent-pink)' : 'rgb(var(--ink-rgb) / 0.1)',
                 color: count > 0 ? 'var(--text-main)' : 'var(--text-muted)',
-                boxShadow: count > 0 ? '0 0 8px #ff007f' : 'none',
+                boxShadow: count > 0 ? '0 0 8px var(--accent-pink)' : 'none',
               }}
             >
               {count > 0 ? count : '0'}
