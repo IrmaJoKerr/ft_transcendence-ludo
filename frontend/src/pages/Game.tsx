@@ -55,7 +55,6 @@ import { useChatFeed } from '../hooks/useChatFeed';
 import { retroAudio } from '../utils/audio';
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   APP_WRAPPER,
   HERO_SECTION,
   HERO_TITLE,
@@ -1591,8 +1590,6 @@ export function Game() {
   if (!activeMatch) {
     return (
       <>
-        <div className={GRID_BACKGROUND} />
-
         <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
           <div
             className={APP_WRAPPER}
@@ -1820,9 +1817,6 @@ export function Game() {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* CRT Monitor Overlay FX Container */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Main Content Wrapper */}

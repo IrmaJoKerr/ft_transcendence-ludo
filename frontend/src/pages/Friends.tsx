@@ -13,7 +13,6 @@ import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '.
 import { retroAudio } from '../utils/audio';
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   HERO_SECTION,
   HERO_TITLE,
   BADGE_BAR,
@@ -231,9 +230,6 @@ export function Friends() {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* CRT Monitor Overlay FX Container */}
       <div
         className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`}

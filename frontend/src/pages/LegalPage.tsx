@@ -7,7 +7,6 @@ import { MarkdownViewer } from '../components/MarkdownViewer';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   HERO_SECTION,
   HERO_TITLE,
   RETRO_WINDOW,
@@ -62,8 +61,6 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
 
   return (
     <>
-      <div className={GRID_BACKGROUND} />
-
       <div
         className={`${CRT_SCREEN} crt-screen flex min-h-screen w-full flex-col items-center justify-start`}
         id="crtScreen"

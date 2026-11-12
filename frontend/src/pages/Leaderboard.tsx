@@ -8,7 +8,6 @@ import { retroAudio } from '../utils/audio';
 
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   HERO_SECTION,
   HERO_TITLE,
   RETRO_WINDOW,
@@ -83,9 +82,6 @@ export function Leaderboard() {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* CRT Monitor Overlay FX Container */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}

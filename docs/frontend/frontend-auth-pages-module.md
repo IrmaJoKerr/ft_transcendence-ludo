@@ -43,7 +43,7 @@ Login also carries the EN / MS / FR switch pinned inside the card's top-right co
 | `src/pages/TwoFactor.tsx` | 2FA code entry |
 | `src/pages/ForgotPassword.tsx` | Password reset — step 1 (request link) |
 | `src/pages/ResetPassword.tsx` | Password reset — step 2 (set new password) |
-| `src/components/RetroAuthLayout.tsx` | Layout wrapper — logo, tagline, centered card (imports `GRID_BACKGROUND` from `styles/tw.ts`); optional `topRight` slot (the login's language switch); also exports `NeonCheck`, the terms-tick glyph |
+| `src/components/RetroAuthLayout.tsx` | Layout wrapper — notice strip, centered glass card, tag chip; paints no ground, because the era plate is `html, body`'s (`todo.md` 33, step 3); optional `topRight` slot (the login's language switch); also exports `NeonCheck`, the terms-tick glyph |
 | `src/components/LanguageSwitcher.tsx` | Segmented EN/MS/FR switch (`value` + `onChange`), shared by Login and the legal pages |
 | `src/components/OAuthButtons.tsx` | 42, GitHub, Google provider buttons |
 | `src/components/PasswordInfo.tsx` | "i" badge beside a new-password label; explains the policy on hover and keyboard focus |

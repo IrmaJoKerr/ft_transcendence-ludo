@@ -12,7 +12,6 @@ import { STATUS_STYLE, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   HERO_SECTION,
   HERO_TITLE,
   RETRO_WINDOW,
@@ -338,8 +337,6 @@ function BlockedProfileCard({
 
   return (
     <>
-      <div className={GRID_BACKGROUND} />
-
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           <NavDock activeRoute="/profile" />
@@ -790,9 +787,6 @@ export function Profile() {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* CRT Monitor Overlay FX Container */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GRID_BACKGROUND } from '../styles/tw';
 
 /** Unconditional pre-game notice. Mounted by the auth shell only: the table
  *  screen and the PvP waiting room carry no strip, so the warning appears once,
@@ -33,7 +32,14 @@ export function LandscapeNotice() {
   );
 }
 
-/** Full-bleed retrowave auth shell: shared cityscape plus a glass card. */
+/** Full-bleed retrowave auth shell: the era's plate plus a glass card.
+ *
+ *  The plate belongs to the shell, not to this component: `html, body` paints
+ *  `--shell-image` (todo.md section 33, step 3), so everything mounted here is
+ *  transparent on purpose. A full-bleed `--bg-primary` fill used to sit on this
+ *  element and cover that plate - it was left from when the cityscape was
+ *  mounted *inside* the layout, and it made sign-in the one route that did not
+ *  show its era's ground. Nothing here may paint a ground again. */
 export function RetroAuthLayout({
   tag,
   topRight,
@@ -52,14 +58,10 @@ export function RetroAuthLayout({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-main)',
         overflowX: 'hidden',
       }}
     >
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* Centered glassmorphism card wrapper */}
       <div
         className="max-h-screen overflow-y-auto"
@@ -98,9 +100,14 @@ export function RetroAuthLayout({
           {children}
         </div>
 
-        {/* Tag line below card */}
+        {/* Tag line below the card. It floats on the plate rather than on glass,
+           so it wears the card's own fill: bare at 50% cyan it measured 1.0-1.5:1
+           against the cityscape, and it sank into the colony's teal (todo.md
+           section 33, step 3). On the card's 0.78 glass it reads 10.5:1 under
+           synthwave and 3.3:1 under the 70s, the same floor as the card's own
+           cyan labels, so it is no less legible than the surface it sits beside. */}
         {tag && (
-          <div className="mt-5 [font-family:var(--font-mono)] text-[11.5px] tracking-[0.34em] text-[rgb(var(--accent-cyan-rgb)/0.5)] uppercase">
+          <div className="mt-5 rounded-full border border-[rgb(var(--accent-cyan-rgb)/0.35)] bg-[rgb(var(--bg-primary-rgb)/0.78)] px-4 py-1.5 [font-family:var(--font-mono)] text-[11.5px] tracking-[0.34em] text-(--accent-cyan) uppercase backdrop-blur-md">
             {tag}
           </div>
         )}

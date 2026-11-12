@@ -166,10 +166,10 @@ sequenceDiagram
     participant RetroAuthLayout as RetroAuthLayout.tsx
 
     Login->>RetroAuthLayout: <RetroAuthLayout tag={t('auth.loginTag')}>
-    RetroAuthLayout->>RetroAuthLayout: Render centered container
-    RetroAuthLayout->>RetroAuthLayout: Render logo mark (gradient ring)
-    RetroAuthLayout->>RetroAuthLayout: Render tagline
-    RetroAuthLayout->>RetroAuthLayout: Render children (form)
+    RetroAuthLayout->>RetroAuthLayout: Render a transparent 100vw x 100vh shell (the plate is html, body's)
+    RetroAuthLayout->>RetroAuthLayout: Render the LandscapeNotice strip
+    RetroAuthLayout->>RetroAuthLayout: Render the glass card, {children} inside it
+    RetroAuthLayout->>RetroAuthLayout: Render the tag chip below the card
 ```
 
 ### 2. Board
@@ -238,10 +238,10 @@ sequenceDiagram
 ### RetroAuthLayout Path
 ```
 <RetroAuthLayout tag={tag}>
-  └── Render centered container
-       ├── Logo mark (CSS gradient ring)
-       ├── Tagline text
-       └── {children}
+  └── Transparent full-bleed shell (the era plate shows through from html, body)
+       ├── LandscapeNotice strip
+       ├── Glass card (0.78), {children} and the optional topRight slot inside
+       └── Tag chip (the card's own glass, solid cyan)
 ```
 
 ### Board Path
@@ -307,7 +307,7 @@ Per-constant notes:
 | `THEME_TRIGGER_BTN_BASE` | The account and notification trigger buttons. Callers set inline background, border and shadow; `active` is a literal class set by JavaScript, so `&.active` matches it. |
 | `THEME_POPOVER_MENU_BASE` | The account popover panel, coloured by the `--fs-*` custom properties. Open/closed/up/down is JavaScript state (`THEME_POPOVER_MENU_HIDDEN` / `_ACTIVE_DOWN` / `_ACTIVE_UP`); the `popover-slide-*` keyframes stay in CSS. |
 | `CRT_SCREEN` | The "page shell" shared by Home, Profile, Leaderboard, Friends, Lobby, Game and LudoLobby. Every value comes from a custom property. |
-| `GRID_BACKGROUND` | The fixed cityscape background layer used by RetroAuthLayout and the page shells, with a darkening gradient on its `after:` layer. |
+| `GRID_BACKGROUND` | The fixed, paint-free frame Home hangs the 80s `STATIC_GRID` in. It carried the cityscape itself until `3e974df` moved the plate onto `html, body` (`--shell-image`); the per-route mounts, empty since then, were dropped in `todo.md` 33 step 3, so Home is its only reader. |
 | `GAME_WINDOW_HEADER_EXTRA` | The Game.tsx-only header look. `!bg-[#140a35]` beats `WINDOW_HEADER`'s plain default. |
 | `ARCADE_START_TITLE` | `whitespace-nowrap` is required: at 1.5px letter-spacing the heading and its spaced arrows are wider than the overlay, so the arrows would wrap onto their own lines. |
 | `CYBER_MODAL_*` | CyberModal's overlay, box, body and glitch layers. The modal state travels through the `data-modal-state` and `data-glitching` attributes, read with `group-data-` variants. |
@@ -342,7 +342,7 @@ Per-constant notes:
 
 | Component | Depends On | Purpose |
 |-----------|-----------|---------|
-| `RetroAuthLayout` | `styles/tw.ts` | `GRID_BACKGROUND` class constant, inline styles |
+| `RetroAuthLayout` | `react`, `react-i18next` | The auth card, its notice strip and tag chip, all transparent: the era plate is `html, body`'s, and no theme import is needed to paint over it |
 | `Board` | `theme.ts`, `game/boardGeometry.ts`, `CaptureBurst` | `COL`, the step → cell mapping, and the landing cell's burst |
 | `CaptureBurst` | `react`, `game/timing.ts` | Its own keyframes and the burst's one duration constant; no theme import, the caller passes the CSS colour |
 | `GoalBurst` | `react`, `game/timing.ts` | Its own keyframes and `GOAL_BURST_MS`; no theme import, the caller passes the anchor and the seat's colour |

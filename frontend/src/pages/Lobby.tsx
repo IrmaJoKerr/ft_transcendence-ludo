@@ -12,7 +12,6 @@ import { retroAudio } from '../utils/audio';
 import { localizedPilotName } from '../utils/botName';
 import {
   CRT_SCREEN,
-  GRID_BACKGROUND,
   APP_WRAPPER,
   HERO_SECTION,
   HERO_TITLE,
@@ -257,9 +256,6 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
-
       {/* CRT FX Overlay */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Main Content Container */}

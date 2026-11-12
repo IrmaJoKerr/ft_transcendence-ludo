@@ -57,9 +57,12 @@ export const RETRO_AUTH_MUTED =
 // Shared "page shell"
 export const CRT_SCREEN = 'relative z-10 min-h-screen';
 
-// The era image now paints on `html, body` via `--shell-image` (dimmed,
-// rearmost, every UI surface in front of it). This layer owns only the
-// converging grid; nothing here moves.
+// The era plate is the shell's: `html, body` paints `--shell-image` (dimmed,
+// rearmost, every UI surface in front of it), so no route mounts a backdrop any
+// more and this layer paints no ground at all. What it still is, is the fixed
+// frame the 80s converging grid hangs in: `STATIC_GRID` is absolute and wants a
+// viewport-sized positioned parent. Home is its only reader (todo.md section 33,
+// step 3).
 export const GRID_BACKGROUND = 'fixed inset-0 z-[0] pointer-events-none';
 
 // The old isometric background, frozen: converging perspective lines that
