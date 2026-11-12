@@ -18,6 +18,7 @@
      and off report the pair below (27). One value, two jobs, so a warning cannot
      drift from the accent that names it. */
   --accent-yellow: #ffe600;
+  --accent-yellow-rgb: 255 230 0;
   --accent-purple: #9d00ff;
   --text-main: #ffffff;
   --text-muted: #b8a6e4;
@@ -40,11 +41,12 @@
   --window-header-bg: linear-gradient(90deg, #ff007f, #00f0ff);
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
-  /* The shell's ground. A token rather than a literal on `html, body` because one
-     theme paints a cityscape and the other paints nothing (see the retro70 block
-     below): `none` lets `--bg-primary` show through, which is the same ground
-     `index.css` already gives the shell before any theme lands. */
-  --shell-image: url('/synthwave-cityscape.jpeg');
+  /* The shell's ground. A token rather than a literal on `html, body`: synthwave
+     wears the dimmed cityscape as its rearmost layer, retro70 wears the dimmed
+     orbital colony the same way. The converging grid, where drawn, is static
+     (see `STATIC_GRID` in `tw.ts`) — the lines converge toward the vanishing
+     point and never move. */
+  --shell-image: url('/1980s-Synthwave-Cityscape-1.jpg'), linear-gradient(to_bottom, rgba(13, 2, 33, 0.30) 0%, rgba(13, 2, 33, 0.62) 100%);
   /* The press-start card's own fill. Its border reads `--accent-pink` and so
      rethemes for free; the fill and the two glows in its shadow do not, and they
      are the parts that read wrong over walnut. Values are the literals that were
@@ -129,9 +131,10 @@
   --window-header-bg: linear-gradient(90deg, #e5340b, #ffb000);
   --window-header-text: #ffe7bd;
   --card-border-style: 2px solid var(--accent-pink);
-  /* No cityscape: a neon skyline behind a walnut console is the one thing a 70s
-     shell cannot wear. The ground is `--bg-primary`, warm enough on its own. */
-  --shell-image: none;
+  /* The orbital colony is the 70s shell's ground, painted the same way the
+     synthwave shell wears its cityscape: full-bleed, fixed, dimmed so every UI
+     surface sits in front of it. */
+  --shell-image: url('/1970s-Orbital-Colony.jpg'), linear-gradient(to_bottom, rgba(20, 16, 14, 0.30) 0%, rgba(20, 16, 14, 0.62) 100%);
   /* Black at 55 per cent, the value the stills paint this card at: the navy the
      synthwave card uses reads purple over walnut. The glows move to the palette's
      amber and hot red, the pair the stills ring the card in. */

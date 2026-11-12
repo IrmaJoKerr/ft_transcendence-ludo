@@ -62,9 +62,18 @@ export const RETRO_AUTH_MUTED =
 // Shared "page shell"
 export const CRT_SCREEN = 'relative z-10 min-h-screen';
 
-// Synthwave cityscape background
-export const GRID_BACKGROUND =
-  "fixed inset-0 w-full h-full z-0 pointer-events-none overflow-hidden bg-cover bg-center bg-no-repeat bg-[url('/synthwave-cityscape.jpeg')] after:content-[''] after:absolute after:inset-0 after:bg-[linear-gradient(to_bottom,rgba(13,2,33,0.3)_0%,rgba(13,2,33,0.5)_100%)]";
+// The era image now paints on `html, body` via `--shell-image` (dimmed,
+// rearmost, every UI surface in front of it). This layer owns only the
+// converging grid; nothing here moves.
+export const GRID_BACKGROUND = 'fixed inset-0 z-[0] pointer-events-none';
+
+// The old isometric background, frozen: converging perspective lines that
+// meet at a vanishing point and stay there — no scroll, no drift. Shown for
+// synthwave only; retro70's colony image needs no grid over it.
+export const STATIC_GRID =
+  'absolute top-[55%] -left-1/2 w-[200%] h-[55vh] ' +
+  'bg-[linear-gradient(0deg,transparent_24%,var(--grid-line-color)_25%,var(--grid-line-color)_26%,transparent_27%,transparent_74%,var(--grid-line-color)_75%,var(--grid-line-color)_76%,transparent_77%),linear-gradient(90deg,transparent_24%,var(--grid-line-color)_25%,var(--grid-line-color)_26%,transparent_27%,transparent_74%,var(--grid-line-color)_75%,var(--grid-line-color)_76%,transparent_77%)] ' +
+  'bg-[length:50px_50px] [transform-origin:50%_0%] [transform:perspective(220px)_rotateX(65deg)] z-[2] [[data-theme=retro70]&]:hidden';
 
 export const APP_WRAPPER =
   'max-w-[calc(100vw-335px)] w-[calc(100%-325px)] ml-[310px] mr-auto p-[14px_20px_20px] relative z-10 box-border';

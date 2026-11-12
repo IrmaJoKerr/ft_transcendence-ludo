@@ -13,6 +13,7 @@ import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,
+  STATIC_GRID,
   HERO_SECTION,
   HERO_TITLE,
   HERO_SUBTITLE,
@@ -127,8 +128,11 @@ export function Home() {
 
   return (
     <>
-      {/* Synthwave cityscape background */}
-      <div className={GRID_BACKGROUND} />
+      {/* Page shell: the era image (dimmed, rearmost) plus the static converging
+         grid for synthwave. Every UI surface paints on top of both. */}
+      <div className={GRID_BACKGROUND}>
+        <div className={STATIC_GRID} />
+      </div>
 
       {/* CRT Monitor Overlay FX Container */}
       <div

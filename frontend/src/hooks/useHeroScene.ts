@@ -34,6 +34,13 @@ export function useHeroScene(
 
     const scene = HERO_SCENES[theme];
     const state = createSceneState(scene, canvas.width);
+    // The 70s centrepiece loads in the background; the rAF loop paints it the
+    // frame it arrives. Other themes never touch it.
+    if (scene.kind === 'room') {
+      const colony = new Image();
+      colony.src = '/1970s-Orbital-Colony.jpg';
+      state.colonyImg = colony;
+    }
     const frame: HeroFrame = { time: 0, gridOffset: 0 };
 
     let animId = 0;

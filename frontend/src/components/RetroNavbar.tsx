@@ -24,10 +24,6 @@ import {
   RETRO_FLOATING_DOCK,
 } from '../styles/tw';
 
-const REJOIN_EDGE = {
-  borderColor: 'var(--accent-pink)',
-  boxShadow: '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.25)',
-};
 
 // The one room the rejoin row speaks for: a PvE or PvP seat the account still holds.
 // A hotseat room writes no match row, seats one device and belongs to no account, so
@@ -77,8 +73,19 @@ export function RetroNavbar({
 }: RetroNavbarProps) {
   const { t } = useTranslation();
   const route = useRoute();
-  const { user, logout, lang, setLang, setActiveMatch, sessionSocket } = useApp();
+  const { user, logout, lang, setLang, setActiveMatch, sessionSocket, theme } = useApp();
   const currentPath = activeRoute ?? route.path;
+
+  // The dock's shell wears 1970s walnut and amber when the 70s theme is on, and
+  // the synthwave navy and neon otherwise. Seat hues and text colours stay as
+  // they are — they are not theme surfaces.
+  const SEVENTIES = theme === 'retro70';
+  const rejoinEdge = {
+    borderColor: 'var(--accent-pink)',
+    boxShadow: SEVENTIES
+      ? '0 0 16px rgba(229, 52, 11, 0.55), inset 0 0 8px rgb(var(--accent-yellow-rgb) / 0.25)'
+      : '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.25)',
+  };
 
   // Below `xl` (1280px) the sidebar collapses to an icon rail; the threshold and
   // the width both come from `useDockPrefs` through `NavDock`, so the spacer and
@@ -305,13 +312,16 @@ export function RetroNavbar({
         justifyContent: 'flex-start',
         gap: 14,
         padding: isCompact ? '22px 10px 18px' : '22px 16px 18px',
-        background: 'linear-gradient(180deg, rgba(20, 6, 46, 0.86), rgba(10, 2, 28, 0.94))',
+        background: SEVENTIES
+          ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.86), rgba(18, 13, 10, 0.94))'
+          : 'linear-gradient(180deg, rgba(20, 6, 46, 0.86), rgba(10, 2, 28, 0.94))',
         backdropFilter: 'blur(32px) saturate(220%)',
         WebkitBackdropFilter: 'blur(32px) saturate(220%)',
-        border: '1px solid rgba(0, 240, 255, 0.35)',
+        border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgba(0, 240, 255, 0.35)',
         borderRadius: 22,
-        boxShadow:
-          '0 28px 70px rgba(0, 0, 0, 0.8), 0 0 32px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
+        boxShadow: SEVENTIES
+          ? '0 28px 70px rgba(0, 0, 0, 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
+          : '0 28px 70px rgba(0, 0, 0, 0.8), 0 0 32px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
         boxSizing: 'border-box',
         overflow: 'visible',
         ...style,
@@ -381,7 +391,7 @@ export function RetroNavbar({
                   width: 30,
                   height: 30,
                   borderRadius: 8,
-                  background: 'rgba(25, 10, 56, 0.95)',
+                  background: SEVENTIES ? 'rgba(36, 26, 18, 0.95)' : 'rgba(25, 10, 56, 0.95)',
                   color: 'var(--accent-pink)',
                   display: 'grid',
                   placeItems: 'center',
@@ -440,11 +450,14 @@ export function RetroNavbar({
                   width: 275,
                   padding: '16px 16px',
                   borderRadius: 14,
-                  background:
-                    'linear-gradient(180deg, rgba(20, 6, 46, 0.96), rgba(10, 2, 28, 0.98))',
+                  background: SEVENTIES
+                    ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.96), rgba(18, 13, 10, 0.98))'
+                    : 'linear-gradient(180deg, rgba(20, 6, 46, 0.96), rgba(10, 2, 28, 0.98))',
                   backdropFilter: 'blur(32px) saturate(220%)',
-                  border: '1.5px solid rgba(0, 240, 255, 0.45)',
-                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 240, 255, 0.25)',
+                  border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgba(0, 240, 255, 0.45)',
+                  boxShadow: SEVENTIES
+                    ? '0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgb(var(--accent-yellow-rgb) / 0.25)'
+                    : '0 20px 60px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 240, 255, 0.25)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 12,
@@ -554,11 +567,12 @@ export function RetroNavbar({
                     fontSize: '0.84rem',
                     fontFamily: 'var(--font-display)',
                     fontWeight: 900,
-                    background:
-                      'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgba(255, 0, 127, 0.35))',
-                    border: '1.5px solid #ff0055',
+                    background: SEVENTIES
+                      ? 'linear-gradient(90deg, rgba(229, 52, 11, 0.25), rgb(var(--accent-yellow-rgb) / 0.35))'
+                      : 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgba(255, 0, 127, 0.35))',
+                    border: SEVENTIES ? '1.5px solid #e5340b' : '1.5px solid #ff0055',
                     color: '#ffffff',
-                    boxShadow: '0 0 12px rgba(255, 0, 85, 0.3)',
+                    boxShadow: SEVENTIES ? '0 0 12px rgba(229, 52, 11, 0.3)' : '0 0 12px rgba(255, 0, 85, 0.3)',
                     borderRadius: 8,
                     cursor: 'pointer',
                     display: 'flex',
@@ -613,8 +627,8 @@ export function RetroNavbar({
               borderRadius: 12,
               background:
                 'linear-gradient(135deg, rgba(255, 0, 127, 0.35), rgba(0, 240, 255, 0.35))',
-              border: `1.5px solid ${REJOIN_EDGE.borderColor}`,
-              boxShadow: REJOIN_EDGE.boxShadow,
+              border: `1.5px solid ${rejoinEdge.borderColor}`,
+              boxShadow: rejoinEdge.boxShadow,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -629,7 +643,7 @@ export function RetroNavbar({
             // Same hover animation as the other rail buttons, but it returns to
             // its pink alert edge rather than the default, so an in-progress
             // game still stands out at rest.
-            {...railHoverHandlers(false, REJOIN_EDGE)}
+            {...railHoverHandlers(false, rejoinEdge)}
             title={t('navbar.rejoinActiveTooltip')}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
@@ -702,7 +716,7 @@ export function RetroNavbar({
           // A thin cyan scrollbar when a very short window does force one: the
           // default light bar is the one bright thing on a dark dock.
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(0, 240, 255, 0.35) transparent',
+          scrollbarColor: SEVENTIES ? 'rgb(var(--accent-yellow-rgb) / 0.35) transparent' : 'rgba(0, 240, 255, 0.35) transparent',
           padding: isCompact ? '8px 10px' : '8px 16px',
         }}
       >
