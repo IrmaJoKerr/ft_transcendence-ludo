@@ -152,7 +152,7 @@ export function ColorPaletteModal({
         </div>
 
         <div
-          className={`${WINDOW_BODY} flex max-h-[90vh] flex-col gap-3 overflow-y-auto bg-[rgba(12,4,28,0.92)] p-5 sm:flex-row sm:gap-4`}
+          className={`${WINDOW_BODY} flex max-h-[90vh] flex-col gap-3 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.92)] p-5 sm:flex-row sm:gap-4`}
         >
           {/* The rotation, left of the picker. Geometry comes from SEAT_COLORS and the
               words from the shared colour keys, so it is never colour-only. */}

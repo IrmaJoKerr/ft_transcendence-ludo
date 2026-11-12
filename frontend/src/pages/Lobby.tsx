@@ -403,7 +403,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         style={{
                           position: 'relative',
                           borderRadius: 6,
-                          background: 'rgba(10, 2, 28, 0.85)',
+                          background: 'rgb(var(--bg-panel-rgb) / 0.85)',
                           border: ck ? `1.5px solid ${hue}` : `1.5px dashed ${hue}66`,
                           boxShadow: ck ? `0 0 10px ${hue}25` : 'none',
                           display: 'flex',
@@ -491,7 +491,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                                     height: 40,
                                     borderRadius: 6,
                                     background: hue,
-                                    color: '#0d0221',
+                                    color: 'rgb(var(--bg-primary-rgb))',
                                     fontWeight: 'bold',
                                     display: 'grid',
                                     placeItems: 'center',

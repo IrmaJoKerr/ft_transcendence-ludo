@@ -70,7 +70,7 @@ export function PasswordInfo() {
             padding: '7px 10px',
             border: '1px solid rgba(0, 240, 255, 0.5)',
             borderRadius: 6,
-            background: 'rgba(8, 2, 22, 0.97)',
+            background: 'rgb(var(--bg-void-rgb) / 0.97)',
             color: 'var(--text-soft)',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.68rem',

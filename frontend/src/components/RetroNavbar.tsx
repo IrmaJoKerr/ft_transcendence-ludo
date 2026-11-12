@@ -315,7 +315,7 @@ export function RetroNavbar({
         padding: isCompact ? '22px 10px 18px' : '22px 16px 18px',
         background: SEVENTIES
           ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.86), rgba(18, 13, 10, 0.94))'
-          : 'linear-gradient(180deg, rgba(20, 6, 46, 0.86), rgba(10, 2, 28, 0.94))',
+          : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.86), rgb(var(--bg-panel-rgb) / 0.94))',
         backdropFilter: 'blur(32px) saturate(220%)',
         WebkitBackdropFilter: 'blur(32px) saturate(220%)',
         border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgba(0, 240, 255, 0.35)',
@@ -392,7 +392,7 @@ export function RetroNavbar({
                   width: 30,
                   height: 30,
                   borderRadius: 8,
-                  background: SEVENTIES ? 'rgba(36, 26, 18, 0.95)' : 'rgba(25, 10, 56, 0.95)',
+                  background: SEVENTIES ? 'rgba(36, 26, 18, 0.95)' : 'rgb(var(--bg-card-rgb) / 0.95)',
                   color: 'var(--accent-pink)',
                   display: 'grid',
                   placeItems: 'center',
@@ -453,7 +453,7 @@ export function RetroNavbar({
                   borderRadius: 14,
                   background: SEVENTIES
                     ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.96), rgba(18, 13, 10, 0.98))'
-                    : 'linear-gradient(180deg, rgba(20, 6, 46, 0.96), rgba(10, 2, 28, 0.98))',
+                    : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
                   backdropFilter: 'blur(32px) saturate(220%)',
                   border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgba(0, 240, 255, 0.45)',
                   boxShadow: SEVENTIES

@@ -1014,7 +1014,7 @@ export function LudoLobby() {
                           gridTemplateColumns: ROOM_GRID_COLUMNS,
                           gap: 8,
                           padding: '10px 14px',
-                          background: 'rgba(25, 10, 56, 0.98)',
+                          background: 'rgb(var(--bg-card-rgb) / 0.98)',
                           borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
                           fontSize: '0.68rem',
                           fontWeight: 'bold',
@@ -1117,7 +1117,7 @@ export function LudoLobby() {
                                       placeItems: 'center',
                                       fontWeight: 'bold',
                                       fontSize: '0.7rem',
-                                      color: '#0d0221',
+                                      color: 'rgb(var(--bg-primary-rgb))',
                                       background: hue,
                                     }}
                                     style={{ borderRadius: 4, border: `1px solid ${hue}` }}

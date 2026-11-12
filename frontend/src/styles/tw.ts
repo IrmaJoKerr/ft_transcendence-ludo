@@ -121,13 +121,13 @@ export const RETRO_TICKET_PASS =
   'relative flex items-center justify-between rounded-xl py-[26px] px-8 min-h-[124px] gap-6 flex-wrap box-border cursor-pointer select-none [transition:box-shadow_0.22s_cubic-bezier(.16,1,.3,1),border-color_0.22s_ease,background_0.22s_ease]';
 
 export const TICKET_PINK =
-  'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';
+  'bg-[linear-gradient(90deg,rgba(255,0,127,.22)_0%,rgb(var(--bg-raise-rgb) / .96)_100%)] border-2 border-[#ff007f] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,0,127,.25)] hover:border-[#ff3399] hover:bg-[linear-gradient(90deg,rgba(255,0,127,.32)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(255,0,127,.2)]';
 
 export const TICKET_YELLOW =
-  'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';
+  'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgb(var(--bg-raise-rgb) / .96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';
 
 export const TICKET_GREEN =
-  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgba(20,6,42,.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
+  'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb) / .96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,0,127,.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
 // The right-hand action pill inside a pass. The 1.5 px transparent border is not
 // decoration: all three pills share one width (the widest label, see
@@ -180,7 +180,7 @@ export const CYBER_MODAL_BODY_BACKDROP =
   "absolute inset-0 [transition-property:translate] duration-[260ms] [translate:calc(-100%_-_(2_*_var(--border)))_0] [transition-delay:75ms] group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:[transition-delay:220ms] after:content-[''] after:absolute after:left-full after:top-8 after:w-[calc(2*var(--border))] after:h-[40%] after:bg-(--modal-accent) after:opacity-70 after:[clip-path:polygon(0_0,0_100%,100%_calc(100%_-_6px),100%_6px)]";
 
 export const CYBER_MODAL_BACKDROP_PLATE =
-  'absolute z-[-1] inset-0 bg-[rgba(14,4,32,.95)] [clip-path:var(--clip)] [border:var(--border)_solid_var(--modal-accent)] shadow-[0_0_35px_rgba(0,240,255,.35),inset_0_0_20px_rgba(255,0,127,.15)]';
+  'absolute z-[-1] inset-0 bg-[rgb(var(--bg-primary-rgb) / .95)] [clip-path:var(--clip)] [border:var(--border)_solid_var(--modal-accent)] shadow-[0_0_35px_rgba(0,240,255,.35),inset_0_0_20px_rgba(255,0,127,.15)]';
 
 export const CYBER_MODAL_CONTENT =
   'py-[1.4rem] px-[1.4rem] pb-[1.2rem] relative [clip-path:inset(0_calc(100%_+_(2_*_var(--border)))_0_0)] [transition-property:clip-path] duration-[260ms] [transition-delay:75ms] group-data-[modal-state=open]/modal:[clip-path:inset(0_calc(var(--border)_*_-1)_0_0)] group-data-[modal-state=open]/modal:[transition-delay:220ms]';
@@ -205,7 +205,7 @@ export const CYBER_MODAL_GLITCH =
 
 // **CyberButton**
 export const CYBER_BTN_BASE =
-  'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[#0d0221] focus-visible:text-[#0d0221]';
+  'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan,#00f0ff)] [--btn-shadow:var(--accent-pink,#ff007f)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[rgb(var(--bg-primary-rgb))] focus-visible:text-[rgb(var(--bg-primary-rgb))]';
 
 export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink,#ff007f)] ![--btn-shadow:#9d00ff]';
 
@@ -215,17 +215,17 @@ export const CYBER_BTN_YELLOW =
 export const CYBER_BTN_DANGER = '![--btn-accent:#ff0055] ![--btn-shadow:#ff0000]';
 
 const CYBER_BTN_BACKDROP_SHARED =
-  "absolute z-[1] inset-0 bg-[rgba(15,5,32,.85)] backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:var(--clip)] pointer-events-none [transition:background_0.2s_ease,box-shadow_0.2s_ease] before:content-[''] before:absolute before:inset-0 before:bg-(--btn-accent) before:[border:var(--border)_solid_transparent] before:[clip-path:var(--clip)] before:[mask:linear-gradient(#0000_0%_100%),linear-gradient(rgb(var(--ink-rgb))_0%_100%)] before:![mask-clip:padding-box,border-box] before:![mask-repeat:no-repeat] before:![mask-composite:intersect] before:z-[2]";
+  "absolute z-[1] inset-0 bg-[rgb(var(--bg-primary-rgb) / .85)] backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:var(--clip)] pointer-events-none [transition:background_0.2s_ease,box-shadow_0.2s_ease] before:content-[''] before:absolute before:inset-0 before:bg-(--btn-accent) before:[border:var(--border)_solid_transparent] before:[clip-path:var(--clip)] before:[mask:linear-gradient(#0000_0%_100%),linear-gradient(rgb(var(--ink-rgb))_0%_100%)] before:![mask-clip:padding-box,border-box] before:![mask-repeat:no-repeat] before:![mask-composite:intersect] before:z-[2]";
 
 export const CYBER_BTN_BACKDROP = `${CYBER_BTN_BACKDROP_SHARED} group-hover:bg-(--btn-accent) group-hover:shadow-[0_0_16px_var(--btn-accent)]`;
 
-export const CYBER_BTN_BACKDROP_GLITCH = `${CYBER_BTN_BACKDROP_SHARED} group-hover:bg-[#0d0221]`;
+export const CYBER_BTN_BACKDROP_GLITCH = `${CYBER_BTN_BACKDROP_SHARED} group-hover:bg-[rgb(var(--bg-primary-rgb))]`;
 
 export const CYBER_BTN_CORNER =
   "absolute bottom-0 right-0 h-(--corner) w-(--corner) after:content-[''] after:h-[calc(var(--border)*2)] after:w-[200%] after:absolute after:top-1/2 after:left-1/2 after:[translate:-50%_-50%] after:[transform:rotate(135deg)] after:bg-(--btn-accent)";
 
 export const CYBER_BTN_KBD =
-  'relative z-[3] text-[#0d0221] [font-family:var(--font-mono,monospace)] font-bold h-5 min-w-[20px] inline-grid place-items-center text-[0.65rem] px-1 rounded [transition:color_0.2s_ease,background_0.2s_ease] bg-(--btn-accent) group-hover:text-(--btn-accent) group-hover:bg-[#0d0221]';
+  'relative z-[3] text-[rgb(var(--bg-primary-rgb))] [font-family:var(--font-mono,monospace)] font-bold h-5 min-w-[20px] inline-grid place-items-center text-[0.65rem] px-1 rounded [transition:color_0.2s_ease,background_0.2s_ease] bg-(--btn-accent) group-hover:text-(--btn-accent) group-hover:bg-[rgb(var(--bg-primary-rgb))]';
 
 export const CYBER_BTN_LABEL = 'relative z-[3] text-[0.76rem] tracking-[0.5px] uppercase';
 
@@ -260,7 +260,7 @@ export const TICKET_PAPER_WRAPPER =
   'w-[80%] mt-[70px] mx-auto relative z-10 flex flex-col items-center box-border [clip-path:inset(0px_-50px_-10000px_-50px)]';
 
 export const RESULTS_INVOICE =
-  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgba(18,7,42,.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgb(var(--shade-rgb)/.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
+  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgb(var(--bg-raise-rgb) / .97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgba(0,240,255,.6)] shadow-[0_15px_40px_rgb(var(--shade-rgb)/.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
 
 const TICKET_NOTCH_BASE = 'absolute top-[55px] w-4 h-4 rounded-full z-[6] bg-(--bg-primary)';
 
@@ -301,7 +301,7 @@ export const PAY_TAG_THIRD = 'border-[#ff9900] text-[#ff9900] bg-[rgba(255,153,0
 export const PAY_TAG_FOURTH = 'border-[rgb(var(--ink-rgb)/.35)] text-(--text-muted) bg-[rgb(var(--ink-rgb)/0.08)]';
 
 export const PAY_NOW_BTN =
-  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgba(255,0,127,.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-[#00f0ff] hover:border-[#00f0ff] hover:text-[#0d0221] hover:shadow-[0_0_28px_#00f0ff] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
+  'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgba(255,0,127,.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-[#00f0ff] hover:border-[#00f0ff] hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_#00f0ff] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
 
 // OAuthButtons' provider button: the one survivor of `theme.ts`'s twelve `CSSProperties`
 // constants. It was `btnOutline` spread at the call site and then overridden there (font

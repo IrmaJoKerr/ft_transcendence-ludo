@@ -441,7 +441,7 @@ function TouchPad({
                 height: TOUCH_BUTTON,
                 borderRadius: '50%',
                 border: `2px solid ${lit === k ? 'var(--accent-yellow)' : COLORS[color]}`,
-                background: lit === k ? COLORS[color] : 'rgba(13, 2, 33, 0.85)',
+                background: lit === k ? COLORS[color] : 'rgb(var(--bg-primary-rgb) / 0.85)',
                 color: lit === k ? '#12100a' : 'var(--text-main)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: 40,

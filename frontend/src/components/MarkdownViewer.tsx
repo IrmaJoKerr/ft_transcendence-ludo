@@ -21,7 +21,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
     const tableEl = (
       <div
         key={`table-${key}`}
-        className="my-4 overflow-x-auto rounded-lg border border-[rgba(0,240,255,0.3)] bg-[rgba(10,5,25,0.6)] p-2"
+        className="my-4 overflow-x-auto rounded-lg border border-[rgba(0,240,255,0.3)] bg-[rgb(var(--bg-panel-rgb) / 0.6)] p-2"
       >
         <table className="w-full border-collapse text-left font-mono text-xs">
           <thead>

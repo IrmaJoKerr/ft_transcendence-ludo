@@ -403,7 +403,7 @@ export function Friends() {
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'rgba(12, 3, 30, 0.85)',
+                    background: 'rgb(var(--bg-panel-rgb) / 0.85)',
                     border: '1.5px solid rgba(0, 240, 255, 0.28)',
                     boxShadow:
                       '0 0 16px rgba(0, 240, 255, 0.08), inset 0 0 20px rgb(var(--shade-rgb) / 0.6)',
@@ -565,7 +565,7 @@ export function Friends() {
                                 justifyContent: 'space-between',
                                 padding: '11px 16px',
                                 borderRadius: 6,
-                                background: 'rgba(18, 6, 42, 0.82)',
+                                background: 'rgb(var(--bg-raise-rgb) / 0.82)',
                                 border: `1.5px solid ${f.status === 'online' || f.status === 'playing' ? 'rgba(0, 240, 255, 0.28)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
                                 boxShadow:
                                   f.status === 'online' || f.status === 'playing'
@@ -583,7 +583,7 @@ export function Friends() {
                                 e.currentTarget.style.transform = 'translateX(3px)';
                               }}
                               onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(18, 6, 42, 0.82)';
+                                e.currentTarget.style.background = 'rgb(var(--bg-raise-rgb) / 0.82)';
                                 e.currentTarget.style.borderColor =
                                   f.status === 'online' || f.status === 'playing'
                                     ? 'rgba(0, 240, 255, 0.28)'
@@ -626,7 +626,7 @@ export function Friends() {
                                         width: 42,
                                         height: 42,
                                         borderRadius: 4,
-                                        background: 'rgba(10, 2, 28, 0.95)',
+                                        background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                         color: 'var(--accent-cyan)',
                                         display: 'grid',
                                         placeItems: 'center',
@@ -644,7 +644,7 @@ export function Friends() {
                                       height: 10,
                                       borderRadius: '50%',
                                       background: fStatus.color,
-                                      border: '2px solid #0d0221',
+                                      border: '2px solid rgb(var(--bg-primary-rgb))',
                                       boxShadow: `0 0 6px ${fStatus.color}`,
                                     }}
                                   />
@@ -830,7 +830,7 @@ export function Friends() {
                                 width: 38,
                                 height: 38,
                                 borderRadius: 4,
-                                background: 'rgba(10, 2, 28, 0.95)',
+                                background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                 color: 'var(--state-off)',
                                 display: 'grid',
                                 placeItems: 'center',
@@ -896,7 +896,7 @@ export function Friends() {
                   {/* Top Right Card: ADD FRIEND */}
                   <div
                     style={{
-                      background: 'rgba(14, 4, 34, 0.92)',
+                      background: 'rgb(var(--bg-primary-rgb) / 0.92)',
                       border: '1.5px solid var(--accent-cyan)',
                       boxShadow: '0 0 16px rgba(0, 240, 255, 0.15)',
                       borderRadius: 8,
@@ -988,8 +988,8 @@ export function Friends() {
                       flex: 1,
                       background:
                         requests.length > 0
-                          ? 'linear-gradient(180deg, rgba(28, 8, 54, 0.95) 0%, rgba(14, 4, 32, 0.98) 100%)'
-                          : 'rgba(12, 4, 28, 0.85)',
+                          ? 'linear-gradient(180deg, rgb(var(--bg-card-rgb) / 0.95) 0%, rgb(var(--bg-primary-rgb) / 0.98) 100%)'
+                          : 'rgb(var(--bg-panel-rgb) / 0.85)',
                       border:
                         requests.length > 0
                           ? '1.5px solid var(--accent-pink)'
@@ -1103,7 +1103,7 @@ export function Friends() {
                               alignItems: 'center',
                               justifyContent: 'space-between',
                               padding: '9px 12px',
-                              background: 'rgba(18, 6, 42, 0.88)',
+                              background: 'rgb(var(--bg-raise-rgb) / 0.88)',
                               border: '1px solid rgba(255, 0, 127, 0.32)',
                               boxShadow: '0 0 10px rgba(255, 0, 127, 0.12)',
                               borderRadius: 6,
@@ -1128,7 +1128,7 @@ export function Friends() {
                                   width: 34,
                                   height: 34,
                                   borderRadius: 4,
-                                  background: 'rgba(10, 2, 28, 0.95)',
+                                  background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                   color: 'var(--accent-pink)',
                                   display: 'grid',
                                   placeItems: 'center',

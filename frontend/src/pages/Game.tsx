@@ -2089,7 +2089,7 @@ export function Game() {
                 right: 0,
                 display: 'block',
                 padding: engineError ? '4px 14px' : 0,
-                background: engineError ? 'rgba(13, 2, 33, 0.95)' : 'transparent',
+                background: engineError ? 'rgb(var(--bg-primary-rgb) / 0.95)' : 'transparent',
                 borderBottom: engineError ? '1px solid var(--state-off)' : 'none',
                 color: 'var(--state-off)',
                 fontFamily: 'var(--font-mono)',
@@ -2284,8 +2284,8 @@ export function Game() {
                                 background: isYou
                                   ? `${colorAccent}26`
                                   : occupied
-                                    ? 'rgba(25, 10, 56, 0.65)'
-                                    : 'rgba(10, 5, 25, 0.35)',
+                                    ? 'rgb(var(--bg-card-rgb) / 0.65)'
+                                    : 'rgb(var(--bg-panel-rgb) / 0.35)',
                                 boxShadow: isYou ? `0 0 12px ${colorAccent}55` : 'none',
                                 opacity: occupied || isYou ? 1 : 0.5,
                                 transition: 'all 0.2s ease',
@@ -2310,7 +2310,7 @@ export function Game() {
                                     placeItems: 'center',
                                     fontWeight: 'bold',
                                     fontSize: '0.75rem',
-                                    color: '#0d0221',
+                                    color: 'rgb(var(--bg-primary-rgb))',
                                     background: colorAccent,
                                     border: `1px solid ${colorAccent}`,
                                   }}
@@ -2439,7 +2439,7 @@ export function Game() {
                                   : '1.5px dashed rgb(var(--ink-rgb) / 0.12)',
                               background: isActiveSeat
                                 ? `rgba(35, 12, 70, 0.95)`
-                                : 'rgba(25, 10, 56, 0.65)',
+                                : 'rgb(var(--bg-card-rgb) / 0.65)',
                               boxShadow: isActiveSeat
                                 ? `0 0 20px ${colorAccent}aa, inset 0 0 12px ${colorAccent}44`
                                 : 'none',
@@ -2462,7 +2462,7 @@ export function Game() {
                                   top: -7,
                                   right: 8,
                                   background: colorAccent,
-                                  color: '#0d0221',
+                                  color: 'rgb(var(--bg-primary-rgb))',
                                   fontSize: '0.55rem',
                                   fontFamily: 'var(--font-mono)',
                                   fontWeight: 900,
@@ -2508,7 +2508,7 @@ export function Game() {
                                 placeItems: 'center',
                                 fontWeight: 'bold',
                                 fontSize: '0.8rem',
-                                color: '#0d0221',
+                                color: 'rgb(var(--bg-primary-rgb))',
                                 background: colorAccent,
                               }}
                               style={{ borderRadius: 4, border: `1.5px solid ${colorAccent}` }}
@@ -2664,7 +2664,7 @@ export function Game() {
                                 }`,
                                 background: armed
                                   ? 'rgb(var(--accent-yellow-rgb) / 0.2)'
-                                  : 'rgba(25, 10, 56, 0.65)',
+                                  : 'rgb(var(--bg-card-rgb) / 0.65)',
                                 color: armed ? 'var(--accent-yellow)' : 'var(--text-main)',
                                 boxShadow: armed ? '0 0 14px var(--accent-yellow)' : 'none',
                                 fontFamily: 'var(--font-mono)',
@@ -3268,7 +3268,7 @@ export function Game() {
                         justifyContent: 'center',
                         textAlign: 'center',
                         background:
-                          canRoll && !isRolling ? 'var(--btn-bg)' : 'rgba(25, 10, 56, 0.5)',
+                          canRoll && !isRolling ? 'var(--btn-bg)' : 'rgb(var(--bg-card-rgb) / 0.5)',
                         borderColor:
                           canRoll && !isRolling ? 'var(--accent-pink)' : 'rgb(var(--ink-rgb) / 0.2)',
                         boxShadow: canRoll && !isRolling ? '0 0 20px var(--accent-pink)' : 'none',

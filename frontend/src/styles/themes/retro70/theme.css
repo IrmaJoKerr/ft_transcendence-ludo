@@ -74,6 +74,19 @@
   --ink-rgb: 255 231 189;
   --shade-rgb: 26 16 9;
   --bg-primary-rgb: 20 16 14;
+  /* The same five stops, re-pitched onto the walnut ramp rather than translated
+     channel by channel: a cold navy reads purple over walnut, the argument
+     `--start-overlay-bg` above already makes, so each stop keeps its position
+     relative to the era's `--bg-primary` instead of its hue. Card is the
+     approved stills' value and secondary the stills' raised ground, so the two
+     the era already named agree with it by construction; void, panel and raise
+     are that ramp at the same lightness steps as their 80s siblings, which is
+     what keeps a raised popover lifting off its panel by the same amount in both
+     eras. */
+  --bg-void-rgb: 12 9 8;
+  --bg-panel-rgb: 17 14 12;
+  --bg-raise-rgb: 30 24 21;
+  --bg-card-rgb: 43 30 21;
   /* The state pair (26), measured against the surface the text actually sits on
      rather than the page ground. Avocado `#82903f` keeps the era's moss and reads
      4.75:1 on `--bg-card` (5.41:1 on `--bg-primary`); the earlier `#7d8b3e` was

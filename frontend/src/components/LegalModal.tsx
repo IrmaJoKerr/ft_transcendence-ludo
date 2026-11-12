@@ -166,14 +166,14 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
 
         {/* Scrollable Document Body */}
         <div
-          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgba(12,4,28,0.92)] p-6 text-[var(--text-main)] sm:p-8`}
+          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.92)] p-6 text-[var(--text-main)] sm:p-8`}
           style={{ maxHeight: 'calc(90vh - 110px)' }}
         >
           <MarkdownViewer content={currentContent} />
         </div>
 
         {/* Modal Footer Bar */}
-        <div className="flex items-center justify-between border-t border-[rgba(0,240,255,0.2)] bg-[rgba(18,6,42,0.95)] p-3 px-6">
+        <div className="flex items-center justify-between border-t border-[rgba(0,240,255,0.2)] bg-[rgb(var(--bg-raise-rgb) / 0.95)] p-3 px-6">
           <span className="font-mono text-[0.68rem] text-[var(--text-muted)]">
             // PACE 24 · RETRO LUDO '42 LEGAL ARCHIVE [{docLang.toUpperCase()}]
           </span>

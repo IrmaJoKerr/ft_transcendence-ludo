@@ -378,7 +378,7 @@ function BlockedProfileCard({
                       width: 95,
                       height: 95,
                       borderRadius: 6,
-                      background: 'rgba(8, 2, 22, 0.95)',
+                      background: 'rgb(var(--bg-void-rgb) / 0.95)',
                       color: 'var(--accent-cyan)',
                       display: 'grid',
                       placeItems: 'center',
@@ -419,7 +419,7 @@ function BlockedProfileCard({
                   marginTop: 22,
                   padding: '14px 16px',
                   borderRadius: 7,
-                  background: 'rgba(12, 4, 30, 0.9)',
+                  background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                   border: '1.5px solid rgb(var(--state-off-rgb) / 0.45)',
                   boxShadow: '0 0 14px rgb(var(--state-off-rgb) / 0.12)',
                 }}
@@ -975,7 +975,7 @@ export function Profile() {
                   <div
                     style={{
                       background:
-                        'linear-gradient(180deg, rgba(26, 10, 58, 0.95) 0%, rgba(12, 4, 30, 0.98) 100%)',
+                        'linear-gradient(180deg, rgb(var(--bg-card-rgb) / 0.95) 0%, rgb(var(--bg-panel-rgb) / 0.98) 100%)',
                       border: '1.5px solid rgba(0, 240, 255, 0.35)',
                       boxShadow: '0 0 24px rgba(0, 240, 255, 0.15)',
                       borderRadius: 8,
@@ -1032,7 +1032,7 @@ export function Profile() {
                               width: 95,
                               height: 95,
                               borderRadius: 6,
-                              background: 'rgba(8, 2, 22, 0.95)',
+                              background: 'rgb(var(--bg-void-rgb) / 0.95)',
                               color: 'var(--accent-cyan)',
                               display: 'grid',
                               placeItems: 'center',
@@ -1054,7 +1054,7 @@ export function Profile() {
                             height: 15,
                             borderRadius: '50%',
                             background: statusStyle.color,
-                            border: '2.5px solid #0d0221',
+                            border: '2.5px solid rgb(var(--bg-primary-rgb))',
                             boxShadow: `0 0 8px ${statusStyle.color}`,
                           }}
                         />
@@ -1291,7 +1291,7 @@ export function Profile() {
                       style={{
                         borderRadius: 10,
                         background:
-                          'radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgba(8, 2, 26, 0.95) 85%)',
+                          'radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
                         border: '2px solid var(--accent-cyan)',
                         boxShadow:
                           '0 0 24px rgba(0, 240, 255, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
@@ -1385,7 +1385,7 @@ export function Profile() {
                       style={{
                         borderRadius: 10,
                         background:
-                          'radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, rgba(8, 2, 26, 0.95) 85%)',
+                          'radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
                         border: '2px solid #ffd700',
                         boxShadow:
                           '0 0 24px rgba(255, 215, 0, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
@@ -1456,7 +1456,7 @@ export function Profile() {
                     {/* Wins */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgb(var(--state-on-rgb) / 0.4)',
                         boxShadow: '0 0 14px rgb(var(--state-on-rgb) / 0.12)',
                         borderRadius: 7,
@@ -1501,7 +1501,7 @@ export function Profile() {
                     {/* Defeats */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgb(var(--state-off-rgb) / 0.4)',
                         boxShadow: '0 0 14px rgb(var(--state-off-rgb) / 0.12)',
                         borderRadius: 7,
@@ -1546,7 +1546,7 @@ export function Profile() {
                     {/* Win Ratio */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgba(0, 240, 255, 0.4)',
                         boxShadow: '0 0 14px rgba(0, 240, 255, 0.12)',
                         borderRadius: 7,
@@ -1600,7 +1600,7 @@ export function Profile() {
                     {/* Best Streak */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgb(var(--accent-yellow-rgb) / 0.4)',
                         boxShadow: '0 0 14px rgb(var(--accent-yellow-rgb) / 0.12)',
                         borderRadius: 7,
@@ -1645,7 +1645,7 @@ export function Profile() {
                     {/* Human Wins: the half of `wins` taken off another pilot */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgba(157, 0, 255, 0.4)',
                         boxShadow: '0 0 14px rgba(157, 0, 255, 0.12)',
                         borderRadius: 7,
@@ -1690,7 +1690,7 @@ export function Profile() {
                     {/* Bot Wins: the other half, counted the same way (a rank-1 finish in a PvE room) */}
                     <div
                       style={{
-                        background: 'rgba(12, 4, 30, 0.9)',
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                         border: '1.5px solid rgba(255, 0, 127, 0.4)',
                         boxShadow: '0 0 14px rgba(255, 0, 127, 0.12)',
                         borderRadius: 7,
@@ -1746,7 +1746,7 @@ export function Profile() {
                     {/* **LEFT MAIN SHOWCASE (Tabbed Match History / Achievements)** */}
                     <div
                       style={{
-                        background: 'rgba(14, 5, 36, 0.92)',
+                        background: 'rgb(var(--bg-primary-rgb) / 0.92)',
                         border: '1.5px solid rgba(0, 240, 255, 0.28)',
                         borderRadius: 8,
                         overflow: 'hidden',
@@ -1760,7 +1760,7 @@ export function Profile() {
                       <div
                         style={{
                           padding: '8px 14px',
-                          background: 'rgba(25, 8, 55, 0.95)',
+                          background: 'rgb(var(--bg-card-rgb) / 0.95)',
                           borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
                           display: 'flex',
                           alignItems: 'center',
@@ -2196,7 +2196,7 @@ export function Profile() {
                                       borderRadius: 6,
                                       background: isUnlocked
                                         ? 'rgba(38, 16, 72, 0.88)'
-                                        : 'rgba(10, 4, 25, 0.45)',
+                                        : 'rgb(var(--bg-panel-rgb) / 0.45)',
                                       border: isUnlocked
                                         ? '1.5px solid var(--accent-yellow)'
                                         : '1px dashed rgb(var(--ink-rgb) / 0.12)',
@@ -2329,7 +2329,7 @@ export function Profile() {
                       {/* Sidebar Box 1: Allied Operatives Showcase */}
                       <div
                         style={{
-                          background: 'rgba(14, 5, 36, 0.92)',
+                          background: 'rgb(var(--bg-primary-rgb) / 0.92)',
                           border: '1.5px solid rgba(0, 240, 255, 0.28)',
                           borderRadius: 8,
                           overflow: 'hidden',
@@ -2342,7 +2342,7 @@ export function Profile() {
                         <div
                           style={{
                             padding: '10px 14px',
-                            background: 'rgba(25, 8, 55, 0.95)',
+                            background: 'rgb(var(--bg-card-rgb) / 0.95)',
                             borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
                             display: 'flex',
                             alignItems: 'center',
@@ -2417,7 +2417,7 @@ export function Profile() {
                                     justifyContent: 'space-between',
                                     padding: '10px 14px',
                                     borderRadius: 6,
-                                    background: 'rgba(10, 3, 26, 0.85)',
+                                    background: 'rgb(var(--bg-panel-rgb) / 0.85)',
                                     border: '1.5px solid rgba(0, 240, 255, 0.25)',
                                     cursor: 'pointer',
                                     transition: 'all 0.18s ease',
@@ -2433,7 +2433,7 @@ export function Profile() {
                                     e.currentTarget.style.transform = 'translateX(2px)';
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'rgba(10, 3, 26, 0.85)';
+                                    e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
                                     e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.25)';
                                     e.currentTarget.style.transform = 'translateX(0)';
                                   }}
@@ -2467,7 +2467,7 @@ export function Profile() {
                                             width: 38,
                                             height: 38,
                                             borderRadius: 4,
-                                            background: 'rgba(10, 2, 28, 0.95)',
+                                            background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                             color: 'var(--accent-cyan)',
                                             display: 'grid',
                                             placeItems: 'center',
@@ -2485,7 +2485,7 @@ export function Profile() {
                                           height: 9,
                                           borderRadius: '50%',
                                           background: fStatus.color,
-                                          border: '2px solid #0d0221',
+                                          border: '2px solid rgb(var(--bg-primary-rgb))',
                                           boxShadow: `0 0 6px ${fStatus.color}`,
                                         }}
                                       />

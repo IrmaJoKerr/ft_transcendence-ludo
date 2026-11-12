@@ -149,7 +149,7 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
             </div>
 
             <div
-              className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgba(12,4,28,0.94)] p-6 sm:p-10`}
+              className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.94)] p-6 sm:p-10`}
             >
               <MarkdownViewer content={currentContent} />
             </div>

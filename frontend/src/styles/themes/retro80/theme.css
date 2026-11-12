@@ -73,6 +73,24 @@
   --ink-rgb: 255 255 255;
   --shade-rgb: 0 0 0;
   --bg-primary-rgb: 13 2 33;
+  /* The navy ramp's channel forms (section 33, family 2). The components had
+     spelled these grounds for themselves - thirty-two shades of the same five
+     roles - so the ramp is five stops and family 2's codemod folded every site
+     onto the nearest one. Each stop is the number the most-used literal of its
+     role already carried, so 38 of the 88 navy sites resolve to the literal they
+     carried and the other 50 move by at most 5/255 per channel - under one per
+     cent of a fill, at an alpha of 0.65 or more, over a dark ground.
+     `--bg-secondary` and `--bg-card` are both #190a38 and only the card takes a
+     channel form: the 70s card is a lighter walnut than its raised ground, and a
+     surface that holds content is what reads a token.
+     The order is depth, not alphabet: void under everything (a scrim, an empty
+     well), panel (a panel's own fill, the bottom of a raised gradient), primary
+     (the shell's ground, above), raise (the top of that gradient: a navbar
+     popover, the bell's dropdown), card (a podium, a room row, a friend's tile). */
+  --bg-void-rgb: 5 2 18;
+  --bg-panel-rgb: 10 2 28;
+  --bg-raise-rgb: 20 6 46;
+  --bg-card-rgb: 25 10 56;
   /* The state pair (26): the two colours that report a condition, as against the
      accents, which name a thing, and the seat hues, which are identity. On, met,
      valid, ready, online and sent read `--state-on`; off, muted, refused, missed

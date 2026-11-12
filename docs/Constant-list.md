@@ -649,11 +649,12 @@ lacks paints as `unset` under that era and no screenshot catches it.
 | `--window-header-bg` | `linear-gradient(90deg, #ff007f, #00f0ff)` | OS-window title bar |
 | `--window-header-text` | `#ffffff` | its text |
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
-| `--fs-border` / `--fs-text` / `--fs-accent` | `#ff007f` / `#ffffff` / `#ff007f` | custom fieldset + colour-scheme component (global `:root`, not theme-scoped) |
-| `--fs-cyan` / `--fs-bg` / `--fs-glow` | `#00f0ff` / `rgba(25,10,56,.9)` / `rgba(255,0,127,.5)` | the same component's outline, fill and glow |
+| `--fs-border` / `--fs-bg` / `--fs-glow` | `var(--accent-pink)` / `var(--bg-card)` / `rgb(var(--accent-pink-rgb) / 0.5)` | the theme popover's border, fill and glow; derived from the theme in `theme-base.css`, not declared per era. The three fieldset tokens beside them (`--fs-text`, `--fs-accent`, `--fs-cyan`) went with the `#color-scheme` sheet on 2026-11-12 |
 | `--shell-image` | `url('./80s-Synthwave-Cityscape.jpg')` + a dim gradient | the `html, body` ground; the plate lives in the theme's own folder and Vite hashes it into `/assets/` |
 | `--accent-*-rgb` | `255 0 127` / `0 240 255` / `255 230 0` / `157 0 255` | the four accents as `r g b`, read as `rgb(var(--accent-*-rgb) / a)` so a tint can carry an alpha and still follow the theme |
 | `--ink-rgb` / `--shade-rgb` / `--bg-primary-rgb` | `255 255 255` / `0 0 0` / `13 2 33` | the neutrals as `r g b`: the ink every surface tints with, the shadow under it, the ground |
+| `--bg-void-rgb` / `--bg-panel-rgb` | `5 2 18` / `10 2 28` | the navy ramp below the ground: a scrim or an empty well, and a panel's own fill (which is also the bottom of a raised gradient) |
+| `--bg-raise-rgb` / `--bg-card-rgb` | `20 6 46` / `25 10 56` | the two above it: the top of a raised gradient (a navbar popover, the bell's dropdown), and a card, a podium, a room row |
 | `--start-overlay-bg` | `rgba(13, 2, 33, 0.45)` | the press-start card's fill |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgba(0,240,255,.2)` | the two layers of that card's shadow |
 | `--state-on` / `--state-on-rgb` | `#00ff88` / `0 255 136` | the state pair's **on**: met, ready, valid, online, sent. Only a condition reads it, never a seat, a mode or a rule |
@@ -691,6 +692,8 @@ reaches 4.6:1.
 | `--shell-image` | `url('./1970s-Orbital-Colony.jpg')` + a dim gradient | the orbital colony is the 70s shell's ground, painted the way the 80s shell wears its cityscape; the plate sits in the theme's own folder |
 | `--accent-*-rgb` | `229 52 11` / `95 179 176` / `255 176 0` / `12 86 121` | the same channel forms in the 70s palette, so a tint follows the era |
 | `--ink-rgb` / `--shade-rgb` / `--bg-primary-rgb` | `255 231 189` / `26 16 9` / `20 16 14` | warm ink and warm black: a cold white or a cold black reads purple and blue-grey over walnut |
+| `--bg-void-rgb` / `--bg-panel-rgb` | `12 9 8` / `17 14 12` | the same two stops re-pitched onto the walnut ramp: a navy scrim reads purple over walnut, so each stop keeps its lightness step rather than its hue |
+| `--bg-raise-rgb` / `--bg-card-rgb` | `30 24 21` / `43 30 21` | the card is the approved stills' value and the secondary's own ground; the raise is one step above it, so a popover still lifts off its panel by the same amount in both eras |
 | `--start-overlay-bg` | `rgba(11, 8, 5, 0.55)` | black at 55%: the navy card reads purple over walnut |
 | `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,176,0,.35)` / `rgba(229,52,11,.22)` | the card's shadow, in the palette's amber and red |
 | `--state-on` / `--state-on-rgb` | `#82903f` / `130 144 63` | avocado, 4.75:1 on `--bg-card` and 5.41:1 on `--bg-primary` |

@@ -239,7 +239,7 @@ export function Home() {
                           justifyContent: 'center',
                           fontFamily: 'var(--font-heading)',
                           fontSize: '1.2rem',
-                          color: '#0d0221',
+                          color: 'rgb(var(--bg-primary-rgb))',
                           animation: 'pulse 0.2s infinite',
                         }}
                       >
@@ -358,7 +358,7 @@ export function Home() {
                             justifyContent: 'space-between',
                             padding: '10px 14px',
                             borderRadius: 6,
-                            background: 'rgba(10, 3, 26, 0.85)',
+                            background: 'rgb(var(--bg-panel-rgb) / 0.85)',
                             border: '1.5px solid rgba(0, 240, 255, 0.25)',
                             cursor: 'pointer',
                             transition: 'all 0.18s ease',
@@ -374,7 +374,7 @@ export function Home() {
                             e.currentTarget.style.transform = 'translateX(2px)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(10, 3, 26, 0.85)';
+                            e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
                             e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.25)';
                             e.currentTarget.style.transform = 'translateX(0)';
                           }}
@@ -408,7 +408,7 @@ export function Home() {
                                     width: 38,
                                     height: 38,
                                     borderRadius: 4,
-                                    background: 'rgba(10, 2, 28, 0.95)',
+                                    background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                     color: 'var(--accent-cyan)',
                                     display: 'grid',
                                     placeItems: 'center',
@@ -426,7 +426,7 @@ export function Home() {
                                   height: 9,
                                   borderRadius: '50%',
                                   background: fStatus.color,
-                                  border: '2px solid #0d0221',
+                                  border: '2px solid rgb(var(--bg-primary-rgb))',
                                   boxShadow: `0 0 6px ${fStatus.color}`,
                                 }}
                               />

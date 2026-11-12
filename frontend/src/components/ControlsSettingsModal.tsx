@@ -147,7 +147,7 @@ export function ControlsSettingsModal({
         </div>
 
         <div
-          className={`${WINDOW_BODY} flex flex-col bg-[rgba(12,4,28,0.92)]`}
+          className={`${WINDOW_BODY} flex flex-col bg-[rgb(var(--bg-panel-rgb) / 0.92)]`}
           // Only these rows scroll (32.1). The cap is the viewport itself, because the
           // header and the audio switch are chrome and take their height first.
           style={{
@@ -231,7 +231,7 @@ export function ControlsSettingsModal({
             flexShrink: 0,
             padding: '10px 12px',
             borderTop: '1px solid rgb(var(--ink-rgb) / 0.1)',
-            background: 'rgba(12, 4, 28, 0.92)',
+            background: 'rgb(var(--bg-panel-rgb) / 0.92)',
           }}
         >
           <button

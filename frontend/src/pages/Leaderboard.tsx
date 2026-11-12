@@ -180,7 +180,7 @@ export function Leaderboard() {
                       alignItems: 'end',
                       padding: '18px 20px',
                       borderRadius: 10,
-                      background: 'rgba(10, 3, 24, 0.65)',
+                      background: 'rgb(var(--bg-panel-rgb) / 0.65)',
                       border: '1px solid rgba(0, 240, 255, 0.25)',
                       flexShrink: 0,
                     }}
@@ -189,7 +189,7 @@ export function Leaderboard() {
                     {top2 && (
                       <div
                         style={{
-                          background: 'rgba(25, 10, 56, 0.85)',
+                          background: 'rgb(var(--bg-card-rgb) / 0.85)',
                           border: '1.5px solid rgba(0, 240, 255, 0.45)',
                           borderRadius: 8,
                           boxShadow: '0 0 18px rgba(0, 240, 255, 0.22)',
@@ -234,7 +234,7 @@ export function Leaderboard() {
                               width: 52,
                               height: 52,
                               borderRadius: 8,
-                              background: 'rgba(10, 2, 28, 0.9)',
+                              background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                               color: 'var(--accent-cyan)',
                               display: 'grid',
                               placeItems: 'center',
@@ -341,7 +341,7 @@ export function Leaderboard() {
                                 width: 62,
                                 height: 62,
                                 borderRadius: 6,
-                                background: 'rgba(10, 2, 28, 0.95)',
+                                background: 'rgb(var(--bg-panel-rgb) / 0.95)',
                                 color: 'var(--accent-yellow)',
                                 display: 'grid',
                                 placeItems: 'center',
@@ -410,7 +410,7 @@ export function Leaderboard() {
                     {top3 && (
                       <div
                         style={{
-                          background: 'rgba(25, 10, 56, 0.85)',
+                          background: 'rgb(var(--bg-card-rgb) / 0.85)',
                           border: '1.5px solid rgba(255, 0, 127, 0.45)',
                           borderRadius: 8,
                           boxShadow: '0 0 18px rgba(255, 0, 127, 0.22)',
@@ -455,7 +455,7 @@ export function Leaderboard() {
                               width: 52,
                               height: 52,
                               borderRadius: 8,
-                              background: 'rgba(10, 2, 28, 0.9)',
+                              background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                               color: 'var(--accent-pink)',
                               display: 'grid',
                               placeItems: 'center',
@@ -515,7 +515,7 @@ export function Leaderboard() {
                       gridTemplateColumns: '0.8fr 2.5fr 1.2fr 1.2fr 1fr',
                       gap: 20,
                       padding: '14px 28px',
-                      background: 'rgba(25, 10, 56, 0.98)',
+                      background: 'rgb(var(--bg-card-rgb) / 0.98)',
                       borderBottom: '1.5px solid rgba(0, 240, 255, 0.3)',
                       fontSize: '0.82rem',
                       fontWeight: 900,
@@ -665,7 +665,7 @@ export function Leaderboard() {
                                   width: isRankOne ? 50 : isTopThree ? 40 : 36,
                                   height: isRankOne ? 50 : isTopThree ? 40 : 36,
                                   borderRadius: 6,
-                                  background: 'rgba(10, 2, 28, 0.9)',
+                                  background: 'rgb(var(--bg-panel-rgb) / 0.9)',
                                   color: 'var(--accent-cyan)',
                                   display: 'grid',
                                   placeItems: 'center',
