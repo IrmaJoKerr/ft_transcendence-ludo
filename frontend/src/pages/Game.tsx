@@ -2772,7 +2772,7 @@ export function Game() {
                       fontSize: '0.82rem',
                       fontFamily: 'var(--font-heading)',
                       letterSpacing: '1px',
-                      background: 'linear-gradient(135deg, var(--accent-pink), #9d00ff)',
+                      background: 'linear-gradient(135deg, var(--accent-pink), var(--accent-purple))',
                       borderColor: 'var(--accent-pink)',
                       color: 'var(--text-main)',
                       boxShadow: '0 0 16px rgb(var(--accent-pink-rgb) / 0.4)',
@@ -3443,7 +3443,7 @@ export function Game() {
                     letterSpacing: '1px',
                     lineHeight: '1.4',
                     background: isGameEnded
-                      ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgba(157, 0, 255, 0.25))'
+                      ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgb(var(--accent-purple-rgb) / 0.25))'
                       : 'rgb(var(--accent-cyan-rgb) / 0.12)',
                     border: '1.5px solid var(--accent-cyan)',
                     color: 'var(--text-main)',
@@ -3978,7 +3978,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#9d00ff',
+                    color: 'var(--accent-purple)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -3992,8 +3992,8 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    borderLeft: '4px solid #9d00ff',
-                    border: '1px solid rgba(157, 0, 255, 0.2)',
+                    borderLeft: '4px solid var(--accent-purple)',
+                    border: '1px solid rgb(var(--accent-purple-rgb) / 0.2)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 12,

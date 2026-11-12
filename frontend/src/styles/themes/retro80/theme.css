@@ -39,8 +39,8 @@
   --font-display: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
   --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace;
   --grid-line-color: rgb(var(--accent-pink-rgb) / 0.35);
-  --grid-bg-glow: rgba(157, 0, 255, 0.2);
-  --btn-bg: linear-gradient(135deg, var(--accent-pink), #9d00ff);
+  --grid-bg-glow: rgb(var(--accent-purple-rgb) / 0.2);
+  --btn-bg: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
   --btn-hover-shadow: 0 0 20px var(--accent-cyan), 0 0 35px var(--accent-pink);
   --crt-scanline-opacity: 0.15;
   --crt-flicker-opacity: 0.03;

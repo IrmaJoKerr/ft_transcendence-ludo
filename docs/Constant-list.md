@@ -749,7 +749,19 @@ half-themed until purple's own pass. The 80s table's seven own pink readers (`--
 `--grid-line-color`, `--btn-bg`, `--btn-hover-shadow`, `--window-header-bg`, `--start-overlay-glow`) now read
 the token they name, so the only pink the table itself still spells is the declaration.
 
+**The accent purple (`--accent-purple` / `--accent-purple-rgb`)** 🎨 — the fifth family
+(`todo.md` [33](todo.md#rv33-family5)), run 2026-11-13. It added **no token** either: `--accent-purple` (`#9d00ff` /
+deep petrol `#0c5679`) and `--accent-purple-rgb` (`157 0 255` / `12 86 121`) were already declared in both tables,
+the 70s table was not touched, and parity stayed at 44 names. It is **14 lines across 5 files** — twelve application
+lines and the 80s table's own two readers — and it is the cheap family, because this accent is neither a seat nor a
+state: every literal was paint, so **only the declaration survives**, `--accent-purple: #9d00ff;`, inventoried the way
+the row above it inventories `--accent-pink`. There was no `var(--accent-purple, …)` default anywhere to delete. What
+it did was close the loose end the pink pass left: the five application gradients that ran `var(--accent-pink) →
+#9d00ff`, and the table's `--btn-bg` with them, now end in the token, so the 70s runs vermilion into deep petrol
+instead of into neon violet — and `CYBER_BTN_PINK`'s shadow reads it too. The 70s value is not a swept form for the
+reason cyan's is not: nothing in the tree has ever spelled `#0c5679` outside its own table.
 
+**The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
 hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
 with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s

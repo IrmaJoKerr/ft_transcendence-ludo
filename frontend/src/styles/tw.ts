@@ -19,7 +19,7 @@ export const RETRO_FLOATING_DOCK =
 // Auth form element styles (Login/Signup/ForgotPassword/ResetPassword/
 // TwoFactor).
 export const RETRO_AUTH_TITLE =
-  "font-['Atkinson_Hyperlegible_Next',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,var(--accent-cyan)_0%,var(--accent-pink)_50%,#9d00ff_100%)] bg-clip-text text-transparent";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] font-black tracking-[2.5px] text-4xl leading-[1.1] bg-[linear-gradient(135deg,var(--accent-cyan)_0%,var(--accent-pink)_50%,var(--accent-purple)_100%)] bg-clip-text text-transparent";
 
 export const RETRO_AUTH_SUBTITLE =
   "text-[rgba(184,166,228,.8)] text-base mt-2.5 font-['Atkinson_Hyperlegible_Mono',monospace]";
@@ -31,7 +31,7 @@ export const RETRO_AUTH_INPUT =
   "w-full [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-(--text-main) bg-[rgb(var(--shade-rgb)/.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-(--accent-cyan) focus:shadow-[0_0_18px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_8px_rgb(var(--accent-cyan-rgb)/.1)] focus:bg-[rgb(var(--shade-rgb)/.6)]";
 
 export const RETRO_AUTH_BTN =
-  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,var(--accent-pink),#9d00ff)] shadow-[0_0_22px_rgb(var(--accent-pink-rgb)/.4),0_8px_26px_rgba(157,0,255,.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgb(var(--accent-pink-rgb)/.65),0_12px_34px_rgba(157,0,255,.45),0_0_65px_rgb(var(--accent-cyan-rgb)/.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
+  "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,var(--accent-pink),var(--accent-purple))] shadow-[0_0_22px_rgb(var(--accent-pink-rgb)/.4),0_8px_26px_rgb(var(--accent-purple-rgb)/.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgb(var(--accent-pink-rgb)/.65),0_12px_34px_rgb(var(--accent-purple-rgb)/.45),0_0_65px_rgb(var(--accent-cyan-rgb)/.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
 
 export const RETRO_AUTH_BTN_OUTLINE =
   "[border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.3)] rounded-[11px] py-[15px] px-[18px] [font:700_14.5px_'Atkinson_Hyperlegible_Mono',monospace] text-[rgb(var(--ink-rgb)/.88)] cursor-pointer bg-[rgb(var(--accent-cyan-rgb)/.06)] [transition:all_0.2s_ease] flex items-center justify-center gap-2.5 hover:border-(--accent-cyan) hover:bg-[rgb(var(--accent-cyan-rgb)/.15)] hover:shadow-[0_0_16px_rgb(var(--accent-cyan-rgb)/.3)] hover:text-(--text-main)";
@@ -207,7 +207,7 @@ export const CYBER_MODAL_GLITCH =
 export const CYBER_BTN_BASE =
   'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan)] [--btn-shadow:var(--accent-pink)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[rgb(var(--bg-primary-rgb))] focus-visible:text-[rgb(var(--bg-primary-rgb))]';
 
-export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink)] ![--btn-shadow:#9d00ff]';
+export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink)] ![--btn-shadow:var(--accent-purple)]';
 
 export const CYBER_BTN_YELLOW =
   '![--btn-accent:var(--accent-yellow,#ffe600)] ![--btn-shadow:#ff5500]';

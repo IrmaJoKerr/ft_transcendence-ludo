@@ -22,9 +22,9 @@ const EXTS = new Set(['.ts', '.tsx', '.css']);
 const SKIP_DIRS = new Set(['__shared__']);
 
 // One row per swept colour. The array exists because the guard is meant to grow: yellow,
-// the ink and its shadow, and the cyan and pink accents are swept, and the purple the pink
-// gradients run into plus the state pair join them as their own passes land. Until then
-// their literals are out of scope rather than silently allowed.
+// the ink and its shadow, and the cyan, pink and purple accents are swept, and the state
+// pair joins them as its own pass lands. Until then its literals are out of scope rather
+// than silently allowed.
 const SWEPT = [
   {
     token: '--accent-yellow',
@@ -78,6 +78,19 @@ const SWEPT = [
       /#ff007f/gi,
       /rgba?\(\s*255\s*,\s*0\s*,\s*127\s*[,)]/gi,
       /rgb\(\s*255\s+0\s+127\b/gi,
+    ],
+  },
+  {
+    // Family 5 of section 33 step 2: the purple the pink gradients run into. Its 80s
+    // value is neither a seat nor a state, so unlike the three accents before it nothing
+    // in the tree spells it as identity: every literal here was paint, and the inventory
+    // keeps the declaration alone. The 70s value (`#0c5679`) is not a form, for the
+    // reason cyan's is not: nothing outside that table has ever spelled it.
+    token: '--accent-purple / --accent-purple-rgb',
+    forms: [
+      /#9d00ff/gi,
+      /rgba?\(\s*157\s*,\s*0\s*,\s*255\s*[,)]/gi,
+      /rgb\(\s*157\s+0\s+255\b/gi,
     ],
   },
 ];
@@ -233,6 +246,7 @@ const INVENTORY = {
   'styles/themes/retro80/theme.css': [
     { line: '--accent-cyan: #00f0ff;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-pink: #ff007f;', count: 1, why: 'the 80s token definition' },
+    { line: '--accent-purple: #9d00ff;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
     { line: '--text-main: #ffffff;', count: 1, why: 'the 80s token definition' },
     { line: '--window-header-text: #ffffff;', count: 1, why: 'the 80s token definition' },
