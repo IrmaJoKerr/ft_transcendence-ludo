@@ -53,8 +53,17 @@
   --card-border-style: 2px solid var(--accent-pink);
   /* The orbital colony is the 70s shell's ground, painted the same way the
      synthwave shell wears its cityscape: full-bleed, fixed, dimmed so every UI
-     surface sits in front of it. */
-  --shell-image: url('./1970s-Orbital-Colony.jpg'), linear-gradient(to_bottom, rgba(20, 16, 14, 0.30) 0%, rgba(20, 16, 14, 0.62) 100%);
+     surface sits in front of it. The dim is the *first* layer because that is the
+     one on top — behind the photograph it dims nothing — and `to bottom` is two
+     words, the way CSS spells it (see the block above).
+
+     Heavier than the 80s pair on purpose: this art is a daylight scene and the
+     cityscape is a night one, so the same opacity leaves the 70s plate twice as
+     bright behind the same panel. These values were picked in the browser against
+     the 80s as the reference (`todo.md` [33], step 3b), by matching the composited
+     plate's luminance envelope: at 1440x900 the 95th percentile is 39 here against
+     38 there, so no label's contrast depends on which era the reader chose. */
+  --shell-image: linear-gradient(to bottom, rgba(20, 16, 14, 0.50) 0%, rgba(20, 16, 14, 0.80) 100%), url('./1970s-Orbital-Colony.jpg');
   /* Black at 55 per cent, the value the stills paint this card at: the navy the
      synthwave card uses reads purple over walnut. The glows move to the palette's
      amber and hot red, the pair the stills ring the card in. */

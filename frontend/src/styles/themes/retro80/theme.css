@@ -51,8 +51,15 @@
      wears the dimmed cityscape as its rearmost layer, retro70 wears the dimmed
      orbital colony the same way. The converging grid, where drawn, is static
      (see `STATIC_GRID` in `tw.ts`) — the lines converge toward the vanishing
-     point and never move. */
-  --shell-image: url('./80s-Synthwave-Cityscape.jpg'), linear-gradient(to_bottom, rgba(13, 2, 33, 0.30) 0%, rgba(13, 2, 33, 0.62) 100%);
+     point and never move.
+
+     Two things about this value are CSS, not Tailwind, and both have bitten:
+     `to bottom` is two words (an `_` is the *class-name* spelling — inside a real
+     declaration the parser reads `to_bottom` as a junk layer and throws the whole
+     `background-image` away, leaving only `--bg-primary`), and the dimming
+     gradient comes **first** because the first layer paints on top — behind the
+     photograph it dims nothing at all, and `cover` hides it completely. */
+  --shell-image: linear-gradient(to bottom, rgba(13, 2, 33, 0.30) 0%, rgba(13, 2, 33, 0.62) 100%), url('./80s-Synthwave-Cityscape.jpg');
   /* The press-start card's own fill. Its border reads `--accent-pink` and so
      rethemes for free; the fill and the two glows in its shadow do not, and they
      are the parts that read wrong over walnut. Values are the literals that were
