@@ -78,7 +78,7 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] px-3 py-1.5 text-xs font-black text-[var(--accent-cyan)]`}
+                  className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) px-3 py-1.5 text-xs font-black text-(--accent-cyan)`}
                   onClick={() => {
                     retroAudio.playUiBeep(440, 0.05);
                     navigate('/home');
@@ -95,7 +95,7 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
 
               <div className="flex items-center gap-3">
                 {/* Document Switcher */}
-                <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
+                <div className="flex items-center rounded-lg border border-[rgb(var(--accent-cyan-rgb)/0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
                   <button
                     type="button"
                     className={`font-display rounded px-3 py-1 text-xs font-bold transition-all ${
@@ -143,13 +143,13 @@ export function LegalPage({ initialDoc = 'privacy' }: LegalPageProps) {
           {/* Window Container */}
           <section className={`${RETRO_WINDOW} flex w-full flex-1 flex-col overflow-hidden`}>
             <div className={WINDOW_HEADER} style={{ padding: '8px 16px' }}>
-              <span className="font-mono text-xs text-[var(--accent-cyan)]">
+              <span className="font-mono text-xs text-(--accent-cyan)">
                 // LEGAL DOCUMENTATION ARCHIVE [{activeDoc.toUpperCase()}_{docLang.toUpperCase()}]
               </span>
             </div>
 
             <div
-              className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.94)] p-6 sm:p-10`}
+              className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb)/0.94)] p-6 sm:p-10`}
             >
               <MarkdownViewer content={currentContent} />
             </div>

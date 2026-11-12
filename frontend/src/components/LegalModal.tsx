@@ -73,7 +73,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)]`}
+        className={`${RETRO_WINDOW} flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgb(var(--accent-cyan-rgb)/0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgb(var(--accent-cyan-rgb)/0.25)]`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with Title, Controls & Switchers */}
@@ -96,7 +96,7 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
 
           <div className="flex items-center gap-3">
             {/* Document Tabs */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
+            <div className="flex items-center rounded-lg border border-[rgb(var(--accent-cyan-rgb)/0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
               <button
                 type="button"
                 className={`font-display rounded px-2.5 py-1 text-[0.7rem] font-bold transition-all ${
@@ -128,14 +128,14 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
             </div>
 
             {/* Language Switcher */}
-            <div className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
+            <div className="flex items-center rounded-lg border border-[rgb(var(--accent-cyan-rgb)/0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5">
               {(['en', 'ms', 'fr'] as const).map((l) => (
                 <button
                   key={l}
                   type="button"
                   className={`rounded px-2 py-1 font-mono text-[0.68rem] font-bold transition-all ${
                     docLang === l
-                      ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
+                      ? 'bg-(--accent-cyan) text-[#0a0519] shadow-[0_0_8px_rgb(var(--accent-cyan-rgb)/0.5)]'
                       : 'text-[var(--text-muted)] hover:text-(--text-main)'
                   }`}
                   onClick={() => {
@@ -166,20 +166,20 @@ export function LegalModal({ isOpen, initialDoc = 'privacy', onClose }: LegalMod
 
         {/* Scrollable Document Body */}
         <div
-          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.92)] p-6 text-[var(--text-main)] sm:p-8`}
+          className={`${WINDOW_BODY} flex-1 overflow-y-auto bg-[rgb(var(--bg-panel-rgb)/0.92)] p-6 text-[var(--text-main)] sm:p-8`}
           style={{ maxHeight: 'calc(90vh - 110px)' }}
         >
           <MarkdownViewer content={currentContent} />
         </div>
 
         {/* Modal Footer Bar */}
-        <div className="flex items-center justify-between border-t border-[rgba(0,240,255,0.2)] bg-[rgb(var(--bg-raise-rgb) / 0.95)] p-3 px-6">
+        <div className="flex items-center justify-between border-t border-[rgb(var(--accent-cyan-rgb)/0.2)] bg-[rgb(var(--bg-raise-rgb)/0.95)] p-3 px-6">
           <span className="font-mono text-[0.68rem] text-[var(--text-muted)]">
             // PACE 24 · RETRO LUDO '42 LEGAL ARCHIVE [{docLang.toUpperCase()}]
           </span>
           <button
             type="button"
-            className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] bg-[linear-gradient(90deg,rgba(0,240,255,0.3),rgba(255,0,127,0.3))] px-4 py-1.5 text-xs font-black text-(--text-main) hover:shadow-[0_0_15px_rgba(0,240,255,0.4)]`}
+            className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) bg-[linear-gradient(90deg,rgb(var(--accent-cyan-rgb)/0.3),rgba(255,0,127,0.3))] px-4 py-1.5 text-xs font-black text-(--text-main) hover:shadow-[0_0_15px_rgb(var(--accent-cyan-rgb)/0.4)]`}
             onClick={() => {
               retroAudio.playUiBeep(440, 0.05);
               onClose();

@@ -85,7 +85,7 @@ export function TwoFactor() {
               textAlign: 'center',
               fontFamily: 'var(--font-mono)',
               color: 'var(--accent-cyan)',
-              textShadow: '0 0 10px rgba(0, 240, 255, 0.5)',
+              textShadow: '0 0 10px rgb(var(--accent-cyan-rgb) / 0.5)',
             }}
           />
         </div>

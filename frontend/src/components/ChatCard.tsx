@@ -177,7 +177,7 @@ export function ChatCardHead({
             fontWeight: 900,
             letterSpacing: '1px',
             color: 'var(--accent-cyan)',
-            textShadow: '0 0 12px rgba(0, 240, 255, 0.45)',
+            textShadow: '0 0 12px rgb(var(--accent-cyan-rgb) / 0.45)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -213,8 +213,8 @@ export function ChatCardHead({
               borderRadius: 5,
               outline: 'none',
               color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              background: glyph.pressed ? 'rgba(0, 240, 255, 0.14)' : 'rgb(var(--ink-rgb) / 0.05)',
-              border: `1px solid ${glyph.pressed ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
+              background: glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.14)' : 'rgb(var(--ink-rgb) / 0.05)',
+              border: `1px solid ${glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
               transition: 'all 0.18s ease',
             }}
           >
@@ -309,7 +309,7 @@ export function ChatCardFeed({
         overflowY: 'auto',
         borderRadius: 8,
         background: 'rgb(var(--shade-rgb) / 0.45)',
-        border: '1px solid rgba(0, 240, 255, 0.16)',
+        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.16)',
         textAlign: lines.length === 0 ? 'center' : 'left',
       }}
     >
@@ -473,7 +473,7 @@ export function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
         textShadow:
           status?.tone === 'error'
             ? '0 0 8px rgba(255, 82, 120, 0.55)'
-            : '0 0 8px rgba(0, 240, 255, 0.45)',
+            : '0 0 8px rgb(var(--accent-cyan-rgb) / 0.45)',
       }}
     >
       <div role="status" style={{ display: 'grid', minWidth: 0 }}>

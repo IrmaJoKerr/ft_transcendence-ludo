@@ -153,8 +153,8 @@ export function NotificationBell({
         width: 350,
         maxHeight: 460,
         background: 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
-        border: '1.5px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 20px 60px rgb(var(--shade-rgb) / 0.95)',
+        border: '1.5px solid var(--accent-cyan)',
+        boxShadow: '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 20px 60px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 14,
         // Portaled to <body> (see useLayoutEffect above), so this z-index
         // only has to beat other <body>-level layers (modals at 10002).
@@ -175,8 +175,8 @@ export function NotificationBell({
         width: 380,
         maxHeight: 460,
         background: 'rgb(var(--bg-panel-rgb) / 0.96)',
-        border: '1.5px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 25px rgba(0, 240, 255, 0.25), 0 16px 40px rgb(var(--shade-rgb) / 0.9)',
+        border: '1.5px solid var(--accent-cyan)',
+        boxShadow: '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 16px 40px rgb(var(--shade-rgb) / 0.9)',
         borderRadius: 4,
         // Portaled to <body> (see useLayoutEffect above) so this always
         // renders above every other element, regardless of which stacking
@@ -328,8 +328,8 @@ export function NotificationBell({
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 14px',
-              background: 'rgba(0, 240, 255, 0.12)',
-              borderBottom: '1px solid rgba(0, 240, 255, 0.3)',
+              background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
+              borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -337,7 +337,7 @@ export function NotificationBell({
                 style={{
                   fontFamily: 'var(--font-heading, monospace)',
                   fontSize: '0.78rem',
-                  color: 'var(--accent-cyan, #00f0ff)',
+                  color: 'var(--accent-cyan)',
                   letterSpacing: 1,
                   fontWeight: 'bold',
                 }}

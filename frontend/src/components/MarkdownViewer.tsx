@@ -21,11 +21,11 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
     const tableEl = (
       <div
         key={`table-${key}`}
-        className="my-4 overflow-x-auto rounded-lg border border-[rgba(0,240,255,0.3)] bg-[rgb(var(--bg-panel-rgb) / 0.6)] p-2"
+        className="my-4 overflow-x-auto rounded-lg border border-[rgb(var(--accent-cyan-rgb)/0.3)] bg-[rgb(var(--bg-panel-rgb)/0.6)] p-2"
       >
         <table className="w-full border-collapse text-left font-mono text-xs">
           <thead>
-            <tr className="border-b border-[rgba(0,240,255,0.35)] text-[var(--accent-cyan)]">
+            <tr className="border-b border-[rgb(var(--accent-cyan-rgb)/0.35)] text-(--accent-cyan)">
               {header.map((cell, cIdx) => (
                 <th key={cIdx} className="px-3 py-2 font-bold tracking-wider">
                   {renderInline(cell.trim())}
@@ -117,7 +117,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
         parts.push(
           <code
             key={`c-${keyCounter++}`}
-            className="rounded border border-[rgba(0,240,255,0.3)] bg-[rgba(0,240,255,0.15)] px-1.5 py-0.5 font-mono text-[0.78rem] text-[var(--accent-cyan)]"
+            className="rounded border border-[rgb(var(--accent-cyan-rgb)/0.3)] bg-[rgb(var(--accent-cyan-rgb)/0.15)] px-1.5 py-0.5 font-mono text-[0.78rem] text-(--accent-cyan)"
           >
             {firstMatch.match[1]}
           </code>,
@@ -167,7 +167,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       elements.push(
         <hr
           key={`hr-${i}`}
-          className="my-5 h-[1px] border-0 bg-gradient-to-r from-transparent via-[rgba(0,240,255,0.4)] to-transparent"
+          className="my-5 h-[1px] border-0 bg-gradient-to-r from-transparent via-[rgb(var(--accent-cyan-rgb)/0.4)] to-transparent"
         />,
       );
       continue;
@@ -200,7 +200,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       elements.push(
         <h3
           key={`h3-${i}`}
-          className="font-display mt-4 mb-2 text-sm font-bold text-[var(--accent-cyan)]"
+          className="font-display mt-4 mb-2 text-sm font-bold text-(--accent-cyan)"
         >
           {renderInline(trimmed.slice(4))}
         </h3>,

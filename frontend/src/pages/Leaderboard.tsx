@@ -181,7 +181,7 @@ export function Leaderboard() {
                       padding: '18px 20px',
                       borderRadius: 10,
                       background: 'rgb(var(--bg-panel-rgb) / 0.65)',
-                      border: '1px solid rgba(0, 240, 255, 0.25)',
+                      border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                       flexShrink: 0,
                     }}
                   >
@@ -190,9 +190,9 @@ export function Leaderboard() {
                       <div
                         style={{
                           background: 'rgb(var(--bg-card-rgb) / 0.85)',
-                          border: '1.5px solid rgba(0, 240, 255, 0.45)',
+                          border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.45)',
                           borderRadius: 8,
-                          boxShadow: '0 0 18px rgba(0, 240, 255, 0.22)',
+                          boxShadow: '0 0 18px rgb(var(--accent-cyan-rgb) / 0.22)',
                           padding: '20px 22px',
                           cursor: 'pointer',
                           transition: 'transform 0.2s, box-shadow 0.2s',
@@ -497,7 +497,7 @@ export function Leaderboard() {
                 {/* Ladder Table Container (ONLY THIS SECTION SCROLLS) */}
                 <div
                   style={{
-                    border: '1.5px solid rgba(0, 240, 255, 0.3)',
+                    border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                     borderRadius: 6,
                     background: 'rgba(5, 2, 18, 0.9)',
                     overflow: 'hidden',
@@ -516,7 +516,7 @@ export function Leaderboard() {
                       gap: 20,
                       padding: '14px 28px',
                       background: 'rgb(var(--bg-card-rgb) / 0.98)',
-                      borderBottom: '1.5px solid rgba(0, 240, 255, 0.3)',
+                      borderBottom: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                       fontSize: '0.82rem',
                       fontWeight: 900,
                       color: 'var(--accent-cyan)',
@@ -610,7 +610,7 @@ export function Leaderboard() {
                             }}
                             onMouseEnter={(e) => {
                               if (!isYou && !isRankOne)
-                                e.currentTarget.style.background = 'rgba(0, 240, 255, 0.1)';
+                                e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.1)';
                             }}
                             onMouseLeave={(e) => {
                               if (!isYou && !isRankOne)

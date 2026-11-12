@@ -120,7 +120,7 @@ export function ColorPaletteModal({
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex w-full max-w-lg flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)] sm:max-w-2xl`}
+        className={`${RETRO_WINDOW} flex w-full max-w-lg flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgb(var(--accent-cyan-rgb)/0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgb(var(--accent-cyan-rgb)/0.25)] sm:max-w-2xl`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -152,7 +152,7 @@ export function ColorPaletteModal({
         </div>
 
         <div
-          className={`${WINDOW_BODY} flex max-h-[90vh] flex-col gap-3 overflow-y-auto bg-[rgb(var(--bg-panel-rgb) / 0.92)] p-5 sm:flex-row sm:gap-4`}
+          className={`${WINDOW_BODY} flex max-h-[90vh] flex-col gap-3 overflow-y-auto bg-[rgb(var(--bg-panel-rgb)/0.92)] p-5 sm:flex-row sm:gap-4`}
         >
           {/* The rotation, left of the picker. Geometry comes from SEAT_COLORS and the
               words from the shared colour keys, so it is never colour-only. */}
@@ -307,7 +307,7 @@ export function ColorPaletteModal({
             <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
               <button
                 type="button"
-                className={`${RETRO_BTN} font-display rounded-lg border border-[var(--accent-cyan)] px-4 py-1.5 text-xs font-black text-(--text-main)`}
+                className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) px-4 py-1.5 text-xs font-black text-(--text-main)`}
                 onClick={() => {
                   retroAudio.playUiBeep(440, 0.05);
                   onCancel();

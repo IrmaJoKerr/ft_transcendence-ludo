@@ -117,7 +117,7 @@ export function NotificationRow({
   const interactive = typeof onActivate === 'function';
   // Read rows are dimmer; every stored entry is unread by construction (the
   // store deletes on read), so this is the hover-off state as well.
-  const restingBg = notification.read ? 'transparent' : 'rgba(0, 240, 255, 0.08)';
+  const restingBg = notification.read ? 'transparent' : 'rgb(var(--accent-cyan-rgb) / 0.08)';
 
   return (
     <div
@@ -136,7 +136,7 @@ export function NotificationRow({
       }
       onMouseEnter={
         interactive
-          ? (e) => (e.currentTarget.style.background = 'rgba(0, 240, 255, 0.15)')
+          ? (e) => (e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.15)')
           : undefined
       }
       onMouseLeave={

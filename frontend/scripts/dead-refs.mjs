@@ -66,6 +66,28 @@ const twHaystack = readAll(CONSTANTS);
 const exported = [...new Set([...tw.matchAll(/export const ([A-Za-z_][\w]*)/g)].map((m) => m[1]))];
 const deadConstants = exported.filter((name) => !mentions(twHaystack, name));
 
+// 3. Arbitrary values a space silently kills. Tailwind ends a class at whitespace, so
+// `bg-[rgb(var(--bg-panel-rgb) / 0.92)]` is not a class the sheet has: it is a class
+// Tailwind reads as `bg-[rgb(var(--bg-panel-rgb)` and drops. Family 2 shipped thirteen of
+// those (three modal backdrops, a panel, three ticket gradients) and they painted nothing
+// until family 3's compactor found them, so they are checked here: a class that names a
+// value and emits no rule is a dead reference like any other.
+const ARBITRARY = /(?:[a-z-]+-)?\[[^\]'"`]*\]/g;
+const spaced = [];
+for (const file of sources.filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'))) {
+  for (const match of readFileSync(file, 'utf8').matchAll(ARBITRARY)) {
+    const [whole] = match;
+    const content = whole.slice(whole.indexOf('[') + 1, -1);
+    if (!/\s/.test(content)) continue;
+    // A utility-prefixed value (`bg-[...]`), a custom property (`[--corner:...]`) or a
+    // property utility (`[border:1px_solid...]`) is a class. `[HOST / PILOT]` in a
+    // locale string is not: it has no prefix and no declaration.
+    const prefixed = whole.startsWith('-') ? false : whole.indexOf('[') > 0;
+    const isClass = prefixed || /^(?:--[a-z0-9-]+|[a-z-]+:)/i.test(content.trim());
+    if (isClass) spaced.push(`${path.relative(treeRoot, file)}  ${whole.slice(0, 90)}`);
+  }
+}
+
 console.log(
   `app.css: ${names.size} selectors named, ${names.size - deadSelectors.length} reachable, ` +
     `${deadSelectors.length} dead`,
@@ -74,13 +96,17 @@ console.log(
   `tw.ts:   ${exported.length} constants exported, ${exported.length - deadConstants.length} read, ` +
     `${deadConstants.length} dead`,
 );
+console.log(`classes: ${spaced.length} arbitrary value(s) carrying a space`);
 for (const [name, preludesForName] of deadSelectors)
   console.error(`  dead selector: ${name}   (styled by ${[...new Set(preludesForName)].join(' | ')})`);
 for (const name of deadConstants) console.error(`  dead constant: ${name}`);
+for (const line of spaced) console.error(`  dead class: ${line}`);
 
-if ((deadSelectors.length || deadConstants.length) && !REPORT_ONLY) {
+if ((deadSelectors.length || deadConstants.length || spaced.length) && !REPORT_ONLY) {
   console.error('\nA selector no component mounts, or a constant nothing imports, is a block that');
   console.error('outlived its use. Delete it - git holds the shape - or read it.');
+  console.error('An arbitrary value with a space in it is a class Tailwind drops in silence:');
+  console.error('write the space as `_`, or close it up if it is inside `rgb(...)`.');
   process.exit(1);
 }
 

@@ -291,7 +291,7 @@ export function Friends() {
                   style={{
                     border: '1px solid var(--accent-cyan)',
                     color: 'var(--accent-cyan)',
-                    background: 'rgba(0, 240, 255, 0.12)',
+                    background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
                     fontSize: '0.74rem',
                     padding: '4px 12px',
                     borderRadius: 4,
@@ -404,9 +404,9 @@ export function Friends() {
                     display: 'flex',
                     flexDirection: 'column',
                     background: 'rgb(var(--bg-panel-rgb) / 0.85)',
-                    border: '1.5px solid rgba(0, 240, 255, 0.28)',
+                    border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.28)',
                     boxShadow:
-                      '0 0 16px rgba(0, 240, 255, 0.08), inset 0 0 20px rgb(var(--shade-rgb) / 0.6)',
+                      '0 0 16px rgb(var(--accent-cyan-rgb) / 0.08), inset 0 0 20px rgb(var(--shade-rgb) / 0.6)',
                     borderRadius: 8,
                     overflow: 'hidden',
                     minHeight: 0,
@@ -427,7 +427,7 @@ export function Friends() {
                       padding: '10px 14px',
                       background:
                         'linear-gradient(90deg, rgba(28, 8, 62, 0.95), rgba(16, 4, 38, 0.95))',
-                      borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                      borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -451,13 +451,13 @@ export function Friends() {
                           borderRadius: 4,
                           color: activeTab === 'friends' ? 'var(--text-main)' : 'var(--text-muted)',
                           background:
-                            activeTab === 'friends' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
+                            activeTab === 'friends' ? 'rgb(var(--accent-cyan-rgb) / 0.25)' : 'transparent',
                           borderColor:
                             activeTab === 'friends'
                               ? 'var(--accent-cyan)'
                               : 'rgb(var(--ink-rgb) / 0.15)',
                           boxShadow:
-                            activeTab === 'friends' ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
+                            activeTab === 'friends' ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                         }}
                       >
                         {t('friends.tabFriendsCount', { count: friends.length })}
@@ -495,7 +495,7 @@ export function Friends() {
                           placeholder={t('friends.searchFriendsInput')}
                           style={{
                             background: 'rgba(5, 2, 18, 0.85)',
-                            border: '1px solid rgba(0, 240, 255, 0.35)',
+                            border: '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
                             borderRadius: 4,
                             color: 'var(--text-main)',
                             padding: '4px 10px',
@@ -566,10 +566,10 @@ export function Friends() {
                                 padding: '11px 16px',
                                 borderRadius: 6,
                                 background: 'rgb(var(--bg-raise-rgb) / 0.82)',
-                                border: `1.5px solid ${f.status === 'online' || f.status === 'playing' ? 'rgba(0, 240, 255, 0.28)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
+                                border: `1.5px solid ${f.status === 'online' || f.status === 'playing' ? 'rgb(var(--accent-cyan-rgb) / 0.28)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
                                 boxShadow:
                                   f.status === 'online' || f.status === 'playing'
-                                    ? '0 0 10px rgba(0, 240, 255, 0.08)'
+                                    ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.08)'
                                     : 'none',
                                 transition: 'all 0.18s ease',
                                 gap: 12,
@@ -579,18 +579,18 @@ export function Friends() {
                                 e.currentTarget.style.background = 'rgba(28, 10, 64, 0.95)';
                                 e.currentTarget.style.borderColor = 'var(--accent-cyan)';
                                 e.currentTarget.style.boxShadow =
-                                  '0 0 14px rgba(0, 240, 255, 0.25)';
+                                  '0 0 14px rgb(var(--accent-cyan-rgb) / 0.25)';
                                 e.currentTarget.style.transform = 'translateX(3px)';
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background = 'rgb(var(--bg-raise-rgb) / 0.82)';
                                 e.currentTarget.style.borderColor =
                                   f.status === 'online' || f.status === 'playing'
-                                    ? 'rgba(0, 240, 255, 0.28)'
+                                    ? 'rgb(var(--accent-cyan-rgb) / 0.28)'
                                     : 'rgb(var(--ink-rgb) / 0.1)';
                                 e.currentTarget.style.boxShadow =
                                   f.status === 'online' || f.status === 'playing'
-                                    ? '0 0 10px rgba(0, 240, 255, 0.08)'
+                                    ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.08)'
                                     : 'none';
                                 e.currentTarget.style.transform = 'translateX(0)';
                               }}
@@ -613,7 +613,7 @@ export function Friends() {
                                       borderRadius: 6,
                                       background:
                                         'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
-                                      boxShadow: '0 0 10px rgba(0, 240, 255, 0.3)',
+                                      boxShadow: '0 0 10px rgb(var(--accent-cyan-rgb) / 0.3)',
                                     }}
                                   >
                                     <UserAvatar
@@ -691,7 +691,7 @@ export function Friends() {
                                     marginTop: 3,
                                     fontSize: '9px',
                                     fontWeight: 700,
-                                    color: 'rgba(0, 240, 255, 0.7)',
+                                    color: 'rgb(var(--accent-cyan-rgb) / 0.7)',
                                     letterSpacing: '1px',
                                     fontFamily: 'var(--font-display)',
                                   }}
@@ -898,7 +898,7 @@ export function Friends() {
                     style={{
                       background: 'rgb(var(--bg-primary-rgb) / 0.92)',
                       border: '1.5px solid var(--accent-cyan)',
-                      boxShadow: '0 0 16px rgba(0, 240, 255, 0.15)',
+                      boxShadow: '0 0 16px rgb(var(--accent-cyan-rgb) / 0.15)',
                       borderRadius: 8,
                       padding: '16px 18px',
                       display: 'flex',
@@ -929,7 +929,7 @@ export function Friends() {
                         }}
                         style={{
                           background: 'rgba(5, 2, 18, 0.95)',
-                          border: '1.5px solid rgba(0, 240, 255, 0.45)',
+                          border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.45)',
                           borderRadius: 4,
                           color: 'var(--text-main)',
                           padding: '10px 12px',
@@ -949,10 +949,10 @@ export function Friends() {
                           fontSize: '0.78rem',
                           fontFamily: 'var(--font-display)',
                           fontWeight: 900,
-                          background: 'rgba(0, 240, 255, 0.22)',
+                          background: 'rgb(var(--accent-cyan-rgb) / 0.22)',
                           color: 'var(--text-main)',
                           borderColor: 'var(--accent-cyan)',
-                          boxShadow: '0 0 12px rgba(0, 240, 255, 0.3)',
+                          boxShadow: '0 0 12px rgb(var(--accent-cyan-rgb) / 0.3)',
                           borderRadius: 4,
                         }}
                       >

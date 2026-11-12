@@ -459,7 +459,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            textShadow: open ? '0 0 10px rgba(0, 240, 255, 0.45)' : 'none',
+            textShadow: open ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.45)' : 'none',
             transition: 'color 0.18s ease',
           }}
         >
@@ -492,9 +492,9 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
             fontWeight: 900,
             letterSpacing: '0.5px',
             color: open ? 'var(--accent-cyan)' : 'var(--text-muted)',
-            background: open ? 'rgba(0, 240, 255, 0.12)' : 'rgb(var(--ink-rgb) / 0.05)',
-            border: `1px solid ${open ? 'rgba(0, 240, 255, 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
-            boxShadow: open ? '0 0 10px rgba(0, 240, 255, 0.28)' : 'none',
+            background: open ? 'rgb(var(--accent-cyan-rgb) / 0.12)' : 'rgb(var(--ink-rgb) / 0.05)',
+            border: `1px solid ${open ? 'rgb(var(--accent-cyan-rgb) / 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
+            boxShadow: open ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.28)' : 'none',
             transition: 'all 0.18s ease',
           }}
         >

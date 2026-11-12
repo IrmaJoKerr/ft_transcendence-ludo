@@ -40,10 +40,10 @@ const verbStyle = {
   flexShrink: 0,
   width: 76,
   padding: '3px 0',
-  background: 'rgba(0, 240, 255, 0.12)',
-  border: '1px solid rgba(0, 240, 255, 0.55)',
+  background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
+  border: '1px solid rgb(var(--accent-cyan-rgb) / 0.55)',
   borderRadius: 3,
-  color: 'var(--accent-cyan, #00f0ff)',
+  color: 'var(--accent-cyan)',
   fontSize: '0.62rem',
   fontWeight: 'bold',
   letterSpacing: 1,
@@ -158,7 +158,7 @@ export function PendingOffers() {
         flexDirection: 'column',
         gap: 6,
         padding: '10px 12px',
-        border: '1px solid rgba(0, 240, 255, 0.25)',
+        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
         borderRadius: 4,
         background: 'rgba(5, 2, 18, 0.7)',
       }}
@@ -168,7 +168,7 @@ export function PendingOffers() {
           fontSize: '0.68rem',
           fontWeight: 'bold',
           letterSpacing: 1,
-          color: 'var(--accent-cyan, #00f0ff)',
+          color: 'var(--accent-cyan)',
           fontFamily: 'var(--font-mono, monospace)',
         }}
       >
@@ -260,7 +260,7 @@ export function PendingOffers() {
                     color:
                       mechanism === 'room'
                         ? 'var(--accent-yellow, #ffe600)'
-                        : 'var(--accent-cyan, #00f0ff)',
+                        : 'var(--accent-cyan)',
                     fontFamily: 'var(--font-mono, monospace)',
                   }}
                 >

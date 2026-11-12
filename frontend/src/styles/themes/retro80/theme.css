@@ -31,7 +31,7 @@
   /* Lighter than --text-muted: pass captions and empty-state lines. */
   --text-soft: #d4caef;
   --border-color: #ff007f;
-  --box-shadow: 0 0 15px rgba(255, 0, 127, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.2);
+  --box-shadow: 0 0 15px rgba(255, 0, 127, 0.5), inset 0 0 15px rgb(var(--accent-cyan-rgb) / 0.2);
   /* Both halves of the Atkinson Hyperlegible family from the Braille Institute,
      designed for low-vision legibility. Next is the UI face; Mono keeps tabular
      readouts and room codes aligned. */
@@ -41,10 +41,10 @@
   --grid-line-color: rgba(255, 0, 127, 0.35);
   --grid-bg-glow: rgba(157, 0, 255, 0.2);
   --btn-bg: linear-gradient(135deg, #ff007f, #9d00ff);
-  --btn-hover-shadow: 0 0 20px #00f0ff, 0 0 35px #ff007f;
+  --btn-hover-shadow: 0 0 20px var(--accent-cyan), 0 0 35px #ff007f;
   --crt-scanline-opacity: 0.15;
   --crt-flicker-opacity: 0.03;
-  --window-header-bg: linear-gradient(90deg, #ff007f, #00f0ff);
+  --window-header-bg: linear-gradient(90deg, #ff007f, var(--accent-cyan));
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
   /* The shell's ground. A token rather than a literal on `html, body`: synthwave
@@ -59,7 +59,7 @@
      in the class before they were tokens, so synthwave renders unchanged. */
   --start-overlay-bg: rgba(13, 2, 33, 0.45);
   --start-overlay-glow: rgba(255, 0, 127, 0.35);
-  --start-overlay-inset: rgba(0, 240, 255, 0.2);
+  --start-overlay-inset: rgb(var(--accent-cyan-rgb) / 0.2);
   /* The channel form of the four accents and the three neutrals: `r g b`, always
      read as `rgb(var(--x-rgb) / a)`. A component that tints a theme colour needs
      an alpha, and `rgba(#ff007f, 0.3)` is not CSS — so without these the

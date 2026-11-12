@@ -110,7 +110,7 @@ export function ControlsSettingsModal({
       }}
     >
       <div
-        className={`${RETRO_WINDOW} flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgba(0,240,255,0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgba(0,240,255,0.25)]`}
+        className={`${RETRO_WINDOW} flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgb(var(--accent-cyan-rgb)/0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgb(var(--accent-cyan-rgb)/0.25)]`}
         // The window never grows past the viewport either: the header, the rows and
         // the audio switch are one column, and the rows are the only part that yields.
         style={{ maxHeight: 'calc(100dvh - 2rem)' }}
@@ -147,7 +147,7 @@ export function ControlsSettingsModal({
         </div>
 
         <div
-          className={`${WINDOW_BODY} flex flex-col bg-[rgb(var(--bg-panel-rgb) / 0.92)]`}
+          className={`${WINDOW_BODY} flex flex-col bg-[rgb(var(--bg-panel-rgb)/0.92)]`}
           // Only these rows scroll (32.1). The cap is the viewport itself, because the
           // header and the audio switch are chrome and take their height first.
           style={{
@@ -172,7 +172,7 @@ export function ControlsSettingsModal({
               <span
                 style={{
                   ...KEY_CHIP,
-                  background: 'rgba(0, 240, 255, 0.15)',
+                  background: 'rgb(var(--accent-cyan-rgb) / 0.15)',
                   borderColor: 'var(--accent-cyan)',
                 }}
               >

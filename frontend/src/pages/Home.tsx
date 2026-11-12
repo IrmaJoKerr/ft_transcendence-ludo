@@ -359,7 +359,7 @@ export function Home() {
                             padding: '10px 14px',
                             borderRadius: 6,
                             background: 'rgb(var(--bg-panel-rgb) / 0.85)',
-                            border: '1.5px solid rgba(0, 240, 255, 0.25)',
+                            border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                             cursor: 'pointer',
                             transition: 'all 0.18s ease',
                             gap: 12,
@@ -369,13 +369,13 @@ export function Home() {
                             navigate(`/profile?u=${encodeURIComponent(f.username)}`);
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(0, 240, 255, 0.16)';
+                            e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.16)';
                             e.currentTarget.style.borderColor = 'var(--accent-cyan)';
                             e.currentTarget.style.transform = 'translateX(2px)';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
-                            e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.25)';
+                            e.currentTarget.style.borderColor = 'rgb(var(--accent-cyan-rgb) / 0.25)';
                             e.currentTarget.style.transform = 'translateX(0)';
                           }}
                         >
@@ -395,7 +395,7 @@ export function Home() {
                                   borderRadius: 5,
                                   background:
                                     'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
-                                  boxShadow: '0 0 8px rgba(0, 240, 255, 0.3)',
+                                  boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3)',
                                 }}
                               >
                                 <UserAvatar

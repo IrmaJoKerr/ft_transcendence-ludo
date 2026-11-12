@@ -41,7 +41,7 @@ export function LanguageSwitcher({
           background: 'rgb(var(--shade-rgb) / 0.45)',
           padding: 4,
           borderRadius: 8,
-          border: '1px solid rgba(0, 240, 255, 0.2)',
+          border: '1px solid rgb(var(--accent-cyan-rgb) / 0.2)',
           ...style,
         }}
       >
@@ -62,11 +62,11 @@ export function LanguageSwitcher({
                 borderRadius: 6,
                 border: isSelected ? '1.5px solid var(--accent-cyan)' : '1px solid transparent',
                 background: isSelected
-                  ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.2))'
+                  ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgba(255, 0, 127, 0.2))'
                   : 'transparent',
                 color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
                 cursor: 'pointer',
-                boxShadow: isSelected ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
+                boxShadow: isSelected ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                 transition: 'all 0.18s ease',
                 outline: 'none',
               }}
@@ -101,7 +101,7 @@ export function LanguageSwitcher({
     <div
       role="group"
       aria-label={t('common.language')}
-      className="flex items-center rounded-lg border border-[rgba(0,240,255,0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5"
+      className="flex items-center rounded-lg border border-[rgb(var(--accent-cyan-rgb)/0.25)] bg-[rgb(var(--shade-rgb)/0.5)] p-0.5"
       style={style}
     >
       {LANGS.map((item) => (
@@ -111,7 +111,7 @@ export function LanguageSwitcher({
           aria-pressed={value === item.code}
           className={`rounded px-2.5 py-1 font-mono text-xs font-bold transition-all ${
             value === item.code
-              ? 'bg-[var(--accent-cyan)] text-[#0a0519] shadow-[0_0_8px_rgba(0,240,255,0.5)]'
+              ? 'bg-(--accent-cyan) text-[#0a0519] shadow-[0_0_8px_rgb(var(--accent-cyan-rgb)/0.5)]'
               : 'text-[var(--text-muted)] hover:text-(--text-main)'
           }`}
           onClick={() => pick(item.code)}

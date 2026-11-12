@@ -84,7 +84,7 @@ function Yard({
         background: 'rgb(var(--bg-panel-rgb) / 0.95)',
         border: '1.5px solid #2121ff',
         borderRadius: 8,
-        boxShadow: '0 0 14px rgba(33, 33, 255, 0.45), inset 0 0 10px rgba(0, 240, 255, 0.15)',
+        boxShadow: '0 0 14px rgba(33, 33, 255, 0.45), inset 0 0 10px rgb(var(--accent-cyan-rgb) / 0.15)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -628,7 +628,7 @@ export function Board({
           borderRadius: 10,
           background: 'rgba(15, 6, 38, 0.95)',
           border: '2px solid #2121ff',
-          boxShadow: '0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgba(0, 240, 255, 0.25)',
+          boxShadow: '0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgb(var(--accent-cyan-rgb) / 0.25)',
         }}
       >
         <Yard

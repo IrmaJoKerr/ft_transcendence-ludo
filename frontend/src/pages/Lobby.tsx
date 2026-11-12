@@ -304,7 +304,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   gap: 10,
                   padding: '8px 22px',
                   borderRadius: 4,
-                  background: 'rgba(0, 240, 255, 0.15)',
+                  background: 'rgb(var(--accent-cyan-rgb) / 0.15)',
                   border: '1px solid var(--accent-cyan)',
                 }}
               >
@@ -336,7 +336,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   maxWidth: 740,
                   padding: '10px 16px',
                   background: 'rgb(var(--shade-rgb) / 0.6)',
-                  border: '1px solid rgba(0, 240, 255, 0.35)',
+                  border: '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
                   borderRadius: 4,
                   textAlign: 'center',
                   fontFamily: 'var(--font-mono)',
@@ -857,7 +857,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   fontSize: '0.84rem',
                   fontFamily: 'var(--font-mono)',
                   letterSpacing: '0.5px',
-                  background: 'rgba(0, 240, 255, 0.12)',
+                  background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
                   border: '1px solid var(--accent-cyan)',
                   color: 'var(--accent-cyan)',
                   cursor: 'pointer',
@@ -1000,7 +1000,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         the game's room-rules panel once the room exists. */}
                     <div
                       style={{
-                        borderTop: '1px solid rgba(0, 240, 255, 0.25)',
+                        borderTop: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                         paddingTop: 12,
                         display: 'flex',
                         flexDirection: 'column',
@@ -1122,7 +1122,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                       style={{
                         padding: '16px 18px',
                         background: 'rgb(var(--shade-rgb) / 0.5)',
-                        border: '1px solid rgba(0, 240, 255, 0.3)',
+                        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                         borderRadius: 4,
                         textAlign: 'center',
                         fontSize: '0.82rem',

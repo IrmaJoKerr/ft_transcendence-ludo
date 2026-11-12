@@ -85,7 +85,7 @@ export function RetroNavbar({
     borderColor: 'var(--accent-pink)',
     boxShadow: SEVENTIES
       ? '0 0 16px rgba(229, 52, 11, 0.55), inset 0 0 8px rgb(var(--accent-yellow-rgb) / 0.25)'
-      : '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgba(0, 240, 255, 0.25)',
+      : '0 0 16px rgba(255, 0, 127, 0.55), inset 0 0 8px rgb(var(--accent-cyan-rgb) / 0.25)',
   };
 
   // Below `xl` (1280px) the sidebar collapses to an icon rail; the threshold and
@@ -318,11 +318,11 @@ export function RetroNavbar({
           : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.86), rgb(var(--bg-panel-rgb) / 0.94))',
         backdropFilter: 'blur(32px) saturate(220%)',
         WebkitBackdropFilter: 'blur(32px) saturate(220%)',
-        border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgba(0, 240, 255, 0.35)',
+        border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
         borderRadius: 22,
         boxShadow: SEVENTIES
           ? '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
-          : '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgba(0, 240, 255, 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
+          : '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-cyan-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(255, 0, 127, 0.08)',
         boxSizing: 'border-box',
         overflow: 'visible',
         ...style,
@@ -455,10 +455,10 @@ export function RetroNavbar({
                     ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.96), rgba(18, 13, 10, 0.98))'
                     : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
                   backdropFilter: 'blur(32px) saturate(220%)',
-                  border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgba(0, 240, 255, 0.45)',
+                  border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgb(var(--accent-cyan-rgb) / 0.45)',
                   boxShadow: SEVENTIES
                     ? '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgb(var(--accent-yellow-rgb) / 0.25)'
-                    : '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgba(0, 240, 255, 0.25)',
+                    : '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgb(var(--accent-cyan-rgb) / 0.25)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 12,
@@ -622,7 +622,7 @@ export function RetroNavbar({
               padding: '9px 12px',
               borderRadius: 12,
               background:
-                'linear-gradient(135deg, rgba(255, 0, 127, 0.35), rgba(0, 240, 255, 0.35))',
+                'linear-gradient(135deg, rgba(255, 0, 127, 0.35), rgb(var(--accent-cyan-rgb) / 0.35))',
               border: `1.5px solid ${rejoinEdge.borderColor}`,
               boxShadow: rejoinEdge.boxShadow,
               display: 'flex',
@@ -712,7 +712,7 @@ export function RetroNavbar({
           // A thin cyan scrollbar when a very short window does force one: the
           // default light bar is the one bright thing on a dark dock.
           scrollbarWidth: 'thin',
-          scrollbarColor: SEVENTIES ? 'rgb(var(--accent-yellow-rgb) / 0.35) transparent' : 'rgba(0, 240, 255, 0.35) transparent',
+          scrollbarColor: SEVENTIES ? 'rgb(var(--accent-yellow-rgb) / 0.35) transparent' : 'rgb(var(--accent-cyan-rgb) / 0.35) transparent',
           padding: isCompact ? '8px 10px' : '8px 16px',
         }}
       >

@@ -637,16 +637,16 @@ lacks paints as `unset` under that era and no screenshot catches it.
 | `--text-muted` | `#b8a6e4` | secondary text |
 | `--text-soft` | `#d4caef` | captions and empty-state lines (lighter than muted) |
 | `--border-color` | `#ff007f` | default border |
-| `--box-shadow` | `0 0 15px rgba(255,0,127,.5), inset 0 0 15px rgba(0,240,255,.2)` | panel glow |
+| `--box-shadow` | `0 0 15px rgba(255,0,127,.5), inset 0 0 15px rgb(var(--accent-cyan-rgb) / 0.2)` | panel glow |
 | `--font-heading`, `--font-display` | `'Atkinson Hyperlegible Next', system-ui, sans-serif` | UI face (Braille Institute, low-vision legibility) |
 | `--font-mono` | `'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace` | tabular readouts and room codes |
 | `--grid-line-color` | `rgba(255, 0, 127, 0.35)` | perspective grid lines |
 | `--grid-bg-glow` | `rgba(157, 0, 255, 0.2)` | grid horizon glow |
 | `--btn-bg` | `linear-gradient(135deg, #ff007f, #9d00ff)` | button fill |
-| `--btn-hover-shadow` | `0 0 20px #00f0ff, 0 0 35px #ff007f` | button hover glow |
+| `--btn-hover-shadow` | `0 0 20px var(--accent-cyan), 0 0 35px #ff007f` | button hover glow |
 | `--crt-scanline-opacity` | `0.15` | CRT scanline overlay |
 | `--crt-flicker-opacity` | `0.03` | CRT flicker overlay |
-| `--window-header-bg` | `linear-gradient(90deg, #ff007f, #00f0ff)` | OS-window title bar |
+| `--window-header-bg` | `linear-gradient(90deg, #ff007f, var(--accent-cyan))` | OS-window title bar |
 | `--window-header-text` | `#ffffff` | its text |
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
 | `--fs-border` / `--fs-bg` / `--fs-glow` | `var(--accent-pink)` / `var(--bg-card)` / `rgb(var(--accent-pink-rgb) / 0.5)` | the theme popover's border, fill and glow; derived from the theme in `theme-base.css`, not declared per era. The three fieldset tokens beside them (`--fs-text`, `--fs-accent`, `--fs-cyan`) went with the `#color-scheme` sheet on 2026-11-12 |
@@ -656,7 +656,7 @@ lacks paints as `unset` under that era and no screenshot catches it.
 | `--bg-void-rgb` / `--bg-panel-rgb` | `5 2 18` / `10 2 28` | the navy ramp below the ground: a scrim or an empty well, and a panel's own fill (which is also the bottom of a raised gradient) |
 | `--bg-raise-rgb` / `--bg-card-rgb` | `20 6 46` / `25 10 56` | the two above it: the top of a raised gradient (a navbar popover, the bell's dropdown), and a card, a podium, a room row |
 | `--start-overlay-bg` | `rgba(13, 2, 33, 0.45)` | the press-start card's fill |
-| `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgba(0,240,255,.2)` | the two layers of that card's shadow |
+| `--start-overlay-glow` / `--start-overlay-inset` | `rgba(255,0,127,.35)` / `rgb(var(--accent-cyan-rgb) / 0.2)` | the two layers of that card's shadow |
 | `--state-on` / `--state-on-rgb` | `#00ff88` / `0 255 136` | the state pair's **on**: met, ready, valid, online, sent. Only a condition reads it, never a seat, a mode or a rule |
 | `--state-on-ink` | `#0b021a` | the text that sits ON a lit pill (an enabled badge, an accept button) |
 | `--state-off` / `--state-off-rgb` | `#ff0055` / `255 0 85` | the pair's **off**: muted, refused, missed, out |
@@ -720,6 +720,18 @@ the 70s column is the amber measured above. What stays literal is an inventory r
 the mode chrome as whole objects (the amber ticket with its badge, divider and launch pill, whose pink and green
 siblings are literal), the two mode and rank hue tables, the hero art, the 70s piece accent, the theme row's swatch and
 the token block. Everything else that paints reads the token.
+
+**The accent cyan (`--accent-cyan` / `--accent-cyan-rgb`)** 🎨 — the third family of the sweep
+(`todo.md` [33](todo.md#rv33-family3)), run 2026-11-12. It added **no token**: both names were already declared in
+both tables, and the 70s table was not touched at all, so the family is 221 lines across 33 files moving onto a
+reader that already existed. Thirty of them were `var(--accent-cyan, #00f0ff)` — a default that only ever guessed
+the 80s value and would have painted synthwave blue over the walnut table at any moment the token failed to
+resolve, which is the one thing a fallback must not do. The accent is also the blue seat, so a literal here is
+sometimes identity rather than paint: the four seat tables and two seat maps, the room-mode hue, the rank badge
+tier, the theme row's swatch, the board's own grid line and the hero art keep theirs — **15 lines, each on the
+guard's inventory with its reason**, and that is every place `#00f0ff` is still spelled outside the token block.
+The 70s value is deliberately not a swept form: nothing in the tree has ever spelled `#5fb3b0`, so sweeping it
+would inventory that table's own prose to catch a mistake nobody can make.
 
 **The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four

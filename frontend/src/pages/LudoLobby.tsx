@@ -832,7 +832,7 @@ export function LudoLobby() {
                   className={WINDOW_HEADER}
                   style={{
                     background: '#190a38',
-                    borderBottom: '1px solid rgba(0, 240, 255, 0.3)',
+                    borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                     padding: '12px 14px',
                     gap: 12,
                     flexWrap: 'wrap',
@@ -938,7 +938,7 @@ export function LudoLobby() {
                         letterSpacing: '1.5px',
                         textAlign: 'center',
                         outline: 'none',
-                        boxShadow: 'inset 0 0 10px rgba(0, 240, 255, 0.25)',
+                        boxShadow: 'inset 0 0 10px rgb(var(--accent-cyan-rgb) / 0.25)',
                       }}
                     />
                     <button
@@ -956,7 +956,7 @@ export function LudoLobby() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '0.72rem',
-                        background: 'rgba(0, 240, 255, 0.22)',
+                        background: 'rgb(var(--accent-cyan-rgb) / 0.22)',
                         borderColor: 'var(--accent-cyan)',
                         color: 'var(--accent-cyan)',
                         opacity:
@@ -965,7 +965,7 @@ export function LudoLobby() {
                           !roomCodeInput.trim() || joiningByCode || lockedByActiveGame
                             ? 'not-allowed'
                             : 'pointer',
-                        boxShadow: '0 0 16px rgba(0, 240, 255, 0.4)',
+                        boxShadow: '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)',
                         flexShrink: 0,
                         whiteSpace: 'nowrap',
                       }}
@@ -991,7 +991,7 @@ export function LudoLobby() {
                       grows with the window and scrolls on its own. */}
                   <div
                     style={{
-                      border: '1px solid rgba(0, 240, 255, 0.25)',
+                      border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                       borderRadius: 6,
                       background: 'rgba(5, 2, 18, 0.8)',
                       overflow: 'hidden',
@@ -1015,7 +1015,7 @@ export function LudoLobby() {
                           gap: 8,
                           padding: '10px 14px',
                           background: 'rgb(var(--bg-card-rgb) / 0.98)',
-                          borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                          borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                           fontSize: '0.68rem',
                           fontWeight: 'bold',
                           color: 'var(--accent-cyan)',

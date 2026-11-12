@@ -21,9 +21,10 @@ const EXTS = new Set(['.ts', '.tsx', '.css']);
 // Generated from `common/src` by `sync-shared.mjs`: never audited, never edited here.
 const SKIP_DIRS = new Set(['__shared__']);
 
-// One row per swept colour. The array exists because the guard is meant to grow: the
-// three accents and the state pair join it as their own passes land, and until then
-// their literals are out of scope rather than silently allowed.
+// One row per swept colour. The array exists because the guard is meant to grow: yellow,
+// the ink and its shadow, and the cyan accent are swept, and the pink accent and the state
+// pair join them as their own passes land. Until then their literals are out of scope
+// rather than silently allowed.
 const SWEPT = [
   {
     token: '--accent-yellow',
@@ -50,6 +51,19 @@ const SWEPT = [
       /rgb\(\s*0\s+0\s+0\b/gi,
       // Tailwind's own palette utilities bypass the tokens entirely, so they count.
       /\b(?:text|bg|border|divide|ring|placeholder|from|to|via)-(?:white|black)(?![-a-z])/gi,
+    ],
+  },
+  {
+    // Family 3 of section 33 step 2: the accent. The 80s value is also the blue seat,
+    // so a literal here is sometimes identity rather than paint — the inventory says
+    // which is which. The 70s value (`#5fb3b0`) is deliberately not a swept form: it
+    // exists only as a declaration in that table, nothing in the tree spells it, and
+    // sweeping it would inventory the table's own prose.
+    token: '--accent-cyan / --accent-cyan-rgb',
+    forms: [
+      /#00f0ff/gi,
+      /rgba?\(\s*0\s*,\s*240\s*,\s*255\s*[,)]/gi,
+      /rgb\(\s*0\s+240\s+255\b/gi,
     ],
   },
 ];
@@ -101,6 +115,7 @@ const INVENTORY = {
     { line: "const SAFE_STAR_COLOR = '#ffffff';", count: 1, why: 'the safe star, board art' },
     { line: "const SAFE_STAR_OUTLINE = '#000000';", count: 1, why: 'the safe star, board art' },
     { line: "boxShadow: '0 0 18px rgba(33, 33, 255, 0.6), inset 0 0 12px rgba(0,0,0,.7)',", count: 1, why: 'a cell ground, step 6 owns the fringes' },
+    { line: "const LINE = '#00f0ff';", count: 1, why: "the board's grid line: measured against the board's own colours (see the note above it), and the board is furniture, not the page" },
   ],
   'game/ClashOverlay.tsx': [
     { line: "background: 'rgba(0,0,0,.72)',", count: 1, why: 'a scrim under the clash card, section 25 owns that surface' },
@@ -111,12 +126,23 @@ const INVENTORY = {
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },", count: 1, why: 'the hero art' },
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 470 },", count: 1, why: 'the hero art' },
     { line: "marqueeColor: '#ffb000',", count: 1, why: 'the hero art' },
+    { line: "gridColor: 'rgba(0, 240, 255, 0.45)',", count: 1, why: 'the hero art, a painted scene' },
+    { line: "{ label: 'BLUE', color: '#00f0ff', x: 635, y: 350 },", count: 1, why: 'the hero art' },
+    { line: "marqueeColor: '#00f0ff',", count: 1, why: 'the hero art' },
+    { line: "{ label: 'BLUE', color: '#00f0ff', x: 606 },", count: 1, why: 'the hero art' },
   ],
   'pages/Game.tsx': [
     { line: "yellow: '#ffe600',", count: 1, why: 'SEAT_HUES: colour is the seat' },
     { line: "? '#ffe600'", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
+    { line: "blue: '#00f0ff',", count: 1, why: 'SEAT_HUES: colour is the seat' },
+    { line: ": '#00f0ff';", count: 2, why: 'the two seat-hue maps, colorAccent and dotColor' },
+    { line: "view.status === 'waiting' ? 'var(--accent-cyan)' : SEAT_HUES[effectiveTurn] || '#00f0ff';", count: 1, why: 'a turn hue falling back to the blue seat' },
+    { line: "const turnColorHex = SEAT_HUES[effectiveTurn] || '#00f0ff';", count: 1, why: 'a turn hue falling back to the blue seat' },
   ],
-  'pages/Lobby.tsx': [{ line: "yellow: '#ffe600',", count: 1, why: 'COL: colour is the seat' }],
+  'pages/Lobby.tsx': [
+    { line: "yellow: '#ffe600',", count: 1, why: 'COL: colour is the seat' },
+    { line: "blue: '#00f0ff',", count: 1, why: 'COL: colour is the seat' },
+  ],
   'pages/LudoLobby.tsx': [
     {
       line: "{ key: 'freeExit', icon: '🚪', label: 'game.freeExit', hue: '#ffe600' },",
@@ -133,6 +159,16 @@ const INVENTORY = {
     { line: "color: '#ffe600',", count: 1, why: 'the level-2 ticket' },
     { line: "boxShadow: '0 0 12px rgba(255, 230, 0, 0.3)',", count: 1, why: 'the level-2 ticket' },
     { line: "borderRight: '2px dashed rgba(255, 230, 0, 0.45)',", count: 1, why: 'the level-2 ticket divider' },
+    {
+      line: "{ key: 'noSafeZones', icon: '💀', label: 'game.noSafeZones', hue: '#00f0ff' },",
+      count: 1,
+      why: 'ROOM_MODES: a mode colour is its name',
+    },
+    {
+      line: "? '#00f0ff'",
+      count: 1,
+      why: 'the room badge hues, whose yellow, pink and green siblings are literal too',
+    },
   ],
   'pages/Profile.tsx': [{ line: "YELLOW: '#ffe600',", count: 1, why: 'SEAT_COLOR: colour is the seat' }],
   'store.tsx': [
@@ -141,10 +177,16 @@ const INVENTORY = {
       count: 1,
       why: 'the theme row swatch, a picture of the palette',
     },
+    {
+      line: "{ id: 'retro80', label: \"RETRO 80'S\", swatch: ['#ff007f', '#00f0ff'] },",
+      count: 1,
+      why: 'the theme row swatch, a picture of the palette',
+    },
   ],
   // A theme table is where a colour becomes a token, so the table is the one file
   // allowed to spell its own palette. One entry per name that carries a swept form.
   'styles/themes/retro80/theme.css': [
+    { line: '--accent-cyan: #00f0ff;', count: 1, why: 'the 80s token definition' },
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
     { line: '--text-main: #ffffff;', count: 1, why: 'the 80s token definition' },
     { line: '--window-header-text: #ffffff;', count: 1, why: 'the 80s token definition' },
@@ -163,17 +205,20 @@ const INVENTORY = {
   ],
   'styles/tw.ts': [
     {
-      line: "'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgb(var(--bg-raise-rgb) / .96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';",
+      line: "'bg-[linear-gradient(90deg,rgba(255,230,0,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#ffe600] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(255,230,0,.22)] hover:border-[#ffff33] hover:bg-[linear-gradient(90deg,rgba(255,230,0,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgba(255,230,0,.5),inset_0_0_16px_rgba(255,230,0,.18)]';",
       count: 6,
       why: 'TICKET_YELLOW: the amber ticket, kept whole with its siblings',
     },
     {
-      line: "\"[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan,#00f0ff)] [--modal-shadow:var(--accent-pink,#ff007f)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]\";",
+      line: "\"[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink,#ff007f)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]\";",
       count: 2,
       why: 'a mask channel: white is full coverage, not a colour, so it must not warm in the 70s',
     },
   ],
-  'theme.ts': [{ line: "yellow: { base: '#ffe600' },", count: 1, why: 'the seat palette' }],
+  'theme.ts': [
+    { line: "yellow: { base: '#ffe600' },", count: 1, why: 'the seat palette' },
+    { line: "blue: { base: '#00f0ff' },", count: 1, why: 'the seat palette: the accent and the blue seat share one value' },
+  ],
 };
 
 if (!readdirSync(treeRoot).includes('src')) {
@@ -221,6 +266,14 @@ for (const name of uniq(second.names).filter((n) => !first.names.includes(n)))
 for (const table of tables)
   for (const name of uniq(table.names))
     if (table.names.filter((n) => n === name).length > 1) parity.push(`${name}  declared twice in ${table.rel}`);
+// A declaration that reads itself is the same failure as a missing one: `--x: var(--x)`
+// is a cycle, so the name is declared on paper and `unset` on screen. A codemod
+// rewriting the accent kept doing this, and no screenshot proves it wrong.
+for (const rel of TABLES)
+  for (const line of readFileSync(path.join(sourceRoot, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').split('\n')) {
+    const self = /^\s*(--[a-z0-9-]+)\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)\s*;?$/.exec(line);
+    if (self && self[1] === self[2]) parity.push(`${self[1]}  declared as itself in ${rel}`);
+  }
 // The order check: the names both tables share, in each table's own order.
 const seqFirst = uniq(first.names).filter((n) => second.names.includes(n));
 const seqSecond = uniq(second.names).filter((n) => first.names.includes(n));

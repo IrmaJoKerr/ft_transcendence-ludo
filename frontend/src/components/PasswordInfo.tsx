@@ -43,8 +43,8 @@ export function PasswordInfo() {
           height: 15,
           marginLeft: 8,
           borderRadius: '50%',
-          border: '1px solid rgba(0, 240, 255, 0.55)',
-          color: 'rgba(0, 240, 255, 0.85)',
+          border: '1px solid rgb(var(--accent-cyan-rgb) / 0.55)',
+          color: 'rgb(var(--accent-cyan-rgb) / 0.85)',
           cursor: 'help',
           outline: 'none',
         }}
@@ -68,7 +68,7 @@ export function PasswordInfo() {
             width: 'max-content',
             maxWidth: 'min(280px, 100%)',
             padding: '7px 10px',
-            border: '1px solid rgba(0, 240, 255, 0.5)',
+            border: '1px solid rgb(var(--accent-cyan-rgb) / 0.5)',
             borderRadius: 6,
             background: 'rgb(var(--bg-void-rgb) / 0.97)',
             color: 'var(--text-soft)',
@@ -81,7 +81,7 @@ export function PasswordInfo() {
             textTransform: 'none',
             textAlign: 'left',
             whiteSpace: 'normal',
-            boxShadow: '0 8px 22px rgb(var(--shade-rgb) / 0.6), 0 0 16px rgba(0, 240, 255, 0.15)',
+            boxShadow: '0 8px 22px rgb(var(--shade-rgb) / 0.6), 0 0 16px rgb(var(--accent-cyan-rgb) / 0.15)',
             pointerEvents: 'none',
           }}
         >

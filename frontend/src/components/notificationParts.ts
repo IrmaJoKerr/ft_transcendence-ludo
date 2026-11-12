@@ -46,18 +46,18 @@ export function getNotificationTypeBadge(
         ? {
             tagKey: 'notifications.matchInviteTag',
             defaultTag: '[MATCH_INVITE]',
-            color: 'var(--accent-cyan, #00f0ff)',
+            color: 'var(--accent-cyan)',
           }
         : {
             tagKey: 'notifications.matchChallengeTag',
             defaultTag: '[MATCH_CHALLENGE]',
-            color: 'var(--accent-cyan, #00f0ff)',
+            color: 'var(--accent-cyan)',
           };
     case 'challenge_accepted':
       return {
         tagKey: 'notifications.matchAcceptedTag',
         defaultTag: '[CHALLENGE_ACCEPTED]',
-        color: 'var(--accent-cyan, #00f0ff)',
+        color: 'var(--accent-cyan)',
       };
     case 'friend_request':
       return {
@@ -123,19 +123,19 @@ export function getNotificationTypeBadge(
       return {
         tagKey: 'notifications.profileUpdatedTag',
         defaultTag: '[PROFILE_UPDATED]',
-        color: 'var(--accent-cyan, #00f0ff)',
+        color: 'var(--accent-cyan)',
       };
     case 'display_name_changed':
       return {
         tagKey: 'notifications.displayNameChangedTag',
         defaultTag: '[CALLSIGN_CHANGED]',
-        color: 'var(--accent-cyan, #00f0ff)',
+        color: 'var(--accent-cyan)',
       };
     default:
       return {
         tagKey: 'notifications.sysBroadcastTag',
         defaultTag: '[SYS_MSG]',
-        color: 'var(--accent-cyan, #00f0ff)',
+        color: 'var(--accent-cyan)',
       };
   }
 }

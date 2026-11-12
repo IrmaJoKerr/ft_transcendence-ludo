@@ -105,7 +105,7 @@ export function InviteComms({
             fontWeight: 900,
             letterSpacing: '1px',
             color: 'var(--accent-cyan)',
-            textShadow: '0 0 12px rgba(0, 240, 255, 0.45)',
+            textShadow: '0 0 12px rgb(var(--accent-cyan-rgb) / 0.45)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -140,7 +140,7 @@ export function InviteComms({
           overflowY: 'auto',
           borderRadius: 8,
           background: 'rgb(var(--shade-rgb) / 0.45)',
-          border: '1px solid rgba(0, 240, 255, 0.16)',
+          border: '1px solid rgb(var(--accent-cyan-rgb) / 0.16)',
           textAlign: listed.length === 0 ? 'center' : 'left',
         }}
       >
@@ -234,7 +234,7 @@ export function InviteComms({
           textShadow:
             message?.tone === 'error'
               ? '0 0 8px rgba(255, 82, 120, 0.55)'
-              : '0 0 8px rgba(0, 240, 255, 0.45)',
+              : '0 0 8px rgb(var(--accent-cyan-rgb) / 0.45)',
         }}
       >
         {message && (

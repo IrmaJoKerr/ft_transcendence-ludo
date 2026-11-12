@@ -296,7 +296,7 @@ function UsernameCopyChip({ username }: { username: string }) {
       title={t('profile.copyUsernameTooltip')}
       style={{
         background: 'rgb(var(--shade-rgb) / 0.45)',
-        border: '1px solid rgba(0, 240, 255, 0.45)',
+        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.45)',
         borderRadius: 4,
         padding: '2px 7px',
         margin: 0,
@@ -364,7 +364,7 @@ function BlockedProfileCard({
                     padding: 4,
                     borderRadius: 8,
                     background: 'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
-                    boxShadow: '0 0 20px rgba(0, 240, 255, 0.4)',
+                    boxShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.4)',
                     flexShrink: 0,
                   }}
                 >
@@ -398,7 +398,7 @@ function BlockedProfileCard({
                       color: 'var(--text-main)',
                       letterSpacing: '0.04em',
                       lineHeight: 1.05,
-                      textShadow: '0 0 20px rgba(0, 240, 255, 0.65)',
+                      textShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.65)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -462,7 +462,7 @@ function BlockedProfileCard({
                         padding: '5px 12px',
                         fontSize: '0.72rem',
                         color: 'var(--accent-cyan)',
-                        borderColor: 'rgba(0, 240, 255, 0.45)',
+                        borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
                         fontFamily: 'var(--font-display)',
                         borderRadius: 4,
                         cursor: unblocking ? 'not-allowed' : 'pointer',
@@ -481,7 +481,7 @@ function BlockedProfileCard({
                       padding: '5px 12px',
                       fontSize: '0.72rem',
                       color: 'var(--accent-cyan)',
-                      borderColor: 'rgba(0, 240, 255, 0.45)',
+                      borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
                       fontFamily: 'var(--font-display)',
                       borderRadius: 4,
                     }}
@@ -938,7 +938,7 @@ export function Profile() {
                         margin: 0,
                         padding: '1px 6px',
                         background: 'rgb(var(--shade-rgb) / 0.45)',
-                        border: '1px solid rgba(0, 240, 255, 0.45)',
+                        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.45)',
                         borderRadius: 4,
                         cursor: 'pointer',
                         color: usernameCopied ? 'var(--state-on)' : 'var(--accent-cyan)',
@@ -976,8 +976,8 @@ export function Profile() {
                     style={{
                       background:
                         'linear-gradient(180deg, rgb(var(--bg-card-rgb) / 0.95) 0%, rgb(var(--bg-panel-rgb) / 0.98) 100%)',
-                      border: '1.5px solid rgba(0, 240, 255, 0.35)',
-                      boxShadow: '0 0 24px rgba(0, 240, 255, 0.15)',
+                      border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+                      boxShadow: '0 0 24px rgb(var(--accent-cyan-rgb) / 0.15)',
                       borderRadius: 8,
                       padding: '18px 24px',
                       display: 'grid',
@@ -1000,7 +1000,7 @@ export function Profile() {
                         height: 260,
                         borderRadius: '50%',
                         background:
-                          'radial-gradient(circle, rgba(0, 240, 255, 0.4) 0%, rgb(var(--shade-rgb) / 0) 70%)',
+                          'radial-gradient(circle, rgb(var(--accent-cyan-rgb) / 0.4) 0%, rgb(var(--shade-rgb) / 0) 70%)',
                         opacity: 0.25,
                         pointerEvents: 'none',
                       }}
@@ -1016,7 +1016,7 @@ export function Profile() {
                             borderRadius: 8,
                             background:
                               'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
-                            boxShadow: '0 0 20px rgba(0, 240, 255, 0.4)',
+                            boxShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.4)',
                           }}
                         >
                           <UserAvatar
@@ -1114,7 +1114,7 @@ export function Profile() {
                             color: 'var(--text-main)',
                             letterSpacing: '0.04em',
                             lineHeight: 1.05,
-                            textShadow: '0 0 20px rgba(0, 240, 255, 0.65)',
+                            textShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.65)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -1191,7 +1191,7 @@ export function Profile() {
                                     padding: '3px 9px',
                                     fontSize: '0.68rem',
                                     color: 'var(--accent-cyan)',
-                                    borderColor: 'rgba(0, 240, 255, 0.45)',
+                                    borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
                                     fontFamily: 'var(--font-display)',
                                     borderRadius: 4,
                                   }}
@@ -1274,7 +1274,7 @@ export function Profile() {
                                 padding: '4px 11px',
                                 fontSize: '0.72rem',
                                 color: 'var(--accent-cyan)',
-                                borderColor: 'rgba(0, 240, 255, 0.45)',
+                                borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
                                 fontFamily: 'var(--font-display)',
                                 borderRadius: 4,
                               }}
@@ -1291,10 +1291,10 @@ export function Profile() {
                       style={{
                         borderRadius: 10,
                         background:
-                          'radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
+                          'radial-gradient(circle at center, rgb(var(--accent-cyan-rgb) / 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
                         border: '2px solid var(--accent-cyan)',
                         boxShadow:
-                          '0 0 24px rgba(0, 240, 255, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
+                          '0 0 24px rgb(var(--accent-cyan-rgb) / 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
                         padding: '14px 18px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1323,7 +1323,7 @@ export function Profile() {
                           fontFamily: 'var(--font-display)',
                           margin: '3px 0 6px',
                           textShadow:
-                            '0 0 18px rgba(0, 240, 255, 0.6), 0 0 35px rgba(0, 240, 255, 0.3)',
+                            '0 0 18px rgb(var(--accent-cyan-rgb) / 0.6), 0 0 35px rgb(var(--accent-cyan-rgb) / 0.3)',
                           lineHeight: 1,
                           letterSpacing: '0.03em',
                         }}
@@ -1344,8 +1344,8 @@ export function Profile() {
                             fontSize: '11px',
                             fontWeight: 900,
                             color: 'var(--accent-cyan)',
-                            background: 'rgba(0, 240, 255, 0.12)',
-                            border: '1px solid rgba(0, 240, 255, 0.5)',
+                            background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
+                            border: '1px solid rgb(var(--accent-cyan-rgb) / 0.5)',
                             borderRadius: 4,
                             padding: '3px 12px',
                             letterSpacing: '1px',
@@ -1547,8 +1547,8 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgb(var(--bg-panel-rgb) / 0.9)',
-                        border: '1.5px solid rgba(0, 240, 255, 0.4)',
-                        boxShadow: '0 0 14px rgba(0, 240, 255, 0.12)',
+                        border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-cyan-rgb) / 0.12)',
                         borderRadius: 7,
                         padding: '10px 14px',
                         textAlign: 'center',
@@ -1747,7 +1747,7 @@ export function Profile() {
                     <div
                       style={{
                         background: 'rgb(var(--bg-primary-rgb) / 0.92)',
-                        border: '1.5px solid rgba(0, 240, 255, 0.28)',
+                        border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.28)',
                         borderRadius: 8,
                         overflow: 'hidden',
                         display: 'flex',
@@ -1761,7 +1761,7 @@ export function Profile() {
                         style={{
                           padding: '8px 14px',
                           background: 'rgb(var(--bg-card-rgb) / 0.95)',
-                          borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                          borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -1784,13 +1784,13 @@ export function Profile() {
                               borderRadius: 4,
                               color: mainTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
                               background:
-                                mainTab === 'history' ? 'rgba(0, 240, 255, 0.25)' : 'transparent',
+                                mainTab === 'history' ? 'rgb(var(--accent-cyan-rgb) / 0.25)' : 'transparent',
                               borderColor:
                                 mainTab === 'history'
                                   ? 'var(--accent-cyan)'
                                   : 'rgb(var(--ink-rgb) / 0.15)',
                               boxShadow:
-                                mainTab === 'history' ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
+                                mainTab === 'history' ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                             }}
                           >
                             {t('profile.flightLogsTab')}
@@ -1994,8 +1994,8 @@ export function Profile() {
                                               padding: '3px 8px',
                                               borderRadius: 3,
                                               color: 'var(--accent-cyan)',
-                                              border: '1px solid rgba(0, 240, 255, 0.35)',
-                                              background: 'rgba(0, 240, 255, 0.08)',
+                                              border: '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+                                              background: 'rgb(var(--accent-cyan-rgb) / 0.08)',
                                             }}
                                           >
                                             {chip}
@@ -2163,7 +2163,7 @@ export function Profile() {
                                     height: '100%',
                                     background:
                                       'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
-                                    boxShadow: '0 0 12px rgba(0, 240, 255, 0.65)',
+                                    boxShadow: '0 0 12px rgb(var(--accent-cyan-rgb) / 0.65)',
                                     transition: 'width 0.4s ease',
                                   }}
                                 />
@@ -2289,7 +2289,7 @@ export function Profile() {
                                                 : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
                                               boxShadow: isUnlocked
                                                 ? '0 0 6px var(--accent-yellow)'
-                                                : '0 0 6px rgba(0, 240, 255, 0.5)',
+                                                : '0 0 6px rgb(var(--accent-cyan-rgb) / 0.5)',
                                               transition: 'width 0.4s ease',
                                             }}
                                           />
@@ -2330,7 +2330,7 @@ export function Profile() {
                       <div
                         style={{
                           background: 'rgb(var(--bg-primary-rgb) / 0.92)',
-                          border: '1.5px solid rgba(0, 240, 255, 0.28)',
+                          border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.28)',
                           borderRadius: 8,
                           overflow: 'hidden',
                           display: 'flex',
@@ -2343,7 +2343,7 @@ export function Profile() {
                           style={{
                             padding: '10px 14px',
                             background: 'rgb(var(--bg-card-rgb) / 0.95)',
-                            borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                            borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
@@ -2373,7 +2373,7 @@ export function Profile() {
                                 fontFamily: 'var(--font-display)',
                                 fontWeight: 900,
                                 color: 'var(--accent-cyan)',
-                                borderColor: 'rgba(0, 240, 255, 0.4)',
+                                borderColor: 'rgb(var(--accent-cyan-rgb) / 0.4)',
                                 borderRadius: 4,
                               }}
                             >
@@ -2418,7 +2418,7 @@ export function Profile() {
                                     padding: '10px 14px',
                                     borderRadius: 6,
                                     background: 'rgb(var(--bg-panel-rgb) / 0.85)',
-                                    border: '1.5px solid rgba(0, 240, 255, 0.25)',
+                                    border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                                     cursor: 'pointer',
                                     transition: 'all 0.18s ease',
                                     gap: 12,
@@ -2428,13 +2428,13 @@ export function Profile() {
                                     navigate(`/profile?u=${f.username}`);
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'rgba(0, 240, 255, 0.16)';
+                                    e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.16)';
                                     e.currentTarget.style.borderColor = 'var(--accent-cyan)';
                                     e.currentTarget.style.transform = 'translateX(2px)';
                                   }}
                                   onMouseLeave={(e) => {
                                     e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
-                                    e.currentTarget.style.borderColor = 'rgba(0, 240, 255, 0.25)';
+                                    e.currentTarget.style.borderColor = 'rgb(var(--accent-cyan-rgb) / 0.25)';
                                     e.currentTarget.style.transform = 'translateX(0)';
                                   }}
                                 >
@@ -2454,7 +2454,7 @@ export function Profile() {
                                           borderRadius: 5,
                                           background:
                                             'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
-                                          boxShadow: '0 0 8px rgba(0, 240, 255, 0.3)',
+                                          boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3)',
                                         }}
                                       >
                                         <UserAvatar
@@ -2648,7 +2648,7 @@ function TranscriptRow({
             overflowY: 'auto',
             borderRadius: 6,
             background: 'rgb(var(--shade-rgb) / 0.45)',
-            border: '1px solid rgba(0, 240, 255, 0.16)',
+            border: '1px solid rgb(var(--accent-cyan-rgb) / 0.16)',
           }}
         >
           {lines.map((line) => (

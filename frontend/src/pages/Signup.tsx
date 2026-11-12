@@ -227,7 +227,7 @@ export function Signup() {
           <NeonCheck
             offsetTop
             checked={agreed}
-            className="peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#00f0ff]"
+            className="peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-(--accent-cyan)"
           />
           {t('auth.agreePrefix')}
           <button

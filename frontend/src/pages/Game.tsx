@@ -95,7 +95,7 @@ function MiniDie({ value }: { value: number }) {
         height: 38,
         borderRadius: 8,
         background: '#190a38',
-        boxShadow: '0 0 8px rgba(0, 240, 255, 0.3), inset 0 0 4px rgba(255, 0, 127, 0.3)',
+        boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3), inset 0 0 4px rgba(255, 0, 127, 0.3)',
         border: '1.5px solid var(--accent-cyan)',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr 1fr',
@@ -3023,7 +3023,7 @@ export function Game() {
 
                     {activeMatch.mode === 'pvp' && (
                       <div
-                        style={{ borderTop: '1px solid rgba(0, 240, 255, 0.25)', paddingTop: 12 }}
+                        style={{ borderTop: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)', paddingTop: 12 }}
                       >
                         <div
                           style={{
@@ -3443,11 +3443,11 @@ export function Game() {
                     letterSpacing: '1px',
                     lineHeight: '1.4',
                     background: isGameEnded
-                      ? 'linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(157, 0, 255, 0.25))'
-                      : 'rgba(0, 240, 255, 0.12)',
+                      ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgba(157, 0, 255, 0.25))'
+                      : 'rgb(var(--accent-cyan-rgb) / 0.12)',
                     border: '1.5px solid var(--accent-cyan)',
                     color: 'var(--text-main)',
-                    boxShadow: isGameEnded ? '0 0 16px rgba(0, 240, 255, 0.4)' : 'none',
+                    boxShadow: isGameEnded ? '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)' : 'none',
                     cursor: 'pointer',
                     textAlign: 'center',
                     justifyContent: 'center',
@@ -3615,7 +3615,7 @@ export function Game() {
                 flexWrap: 'wrap',
                 justifyContent: 'center',
                 gap: 6,
-                borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+                borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                 paddingBottom: 10,
               }}
             >
@@ -3648,13 +3648,13 @@ export function Game() {
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 'bold',
                     background:
-                      rulesPage === p.id ? 'rgba(0, 240, 255, 0.22)' : 'rgb(var(--ink-rgb) / 0.04)',
+                      rulesPage === p.id ? 'rgb(var(--accent-cyan-rgb) / 0.22)' : 'rgb(var(--ink-rgb) / 0.04)',
                     border:
                       rulesPage === p.id
                         ? '1.5px solid var(--accent-cyan)'
                         : '1px solid rgb(var(--ink-rgb) / 0.1)',
                     color: rulesPage === p.id ? 'var(--text-main)' : 'var(--text-muted)',
-                    boxShadow: rulesPage === p.id ? '0 0 10px rgba(0, 240, 255, 0.35)' : 'none',
+                    boxShadow: rulesPage === p.id ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                     borderRadius: 4,
                     cursor: 'pointer',
                     textAlign: 'center',
@@ -3726,7 +3726,7 @@ export function Game() {
                       style={{
                         color: 'var(--text-main)',
                         fontFamily: 'var(--font-mono)',
-                        background: 'rgba(0, 240, 255, 0.2)',
+                        background: 'rgb(var(--accent-cyan-rgb) / 0.2)',
                         padding: '3px 10px',
                         borderRadius: 4,
                         border: '1px solid var(--accent-cyan)',
@@ -3903,7 +3903,7 @@ export function Game() {
                     padding: 16,
                     borderRadius: 6,
                     borderLeft: '4px solid var(--accent-cyan)',
-                    border: '1px solid rgba(0, 240, 255, 0.2)',
+                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.2)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
@@ -4150,7 +4150,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#00f0ff',
+                    color: 'var(--accent-cyan)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -4164,13 +4164,13 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    border: '1px solid rgba(0, 240, 255, 0.25)',
+                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                   }}
                 >
-                  <div style={{ color: '#00f0ff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                     {t('gameExtra.rulesPage8Title')}
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
@@ -4194,7 +4194,7 @@ export function Game() {
               >
                 <div
                   style={{
-                    color: '#00f0ff',
+                    color: 'var(--accent-cyan)',
                     fontWeight: 'bold',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '1.05rem',
@@ -4208,13 +4208,13 @@ export function Game() {
                     background: 'rgba(5, 2, 18, 0.65)',
                     padding: 16,
                     borderRadius: 6,
-                    border: '1px solid rgba(0, 240, 255, 0.25)',
+                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 10,
                   }}
                 >
-                  <div style={{ color: '#00f0ff', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '1.1rem' }}>
                     {t('gameExtra.rulesPage9Title')}
                   </div>
                   <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>

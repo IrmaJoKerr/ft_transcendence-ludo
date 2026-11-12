@@ -60,16 +60,16 @@ function getToastInfo(
         ? {
             tag: t('notifications.matchInviteTag'),
             badgeLabel: offerMechanismLabel('room'),
-            badgeColor: 'var(--accent-cyan, #00f0ff)',
-            badgeBg: 'rgba(0, 240, 255, 0.18)',
+            badgeColor: 'var(--accent-cyan)',
+            badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
             fromUser: from,
             actionMessage: t('notifications.actionMatchInvite'),
           }
         : {
             tag: t('notifications.matchChallengeTag'),
             badgeLabel: offerMechanismLabel('challenge'),
-            badgeColor: 'var(--accent-cyan, #00f0ff)',
-            badgeBg: 'rgba(0, 240, 255, 0.18)',
+            badgeColor: 'var(--accent-cyan)',
+            badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
             fromUser: from,
             actionMessage: t('notifications.actionMatchChallenge'),
           };
@@ -115,8 +115,8 @@ function getToastInfo(
       return {
         tag: t('notifications.matchAcceptedTag'),
         badgeLabel: 'DUEL',
-        badgeColor: 'var(--accent-cyan, #00f0ff)',
-        badgeBg: 'rgba(0, 240, 255, 0.18)',
+        badgeColor: 'var(--accent-cyan)',
+        badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
         fromUser: from,
         actionMessage: t('notifications.actionMatchAccepted'),
       };
@@ -190,8 +190,8 @@ function getToastInfo(
       return {
         tag: t('notifications.profileUpdatedTag'),
         badgeLabel: 'PROF',
-        badgeColor: 'var(--accent-cyan, #00f0ff)',
-        badgeBg: 'rgba(0, 240, 255, 0.18)',
+        badgeColor: 'var(--accent-cyan)',
+        badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
         fromUser: null,
         actionMessage: t('notifications.profileUpdatedText', {
           item: labels || t('notifications.unknown'),
@@ -206,8 +206,8 @@ function getToastInfo(
       return {
         tag: t('notifications.displayNameChangedTag'),
         badgeLabel: 'CALL',
-        badgeColor: 'var(--accent-cyan, #00f0ff)',
-        badgeBg: 'rgba(0, 240, 255, 0.18)',
+        badgeColor: 'var(--accent-cyan)',
+        badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
         fromUser: null,
         actionMessage: t('notifications.displayNameChangedText', {
           displayName: oldName,
@@ -219,8 +219,8 @@ function getToastInfo(
       return {
         tag: t('notifications.sysBroadcastTag'),
         badgeLabel: 'SYS',
-        badgeColor: 'var(--accent-cyan, #00f0ff)',
-        badgeBg: 'rgba(0, 240, 255, 0.18)',
+        badgeColor: 'var(--accent-cyan)',
+        badgeBg: 'rgb(var(--accent-cyan-rgb) / 0.18)',
         fromUser: null,
         actionMessage: t('notifications.actionSysBroadcast'),
       };
@@ -519,9 +519,9 @@ function Toast({
                 <span
                   style={{
                     fontSize: '0.62rem',
-                    background: 'rgba(0, 240, 255, 0.18)',
-                    border: '1px solid var(--accent-cyan, #00f0ff)',
-                    color: 'var(--accent-cyan, #00f0ff)',
+                    background: 'rgb(var(--accent-cyan-rgb) / 0.18)',
+                    border: '1px solid var(--accent-cyan)',
+                    color: 'var(--accent-cyan)',
                     padding: '1px 6px',
                     borderRadius: 2,
                     fontFamily: 'var(--font-mono, monospace)',
@@ -537,7 +537,7 @@ function Toast({
                 style={{
                   fontFamily: 'var(--font-heading, monospace)',
                   fontSize: '0.82rem',
-                  color: 'var(--accent-cyan, #00f0ff)',
+                  color: 'var(--accent-cyan)',
                   letterSpacing: 1,
                   fontWeight: 'bold',
                 }}
@@ -577,9 +577,9 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(0, 240, 255, 0.18)',
-                border: '2px solid var(--accent-cyan, #00f0ff)',
-                color: 'var(--accent-cyan, #00f0ff)',
+                background: 'rgb(var(--accent-cyan-rgb) / 0.18)',
+                border: '2px solid var(--accent-cyan)',
+                color: 'var(--accent-cyan)',
                 boxSizing: 'border-box',
                 margin: 0,
               }}
@@ -628,9 +628,9 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(0, 240, 255, 0.18)',
-                border: '2px solid var(--accent-cyan, #00f0ff)',
-                color: 'var(--accent-cyan, #00f0ff)',
+                background: 'rgb(var(--accent-cyan-rgb) / 0.18)',
+                border: '2px solid var(--accent-cyan)',
+                color: 'var(--accent-cyan)',
                 boxSizing: 'border-box',
                 margin: 0,
               }}
@@ -657,9 +657,9 @@ function Toast({
                 alignItems: 'center',
                 justifyContent: 'center',
                 textAlign: 'center',
-                background: 'rgba(0, 240, 255, 0.18)',
-                border: '2px solid var(--accent-cyan, #00f0ff)',
-                color: 'var(--accent-cyan, #00f0ff)',
+                background: 'rgb(var(--accent-cyan-rgb) / 0.18)',
+                border: '2px solid var(--accent-cyan)',
+                color: 'var(--accent-cyan)',
                 boxSizing: 'border-box',
                 margin: 0,
               }}
@@ -801,8 +801,8 @@ export function NotificationDigest({
         zIndex: 99999,
         width: 380,
         background: 'rgb(var(--bg-panel-rgb) / 0.97)',
-        border: '2px solid var(--accent-cyan, #00f0ff)',
-        boxShadow: '0 0 24px rgba(0, 240, 255, 0.35), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
+        border: '2px solid var(--accent-cyan)',
+        boxShadow: '0 0 24px rgb(var(--accent-cyan-rgb) / 0.35), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 4,
         display: 'flex',
         flexDirection: 'column',
@@ -827,7 +827,7 @@ export function NotificationDigest({
           gap: 10,
           padding: '12px 14px',
           cursor: 'pointer',
-          borderBottom: '1px solid rgba(0, 240, 255, 0.25)',
+          borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
         }}
       >
         <span
