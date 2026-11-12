@@ -10,7 +10,6 @@ import { useRoute, navigate } from '../router';
 import { useApp } from '../store';
 import { STATUS_STYLE, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,

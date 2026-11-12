@@ -1,0 +1,42 @@
+/* ==========================================================================
+   THEME BASE - both era tables, imported in this order, plus the tokens derived
+   from them
+   ========================================================================== */
+
+/* One file per era, and this file is the only place that says which eras exist and
+   in what order (todo.md section 33, decision 1).
+
+   Order is the contract, not a preference: `retro80/theme.css` declares `:root` and
+   `retro70/theme.css` declares `[data-theme='retro70']`, both 0-1-0, so for an
+   `<html>` that matches both - a 70s reader between the store's first render and
+   its effect, before `data-theme` lands - only source order decides which palette
+   wins. The 80s table therefore comes first and the 70s table, later, wins; the other
+   order would serve the 80s palette to a 70s reader without a flash to explain it.
+
+   `scripts/check-theme-literals.mjs` gates the pair: a name declared by one table
+   and not the other, or the two declaring them in different orders, fails `npm run
+   build` and `npm run lint`. Values are never compared - the two eras disagree on
+   every value on purpose.
+
+   A theme's own art lives in its folder beside its table, `80s-Synthwave-Cityscape.jpg`
+   in `retro80/` and `1970s-Orbital-Colony.jpg` in `retro70/`, and is read by that
+   table's `--shell-image`. Nothing is left in `public/`; if an asset ever cannot be
+   imported from its theme folder, it stays in `public/` and this header says which
+   and why. */
+
+@import './themes/retro80/theme.css';
+@import './themes/retro70/theme.css';
+
+/* The fieldset's six tokens, derived rather than spelled. They used to be a literal
+   `:root` at the end of the one stylesheet, at the same specificity as the theme
+   blocks and after them, so a piece of chrome read synthwave's pinks under both
+   eras and a themed fieldset was impossible. Read off the theme instead: the fieldset
+   is chrome, and chrome follows the era. */
+:root {
+  --fs-border: var(--accent-pink);
+  --fs-text: var(--text-main);
+  --fs-accent: var(--accent-pink);
+  --fs-cyan: var(--accent-cyan);
+  --fs-bg: var(--bg-card);
+  --fs-glow: rgb(var(--accent-pink-rgb) / 0.5);
+}

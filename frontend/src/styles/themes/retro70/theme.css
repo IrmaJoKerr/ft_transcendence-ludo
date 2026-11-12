@@ -1,0 +1,92 @@
+/* The parity contract (decision 2, `scripts/check-theme-literals.mjs`): every name
+   this file declares, `retro80/theme.css` declares too, in the same order, and the
+   gate fails on a name that appears in one table and not the other. A token read
+   under the wrong era renders as `unset` rather than as a wrong colour, so nothing
+   but the gate catches it.
+
+   The art this table paints sits beside it: `1970s-Orbital-Colony.jpg`, read by the
+   `--shell-image` below, so a theme is one folder, dropped in or taken out whole. */
+
+/* --------------------------------------------------------------------------
+   THEME 2: 1970s SPACE-AGE (data-theme='retro70')
+   -------------------------------------------------------------------------- */
+
+/* Placed after the block above on purpose: `:root` and `[data-theme='retro80']`
+   are both specificity 0-1-0, so only source order decides which of the two wins
+   for an element that matches both selectors — which `<html>` does for a
+   `retro70` reader between the store's first render and its effect. A 70s block
+   above this one would lose silently instead of flashing a palette.
+
+   Values are the approved stills' palette (`/tmp/theme-mockups`, `gen.py`'s
+   `PAL['retro70']`), so the canvas painters and the shell cannot disagree. One
+   deliberate lift: `--accent-cyan` takes the palette's `a1t` (#5FB3B0) rather
+   than its `a1` (#3F8A8C), because the app paints small cyan text in 169 places
+   and `a1` on `--bg-primary` only reaches 4.6:1. */
+[data-theme='retro70'] {
+  --bg-primary: #14100e;
+  --bg-secondary: #241a12;
+  --bg-card: rgba(43, 30, 21, 0.85);
+  --accent-cyan: #5fb3b0;
+  --accent-pink: #e5340b;
+  /* The same two jobs as the block above: the era's amber, and the caution (27). */
+  --accent-yellow: #ffb000;
+  --accent-purple: #0c5679;
+  --text-main: #ffe7bd;
+  --text-muted: #c9b08a;
+  --text-soft: #e3d2ae;
+  --border-color: #e5340b;
+  --box-shadow: 0 0 15px rgba(229, 52, 11, 0.45), inset 0 0 15px rgba(255, 176, 0, 0.2);
+  /* Heading and display are the era's face, vendored with the others (see
+     `public/fonts/README.md`); Mono stays Atkinson so readouts and room codes keep
+     their tabular figures. */
+  --font-heading: 'Comfortaa', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-display: 'Comfortaa', 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible Mono', ui-monospace, 'Courier New', monospace;
+  --grid-line-color: rgba(255, 176, 0, 0.28);
+  --grid-bg-glow: rgba(242, 138, 15, 0.18);
+  --btn-bg: linear-gradient(135deg, #e5340b, #f28a0f);
+  --btn-hover-shadow: 0 0 20px #ffb000, 0 0 35px #e5340b;
+  --crt-scanline-opacity: 0.1;
+  --crt-flicker-opacity: 0.02;
+  --window-header-bg: linear-gradient(90deg, #e5340b, #ffb000);
+  --window-header-text: #ffe7bd;
+  --card-border-style: 2px solid var(--accent-pink);
+  /* The orbital colony is the 70s shell's ground, painted the same way the
+     synthwave shell wears its cityscape: full-bleed, fixed, dimmed so every UI
+     surface sits in front of it. */
+  --shell-image: url('./1970s-Orbital-Colony.jpg'), linear-gradient(to_bottom, rgba(20, 16, 14, 0.30) 0%, rgba(20, 16, 14, 0.62) 100%);
+  /* Black at 55 per cent, the value the stills paint this card at: the navy the
+     synthwave card uses reads purple over walnut. The glows move to the palette's
+     amber and hot red, the pair the stills ring the card in. */
+  --start-overlay-bg: rgba(11, 8, 5, 0.55);
+  --start-overlay-glow: rgba(255, 176, 0, 0.35);
+  --start-overlay-inset: rgba(229, 52, 11, 0.22);
+  /* The channel form (see the block above): two of these are additions rather
+     than translations, because the 70s palette has no value to translate from.
+     Both were measured against `--bg-primary` rather than picked: `--accent-cyan`
+     is the palette's `a1t` (`#5fb3b0`) rather than its `a1` (`#3f8a8c`), which
+     only reaches 4.6:1 for small text, and warm black `#1a1009` keeps a shadow
+     over walnut from reading blue-grey. */
+  --accent-pink-rgb: 229 52 11;
+  --accent-cyan-rgb: 95 179 176;
+  --accent-yellow-rgb: 255 176 0;
+  --accent-purple-rgb: 12 86 121;
+  --ink-rgb: 255 231 189;
+  --shade-rgb: 26 16 9;
+  --bg-primary-rgb: 20 16 14;
+  /* The state pair (26), measured against the surface the text actually sits on
+     rather than the page ground. Avocado `#82903f` keeps the era's moss and reads
+     4.75:1 on `--bg-card` (5.41:1 on `--bg-primary`); the earlier `#7d8b3e` was
+     measured at 5.08:1 on the ground but reads 4.45:1 on the card, a rounding miss
+     for small text, so it is lifted two steps of lightness and no hue. The refusal
+     is a cranberry rose `#e8697d`, 5.33:1 on the card, 20.7 degrees of hue from
+     the shell's vermilion and 50.9 from the amber warning, so a refusal is read as
+     neither chrome nor caution; it also keeps synthwave's own rose-red family
+     instead of inventing a third red. Warm black `#1a1009` is the ink that sits on
+     the lit pill (5.36:1), and it is `--shade-rgb` itself. */
+  --state-on: #82903f;
+  --state-on-rgb: 130 144 63;
+  --state-on-ink: #1a1009;
+  --state-off: #e8697d;
+  --state-off-rgb: 232 105 125;
+}

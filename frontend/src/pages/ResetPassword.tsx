@@ -7,7 +7,6 @@ import { FieldError } from '../components/FieldError';
 import { navigate } from '../router';
 import { useApp } from '../store';
 import { passwordMeetsPolicy } from '../validatePassword';
-import '../styles/retrowave.css';
 import {
   RETRO_AUTH_BTN,
   RETRO_AUTH_ERROR,

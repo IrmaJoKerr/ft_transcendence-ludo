@@ -14,7 +14,7 @@
  * has to agree on a constant.
  */
 
-import type { HeroScene, RoomScene, SynthwaveScene } from './heroScenes';
+import type { HeroScene, RoomScene, Synthwave80sScene } from './heroScenes';
 
 /** One drifting star. `y` is advance-mutated by the painter, as it always was. */
 export type Star = { x: number; y: number; size: number; speed: number; alpha: number };
@@ -92,8 +92,8 @@ export function createSceneState(scene: HeroScene, width: number): SceneState {
   return { stars: seedStars(scene.starCount, width, scene.horizonY) };
 }
 
-/** The 70s room's palette. These are the same values as `retrowave.css`'s
- *  `[data-theme='retro70']` block and the art's walnut: a canvas cannot read a CSS
+/** The 70s room's palette. These are the same values as
+ *  `styles/themes/retro70/theme.css` and the art's walnut: a canvas cannot read a CSS
  *  custom property without a `getComputedStyle` per frame, so the handful the room
  *  paints are written out, and the two that a designer moves are tokens. */
 const ROOM = {
@@ -194,7 +194,7 @@ function flare(
  */
 export function paintSynthwave(
   ctx: CanvasRenderingContext2D,
-  scene: SynthwaveScene,
+  scene: Synthwave80sScene,
   state: SceneState,
   frame: HeroFrame,
   marquee: string,

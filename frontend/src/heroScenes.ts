@@ -12,9 +12,13 @@ export type HeroPawn = { label: string; color: string; x: number; y: number };
  * that shipped: the colours here are the only thing a painter reads from a scene —
  * geometry stays in `heroBackdrops.ts`, where the literals are still visible next
  * to the drawing calls that use them.
+ *
+ * Already renamed for the artwork, not the theme: `kind` names a drawing (its
+ * sibling is `'room'`), so the name leads with the era while the theme id is
+ * `retro80` (todo.md 33, decision 18).
  */
-export type SynthwaveScene = {
-  kind: 'synthwave';
+export type Synthwave80sScene = {
+  kind: '80s-Synthwave';
   bgTop: string;
   bgMid: string;
   bgBot: string;
@@ -32,8 +36,8 @@ export type SynthwaveScene = {
 };
 
 /** The 80s card. Values verbatim from `Home.tsx` before the split. */
-export const SYNTHWAVE_CFG: SynthwaveScene = {
-  kind: 'synthwave',
+export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
+  kind: '80s-Synthwave',
   bgTop: '#070114',
   bgMid: '#160530',
   bgBot: '#05010d',
@@ -95,10 +99,10 @@ export const RETRO70_CFG: RoomScene = {
 };
 
 /** Every card: one scene per theme, discriminated on `kind`. */
-export type HeroScene = SynthwaveScene | RoomScene;
+export type HeroScene = Synthwave80sScene | RoomScene;
 
 /** The scene a theme paints. One map, so a new `ThemeType` cannot ship unpainted. */
 export const HERO_SCENES: Record<ThemeType, HeroScene> = {
-  synthwave: SYNTHWAVE_CFG,
+  retro80: SYNTHWAVE_80S_CFG,
   retro70: RETRO70_CFG,
 };

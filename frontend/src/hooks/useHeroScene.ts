@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { createSceneState, paintHero, type HeroFrame } from '../heroBackdrops';
 import { HERO_SCENES } from '../heroScenes';
 import type { ThemeType } from '../store';
+import colonyArt from '../styles/themes/retro70/1970s-Orbital-Colony.jpg';
 
 /**
  * Drives the home cabinet's one canvas: seeds the scene, advances the frame clocks
@@ -35,10 +36,11 @@ export function useHeroScene(
     const scene = HERO_SCENES[theme];
     const state = createSceneState(scene, canvas.width);
     // The 70s centrepiece loads in the background; the rAF loop paints it the
-    // frame it arrives. Other themes never touch it.
+    // frame it arrives. Other themes never touch it. The art sits in its theme's
+    // folder (todo.md 33, decision 19), so the import is the path.
     if (scene.kind === 'room') {
       const colony = new Image();
-      colony.src = '/1970s-Orbital-Colony.jpg';
+      colony.src = colonyArt;
       state.colonyImg = colony;
     }
     const frame: HeroFrame = { time: 0, gridOffset: 0 };

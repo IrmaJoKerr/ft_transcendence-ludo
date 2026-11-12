@@ -504,7 +504,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
 
       {/* The screen. Same plate, same size, on and off: throwing the switch lights
           the picture up inside it instead of resizing anything, so nothing outside
-          the dock can move. The keyframes live in `retrowave.css`. Off is a dead
+          the dock can move. The keyframes live in `app.css`. Off is a dead
           black box with no content mounted, so it has no tab stops and no live
           region announcing into a tube that is not showing a picture (D3) — and
           no card either: the plate is only a trigger while the channel is on.

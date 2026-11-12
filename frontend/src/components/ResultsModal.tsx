@@ -5,7 +5,6 @@ import { useApp, type LastResult, type ResultPlayer } from '../store';
 import { retroAudio } from '../utils/audio';
 import { avatarSeed, localizedBotName } from '../utils/botName';
 import { COLOR_KEYS } from '../theme';
-import '../styles/retrowave.css';
 import {
   RETRO_BTN,
   TICKET_CONTAINER,

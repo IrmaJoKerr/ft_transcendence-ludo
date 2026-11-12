@@ -5,7 +5,6 @@ import { RetroAuthLayout } from '../components/RetroAuthLayout';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { navigate, useRoute } from '../router';
 import { useApp } from '../store';
-import '../styles/retrowave.css';
 import {
   RETRO_AUTH_BTN,
   RETRO_AUTH_BTN_OUTLINE,

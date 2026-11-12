@@ -53,7 +53,6 @@ import { InviteComms } from '../components/InviteComms';
 import { useFriendships } from '../hooks/useFriendships';
 import { useChatFeed } from '../hooks/useChatFeed';
 import { retroAudio } from '../utils/audio';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,

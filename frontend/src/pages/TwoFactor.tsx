@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { RetroAuthLayout } from '../components/RetroAuthLayout';
 import { navigate, useRoute } from '../router';
 import { useApp } from '../store';
-import '../styles/retrowave.css';
 import {
   RETRO_AUTH_BTN,
   RETRO_AUTH_BTN_OUTLINE,

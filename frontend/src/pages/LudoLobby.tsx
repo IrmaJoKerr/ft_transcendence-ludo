@@ -11,7 +11,6 @@ import { useApp } from '../store';
 import type { LobbyRoom, MyRoom } from '../sessionSocket';
 import { COL, SEAT_COLORS, type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,

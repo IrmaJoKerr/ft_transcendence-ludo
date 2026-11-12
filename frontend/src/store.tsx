@@ -81,7 +81,7 @@ function emptySeats(): Seat[] {
 export type PlayerCount = 2 | 3 | 4;
 
 export type Lang = 'en' | 'fr' | 'ms';
-export type ThemeType = 'synthwave' | 'retro70';
+export type ThemeType = 'retro80' | 'retro70';
 
 /** Languages offered in the account menu. */
 export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
@@ -94,7 +94,7 @@ export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
  * The themes the shell offers, in the order the account menu lists them.
  *
  * One list, three readers: the switcher renders it, `storedTheme()` validates the
- * saved value against it, and the token blocks in `styles/retrowave.css` are keyed
+ * saved value against it, and the tables in `styles/themes/` are keyed
  * by the same `id`s — so a theme cannot be offered without a palette, or kept in
  * storage without a switcher row. The labels are the era names the approved 1970s
  * stills print (`/tmp/theme-mockups`, `PAL[*].label`) and are deliberately not
@@ -102,7 +102,7 @@ export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
  * the pair of token colours the row paints as a two-tone chip.
  */
 export const THEMES: Array<{ id: ThemeType; label: string; swatch: [string, string] }> = [
-  { id: 'synthwave', label: "SYNTHWAVE '84", swatch: ['#ff007f', '#00f0ff'] },
+  { id: 'retro80', label: "RETRO 80'S", swatch: ['#ff007f', '#00f0ff'] },
   { id: 'retro70', label: "RETRO 70'S", swatch: ['#e5340b', '#ffb000'] },
 ];
 
@@ -119,7 +119,7 @@ function storedLang(): Lang {
 
 function storedTheme(): ThemeType {
   const raw = localStorage.getItem(THEME_KEY);
-  return THEMES.some((theme) => theme.id === raw) ? (raw as ThemeType) : 'synthwave';
+  return THEMES.some((theme) => theme.id === raw) ? (raw as ThemeType) : 'retro80';
 }
 
 // A popup setting that forgets on reload is not a setting (22.5). Absent or

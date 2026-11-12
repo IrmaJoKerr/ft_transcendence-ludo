@@ -45,9 +45,9 @@ const TOUCH_EDGE_BUFFER = '1cm';
 const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
 
-// Player identity colors for the plates/bars. Theme-aware CSS vars (defined in
-// retrowave.css) so the clash matches the active theme; the hex fallbacks are
-// the synthwave defaults.
+// Player identity colors for the plates/bars. Theme-aware CSS vars (defined per era
+// in `styles/themes/*/theme.css`) so the clash matches the active theme; the hex
+// fallbacks are the 80s defaults.
 const COLORS: Record<PlayerColor, string> = {
   red: 'var(--clash-red, #e05050)',
   green: 'var(--clash-green, #5fd08a)',

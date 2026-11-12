@@ -10,7 +10,6 @@ import { freeColors, isOccupiedSeat, useApp, type PlayerCount } from '../store';
 import { type ColorKey, COLOR_KEYS } from '../theme';
 import { retroAudio } from '../utils/audio';
 import { localizedPilotName } from '../utils/botName';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,

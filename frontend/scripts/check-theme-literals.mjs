@@ -4,9 +4,14 @@
 // where it IS the thing — a seat hue, a mode's ticket or badge, the hero art, the
 // theme swatch, the token block itself — never where it paints a surface.
 //
+// It also gates table parity (section 33): the two era tables must declare the same
+// token names in the same order, because a name one table has and the other lacks
+// paints as `unset` under that era and no screenshot catches it. Values are never
+// compared; the eras disagree on every value on purpose.
+//
 // `prebuild` and `lint` both run it, so `npm run build` cannot regress the sweep.
-// Modes: no flags for the gate; `--list` prints the inventory without checking.
-import { readdirSync, readFileSync } from 'node:fs';
+// Modes: no flags for both gates; `--list` prints the inventory without checking.
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -79,8 +84,12 @@ const INVENTORY = {
       why: 'the theme row swatch, a picture of the palette',
     },
   ],
-  'styles/retrowave.css': [
+  // A theme table is where a colour becomes a token, so the table is the one file
+  // allowed to spell its own palette. One entry per name that carries a swept form.
+  'styles/themes/retro80/theme.css': [
     { line: '--accent-yellow: #ffe600;', count: 1, why: 'the 80s token definition' },
+  ],
+  'styles/themes/retro70/theme.css': [
     { line: '--accent-yellow: #ffb000;', count: 1, why: 'the 70s token definition' },
     {
       line: '--box-shadow: 0 0 15px rgba(229, 52, 11, 0.45), inset 0 0 15px rgba(255, 176, 0, 0.2);',
@@ -112,6 +121,54 @@ if (process.argv.includes('--list')) {
     for (const entry of entries) console.log(`${file} x${entry.count}  ${entry.why}\n  ${entry.line}`);
   }
   process.exit(0);
+}
+
+// The parity gate (section 33). One table per era means the pair has to agree on
+// names: a token one table declares and the other does not paints as `unset` under
+// that era rather than as a wrong colour, so a screenshot is no proof. Names and
+// their order only - a value is never compared, because the eras disagree on every
+// value on purpose.
+const TABLES = ['styles/themes/retro80/theme.css', 'styles/themes/retro70/theme.css'];
+
+function declared(rel) {
+  const full = path.join(sourceRoot, rel);
+  if (!existsSync(full)) {
+    console.error(`check-theme-literals: ${rel} is missing, so the parity gate cannot run`);
+    process.exit(2);
+  }
+  // A comment names a token; only a declaration creates one. Comments go first,
+  // including the multi-line prose that documents the tables.
+  return readFileSync(full, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((line) => /^\s*(--[a-z0-9-]+)\s*:/.exec(line)?.[1])
+    .filter(Boolean);
+}
+
+const tables = TABLES.map((rel) => ({ rel, names: declared(rel) }));
+const [first, second] = tables;
+const uniq = (list) => [...new Set(list)];
+const parity = [];
+for (const name of uniq(first.names).filter((n) => !second.names.includes(n)))
+  parity.push(`${name}  declared in ${first.rel} only`);
+for (const name of uniq(second.names).filter((n) => !first.names.includes(n)))
+  parity.push(`${name}  declared in ${second.rel} only`);
+for (const table of tables)
+  for (const name of uniq(table.names))
+    if (table.names.filter((n) => n === name).length > 1) parity.push(`${name}  declared twice in ${table.rel}`);
+// The order check: the names both tables share, in each table's own order.
+const seqFirst = uniq(first.names).filter((n) => second.names.includes(n));
+const seqSecond = uniq(second.names).filter((n) => first.names.includes(n));
+const swapped = seqFirst.findIndex((name, i) => name !== seqSecond[i]);
+if (swapped !== -1)
+  parity.push(
+    `order differs at ${swapped + 1}: ${first.rel} has ${seqFirst[swapped]}, ${second.rel} has ${seqSecond[swapped]}`,
+  );
+if (parity.length > 0) {
+  console.error('check-theme-literals: the two theme tables are out of parity');
+  for (const problem of parity) console.error(`  ${problem}`);
+  console.error(`\n${parity.length} parity problem(s) across ${TABLES.length} table(s).`);
+  process.exit(1);
 }
 
 const files = [];
@@ -172,7 +229,8 @@ for (const [file, entries] of Object.entries(INVENTORY)) {
 const forms = new Set(found.map((hit) => hit.literal)).size;
 if (unexpected.length === 0 && stale.length === 0) {
   console.log(
-    `check-theme-literals: ${SWEPT.length} swept colour(s), ${found.length} kept literals, all on the inventory`,
+    `check-theme-literals: ${SWEPT.length} swept colour(s), ${found.length} kept literals all on the inventory, ` +
+      `${seqFirst.length} token names in parity across ${TABLES.length} tables`,
   );
   process.exit(0);
 }

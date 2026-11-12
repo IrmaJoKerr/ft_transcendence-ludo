@@ -11,7 +11,6 @@ import { useChallenges } from '../hooks/useChallenges';
 import { useFriendships } from '../hooks/useFriendships';
 import { SEAT_COLORS, STATUS_STYLE, type ColorKey, type PresenceStatus } from '../theme';
 import { retroAudio } from '../utils/audio';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,

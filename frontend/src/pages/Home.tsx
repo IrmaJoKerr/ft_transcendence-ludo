@@ -9,7 +9,6 @@ import { useNotifications } from '../hooks/useNotifications';
 import { navigate } from '../router';
 import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
-import '../styles/retrowave.css';
 import {
   CRT_SCREEN,
   GRID_BACKGROUND,
