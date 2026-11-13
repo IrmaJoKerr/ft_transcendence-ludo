@@ -320,8 +320,8 @@ export class PresenceService implements OnModuleDestroy {
             : 'friend_offline';
       const payload = {
         userId,
-        fromUsername: actor?.username ?? 'Pilot',
-        displayName: actor?.displayName ?? actor?.username ?? 'Pilot',
+        fromUsername: actor?.username ?? 'Squad Leader',
+        displayName: actor?.displayName ?? actor?.username ?? 'Squad Leader',
       };
       await Promise.all(
         friendIds.map((friendId) => this.notifications.notifyTransient(friendId, type, payload)),

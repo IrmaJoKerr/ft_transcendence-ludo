@@ -110,13 +110,13 @@ export function getNotificationTypeBadge(
     case 'friend_online':
       return {
         tagKey: 'notifications.friendOnlineTag',
-        defaultTag: '[PILOT_ONLINE]',
+        defaultTag: '[SQUAD_LEADER_ONLINE]',
         color: 'var(--state-on)',
       };
     case 'friend_offline':
       return {
         tagKey: 'notifications.friendOfflineTag',
-        defaultTag: '[PILOT_OFFLINE]',
+        defaultTag: '[SQUAD_LEADER_OFFLINE]',
         color: 'var(--accent-yellow, #ffe600)',
       };
     case 'profile_updated':

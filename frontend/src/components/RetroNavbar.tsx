@@ -292,7 +292,7 @@ export function RetroNavbar({
     };
   }, [isAccountPopoverOpen]);
 
-  const username = user?.username ?? 'PILOT';
+  const username = user?.username ?? 'SQUAD LEADER';
   const displayName = user?.displayName ?? username;
 
   return (

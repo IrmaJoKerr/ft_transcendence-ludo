@@ -211,19 +211,15 @@ export function Home() {
                   >
                     <canvas id="arcadeCanvas" ref={canvasRef} width={720} height={400} />
 
-                    {/* Interactive Translucent Press Start Banner Overlay. The copy
-                        follows the theme: the 70s colony says LIFT OFF, and its card is
-                        the era's own still. */}
+                    {/* Interactive Translucent Press Start Banner Overlay. Both eras
+                        print the same two lines: the two cards are the same card now,
+                        so the copy no longer asks which theme is on. */}
                     <div className={ARCADE_START_OVERLAY}>
                       <span className={ARCADE_START_TITLE}>
-                        {theme === 'retro70'
-                          ? t('homeExtended.pressStartTitleRetro70')
-                          : t('homeExtended.pressStartTitleSynthwave')}
+                        {t('homeExtended.pressStartTitle')}
                       </span>
                       <span className={ARCADE_START_SUB}>
-                        {theme === 'retro70'
-                          ? t('homeExtended.pressStartSubRetro70')
-                          : t('homeExtended.pressStartSubSynthwave')}
+                        {t('homeExtended.pressStartSub')}
                       </span>
                     </div>
 

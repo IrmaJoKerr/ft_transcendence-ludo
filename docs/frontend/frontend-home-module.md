@@ -123,16 +123,20 @@ The hero title, the greeting, the canvas marquee, the arena title, the press-sta
 | Element | Key | English value |
 |---------|-----|---------------|
 | Hero title | `homeExtended.brandTitle` | `RETRO LUDO '42` |
-| Greeting | `home.greeting` | `Welcome, Pilot {{name}}` |
+| Greeting | `home.greeting` | `Welcome, Squad Leader {{name}}` |
 | Canvas marquee | `homeExtended.heroMarquee` | `[ ft_Transcendence // Team: Pace 24 ]` |
 | Arena title | `homeExtended.arcadeArenaTitle` | `RETRO LUDO '42 // ARCADE ARENA` |
-| Press-start title (80s) | `homeExtended.pressStartTitleSynthwave` | `▶ INSERT COIN // PRESS START ◀` |
-| Press-start subtitle (80s) | `homeExtended.pressStartSubSynthwave` | `[ CLICK SCREEN OR PRESS SPACEBAR ]` |
-| Press-start title (70s) | `homeExtended.pressStartTitleRetro70` | `▶ INSERT COIN // LIFT OFF ◀` |
-| Press-start subtitle (70s) | `homeExtended.pressStartSubRetro70` | `[ TAP THE SCREEN OR PRESS SPACEBAR ]` |
+| Press-start title | `homeExtended.pressStartTitle` | `▶ PRESS TO START ◀` |
+| Press-start subtitle | `homeExtended.pressStartSub` | `[ ENTER ARENA ]` |
 | Footer line | `home.footerLegal` | `© 1942-2026 RETRO LUDO '42 // 42KL // ALL RIGHTS RESERVED // WEB AUDIO & CANV-ARCADE` |
 
-French swaps the brand for `LUDO RÉTRO`, the marquee team word for `Équipe` and the greeting for `Bienvenue, pilote {{name}}`. Malay uses `LUDO RETRO`, `Pasukan` and `Selamat datang, Pilot {{name}}`.
+The press-start copy is one pair of keys for both eras: since the two cards became the same card (todo.md 34,
+item 3) there is nothing left for a theme to choose, so the four `pressStartTitleSynthwave`/`Retro70` keys
+collapsed to two and the `theme === 'retro70'` ternary left `Home.tsx` with them.
+
+French swaps the brand for `LUDO RÉTRO`, the marquee team word for `Équipe` and the greeting for
+`Bienvenue, chef d'escouade {{name}}`. Malay uses `LUDO RETRO`, `Pasukan` and
+`Selamat datang, Ketua Skuad {{name}}`.
 
 The marquee text is held in a ref inside `useHeroScene`, so a language switch only swaps the text and the loop keeps running: the star field is not reshuffled. The theme is the loop's only dependency, so a theme flip is the one thing that restarts it.
 

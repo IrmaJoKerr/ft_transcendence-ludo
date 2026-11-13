@@ -717,7 +717,7 @@ export class FriendsService {
     });
     await this.notificationService.notify(friendId, 'friend_removed', {
       fromUserId: userId,
-      fromUsername: remover?.username ?? 'A pilot',
+      fromUsername: remover?.username ?? 'A squad leader',
     });
     // The row leaves both lists live, not on the next poll.
     void this.events.publishPair(userId, friendId);
@@ -1179,7 +1179,7 @@ export class FriendsService {
     });
     await this.notificationService.notify(targetUserId, 'friend_declined', {
       fromUserId: declinerId,
-      fromUsername: decliner?.username ?? 'A pilot',
+      fromUsername: decliner?.username ?? 'A squad leader',
     });
   }
 }
