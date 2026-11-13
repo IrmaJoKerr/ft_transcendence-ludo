@@ -442,99 +442,13 @@ export const PIECE_HELMET: Record<ColorKey, HelmetSet> = {
   blue: H1,
 };
 
-/**
- * The crew's stance: the same figure, seen from a lounge rather than from above a
- * board. Two paint-order/stance changes and no change of shape — the arms go BEHIND
- * the torso and the mitts stop above the boots.
- *
- * On the board the piece is 14-28 px and neither matters: a 4-px arm is a pixel
- * either way. In the window the same body is 47 px tall, and with the arms in front
- * their ink outlines cut two columns out of the torso and the mitts land on the
- * boots' row, so the figure reads as a box with a knob on it. Behind the torso the
- * arms are a silhouette again; lifted, the hands stop being feet.
- */
-export const PIECE_BODY_CREW: PiecePart[] = [
-  // The neck seal: without it the head floats three units above the shoulders,
-  // which at 112 px is a 4 px gap of sky.
-  {
-    kind: 'rect',
-    x: 42.5,
-    y: 52,
-    w: 15,
-    h: 18,
-    rx: 3.5,
-    fill: 'lo',
-    stroke: 'deepink',
-    strokeW: 2.6,
-  },
-  // Arms behind the torso, a little wider apart and higher than the board's.
-  { kind: 'rect', x: 27.5, y: 68, w: 9, h: 15, rx: 4.5, fill: 'lo', stroke: 'ink', strokeW: 2.6 },
-  { kind: 'rect', x: 63.5, y: 68, w: 9, h: 15, rx: 4.5, fill: 'lo', stroke: 'ink', strokeW: 2.6 },
-  { kind: 'circle', cx: 32, cy: 84, r: 4.6, fill: 'shd', stroke: 'ink', strokeW: 2.4 },
-  { kind: 'circle', cx: 68, cy: 84, r: 4.6, fill: 'shd', stroke: 'ink', strokeW: 2.4 },
-  {
-    kind: 'path',
-    d: 'M39 66 Q34.5 69 34 78 L33.2 87 Q33.2 90.5 37 90.5 L63 90.5 Q66.8 90.5 66.8 87 L66 78 Q65.5 69 61 66 Z',
-    fill: 'lidCrew',
-    stroke: 'ink',
-    strokeW: 3,
-    linecap: 'round',
-  },
-  { kind: 'line', x1: 43.2, y1: 70, x2: 43.2, y2: 88, stroke: 'lo', strokeW: 2.2, opacity: 0.85 },
-  { kind: 'line', x1: 56.8, y1: 70, x2: 56.8, y2: 88, stroke: 'lo', strokeW: 2.2, opacity: 0.85 },
-  {
-    kind: 'rect',
-    x: 36.5,
-    y: 88.5,
-    w: 9,
-    h: 7,
-    rx: 2.4,
-    fill: 'deep',
-    stroke: 'deepink',
-    strokeW: 2.2,
-  },
-  {
-    kind: 'rect',
-    x: 54.5,
-    y: 88.5,
-    w: 9,
-    h: 7,
-    rx: 2.4,
-    fill: 'deep',
-    stroke: 'deepink',
-    strokeW: 2.2,
-  },
-  { kind: 'circle', cx: 50, cy: 79, r: 4.2, fill: 'none', stroke: 'pop', strokeW: 1.8 },
-];
-
-/** The crew's head is 85 per cent, about the neck: 62 per cent head reads as a ball
- *  on a box at 112 px, which is why the board and the window disagree here. */
-export const CREW_HEAD = { neck: 62, scale: 0.85, span: 95.5 } as const;
-
 /** A turned visor's horizontal squash, cos 37 degrees. */
 export const CREW_TURN = { squash: 0.8, slide: 6 } as const;
 
-/** One figure in the window: where it stands, how tall it is, which way it looks. */
-export type CrewFigure = { color: ColorKey; face: 1 | -1; x: number; height: number };
-
-/**
- * Left to right in the seat legend's own order: red, green, yellow, blue. The two
- * pairs stand close enough to touch helmet rims and the seam between them is the
- * widest gap in the row, so the group reads as two conversations rather than a
- * frieze; the outside pair is a size up, which gives the row a front edge.
- */
-export const PIECE_CREW: CrewFigure[] = [
-  { color: 'red', face: 1, x: 178, height: 112 },
-  { color: 'green', face: -1, x: 246, height: 106 },
-  { color: 'yellow', face: 1, x: 320, height: 106 },
-  { color: 'blue', face: -1, x: 404, height: 112 },
-];
-
 /**
  * Each seat's complete figure, body first: what the board stamps and what the clash
- * result draws. The hero's crew draws `PIECE_BODY_CREW` and the helmet groups below
- * in a pose of its own, so the art lives here once and the pose lives with the
- * painter.
+ * result draws. The four helmet groups below are laid onto the shared body, so the
+ * art lives here once and every screen that draws a piece reads it from here.
  */
 export const PIECE_PARTS: Record<ColorKey, PiecePart[]> = {
   red: [...BODY, ...PIECE_GLOBE, ...H2.visor, ...H2.outside],
@@ -575,8 +489,8 @@ export type PieceLayers = PieceLayer[];
 
 /*
  * The turn's two numbers: a horizontal squash about the box's centre, and a slide
- * towards the side the figure is looking — `CREW_TURN`'s own pair, unchanged since the
- * hero's crew started turning its heads in the wait-room window.
+ * towards the side the figure is looking — `CREW_TURN`'s pair, unchanged since the
+ * first crew card turned its heads with it, and now read only by `poseTurn` below.
  *
  * The slide is safe for exactly one reason, and it took a wrong cut to say it plainly:
  * the thing that moves has to be a FACE inside a head that stays put. The 70s has always

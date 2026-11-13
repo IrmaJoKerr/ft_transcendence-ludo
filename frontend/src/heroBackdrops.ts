@@ -14,25 +14,41 @@
  * has to agree on a constant.
  */
 
-import type { HeroScene, RoomScene, Synthwave80sScene } from './heroScenes';
+import type { Colony70sScene, HeroPlate, HeroScene, Synthwave80sScene } from './heroScenes';
 
 /** One drifting star. `y` is advance-mutated by the painter, as it always was. */
 export type Star = { x: number; y: number; size: number; speed: number; alpha: number };
 
-/** One tumbling meteor crossing the room window. */
+/** One streak crossing the sky: a short stroke drawn back along its own velocity. */
 export type Meteor = { x: number; y: number; vx: number; vy: number; len: number; alpha: number };
+
+/** One tumbling stone crossing the sky: a polygon that turns as it travels. */
+export type Rock = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  angle: number;
+  spin: number;
+  alpha: number;
+};
 
 /** The clocks the painters advance, shared by both cards. */
 export type HeroFrame = { time: number; gridOffset: number };
 
 /** What a scene carries between frames: its starfield, seeded once per scene, the
- *  scene's own still once it has decoded (`sceneArt`), and the room's meteors. */
+ *  scene's own still once it has decoded (`sceneArt`), and whatever drifts across
+ *  the card — stars on the 80s card, streaks and stones on the 70s one. */
 export type SceneState = {
   stars: Star[];
-  room?: { key: string; canvas: HTMLCanvasElement | OffscreenCanvas };
   plateImg?: HTMLImageElement;
   meteors?: Meteor[];
+  rocks?: Rock[];
 };
+
+/** A full turn, for the arcs and ellipses a painter closes. */
+const TAU = Math.PI * 2;
 
 /** The starfield the synthwave card drifts, seeded once per scene. */
 export function seedStars(count: number, width: number, horizon: number): Star[] {
@@ -62,17 +78,19 @@ function seedPinpricks(
   }));
 }
 
-/** Seed a scene's state. Both cards get stars; only one of them moves them. */
-/** One meteor at a random edge, drifting across the card at a slow tumble. */
+/** One streak at a random edge, drifting across the sky at a slow crawl. Its band is
+ *  the 70s card's air — below the marquee's 28 px baseline, above the colony's domes —
+ *  and its pace is a tenth of a pixel a frame: a streak that crossed the card in a
+ *  second would read as an effect rather than as distance. */
 function seedMeteor(width: number): Meteor {
   const fromLeft = Math.random() < 0.5;
   return {
     x: fromLeft ? -50 : width + 50,
-    y: 40 + Math.random() * 190,
+    y: 40 + Math.random() * 150,
     vx: fromLeft ? 0.1 + Math.random() * 0.1 : -(0.1 + Math.random() * 0.1),
     vy: (Math.random() - 0.5) * 0.14,
     len: 10 + Math.random() * 20,
-    alpha: 0.35 + Math.random() * 0.5,
+    alpha: 0.2 + Math.random() * 0.3,
   };
 }
 
@@ -80,112 +98,45 @@ function seedMeteors(count: number, width: number): Meteor[] {
   return Array.from({ length: count }, () => seedMeteor(width));
 }
 
+/**
+ * One stone at a random edge, tumbling slowly across the same band the streaks use.
+ *
+ * The smallest is 6 px across and the largest 12, which at this card's scale is a
+ * pebble rather than a moon — big enough to keep its cream rim on a sky this busy,
+ * small enough not to read as a second porthole — and the spin is 0.002..0.005 rad a
+ * frame, so a rotation takes the better part of a minute: the sky should feel like it
+ * is drifting, not like it is being shaken.
+ */
+function seedRock(width: number): Rock {
+  const fromLeft = Math.random() < 0.5;
+  return {
+    x: fromLeft ? -20 : width + 20,
+    y: 40 + Math.random() * 130,
+    vx: (fromLeft ? 1 : -1) * (0.06 + Math.random() * 0.08),
+    vy: (Math.random() - 0.5) * 0.1,
+    r: 3.2 + Math.random() * 2.8,
+    angle: Math.random() * TAU,
+    spin: (Math.random() < 0.5 ? -1 : 1) * (0.002 + Math.random() * 0.003),
+    alpha: 0.45 + Math.random() * 0.3,
+  };
+}
+
+function seedRocks(count: number, width: number): Rock[] {
+  return Array.from({ length: count }, () => seedRock(width));
+}
+
+/** Seed a scene's state. Both cards get stars; only the 80s card moves them. */
 export function createSceneState(scene: HeroScene, width: number): SceneState {
-  if (scene.kind === 'room') {
-    // The sky is the window, not the card: pinpricks between y 50 and 210, which is
-    // the aperture's own band with a margin so none lands on the bezel.
+  if (scene.kind === '70s-Colony') {
+    // The pinpricks are for the frames before the still decodes: they stand in for
+    // the art's own stars, in the band the stones cross, and never move.
     return {
-      stars: seedPinpricks(scene.starCount, 6, width - 6, 50, 210),
-      meteors: seedMeteors(5, width),
+      stars: seedPinpricks(scene.starCount, 4, width - 4, 16, 190),
+      meteors: seedMeteors(scene.meteorCount, width),
+      rocks: seedRocks(scene.rockCount, width),
     };
   }
   return { stars: seedStars(scene.starCount, width, scene.horizonY) };
-}
-
-/** The 70s room's palette. These are the same values as
- *  `styles/themes/retro70/theme.css` and the art's walnut: a canvas cannot read a CSS
- *  custom property without a `getComputedStyle` per frame, so the handful the room
- *  paints are written out, and the two that a designer moves are tokens. */
-const ROOM = {
-  wall: [0, '#241a12', 0.5, '#1b1510', 1, '#120d0a'] as const,
-  wallSeam: 'rgba(11, 8, 5, 0.5)',
-  wallSeamHi: 'rgba(255, 231, 189, 0.06)',
-  crest: '#2b1e15',
-  bezel: '#ffe7bd',
-  lip: 'rgba(201, 176, 138, 0.55)',
-  ledge: [0, '#2e2117', 1, '#1a1310'] as const,
-  ledgeEdge: 'rgba(255, 231, 189, 0.85)',
-  ledgeShadow: 'rgba(11, 8, 5, 0.7)',
-  consoleFace: [0, '#241a13', 1, '#15100c'] as const,
-  consoleEdge: 'rgba(201, 176, 138, 0.22)',
-  rivet: 'rgba(201, 176, 138, 0.7)',
-  key: '#3a2a1c',
-  keyEdge: '#0b0805',
-  keyGloss: 'rgba(201, 176, 138, 0.35)',
-  sky: [0, '#07060e', 0.62, '#150c22', 1, '#20102c'] as const,
-  planet: [0, '#ffd27a', 0.6, '#f28a0f', 1, '#8e2b0a'] as const,
-  band: '#8e2b0a',
-  ringOuter: 'rgba(201, 176, 138, 0.55)',
-  ringInner: 'rgba(255, 231, 189, 0.32)',
-  planetEdge: 'rgba(255, 231, 189, 0.5)',
-  star: '#ffffff',
-  cream: '#ffe7bd',
-  sand: '#c9b08a',
-  amber: '#ffb000',
-  teal: '#5fb3b0',
-  ink: '#0b0805',
-};
-
-/**
- * The window: the app's own bands, top to bottom — marquee 30, frame 30..230, ledge
- * 234..245, the press-start card (DOM) below the canvas, the legend 341..373, the
- * console 326..400. The opening is y 30..230 and x 74..646, taller and rounder than
- * it was, so the colony centrepiece has room to breathe.
- */
-const WIN = { x: 74, y: 30, w: 572, h: 200, r: 40 } as const;
-const LIP_B = 229;
-
-/** A vertical gradient over `y0..y1` from a flat `[offset, colour, ...]` list. */
-function vgrad(
-  ctx: CanvasRenderingContext2D,
-  y0: number,
-  y1: number,
-  stops: readonly (number | string)[],
-): CanvasGradient {
-  const grad = ctx.createLinearGradient(0, y0, 0, y1);
-  for (let i = 0; i < stops.length; i += 2) {
-    grad.addColorStop(stops[i] as number, stops[i + 1] as string);
-  }
-  return grad;
-}
-
-/** A rounded-rectangle sub-path. `roundRect` is baseline in every browser this ships to. */
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
-/** A four-point star: the diffraction spike every painted cover put on its brightest. */
-function flare(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  r: number,
-  opacity: number,
-): void {
-  ctx.save();
-  ctx.strokeStyle = ROOM.star;
-  ctx.fillStyle = ROOM.star;
-  ctx.globalAlpha = opacity;
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.lineWidth = 0.9;
-  ctx.globalAlpha = opacity * 0.7;
-  ctx.beginPath();
-  ctx.moveTo(x - r, y);
-  ctx.lineTo(x + r, y);
-  ctx.moveTo(x, y - r);
-  ctx.lineTo(x, y + r);
-  ctx.stroke();
-  ctx.restore();
 }
 
 /** The four nudges that make a glyph's halo: left, right, up, down. */
@@ -225,7 +176,7 @@ export function paintSynthwave(
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, width, height);
 
-  const plated = paintPlate(ctx, scene, state);
+  const plated = paintPlate(ctx, scene.plate, state);
 
   // 2. Distant Sun — only as the fallback. The still carries a sun of its own,
   //    drawn as the upper half of a disc with its rim on the horizon, so the two
@@ -284,20 +235,37 @@ export function paintSynthwave(
   });
 
   // 6. Marquee Title on Top of Screen
+  paintMarquee(ctx, marquee, scene.marqueeColor, scene.bgBot);
+}
+
+/**
+ * The marquee: one line, 13 px, centred on the card's midline at y 28, in the scene's
+ * own accent with a one-pixel halo in the card's ink.
+ *
+ * Both cards want exactly this and want it for the same reason: the sky behind it is a
+ * photograph, and the brightest pixel in that band is never the type. Four nudges
+ * rather than a shadow, so a glyph stays crisp while the glow does its work — the 80s
+ * card measured 1.98:1 before the halo, and the 70s card's worst pixel is 1.95:1
+ * (todo.md 34, decision 10). The offset is one pixel because the card is drawn at its
+ * own 720×400 and never scaled.
+ */
+function paintMarquee(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  colour: string,
+  halo: string,
+): void {
   ctx.save();
   ctx.font = '13px "Atkinson Hyperlegible Next", sans-serif';
   ctx.textAlign = 'center';
-  // Same reason as the labels above, at 13px: the sky behind it is a photograph
-  // now, stars included, and one of those stars is the brightest pixel in the
-  // marquee's band.
-  ctx.fillStyle = scene.bgBot;
+  ctx.fillStyle = halo;
   for (const [dx, dy] of LABEL_HALO) {
-    ctx.fillText(marquee, 360 + dx, 28 + dy);
+    ctx.fillText(text, 360 + dx, 28 + dy);
   }
-  ctx.fillStyle = scene.marqueeColor;
-  ctx.shadowColor = scene.marqueeColor;
+  ctx.fillStyle = colour;
+  ctx.shadowColor = colour;
   ctx.shadowBlur = 11;
-  ctx.fillText(marquee, 360, 28);
+  ctx.fillText(text, 360, 28);
   ctx.shadowBlur = 0;
   ctx.restore();
 }
@@ -305,16 +273,20 @@ export function paintSynthwave(
 /**
  * The card's still, or `false` while it has not decoded.
  *
- * Cover-cropped to the card rather than stretched, then positioned by its own
- * horizon instead of by its centre: the art draws its ground's haze line 62 per
- * cent down, the card's own horizon is at 65, and putting one on the other is what
- * keeps the skyline above the grid and makes the swap from the drawn fallback
- * invisible. The dim over it is the navy the shell dims its plate with — lighter
- * alphas, because what reads over this one is a marquee and four labels.
+ * One placement for both eras, out of the plate's own two numbers: the art is
+ * cover-cropped to the card rather than stretched, and the art row `plate.horizon`
+ * is put on the card row `plate.at`. The 80s card uses it to put the art's haze line
+ * (62 per cent down) on its own horizon at 260, which keeps the skyline above the
+ * grid and makes the swap from the drawn fallback invisible; the 70s card pins the
+ * art's top edge to the card's, because a poster has no horizon to line up with.
+ *
+ * The dim over it comes from the plate too: each era dims with its own ink, and the
+ * alphas are the portrait's — what reads over a plate is a marquee rather than body
+ * text.
  */
 function paintPlate(
   ctx: CanvasRenderingContext2D,
-  scene: Synthwave80sScene,
+  plate: HeroPlate,
   state: SceneState,
 ): boolean {
   const img = state.plateImg;
@@ -324,11 +296,11 @@ function paintPlate(
   const scale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
   const w = img.naturalWidth * scale;
   const h = img.naturalHeight * scale;
-  ctx.drawImage(img, (width - w) / 2, scene.horizonY - scene.plate.horizon * h, w, h);
+  ctx.drawImage(img, (width - w) / 2, plate.at - plate.horizon * h, w, h);
 
   const dim = ctx.createLinearGradient(0, 0, 0, height);
-  dim.addColorStop(0, scene.plate.dim[0]);
-  dim.addColorStop(1, scene.plate.dim[1]);
+  dim.addColorStop(0, plate.dim[0]);
+  dim.addColorStop(1, plate.dim[1]);
   ctx.fillStyle = dim;
   ctx.fillRect(0, 0, width, height);
   return true;
@@ -397,139 +369,48 @@ function paintGrid(
 }
 
 /* ------------------------------------------------------------------------------------
-   THE ROOM: the four seats, drawn from `game/pieceParts.ts`
+   THE COLONY: the era's own still, with stones tumbling across its sky
    ------------------------------------------------------------------------------------ */
 
-const TAU = Math.PI * 2;
+/**
+ * Seven facets at fixed angles, as multiples of a stone's own radius, so every stone
+ * is the same stone turned: a random outline per stone would make the tumble read as
+ * flicker, because the silhouette would change on every respawn.
+ */
+const ROCK_RIM: ReadonlyArray<readonly [number, number]> = [
+  [0, 1],
+  [0.95, 0.82],
+  [1.85, 1.06],
+  [2.8, 0.86],
+  [3.7, 1],
+  [4.6, 0.78],
+  [5.5, 0.92],
+];
 
 /**
- * The 70s card: a walnut lounge, a porthole onto the orbital colony, and the four
- * seats standing in the window under the marquee.
+ * Advance and paint the streaks crossing the sky, each respawning at a random edge
+ * once it leaves it.
  *
- * The bands are the app's own and nothing crosses them: the wall and its panelling
- * stop above the ledge at 234, the sky is clipped to the opening (74..646 × 30..230),
- * the ledge fills 234..245, the press-start card is DOM below the canvas, the legend
- * prints at 341..373 and the console face takes 326..400. That is why the opening is
- * 200 tall and not 174: the colony centrepiece needs the room.
- *
- * **Painted once, then blitted.** Nothing in this room moves: not the stars, not the
- * lamps, not the planet's slow turn. The two things that can change are the marquee,
- * which follows the language, and the still, which arrives on its own schedule — so
- * the sheet is cached under both and rebuilt only when one of them changes. The
- * still is the reason this key exists at all: a sheet painted before the colony
- * decoded would otherwise be reused forever, and a cold load would show a window
- * with no colony in it. That matters because every body gradient has to be built in
- * the current transform, so painting the room from scratch is more per-frame
- * allocation than the 80s card spends — and this card is a still.
+ * `colour` is the scene's cream rather than a literal because a canvas stroke cannot
+ * read a theme's custom property: the streak is this era's own highlight, and the one
+ * place it is written down is `RETRO70_CFG.meteorColor`.
  */
-export function paintRoom(
+function paintMeteors(
   ctx: CanvasRenderingContext2D,
-  scene: RoomScene,
   state: SceneState,
-  frame: HeroFrame,
-  marquee: string,
+  colour: string,
 ): void {
-  const { width, height } = ctx.canvas;
-  const img = state.plateImg;
-  const art = !!img?.complete && img.naturalWidth > 0;
-  // The readiness leads the key, so a sheet painted before the still arrived can
-  // never be mistaken for one painted after it, whatever the marquee says.
-  const key = `${art ? 'still' : 'empty'}:${marquee}`;
-
-  if (!state.room || state.room.key !== key || state.room.canvas.width !== width) {
-    const canvas = scratchCanvas(width, height);
-    if (!canvas) {
-      // No offscreen available (a test harness): draw straight onto the target, so
-      // there is one drawing path and nothing to keep in step.
-      paintRoomScene(ctx, scene, state, frame, marquee);
-      return;
-    }
-    const scratch = canvas.getContext('2d') as CanvasRenderingContext2D | null;
-    if (!scratch) {
-      paintRoomScene(ctx, scene, state, frame, marquee);
-      return;
-    }
-    paintRoomScene(scratch, scene, state, frame, marquee);
-    state.room = { key, canvas };
-  }
-
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(state.room.canvas, 0, 0);
-}
-
-/** An offscreen canvas, or null where the environment has neither flavour. */
-function scratchCanvas(
-  width: number,
-  height: number,
-): HTMLCanvasElement | OffscreenCanvas | null {
-  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
-  if (typeof document !== 'undefined') {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    return canvas;
-  }
-  return null;
-}
-
-/**
- * Paint one frame of the room's slowly turning planet: a lit sphere with banded
- * cloud stripes and an equatorial belt, rotated by the frame clock.
- */
-function paintRotatingPlanet(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  t: number,
-): void {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(t * 0.035);
-
-  const body = ctx.createRadialGradient(0, 0, r * 0.15, 0, 0, r);
-  body.addColorStop(0, '#ffd27a');
-  body.addColorStop(0.5, '#f28a0f');
-  body.addColorStop(1, '#8e2b0a');
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
-  ctx.fill();
-
-  ctx.strokeStyle = ROOM.band;
-  ctx.lineWidth = 2.6;
-  const turn = t * 0.035;
-  for (const rr of [r * 0.9, r * 0.62, r * 0.35]) {
-    ctx.beginPath();
-    ctx.arc(0, 0, rr, -2.2 + turn, -0.9 + turn);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, rr, 0.9 + turn, 2.2 + turn);
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = ROOM.band;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, r * 0.92, r * 0.14, turn, 0, TAU);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-/**
- * Advance and paint the meteors tumbling past the window; each one respawns at a
- * random edge once it leaves the card.
- */
-function paintMeteors(ctx: CanvasRenderingContext2D, state: SceneState): void {
-  const { width, height } = ctx.canvas;
+  const { width } = ctx.canvas;
   ctx.lineWidth = 1.3;
   state.meteors?.forEach((m) => {
     m.x += m.vx;
     m.y += m.vy;
-    if (m.x < -60 || m.x > width + 60 || m.y < -60 || m.y > height + 60) {
+    // The band is the respawn bound as well as the seed's: a streak outside it has
+    // left the card, rather than drifted down to cross the marquee.
+    if (m.x < -60 || m.x > width + 60 || m.y < -20 || m.y > 210) {
       Object.assign(m, seedMeteor(width));
     }
-    ctx.strokeStyle = `rgba(255, 231, 189, ${m.alpha})`;
+    ctx.strokeStyle = `rgba(${colour}, ${m.alpha})`;
     ctx.beginPath();
     ctx.moveTo(m.x, m.y);
     ctx.lineTo(m.x - m.vx * m.len, m.y - m.vy * m.len);
@@ -537,199 +418,109 @@ function paintMeteors(ctx: CanvasRenderingContext2D, state: SceneState): void {
   });
 }
 
-/** Everything the room is made of, in paint order. */
-function paintRoomScene(
+/**
+ * Advance and paint the stones: a dark polygon with a lit edge, turned by its own
+ * spin.
+ *
+ * The fill is the card's own ground (`bgBot`) rather than a grey of its own, which is
+ * what makes a stone read as a silhouette against the sky instead of as a pale blob:
+ * backlit rock is dark. The rim is the same cream the streaks use, at two thirds of
+ * the stone's own alpha, so a far stone fades as one object rather than as a body and
+ * an outline.
+ */
+function paintRocks(
   ctx: CanvasRenderingContext2D,
-  scene: RoomScene,
+  state: SceneState,
+  scene: Colony70sScene,
+): void {
+  const { width } = ctx.canvas;
+  state.rocks?.forEach((rock) => {
+    rock.x += rock.vx;
+    rock.y += rock.vy;
+    rock.angle += rock.spin;
+    if (rock.x < -40 || rock.x > width + 40 || rock.y < -20 || rock.y > 230) {
+      Object.assign(rock, seedRock(width));
+      return;
+    }
+
+    ctx.save();
+    ctx.translate(rock.x, rock.y);
+    ctx.rotate(rock.angle);
+    ctx.beginPath();
+    ROCK_RIM.forEach(([angle, k], i) => {
+      const px = Math.cos(angle) * rock.r * k;
+      const py = Math.sin(angle) * rock.r * k;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+
+    ctx.globalAlpha = rock.alpha;
+    ctx.fillStyle = scene.bgBot;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = `rgba(${scene.meteorColor}, ${rock.alpha * 0.7})`;
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+/**
+ * The 70s card: the orbital colony's own still, full bleed, with its sky moving.
+ *
+ * The card is one band, not four. The still *is* the card (todo.md 34, decision 7):
+ * it is laid down cover-cropped and top-anchored, dimmed, and the only things drawn
+ * over it are what the picture cannot have — the stones that tumble across its upper
+ * third and the streaks that cross with them. The marquee prints last, through the
+ * same `paintMarquee` the 80s card uses, because amber over this card's brighter sky
+ * measures 8.0:1 at the median and 1.95:1 at its worst, and the halo is what carries
+ * that worst case (decision 10).
+ *
+ * Before the still decodes — and forever if it never does — the card is the retired
+ * room's night sky and its pinpricks, with the same stones over them, so a cold load
+ * shows a moving sky rather than an empty rectangle. That fallback is three colour
+ * stops and no geometry: the room's own painters went with the room.
+ */
+export function paintColony(
+  ctx: CanvasRenderingContext2D,
+  scene: Colony70sScene,
   state: SceneState,
   frame: HeroFrame,
   marquee: string,
 ): void {
   const { width, height } = ctx.canvas;
 
-  ctx.clearRect(0, 0, width, height);
-
-  // 1. The wall: walnut, with panel seams that stop at the ledge.
-  ctx.fillStyle = vgrad(ctx, 0, height, ROOM.wall);
+  // 1. The ground, and what shows before the still arrives.
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, scene.bgTop);
+  sky.addColorStop(0.62, scene.bgMid);
+  sky.addColorStop(1, scene.bgBot);
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height);
-  for (let x = 90; x < width; x += 112) {
-    ctx.strokeStyle = ROOM.wallSeam;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, 226);
-    ctx.stroke();
-    ctx.strokeStyle = ROOM.wallSeamHi;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(x + 3, 0);
-    ctx.lineTo(x + 3, 226);
-    ctx.stroke();
-  }
-  ctx.fillStyle = ROOM.crest;
-  ctx.fillRect(0, 0, width, 6);
 
-  // 2. The view: sky, stars, the colony centrepiece, a slowly rotating planet
-  //    and the occasional meteor — all clipped to the opening.
-  ctx.save();
-  roundRect(ctx, WIN.x, WIN.y, WIN.w, WIN.h, WIN.r);
-  ctx.clip();
-
-  ctx.fillStyle = vgrad(ctx, 40, WIN.y + WIN.h, ROOM.sky);
-  ctx.fillRect(WIN.x - 4, 40, WIN.w + 8, WIN.h - 6);
-
-  ctx.fillStyle = ROOM.star;
-  state.stars.forEach((st) => {
-    ctx.globalAlpha = st.alpha;
-    ctx.beginPath();
-    ctx.arc(st.x, st.y, st.size, 0, TAU);
-    ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-
-  flare(ctx, 150, 92, 5, 0.7);
-  flare(ctx, 612, 62, 6, 0.7);
-
-  // Centrepiece: the orbital colony, cover-cropped to the opening once it loads.
-  const colony = state.plateImg;
-  if (colony?.complete && colony.naturalWidth > 0) {
-    const scale = Math.max(WIN.w / colony.naturalWidth, WIN.h / colony.naturalHeight);
-    const sw = colony.naturalWidth * scale;
-    const sh = colony.naturalHeight * scale;
-    ctx.globalAlpha = 0.82;
-    ctx.drawImage(colony, WIN.x + (WIN.w - sw) / 2, WIN.y + (WIN.h - sh) / 2, sw, sh);
-    ctx.globalAlpha = 1;
+  if (!paintPlate(ctx, scene.plate, state)) {
+    for (const star of state.stars) {
+      ctx.fillStyle = `rgba(${scene.starfield}, ${star.alpha})`;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, TAU);
+      ctx.fill();
+    }
   }
 
-  // The planet turns imperceptibly beneath the colony lights.
-  paintRotatingPlanet(ctx, WIN.x + WIN.w / 2, WIN.y + WIN.h / 2, 60, frame.time);
+  // 2. What the picture cannot have: stones and streaks, in its own band.
+  paintMeteors(ctx, state, scene.meteorColor);
+  paintRocks(ctx, state, scene);
 
-  // Occasional meteors tumble past the window.
-  paintMeteors(ctx, state);
+  // 3. The marquee, over the brightest thing on the card.
+  paintMarquee(ctx, marquee, scene.marqueeColor, scene.bgBot);
 
-  ctx.restore();
-
-
-  // 4. The frame: the bezel, then the lip that stops at the sill.
-  ctx.strokeStyle = ROOM.bezel;
-  ctx.lineWidth = 6;
-  roundRect(ctx, WIN.x, WIN.y, WIN.w, WIN.h, WIN.r);
-  ctx.stroke();
-
-  ctx.strokeStyle = ROOM.lip;
-  ctx.lineWidth = 1.1;
-  ctx.beginPath();
-  ctx.moveTo(82, LIP_B);
-  ctx.lineTo(82, 74);
-  ctx.quadraticCurveTo(82, 52, 104, 52);
-  ctx.lineTo(616, 52);
-  ctx.quadraticCurveTo(638, 52, 638, 74);
-  ctx.lineTo(638, LIP_B);
-  ctx.stroke();
-
-  // 5. The ledge, the console face and its keys.
-  ctx.fillStyle = vgrad(ctx, 222, 233, ROOM.ledge);
-  ctx.fillRect(0, 222, width, 11);
-  ctx.strokeStyle = ROOM.ledgeEdge;
-  ctx.lineWidth = 2.2;
-  ctx.beginPath();
-  ctx.moveTo(0, 222);
-  ctx.lineTo(width, 222);
-  ctx.stroke();
-  ctx.strokeStyle = ROOM.ledgeShadow;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(0, 233);
-  ctx.lineTo(width, 233);
-  ctx.stroke();
-
-  ctx.fillStyle = vgrad(ctx, 326, 400, ROOM.consoleFace);
-  ctx.fillRect(0, 326, width, 74);
-  ctx.strokeStyle = ROOM.consoleEdge;
-  ctx.lineWidth = 0.9;
-  ctx.beginPath();
-  ctx.moveTo(0, 326);
-  ctx.lineTo(width, 326);
-  ctx.stroke();
-
-  ctx.fillStyle = ROOM.rivet;
-  for (const [rx, ry] of [
-    [90, 60],
-    [630, 60],
-    [90, 202],
-    [630, 202],
-  ]) {
-    ctx.beginPath();
-    ctx.arc(rx, ry, 2.6, 0, TAU);
-    ctx.fill();
-  }
-
-  for (let x = 152; x < 600; x += 56) {
-    ctx.fillStyle = ROOM.key;
-    ctx.strokeStyle = ROOM.keyEdge;
-    ctx.lineWidth = 1.2;
-    roundRect(ctx, x, 384, 40, 16, 4);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = ROOM.keyGloss;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x + 5, 391);
-    ctx.lineTo(x + 35, 391);
-    ctx.stroke();
-  }
-
-  const lamps: Array<[number, string]> = [
-    [40, ROOM.amber],
-    [62, ROOM.teal],
-  ];
-  for (const [lx, colour] of lamps) {
-    ctx.fillStyle = colour;
-    ctx.globalAlpha = 0.92;
-    ctx.beginPath();
-    ctx.arc(lx, 346, 4, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 0.35;
-    ctx.strokeStyle = colour;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(lx, 346, 7, 0, TAU);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  }
-
-  // 6. The two pieces of chrome this theme prints on the canvas rather than in DOM:
-  //    the seat legend under the card, and the marquee above the frame.
-  for (const seat of scene.legend) {
-    ctx.fillStyle = seat.color;
-    ctx.beginPath();
-    ctx.arc(seat.x, 356, 7.5, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = seat.color;
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.ellipse(seat.x, 368, 15, 5, 0, 0, TAU);
-    ctx.stroke();
-    ctx.fillStyle = ROOM.cream;
-    ctx.font = '8.5px "Atkinson Hyperlegible Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(seat.label, seat.x, 341);
-  }
-
-  ctx.save();
-  ctx.font = '13px "Atkinson Hyperlegible Mono", monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = scene.marqueeColor;
-  ctx.shadowColor = scene.marqueeColor;
-  ctx.shadowBlur = 11;
-  ctx.fillText(marquee, 360, 30);
-  ctx.restore();
-
-  // The room is a room: nothing drifts but the light. Its frame is handed in anyway,
-  // because a painter that could not take one could not be swapped for the other.
+  // The frame is not read: the stones advance by their own velocity and this card has
+  // no grid to scroll. It stays in the signature because `paintHero` hands one frame
+  // to whichever painter the theme picked, and a painter that could not take one
+  // could not be swapped for the other.
   void frame;
 }
-
 
 /**
  * Paint one frame of whichever card the theme picked.
@@ -744,7 +535,7 @@ export function paintHero(
   frame: HeroFrame,
   marquee: string,
 ): void {
-  if (scene.kind === 'room') paintRoom(ctx, scene, state, frame, marquee);
+  if (scene.kind === '70s-Colony') paintColony(ctx, scene, state, frame, marquee);
   else paintSynthwave(ctx, scene, state, frame, marquee);
 }
 

@@ -212,8 +212,8 @@ export function Home() {
                     <canvas id="arcadeCanvas" ref={canvasRef} width={720} height={400} />
 
                     {/* Interactive Translucent Press Start Banner Overlay. The copy
-                        follows the theme: the 70s room says LIFT OFF, and its card is
-                        the one the stills drew. */}
+                        follows the theme: the 70s colony says LIFT OFF, and its card is
+                        the era's own still. */}
                     <div className={ARCADE_START_OVERLAY}>
                       <span className={ARCADE_START_TITLE}>
                         {theme === 'retro70'

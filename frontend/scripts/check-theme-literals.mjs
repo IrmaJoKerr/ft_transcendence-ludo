@@ -135,8 +135,6 @@ const INVENTORY = {
     { line: "return { ...piecePalette(color), lo: mix(base, '#000000', LO_80) };", count: 1, why: 'a sprite shade, art' },
   ],
   'heroBackdrops.ts': [
-    { line: "amber: '#ffb000',", count: 1, why: 'the 70s backdrop palette' },
-    { line: "star: '#ffffff',", count: 1, why: 'a star is white in both eras: the hero is art' },
     { line: "sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');", count: 1, why: 'a fade to nothing, not a shade' },
   ],
   'game/ResultFx.tsx': [
@@ -193,16 +191,12 @@ const INVENTORY = {
     { line: "c1: 'rgba(255, 230, 0, 0.72)',", count: 1, why: 'the hero art, a painted scene' },
     { line: "c2: 'rgba(255, 0, 127, 0.38)',", count: 1, why: 'the hero art, a painted scene' },
     { line: "{ label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },", count: 1, why: 'the hero art' },
-    { line: "{ label: 'RED', color: '#ff007f', x: 128 },", count: 1, why: 'the hero art' },
-    { line: "{ label: 'YELLOW', color: '#ffe600', x: 470 },", count: 1, why: 'the hero art' },
-    { line: "marqueeColor: '#ffb000',", count: 1, why: 'the hero art' },
+    { line: "{ label: 'RED', color: '#ff0055', x: 85, y: 350 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
+    { line: "{ label: 'GREEN', color: '#00ff88', x: 230, y: 360 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
     { line: "gridColor: 'rgba(0, 240, 255, 0.45)',", count: 1, why: 'the hero art, a painted scene' },
     { line: "{ label: 'BLUE', color: '#00f0ff', x: 635, y: 350 },", count: 1, why: 'the hero art' },
     { line: "marqueeColor: '#00f0ff',", count: 1, why: 'the hero art' },
-    { line: "{ label: 'BLUE', color: '#00f0ff', x: 606 },", count: 1, why: 'the hero art' },
-    { line: "{ label: 'RED', color: '#ff0055', x: 85, y: 350 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
-    { line: "{ label: 'GREEN', color: '#00ff88', x: 230, y: 360 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
-    { line: "{ label: 'GREEN', color: '#00ff88', x: 286 },", count: 1, why: 'the hero art: the state vocabulary drawn into a picture' },
+    { line: "marqueeColor: '#ffb000',", count: 1, why: 'the hero art: the 70s card prints its own amber, as the painter prints the halo' },
   ],
   'pages/Game.tsx': [
     { line: "green: '#00ff88',", count: 1, why: 'SEAT_HUES: colour is the seat' },

@@ -803,10 +803,8 @@ colour role".
 | `PIECE_GRADIENT.lid` | `hi → base (0.46) → lo` | the torso |
 | `PIECE_GRADIENT.lidCrew` | `lit → base (0.55) → lo` | the hero's torso, lit flatter for a figure 47 px tall |
 | `PIECE_GRADIENT.gid` | `hi → base (0.5) → lo`, radial at `0.33/0.28` r `0.9` | the helmet globe |
-| `CREW_HEAD` | neck `62`, scale `0.85`, span `95.5` | the crew's head: 62% head reads as a ball on a box at 112 px, so the window and the board disagree here on purpose |
-| `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned head's squash and slide: the crew's helmets in the window, and the whole of `poseTurn`'s one matrix — both numbers, both sets, no per-set table left |
+| `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned head's squash and slide: the whole of `poseTurn`'s one matrix — both numbers, both sets, no per-set table left |
 | `PIECE_FACE_80` | red `[4,12)`, blue `[2,5)`, green `[4,6)`, yellow `[1,4)` | the slice of each 80s head a pose may move — the face plate `cutAtNeck` turns. `parts80.py`'s `FACE80`, asserted against each head on import and emitted into `pieceParts80.ts`; everything outside it (crest, pods, jaw, chin bar) is outline and does not move (`todo.md` [30](todo.md#rv30-set)) |
-| `PIECE_CREW` | red H2 `+1` @ 178/112, green H3 `−1` @ 246/106, yellow H4 `+1` @ 320/106, blue H1 `−1` @ 404/112 | the row in the porthole: the seat legend's order, facing each other in pairs, the outer pair a size up |
 | `PIECE_HEAD_80` | red `12`, green `11`, yellow `6`, blue `13` | how many parts of each 80s figure sit above the neck — `parts80.py`'s `HEAD_END` seam, emitted into `pieceParts80.ts` so `cutAtNeck` can find the head a pose turns |
 
 
