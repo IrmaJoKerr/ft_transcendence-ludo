@@ -4,6 +4,7 @@ import { MoveValidator } from './move-validator';
 import { seatDisplayName, systemLine } from './game-chat';
 import {
   DISCONNECT_GRACE_MS,
+  HOTSEAT_DISCONNECT_GRACE_MS,
   SINGLE_SOCKET_DISCONNECT_GRACE_MS,
   WAITING_SEAT_GRACE_MS,
 } from './timing';
@@ -53,17 +54,18 @@ function writesMatchRows(matchData: Record<string, string> | null | undefined): 
   return matchData?.gameType !== 'HOTSEAT' && matchData?.isGuest !== 'true';
 }
 
-// How long an away seat may stay away, decided by the room it is in: one hour for
-// a PvE simulation (the browser tab is the game), 45 s for a live PvP seat, and
-// five minutes for a waiting-room seat. Hotseat takes the live 45 s as well: it
-// writes no match row and holds no account's seat, so its hour bought nothing but
-// an hour of lobby lock-out. It still never pauses and still closes itself at
-// expiry, because `isSingleSocketGame` is unchanged; only the window it waits is.
-// The waiting room is deliberately more relaxed (R12/R17): returning to the lobby
-// never costs the seat, so the window is there to notice a player who is not
-// coming back, not to punish a quick look away.
+// How long an away seat may stay away, decided by the room it is in: one hour for a PvE
+// simulation (the browser tab is the game), 45 s for a live PvP seat, five minutes for a
+// waiting-room seat, and five seconds for hotseat. Hotseat takes the shortest window of
+// the four because it is the one room that can afford it: one device drives every seat, a
+// reload rejoins in about a second, and a closed tab leaves nothing anyone could play, so
+// the room closes itself at expiry instead of holding the lobby's lock-out behind it. It
+// still never pauses, because `isSingleSocketGame` is unchanged; only the window it waits
+// is. The waiting room is deliberately more relaxed (R12/R17): returning to the lobby
+// never costs the seat, so the window is there to notice a player who is not coming back,
+// not to punish a quick look away.
 function reconnectWindowMs(state: GameState, gameType: string | undefined): number {
-  if (gameType === 'HOTSEAT') return DISCONNECT_GRACE_MS;
+  if (gameType === 'HOTSEAT') return HOTSEAT_DISCONNECT_GRACE_MS;
   if (isSingleSocketGame(gameType)) return SINGLE_SOCKET_DISCONNECT_GRACE_MS;
   return state.status === 'waiting' ? WAITING_SEAT_GRACE_MS : DISCONNECT_GRACE_MS;
 }
@@ -94,10 +96,11 @@ export function captureExitRecord(state: GameState, color: PlayerColor): ExitRec
     captures: stats.captures ?? 0,
     piecesInGoal: MoveValidator.countPiecesInGoal(state, color),
     piecesLost: stats.piecesLost ?? 0,
-    diceRolls: stats.diceRolls ?? 0,
-    sixes: stats.sixes ?? 0,
-    clashDefends: stats.clashDefends ?? 0,
+    threeSixes: stats.threeSixes ?? 0,
+    clashDefendsWon: stats.clashDefendsWon ?? 0,
     clashAttacksWon: stats.clashAttacksWon ?? 0,
+    clashAttacksLost: stats.clashAttacksLost ?? 0,
+    clashDefendsLost: stats.clashDefendsLost ?? 0,
     clashWallBattlesWon: stats.clashWallBattlesWon ?? 0,
     clashWallsAttacked: stats.clashWallsAttacked ?? 0,
     clashWallsDefended: stats.clashWallsDefended ?? 0,

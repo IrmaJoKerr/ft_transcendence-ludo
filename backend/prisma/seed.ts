@@ -111,6 +111,25 @@ async function main() {
             bestWinStreak: Math.max(1, Math.floor(p.wins / 2)),
             // pveGameStreak: top players have the 3-PvE-streak
             pveGameStreak: Math.min(3, Math.max(0, Math.floor(p.wins / 5))),
+            // The other arena's streak, from the same record: the two counters are each
+            // mode's own, and the roster plays both.
+            pvpGameStreak: Math.min(3, Math.max(0, Math.floor(p.wins / 4))),
+            // The lifetime tallies the career card prints. They are derived from the
+            // roster's record rather than left at zero, so a fresh seed shows a career
+            // instead of an empty card; no achievement reads a career total (they read
+            // the per-game rows), so nothing here can unlock a badge on its own.
+            totalTurns: p.wins * 24 + p.losses * 18,
+            totalCaptures: p.wins * 3,
+            totalPiecesInGoal: p.wins * 4,
+            totalPiecesLost: p.losses * 2,
+            totalThreeSixes: Math.floor(p.losses / 3),
+            clashAttacksWon: p.wins * 2,
+            clashDefendsWon: p.wins,
+            clashAttacksLost: p.losses,
+            clashDefendsLost: p.losses * 2,
+            clashWallBattlesWon: Math.floor(p.wins / 3),
+            clashWallsAttacked: Math.floor(p.wins / 2),
+            clashWallsDefended: p.losses,
           },
         },
         achievement: {

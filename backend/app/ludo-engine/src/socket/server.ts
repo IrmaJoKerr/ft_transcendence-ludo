@@ -195,10 +195,11 @@ export class SocketServer {
         if (!event.result.clashOutcome) {
           const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
           const baseDelay = animMs + BOT_THINK_MS;
-          // What the clients paint AFTER the walk, if anything. A move into home is tested
-          // first and the three cases are exclusive branches, so a move that lands home and
-          // also captured adds one beat rather than two (32.6).
-          const overlay: 'goal' | 'capture' | null = event.result.enteredHome
+          // What the clients paint AFTER the walk, if anything. A move onto the goal is
+          // tested first and the three cases are exclusive branches, so a move that lands
+          // home and also captured adds one beat rather than two (32.6). Only the goal
+          // itself counts: the home lane is a corridor and its cells are not arrivals.
+          const overlay: 'goal' | 'capture' | null = event.result.reachedGoal
             ? 'goal'
             : event.result.captured
               ? 'capture'

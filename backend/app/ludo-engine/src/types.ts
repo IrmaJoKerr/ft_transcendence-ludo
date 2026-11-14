@@ -111,17 +111,20 @@ export interface PlayerMeta {
     turns: number;
     captures: number;
     piecesInGoal: number;
-    // clash QTE tallies: drives the two clash achievements
-    clashDefends: number;
+    // Clash QTE tallies, split by the side this seat stood on and by the outcome.
+    // A seat attacks in one round and defends in the next, so the profile's "clash
+    // won" is `clashAttacksWon + clashDefendsWon` and "clash lost" is the other two.
+    clashDefendsWon: number;
     clashAttacksWon: number;
+    clashAttacksLost: number;
+    clashDefendsLost: number;
     // Wall Breaker tallies: a clash chain won on a landing that stood a wall
     // (drives achTearDownThisWall). Absent on a state written before the token
     // existed, and on one written before the rename that gave it this name.
     clashWallBattlesWon: number;
-    // Every face this seat drew, and how many of them landed on a 6: the match row
-    // prints both beside the turn count.
-    diceRolls: number;
-    sixes: number;
+    // Three sixes in a row forfeit the turn (the classic rule): the only sixes
+    // number a match row prints, because the faces drawn are not stored.
+    threeSixes: number;
     // Pieces this seat lost, however they went home: a plain capture, an
     // intermediate clash round, a cleared wall or a repulsed attack of its own.
     piecesLost: number;
@@ -169,10 +172,11 @@ export interface ExitRecord {
   captures: number;
   piecesInGoal: number;
   piecesLost: number;
-  diceRolls: number;
-  sixes: number;
-  clashDefends: number;
+  threeSixes: number;
+  clashDefendsWon: number;
   clashAttacksWon: number;
+  clashAttacksLost: number;
+  clashDefendsLost: number;
   clashWallBattlesWon: number;
   clashWallsAttacked: number;
   clashWallsDefended: number;
@@ -351,7 +355,11 @@ export interface MoveResult {
   to: number; // final step
   captured: boolean; // landed on an opponent piece
   capturedPieceIds?: PieceId[]; // Every opponent piece sent home from the landing square (a stacked block sends all of them back)
-  enteredHome: boolean; // moved into the home stretch
+  enteredHome: boolean; // moved into the home stretch (52-56)
+  // Landed on the goal square (57): the piece is home, and this is the move the
+  // arrival celebration belongs to. Never true on a capture (no opponent stands in
+  // a home lane), so a clash landing always reports false.
+  reachedGoal: boolean;
   bonusRoll: boolean; // mover rolls again
   // Set only on a move that came out of a clash: who won the press race.
   clashOutcome?: 'attacker_won' | 'defender_won';
@@ -370,7 +378,12 @@ export interface LegalMove {
   from: number; // current step
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
-  isHomeEntry: boolean; // move enters the home stretch (52)
+  isHomeEntry: boolean; // move enters the home stretch (52-56)
+  // True only on the move that lands the piece AT the goal (57). The home stretch is
+  // five cells long and every one of them used to fire the arrival celebration, so
+  // the score fired on the way in and never on the finish; this is the fact the ramp
+  // and the fanfare actually mean.
+  isGoalEntry: boolean;
   // How many defenders the capture sends home: 1 for a single piece, the wall size
   // (2-4) for a breakable wall, 0 when nothing is captured. It is also the clash
   // rounds the move costs. The bot ranks by it and the client labels "x N" from it.

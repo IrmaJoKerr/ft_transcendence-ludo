@@ -366,14 +366,13 @@ export const en = {
     uploadErrorGeneric: 'An error occurred during upload.',
     chipKeyShift: 'KEY SHIFT ×{{count}}',
     statTurns: 'TURNS',
-    statRolls: 'ROLLS',
-    statSixes: 'SIXES',
     statCaptures: 'CAPTURES',
-    statPiecesHome: 'HOME',
-    statPiecesLost: 'LOST',
+    statPiecesHome: 'PIECES IN GOAL',
+    statClashesWon: 'CLASH WON',
+    statClashesLost: 'CLASH LOST',
     statWallsWon: 'WALLS WON',
     statWallsHeld: 'WALLS HELD',
-    statRepulses: 'REPULSES',
+    statNotApplicable: 'N/A',
     loadMoreMatches: 'LOAD MORE',
     loadingMoreMatches: 'LOADING...',
     botTag: '[BOT]',
@@ -422,7 +421,7 @@ export const en = {
     combatCross: '15x15 COMBAT CROSS',
     winConditionLabel: '// WIN CONDITION:',
     fourPiecesInGoal: '4 PIECES IN GOAL',
-    allSystemsPassed: '>>> ALL SYSTEM CHECKS PASSED. ARENA READY FOR LAUNCH <<<',
+    allSystemsPassed: '>>> ARENA SYSTEMS READY. COMBAT ENABLED <<<',
     assignAtLeastOne: '>>> ASSIGN AT LEAST 1 BOT/SQUAD LEADER TO INITIALIZE MATCH <<<',
     initializingArena: '// INITIALIZING ARENA...',
     launchArenaMatch: '// LAUNCH ARENA MATCH //',
@@ -732,7 +731,6 @@ export const en = {
     signInBtn: 'Sign In',
     sendResetLink: 'Send Reset Link',
     forgotPasswordLink: 'Forgot password?',
-    loginTag: 'EST. 1896 · TABLETOP CLASSICS',
     emailVerifiedNotice: 'Email verified: you can log in now.',
     assignedUsernamePrefix: 'Your username is',
     resendVerification: 'Resend verification email',
@@ -872,6 +870,8 @@ export const en = {
     accessRoom: 'ACCESS ROOM',
     warping: 'WARPING...',
     openQuantumRooms: 'OPEN QUANTUM ROOMS',
+    rulesBtn: 'GAME RULES',
+    squadsBtn: 'MEET THE SQUADS',
     colSectorCode: 'SECTOR CODE',
     colHostCallsign: 'HOST CALLSIGN',
     colCapacity: 'CAPACITY',
@@ -880,6 +880,40 @@ export const en = {
     colAction: 'ACTION',
     modeBase: 'BASE GAME',
     noOpenRooms: 'NO OPEN PVP ARENAS FOUND. INITIALIZE AN ARENA AT LEVEL 1',
+  },
+  // The two squad pages (34, item 2): four squads a decade, each with the nickname
+  // its own drawing gives it (`pieceParts.ts`'s four helmets, `pieceParts80.ts`'s
+  // four characters) and a short bio written in the voice the arena speaks in.
+  // Both decades ship here because the page follows the theme, not a toggle.
+  squadsPage: {
+    title: 'MEET THE SQUADS',
+    subtitle: 'FOUR COLOURS, TWO DECADES: THE CREWS YOU SHARE THE ARENA WITH',
+    era70: 'ORBITAL COLONY // 1970s',
+    era80: 'NEON CITY // 1980s',
+    nickRed70: 'CREAM PLATE CREW',
+    nickGreen70: 'MERCURY AERIALS',
+    nickYellow70: 'APOLLO BROW BOYS',
+    nickBlue70: 'EAR POD CLUB',
+    nickRed80: 'NEON OUTRUN PUNKS',
+    nickGreen80: 'GRID NETRUNNERS',
+    nickYellow80: 'SYNTHWAVE ARCADE BIKERS',
+    nickBlue80: 'CHROME CYBORGS',
+    bioRed70:
+      "Red holds the colony's launch rail, and the crew that never stepped off it. The plate is cream because the yard sprays every first helmet in that colour, and every red leader since has kept it: it scuffs, it shows the work, and it is the one helmet you can pick out from the far end of the corridor. They go first, they say so on the approach channel, and they will argue about the route on the way back. They hire out as mercs, and they would rather you knew that before the dice leave your hand.",
+    bioGreen70:
+      'Green flies the aerials, and the slit across the visor is the one Mercury taught the colony to cut. They are the squad that listens: every channel, every relay, every bot that hums when it should not. A green piece on a star is the safest square on the board, and they will remind you of that while the aerial quietly takes the next corner. Mercs to the last, they sell the warning before they sell the shot.',
+    bioYellow70:
+      'Yellow wears the Apollo brow, the wide plate the first landing crews looked through. Their colour is the colony\'s own warning lamp, so a yellow piece is one you can see coming from three quadrants away — which is the point, and they are not embarrassed by it. They will trade you a safe corridor for a favour and collect two turns later. A merc\'s word is his price, and the brow boys keep both.',
+    bioBlue70:
+      'Blue wears the ear pods, and the club behind them is the oldest listening post on the colony. They hear the dice before they land: which corner is soft, which squad is out of position, which lane you are about to take. Blue plays the long board, gives up a square to hold a corridor, and is entirely comfortable being underestimated until the home stretch. Their retainer is the highest on the ring, and it is worth it if you can pay.',
+    bioRed80:
+      "Red is the crest and the leather, the squad that races the arcade's own ghosts for money. Their colour is the city's warning pink, painted on everything fast enough to need it, and they have never once slowed down to be polite. They will take the outside lane, flip the dice, and arrive half a turn before the rest of you thought they could. Mercs with a crew cut and a cassette deck: the fee is real, the swagger comes free.",
+    bioGreen80:
+      'Green runs the grid — the coat, the deck, and the quiet cable nobody else can see. They read the board the way they read a network: every lane a route, every blockade a firewall, every star a node worth holding. A green piece on a star is a green piece in a data haven, and the netrunners will sit on that node until the arena closes. They sell access rather than muscle, and the invoice arrives before the game does.',
+    bioYellow80:
+      'Yellow rides the helmet and the puffer, a squad that treats the board like an arcade cabinet with the glass off. Their colour is the marquee amber, and they take a corner the way a biker does: all at once, leaning too far, somehow still upright. They will gamble a whole blockade on one roll because the crowd is watching. Hire them for the show and keep them for the finish — the fee is a coin, the story is a legend.',
+    bioBlue80:
+      'Blue is chrome from the jaw down, a squad that replaced its patience with plating. They hold the shoulder of the board and dare the rest of you to come through, because a cyborg\'s idea of a safe square is one nobody else can reach. The blue finish is a warning the city learned to read, and they have never needed to raise their voice about it. Mercs by contract and immovable by temperament: they cost the most, and they leave last.',
   },
   homeExtended: {
     brandTitle: "RETRO LUDO '42",
@@ -926,24 +960,27 @@ export const en = {
     pilotLabel: '// SQUAD LEADER: {{name}}',
     guestFallback: 'GUEST',
     activeRoomLabel: '// ACTIVE ROOM: {{status}}',
-    activeRoomYes: 'YES [IN-FLIGHT]',
+    activeRoomYes: 'YES [IN COMBAT]',
     activeRoomNone: 'NONE',
     errorPrefix: '// ERROR: {{message}}',
     scanningOpenSectors: 'SCANNING OPEN SECTORS...',
   },
   board: {
     goalLabel: 'GOAL:',
-    redBay: 'RED HOLDING CELL',
-    greenBay: 'GREEN HOLDING CELL',
-    yellowBay: 'YELLOW HOLDING CELL',
-    blueBay: 'BLUE HOLDING CELL',
+    // The four seats' prisons. The keys keep the `Bay` shape the block has always had,
+    // so the quartet reads as one family and `Board.tsx` builds the name from the
+    // colour; the labels themselves are the word the rules use for the place.
+    redPrison: 'RED PRISON',
+    greenPrison: 'GREEN PRISON',
+    yellowPrison: 'YELLOW PRISON',
+    bluePrison: 'BLUE PRISON',
     // Tooltip on a legal piece's ×R badge: the attack on a stack of R defenders
     // is R clash rounds, one per defender.
     chainBadgeTitle: 'Wall of {{rounds}}: this attack is {{rounds}} clash rounds',
     chainPricedBadgeTitle:
       'Wall of {{rounds}}: this attack breaks it, costs one token, and is {{rounds}} clash rounds',
     // Wall Breaker tooltips: the squad's remaining tokens (the pips next to the
-    // holding cell's label) and the 🔓 price tag on a piece whose only legal move
+    // prison's label) and the 🔓 price tag on a piece whose only legal move
     // is the token-priced exit.
     wallBreakerTokensTitle:
       'Wall Breaker ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
@@ -966,9 +1003,6 @@ export const en = {
     cancelBtn: 'CANCEL',
     confirmAbortBtn: 'CONFIRM ABORT',
     abortSimulationBtn: 'ABORT SIMULATION',
-    // Hotseat has no matchmaking to return to and no second player to inform: the
-    // control ends the room through the End Game path and leaves for the menu.
-    quitToMenuBtn: 'QUIT TO MENU',
     abortVersionTag: 'ARENA.{{code}}',
     rulesModalTitle: 'ARENA PROTOCOLS & RULES',
     rulesVersionTag: 'RULES.v42.SYS',

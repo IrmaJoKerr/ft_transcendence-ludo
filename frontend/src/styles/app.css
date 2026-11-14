@@ -5,8 +5,8 @@
 /* Everything here is app, not era: no palette lives in this file. The two theme
    tables and the tokens derived from them are `theme-base.css`, loaded before this
    sheet by `main.tsx`, and `--fs-*` arrives from there too. A colour spelled in this
-   file is a literal the sweep (`scripts/check-theme-literals.mjs`) reports unless it
-   is on its inventory, so read a token instead. */
+   file is a literal the sweep reports unless it is on its inventory, so read a token
+   instead (`Test-harnesses/style-gates/check-theme-literals.mjs`, run by hand). */
 /* --------------------------------------------------------------------------
    GLOBAL & RESET STYLES
    -------------------------------------------------------------------------- */

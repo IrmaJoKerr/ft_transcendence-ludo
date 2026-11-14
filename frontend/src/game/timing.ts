@@ -45,7 +45,7 @@ export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never a
  *
  * Three kinds, and the wall is the one that changed the shape of this test. A wall's act
  * carries an extra 900 ms beat (the dome taking the hit and holding), so every card drawn
- * on a wall is 900 longer than the pair's: 3800 against 2900. A wall's card is
+ * on a wall is 900 longer than the pair's: 3600 against 2700. A wall's card is
  * `CLASH_WALL_RESULT_MS` whether the wall stood or fell, because the stage that plays the
  * beat is chosen by the stack (`isWall`) and not by who won — a repulse is a dome that
  * took the blow and held.
@@ -53,7 +53,7 @@ export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never a
  * A total breach — the attacker's win against the LAST defender of a wall — is the only
  * card with a third act (the cloud) and the only one whose sentence lives inside an act
  * instead of after the scene, so it is the longest card there is: three acts and no read
- * window, `CLASH_BREACH_RESULT_MS` 4200. The test is the three facts the scene itself
+ * window, `CLASH_BREACH_RESULT_MS` 4000. The test is the three facts the scene itself
  * reads (`ResultFx`'s `isBreach`): the attacker won, the square was a wall, and no
  * defender is left. With the room's acts off there is no scene at all, so there is no
  * cloud — or beat — to wait for either.

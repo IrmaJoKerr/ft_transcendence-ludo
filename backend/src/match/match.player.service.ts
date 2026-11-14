@@ -17,6 +17,7 @@ import { findSeatedMatch, ENDED_MATCH_STATUSES } from './active-game';
 import { ENGINE_WS_URL } from './match.creator.service';
 import { readRoomRules } from './room-rules';
 import { signEngineToken } from './engine-token.util';
+import { GAME_STATE_TTL_S } from '../__shared__/timing.constants';
 import { SLOT_COLORS } from './slot-colors';
 
 @Injectable()
@@ -325,7 +326,7 @@ export class MatchPlayerService {
     } else {
       current.add(userId);
     }
-    await this.redis.set(readyKey, JSON.stringify(Array.from(current)), 'EX', 86400);
+    await this.redis.set(readyKey, JSON.stringify(Array.from(current)), 'EX', GAME_STATE_TTL_S);
 
     const readyCount = current.size;
     const totalPlayers = [
@@ -375,7 +376,7 @@ export class MatchPlayerService {
     const readyKey = `ready:${gameId}`;
     const current = new Set<string>(JSON.parse((await this.redis.get(readyKey)) ?? '[]'));
     current.delete(userId);
-    await this.redis.set(readyKey, JSON.stringify(Array.from(current)), 'EX', 86400);
+    await this.redis.set(readyKey, JSON.stringify(Array.from(current)), 'EX', GAME_STATE_TTL_S);
 
     return { gameId };
   }

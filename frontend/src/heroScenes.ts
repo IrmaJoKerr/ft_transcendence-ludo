@@ -2,8 +2,17 @@ import type { ThemeType } from './store';
 import cityscapeArt from './styles/themes/retro80/80s-Synthwave-Cityscape.jpg';
 import colonyArt from './styles/themes/retro70/1970s-Orbital-Colony.jpg';
 
-/** One member of the attract-mode crew: a node at (x, y) on the 720×400 card. */
-export type HeroPawn = { label: string; color: string; x: number; y: number };
+/**
+ * A circle on the still: `cx` and `r` as fractions of the art's own width, `cy` as a
+ * fraction of its height.
+ *
+ * The 70s poster has two: the porthole the colony looks through, and the planet hung
+ * inside it. Both are measured off the artwork rather than guessed on the card, and
+ * `plateCircle` converts them through the same `placePlate` the still is drawn with,
+ * so a card that crops the still differently still puts them where the picture has
+ * them.
+ */
+export type PlateCircle = { cx: number; cy: number; r: number };
 
 /**
  * The still a card is painted on.
@@ -31,8 +40,7 @@ export type HeroPlate = {
 };
 
 /**
- * The synthwave attract mode: a sunset, a strafing starfield, a horizon grid and
- * four hologram nodes under the marquee.
+ * The synthwave attract mode: a sunset, a strafing starfield and a horizon grid.
  *
  * This is the palette that used to be an inline `cfg` inside `Home.tsx`'s effect,
  * moved out unchanged so a second theme can sit beside it. Every value is the one
@@ -67,7 +75,6 @@ export type Synthwave80sScene = {
   /** How many stars drift across the sky. */
   starCount: number;
   starfield: string;
-  crew: HeroPawn[];
   marqueeColor: string;
 };
 
@@ -97,12 +104,6 @@ export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
   horizonY: 260,
   starCount: 65,
   starfield: '255, 255, 255',
-  crew: [
-    { label: 'RED', color: '#ff0055', x: 85, y: 350 },
-    { label: 'GREEN', color: '#00ff88', x: 230, y: 360 },
-    { label: 'YELLOW', color: '#ffe600', x: 490, y: 360 },
-    { label: 'BLUE', color: '#00f0ff', x: 635, y: 350 },
-  ],
   marqueeColor: '#00f0ff',
 };
 
@@ -135,6 +136,19 @@ export type Colony70sScene = {
   bgBot: string;
   /** The colony still: its top edge on the card's top edge (decision 7). */
   plate: HeroPlate;
+  /**
+   * The porthole the colony looks out through, in the still's own fractions: the
+   * circle the traffic is confined to. Measured off the artwork (centre 633, 453 of
+   * 1264×848, radius 390), where the cream ring's inner edge closes the window.
+   */
+  porthole: PlateCircle;
+  /**
+   * The gas giant hung in that porthole, same units (centre 642, 242, radius 141). The
+   * traffic passes in front of it, so the frame mask is cleared over this disc: the
+   * planet is sky, not frame, and rock in front of it is the one place a stone may
+   * cross something bright.
+   */
+  planet: PlateCircle;
   /** How many pinpricks the fallback sky is seeded with. They do not drift: they
    *  stand in for the still's own stars rather than animate. */
   starCount: number;
@@ -164,6 +178,10 @@ export const RETRO70_CFG: Colony70sScene = {
     // whose middle is its subject, and its chrome sits along the top (decision 8).
     dim: ['rgba(7, 6, 14, 0.42)', 'rgba(7, 6, 14, 0.4)'],
   },
+  // Measured off the poster: the window's inner rim, and the planet inside it. Both
+  // are quoted in the type's own doc; the fractions are those pixels over 1264×848.
+  porthole: { cx: 0.5008, cy: 0.5342, r: 0.3085 },
+  planet: { cx: 0.5079, cy: 0.2854, r: 0.1116 },
   starCount: 68,
   starfield: '255, 255, 255',
   meteorCount: 4,

@@ -206,15 +206,27 @@ export function Home() {
                           }
                         : undefined
                     }
-                    onClick={launchToLobby}
-                    title={t('home.enterLobbyTooltip')}
                   >
                     <canvas id="arcadeCanvas" ref={canvasRef} width={720} height={400} />
 
                     {/* Interactive Translucent Press Start Banner Overlay. Both eras
                         print the same two lines: the two cards are the same card now,
-                        so the copy no longer asks which theme is on. */}
-                    <div className={ARCADE_START_OVERLAY}>
+                        so the copy no longer asks which theme is on. It is also the
+                        cabinet's one control: the screen around it is a picture, so a
+                        click on the art is not a launch — Space or Enter still are,
+                        from anywhere on the page. */}
+                    <div
+                      className={ARCADE_START_OVERLAY}
+                      onClick={launchToLobby}
+                      title={t('home.enterLobbyTooltip')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        // The page's own Space/Enter handler already launches, so the
+                        // focused banner only has to stop the key from also scrolling.
+                        if (e.key === 'Enter' || e.key === ' ') e.preventDefault();
+                      }}
+                    >
                       <span className={ARCADE_START_TITLE}>
                         {t('homeExtended.pressStartTitle')}
                       </span>

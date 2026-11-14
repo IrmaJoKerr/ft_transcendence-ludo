@@ -36,7 +36,7 @@ import { PIECE_FACE_80, PIECE_HEAD_80, PIECE_PARTS_80 } from '../game/pieceParts
  * needs a direction. Both sets are authored looking at the viewer, and a profile would
  * be eight new drawings, so a pose is one transform on a FACE PLATE inside a head that
  * stays put (`poseTurn`, `cutAtNeck`): the plate squashes to 0.8 and slides 6 units, the
- * numbers the hero's crew has turned its heads with since the wait-room window. The cut
+ * numbers the wait-room window's crew turned its heads with before that room retired. The cut
  * is the seam each set already had — the 70s helmet's `visor` group, the 80s generator's
  * `PIECE_FACE_80` — so a jaw, an ear, a pod or a chin bar stays on the collar and only
  * the face looks somewhere.

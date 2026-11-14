@@ -27,7 +27,7 @@ export interface MatchRowLike {
   rank: number;
   totalCaptures: number;
   piecesInGoal: number;
-  clashDefends: number;
+  clashDefendsWon: number;
   clashAttacksWon: number;
   clashWallBattlesWon: number;
   gameType: 'PVP' | 'PVE';
@@ -176,7 +176,7 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     nameKey: 'dashboard.achSteadyDefender',
     type: 'per-game',
     perGameTarget: 2,
-    perGameSource: (row) => row.clashDefends,
+    perGameSource: (row) => row.clashDefendsWon,
   },
   {
     key: 'achMercilessAttacker',

@@ -43,6 +43,7 @@ import { useApp, isOccupiedSeat, type LastResult, type ResultPlayer, type Seat }
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
 import { CyberButton, CyberModal } from '../components/CyberModal';
+import { GameRulesModal } from '../components/GameRulesModal';
 import { ControlsSettingsModal } from '../components/ControlsSettingsModal';
 import { ResultsModal } from '../components/ResultsModal';
 import { ChatCard } from '../components/ChatCard';
@@ -288,6 +289,11 @@ export function Game() {
   // display name resent on a reconnect (and written back onto the seat).
   const userRef = useRef(user);
   userRef.current = user;
+  // Whether this socket has been accepted by the engine, i.e. whether it holds a seat at
+  // all. The teardown below only tells the room it is leaving once it does, which is what
+  // keeps a StrictMode double-mount (a socket that is disposed before its join lands) from
+  // closing a room nobody had entered yet.
+  const joinedRef = useRef(false);
 
   // **CRT & AUDIO CONTROLS**
   const [crtEnabled, setCrtEnabled] = useState(true);
@@ -295,7 +301,6 @@ export function Game() {
   const [isAbortModalOpen, setIsAbortModalOpen] = useState(false);
   const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
   const [isControlsModalOpen, setIsControlsModalOpen] = useState(false);
-  const [rulesPage, setRulesPage] = useState(0);
 
   useEffect(() => {
     const savedCrt = localStorage.getItem('retro_crt');
@@ -760,6 +765,7 @@ export function Game() {
     document.addEventListener('visibilitychange', reviveOnVisible);
 
     socket.on('game_joined', (state) => {
+      joinedRef.current = true;
       dispatch({ type: 'game_joined', ...(state as object) });
       // The snapshot is the reconciliation point: a reload, a rejoin, a second tab or an
       // engine restart rebuild the whole panel from the log the engine stored. The
@@ -855,9 +861,12 @@ export function Game() {
           from: number;
           to: number;
           path?: number[];
-          // Set only when the path ends at home (step 57): the arrival gets its own beat
-          // (32.5) on top of the walk.
+          // Set when the path ends inside the home lane (52-56): a corridor, not an
+          // arrival, so nothing celebrates it.
           enteredHome?: boolean;
+          // Set only when the path ends ON the goal (57): the arrival gets its own beat
+          // (32.5) on top of the walk, and this is the move the ramp belongs to.
+          reachedGoal?: boolean;
           // Set only when this move settled a clash: the result card is about to take the
           // screen, which moves the capture burst out of the board (see below).
           clashOutcome?: 'attacker_won' | 'defender_won';
@@ -874,12 +883,12 @@ export function Game() {
           : rollLandAtRef.current == null
             ? DICE_ROLL_ANIM_MS
             : Math.max(0, rollLandAtRef.current - performance.now());
-        // A path that ends at home is the one move whose beat outlives the walk, and the result
-        // modal is dated off it: `game_ended` follows this frame while the walk is still in
-        // front of it, so the end is worked out NOW — the roll's tail, the walk's own length,
-        // then the celebration the room's rule chose. `enterGoal` below does not touch it: one
-        // writer, and it is this one.
-        if (e.enteredHome) {
+        // A path that ends on the goal is the one move whose beat outlives the walk, and the
+        // result modal is dated off it: `game_ended` follows this frame while the walk is
+        // still in front of it, so the end is worked out NOW — the roll's tail, the walk's
+        // own length, then the celebration the room's rule chose. `enterGoal` below does not
+        // touch it: one writer, and it is this one.
+        if (e.reachedGoal) {
           goalFxEndsAtRef.current =
             performance.now() +
             rollWait +
@@ -984,14 +993,14 @@ export function Game() {
                 return;
               }
               setAnimatingPiece({ pieceId: e.pieceId, step: path[i] });
-              // The last tick of a path into home: the piece is off the board from this frame
-              // on, so this is where the arrival is drawn — by the setter that lands it, and
-              // never by a second pass over the path.
-              if (i === path.length - 1 && e.enteredHome) enterGoal();
+              // The last tick of a path onto the goal: the piece is off the board from this
+              // frame on, so this is where the arrival is drawn — by the setter that lands
+              // it, and never by a second pass over the path.
+              if (i === path.length - 1 && e.reachedGoal) enterGoal();
             }, MOVE_STEP_ANIM_MS);
           } else if (path.length === 1) {
             setAnimatingPiece({ pieceId: e.pieceId, step: path[0] });
-            if (e.enteredHome) enterGoal();
+            if (e.reachedGoal) enterGoal();
             setTimeout(() => {
               finishMove();
             }, MOVE_STEP_ANIM_MS);
@@ -1174,7 +1183,28 @@ export function Game() {
       window.removeEventListener('focus', revive);
       document.removeEventListener('visibilitychange', reviveOnVisible);
       socket.io.off('reconnect_failed', onReconnectFailed);
-      socket.disconnect();
+      // Hotseat's teardown: one device drives every seat, so leaving this page is the
+      // end of the room rather than a seat going quiet, and it is said out loud instead
+      // of left to the grace window. `leave_game` runs the engine's own departure
+      // funnel, which closes a single-socket room on the spot (and with it the lobby
+      // lock the room was holding); disconnecting instead would only arm a window, so
+      // the seat — and the room — would outlive the page by it. The flag keeps this to a
+      // socket that actually holds the seat, and a finished room is skipped because the
+      // engine has already closed it. PvP and PvE keep their windows: there, leaving is
+      // a disconnect somebody may come back from.
+      const leavingHotseat =
+        joinedRef.current &&
+        activeMatchRef.current?.mode === 'hotseat' &&
+        viewRef.current.status !== 'finished';
+      if (leavingHotseat) {
+        socket.emit('leave_game');
+        // Then close on a later tick: the goodbye is one frame on a WebSocket, but a
+        // batched poll on the fallback transport, and closing in the same tick would
+        // drop the batch it is sitting in.
+        window.setTimeout(() => socket.disconnect(), 50);
+      } else {
+        socket.disconnect();
+      }
       socketRef.current = null;
       if (animTimerRef.current) clearInterval(animTimerRef.current);
       animTimerRef.current = null;
@@ -1396,8 +1426,8 @@ export function Game() {
   // One press of this player's clash key. The overlay matches the key; the server
   // proves ownership and applies the press cap, which discards a decoy pad press.
   const clashInput = (key: string, count = 1) => socketRef.current?.emit('clash_input', key, count);
-  // The overlay's result-card timer calls this when the card's own length is up (2900 on a
-  // pair, 3800 on a wall and 4200 on a breach). It is what frees canRoll again: the reducer
+  // The overlay's result-card timer calls this when the card's own length is up (2700 on a
+  // pair, 3600 on a wall and 4000 on a breach). It is what frees canRoll again: the reducer
   // deliberately keeps `clash` alive until then.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
@@ -1406,8 +1436,8 @@ export function Game() {
   // It gates nothing locally; the engine's release frame is the authority.
   //
   // The number is the card's OWN length plus the margin, never a constant, and the
-  // card's length is per path: 3100 on a pair's two-act card (2900 + 200), 4000 on a
-  // wall's (3800 + 200, the dome's beat included), 4400 on a breach (4200 + 200, the
+  // card's length is per path: 2900 on a pair's two-act card (2700 + 200), 3800 on a
+  // wall's (3600 + 200, the dome's beat included), 4200 on a breach (4000 + 200, the
   // cloud's act on top of the beat) and 1600 on a text-only one. An over-ask is harmless —
   // a receipt cannot extend the engine's deadline — and an under-ask truncates, so the
   // length has to come from the card (25.8, 32.4).
@@ -2947,7 +2977,6 @@ export function Game() {
                   variant="pink"
                   onClick={() => {
                     retroAudio.playUiBeep(600, 0.05);
-                    setRulesPage(0);
                     setIsSystemModalOpen(true);
                   }}
                   style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
@@ -3415,7 +3444,7 @@ export function Game() {
               {/* RETURN TO LOBBY BUTTON (every ended game, a live online PvP, and a live PvE that
                   holds an account's seat: the seat and the board stay, so the lobby's rejoin
                   banner has a door out of the room to answer. A guest PvE has no account to list,
-                  and a live hotseat keeps QUIT TO MENU as its only exit.) */}
+                  and a live hotseat keeps ABORT MATCH as its only exit.) */}
               {(isGameEnded ||
                 activeMatch.mode === 'pvp' ||
                 (activeMatch.mode === 'pve' && !isGuest)) && (
@@ -3455,26 +3484,23 @@ export function Game() {
               )}
 
               {/* ABORT MISSION / END GAME BUTTON */}
-              {!isGameEnded &&
-                (() => {
-                  const isBotOrHotseat =
-                    activeMatch.mode === 'pve' || activeMatch.mode === 'hotseat';
-                  return (
-                    <CyberButton
-                      label={
-                        activeMatch.mode === 'hotseat'
-                          ? t('gameExtra.quitToMenuBtn')
-                          : isBotOrHotseat
-                            ? t('gameExtra.abortSimulationBtn')
-                            : t('game.abortMatchBtn')
-                      }
-                      shortcut="ESC"
-                      variant="danger"
-                      onClick={() => setIsAbortModalOpen(true)}
-                      style={{ width: '100%', justifyContent: 'center' }}
-                    />
-                  );
-                })()}
+              {!isGameEnded && (
+                <CyberButton
+                  label={
+                    // A hotseat room calls off a match, exactly as a live PvP does: it
+                    // writes no row and has no second player to inform, but what is being
+                    // ended is a match, so the control wears the same word. Only a PvE
+                    // simulation has no match to abort.
+                    activeMatch.mode === 'pve'
+                      ? t('gameExtra.abortSimulationBtn')
+                      : t('game.abortMatchBtn')
+                  }
+                  shortcut="ESC"
+                  variant="danger"
+                  onClick={() => setIsAbortModalOpen(true)}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                />
+              )}
 
               {/* Skip: the deliberate way out of a turn a wall attack is holding (it keeps
                   the token and passes). It sits under the abort control and is always on
@@ -3570,659 +3596,10 @@ export function Game() {
         onToggleSound={toggleSound}
       />
 
-      {/* Cyberpunk System Control & Multi-Page Rules Modal (10 Pages) */}
-      <CyberModal
-        isOpen={isSystemModalOpen}
-        title={t('gameExtra.rulesModalTitle')}
-        versionTag={t('gameExtra.rulesVersionTag')}
-        cancelLabel={t('common.close')}
-        proceedLabel={rulesPage < 9 ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')}
-        cancelShortcut="ESC"
-        proceedShortcut={rulesPage < 9 ? '→' : '↵'}
-        closeOnProceed={rulesPage >= 9}
-        onCancel={() => setIsSystemModalOpen(false)}
-        onProceed={() => {
-          if (rulesPage < 9) {
-            retroAudio.playUiBeep(700, 0.05);
-            setRulesPage((p) => p + 1);
-          } else {
-            setIsSystemModalOpen(false);
-          }
-        }}
-        message={
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              minWidth: 380,
-              maxWidth: 520,
-            }}
-          >
-            {/* Page Navigation Tabs: the pill is the label plus a 6px border of air on every
-                side (20.5), so it sizes to its label and the strip wraps instead of sharing a
-                `flex: 1` that is narrower than "10. WALL BREAKER" — the share squeezed the
-                text out of its own pill, which is what made the distance read as 2 to 6px. */}
-            <div
-              style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                gap: 6,
-                borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
-                paddingBottom: 10,
-              }}
-            >
-              {[
-                { id: 0, label: t('gameExtra.rulesTab0') },
-                { id: 1, label: t('gameExtra.rulesTab1') },
-                { id: 2, label: t('gameExtra.rulesTab2') },
-                { id: 3, label: t('gameExtra.rulesTab3') },
-                { id: 4, label: t('gameExtra.rulesTab4') },
-                { id: 5, label: t('gameExtra.rulesTab5') },
-                { id: 6, label: t('gameExtra.rulesTab6') },
-                { id: 7, label: t('gameExtra.rulesTab7') },
-                { id: 8, label: t('gameExtra.rulesTab8') },
-                { id: 9, label: t('gameExtra.rulesTab9') },
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => {
-                    retroAudio.playUiBeep(520, 0.04);
-                    setRulesPage(p.id);
-                  }}
-                  style={{
-                    // Natural width, so the 6px padding on all four sides is a distance the
-                    // eye can see: `flex: 1` divided a 380–520px deck by ten and gave every
-                    // pill less than its own label.
-                    flex: '0 0 auto',
-                    padding: 6,
-                    fontSize: '0.68rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 'bold',
-                    background:
-                      rulesPage === p.id ? 'rgb(var(--accent-cyan-rgb) / 0.22)' : 'rgb(var(--ink-rgb) / 0.04)',
-                    border:
-                      rulesPage === p.id
-                        ? '1.5px solid var(--accent-cyan)'
-                        : '1px solid rgb(var(--ink-rgb) / 0.1)',
-                    color: rulesPage === p.id ? 'var(--text-main)' : 'var(--text-muted)',
-                    boxShadow: rulesPage === p.id ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+      {/* The rules, ten pages of them. The component is shared with the lobby
+          header (34, item 2), so both screens read the same ten pages. */}
+      <GameRulesModal isOpen={isSystemModalOpen} onClose={() => setIsSystemModalOpen(false)} />
 
-            {/* PAGE 0: Objective & Controls */}
-            {rulesPage === 0 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-pink)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage0Header')}
-                </div>
-                <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                  {t('gameExtra.rulesPage0Body')}
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 14,
-                    borderRadius: 6,
-                    border: '1px solid rgb(var(--accent-pink-rgb) / 0.3)',
-                  }}
-                >
-                  <div
-                    style={{
-                      color: 'var(--accent-cyan)',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    {t('gameExtra.rulesCombatControls')}
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      {t('gameExtra.rulesRollDiceLabel')}
-                    </span>
-                    <span
-                      style={{
-                        color: 'var(--text-main)',
-                        fontFamily: 'var(--font-mono)',
-                        background: 'rgb(var(--accent-cyan-rgb) / 0.2)',
-                        padding: '3px 10px',
-                        borderRadius: 4,
-                        border: '1px solid var(--accent-cyan)',
-                        fontWeight: 'bold',
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      {t('gameExtra.spacebarKey')}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      {t('gameExtra.rulesSelectWarpLabel')}
-                    </span>
-                    <span
-                      style={{
-                        color: 'var(--text-main)',
-                        fontFamily: 'var(--font-mono)',
-                        background: 'rgb(var(--accent-pink-rgb) / 0.2)',
-                        padding: '3px 10px',
-                        borderRadius: 4,
-                        border: '1px solid var(--accent-pink)',
-                        fontWeight: 'bold',
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      {t('gameExtra.leftClickKey')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 1: Rolling a 6 */}
-            {rulesPage === 1 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-yellow)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage1Header')}
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    borderLeft: '4px solid var(--accent-yellow)',
-                    border: '1px solid rgb(var(--accent-yellow-rgb) / 0.2)',
-                  }}
-                >
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
-                  >
-                    <span style={{ color: 'var(--accent-yellow)', fontSize: '1.2rem' }}>⚡</span>
-                    <span>{t('gameExtra.rulesPage1Line1')}</span>
-                  </div>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
-                  >
-                    <span style={{ color: 'var(--accent-yellow)', fontSize: '1.2rem' }}>🚀</span>
-                    <span>{t('gameExtra.rulesPage1Line2')}</span>
-                  </div>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
-                  >
-                    <span style={{ color: 'var(--state-off)', fontSize: '1.2rem' }}>⛔</span>
-                    <span>{t('gameExtra.rulesPage1Line3')}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 2: Landing on Enemy Piece */}
-            {rulesPage === 2 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-pink)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage2Header')}
-                </div>
-                <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                  {t('gameExtra.rulesPage2Intro')}
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    borderLeft: '4px solid var(--accent-pink)',
-                    border: '1px solid rgb(var(--accent-pink-rgb) / 0.2)',
-                  }}
-                >
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
-                  >
-                    <span style={{ color: 'var(--accent-pink)', fontSize: '1.2rem' }}>⚔</span>
-                    <span>{t('gameExtra.rulesPage2Line1')}</span>
-                  </div>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.95rem' }}
-                  >
-                    <span style={{ color: 'var(--state-on)', fontSize: '1.2rem' }}>✦</span>
-                    <span>{t('gameExtra.rulesPage2Line2')}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 3: The Star */}
-            {rulesPage === 3 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-cyan)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage3Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    borderLeft: '4px solid var(--accent-cyan)',
-                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div
-                    style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '1.1rem' }}
-                  >
-                    {t('gameExtra.rulesPage3Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage3Body')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 4: Two Pieces Together (Blockade) */}
-            {rulesPage === 4 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--state-on)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage4Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    borderLeft: '4px solid var(--state-on)',
-                    border: '1px solid rgb(var(--state-on-rgb) / 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ color: 'var(--state-on)', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {t('gameExtra.rulesPage4Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage4Body')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 5: Home Lane */}
-            {rulesPage === 5 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-purple)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage5Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    borderLeft: '4px solid var(--accent-purple)',
-                    border: '1px solid rgb(var(--accent-purple-rgb) / 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                  }}
-                >
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage5Line1')}
-                  </p>
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'var(--accent-yellow)',
-                      fontWeight: 'bold',
-                      fontSize: '1.05rem',
-                      letterSpacing: '0.5px',
-                    }}
-                  >
-                    {t('gameExtra.rulesPage5Line2')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 6: Clash Mode */}
-            {rulesPage === 6 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-yellow)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage6Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    border: '1px solid rgb(var(--accent-yellow-rgb) / 0.2)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ color: 'var(--accent-yellow)', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {t('gameExtra.rulesPage6Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage6Body')}
-                  </p>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      borderLeft: '3px solid rgb(var(--accent-yellow-rgb) / 0.35)',
-                      paddingLeft: 10,
-                    }}
-                  >
-                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
-                      {t('gameExtra.rulesPage6Step1')}
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
-                      {t('gameExtra.rulesPage6Step2')}
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
-                      {t('gameExtra.rulesPage6Step3')}
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: '#f0f0f0' }}>
-                      {t('gameExtra.rulesPage6Step4')}
-                    </div>
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.9rem' }}>
-                    {t('gameExtra.rulesPage6Chain')}
-                  </p>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.9rem' }}>
-                    {t('gameExtra.rulesPage6KeyShift')}
-                  </p>
-                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    {t('gameExtra.rulesPage6Touch')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 7: No Safe Zones (hardcore) */}
-            {rulesPage === 7 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--state-off)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage7Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    border: '1px solid rgb(var(--state-off-rgb) / 0.25)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ color: 'var(--state-off)', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {t('gameExtra.rulesPage7Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage7Body')}
-                  </p>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage7Body2')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 8: Free exit */}
-            {rulesPage === 8 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-cyan)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage8Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {t('gameExtra.rulesPage8Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage8Body')}
-                  </p>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage8Body2')}
-                  </p>
-                </div>
-              </div>
-            )}
-            {rulesPage === 9 && (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 14,
-                  fontSize: '0.95rem',
-                  lineHeight: 1.6,
-                }}
-              >
-                <div
-                  style={{
-                    color: 'var(--accent-cyan)',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '1.05rem',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {t('gameExtra.rulesPage9Header')}
-                </div>
-                <div
-                  style={{
-                    background: 'rgba(5, 2, 18, 0.65)',
-                    padding: 16,
-                    borderRadius: 6,
-                    border: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {t('gameExtra.rulesPage9Title')}
-                  </div>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage9Body')}
-                  </p>
-                  <p style={{ margin: 0, color: '#f0f0f0', fontSize: '0.95rem' }}>
-                    {t('gameExtra.rulesPage9Body2')}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        }
-      />
 
       {/* QTE Clash overlay: one component serves keyboard and touch. In hotseat a
           single device owns both seats, so both sides' keys are live at once. The

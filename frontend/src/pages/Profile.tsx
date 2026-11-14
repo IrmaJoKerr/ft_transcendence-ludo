@@ -91,6 +91,10 @@ type MatchHistoryRow = {
   gameType: 'PVP' | 'PVE';
   gameModes: RoomRules | null;
   color: string;
+  // 1 on the winning row, 2 on every other: the engine records no placement, so this
+  // is a win/loss bit and never a podium. A `rank` that is not 1 on a completed row
+  // is a loss — not "second" — because the only seat that finished is the one that
+  // brought its fourth piece home.
   rank: number | null;
   // COMPLETED or ABANDONED (M5). A win is `rank === 1` on a completed row; an
   // abandoned row is neither a win nor a loss, and shows as its own third state.
@@ -100,10 +104,16 @@ type MatchHistoryRow = {
   totalCaptures: number;
   piecesInGoal: number;
   piecesLost: number;
-  diceRolls: number;
-  sixes: number;
-  clashDefends: number;
+  // Three-six forfeits: the only sixes number a row keeps (faces rolled are not
+  // stored, so there is no "rolls" or "sixes" counter any more).
+  threeSixes: number;
+  // Clash rounds, split by the side the seat stood on. The profile prints the two
+  // sums ("clash won/lost"), never a single number: the same seat attacks one
+  // round and defends the next.
   clashAttacksWon: number;
+  clashDefendsWon: number;
+  clashAttacksLost: number;
+  clashDefendsLost: number;
   clashWallBattlesWon: number;
   clashWallsAttacked: number;
   clashWallsDefended: number;
@@ -1899,25 +1909,41 @@ export function Profile() {
                                 const keyShift = g.gameModes?.clashKeyShift ?? 0;
                                 if (keyShift > 0)
                                   chips.push(t('profile.chipKeyShift', { count: keyShift }));
-                                // The stats card in miniature: same counters, same
-                                // order, so the numbers read the same in both places.
-                                const counters: Array<[string, number]> = [
+                                // The counters a row keeps. Rolls and sixes are gone: the
+                                // engine no longer tallies faces, and "lost" (your pieces
+                                // sent home) was the only number it ever printed that read
+                                // like a game result. "Pieces in goal" is the count the
+                                // rating is computed from, so it is the one that matters.
+                                const clashOn = Boolean(g.gameModes?.clashEnabled);
+                                const notApplicable = t('profile.statNotApplicable');
+                                const counters: Array<[string, number | string]> = [
                                   [t('profile.statTurns'), g.totalTurns],
-                                  [t('profile.statRolls'), g.diceRolls],
-                                  [t('profile.statSixes'), g.sixes],
                                   [t('profile.statCaptures'), g.totalCaptures],
                                   [t('profile.statPiecesHome'), g.piecesInGoal],
-                                  [t('profile.statPiecesLost'), g.piecesLost],
+                                  // A clash round has one winner and one loser, and a seat
+                                  // takes both roles across a game: these two are its own
+                                  // half of every round it stood in.
+                                  [
+                                    t('profile.statClashesWon'),
+                                    clashOn ? g.clashAttacksWon + g.clashDefendsWon : notApplicable,
+                                  ],
+                                  [
+                                    t('profile.statClashesLost'),
+                                    clashOn ? g.clashAttacksLost + g.clashDefendsLost : notApplicable,
+                                  ],
+                                  // A clash room's wall numbers. The chips are printed in
+                                  // every row so the layout never shifts between a clash
+                                  // game and a standard one: a room without clash prints
+                                  // N/A rather than a zero that reads as "fought, none won".
+                                  [
+                                    t('profile.statWallsWon'),
+                                    clashOn ? g.clashWallBattlesWon : notApplicable,
+                                  ],
+                                  [
+                                    t('profile.statWallsHeld'),
+                                    clashOn ? g.clashWallsDefended : notApplicable,
+                                  ],
                                 ];
-                                // Clash numbers exist only in a clash room, so they are
-                                // added there instead of printing zeroes everywhere.
-                                if (g.gameModes?.clashEnabled) {
-                                  counters.push(
-                                    [t('profile.statWallsWon'), g.clashWallBattlesWon],
-                                    [t('profile.statWallsHeld'), g.clashWallsDefended],
-                                    [t('profile.statRepulses'), g.clashDefends],
-                                  );
-                                }
                                 return (
                                   <div
                                     key={g.gameId}

@@ -29,8 +29,13 @@ export class StatsService {
       totalCaptures: stats.totalCaptures,
       totalPiecesInGoal: stats.totalPiecesInGoal,
       totalPiecesLost: stats.totalPiecesLost,
-      totalDiceRolls: stats.totalDiceRolls,
-      totalSixes: stats.totalSixes,
+      totalThreeSixes: stats.totalThreeSixes,
+      // The clash lifetime totals, sums included: the career card prints "clash
+      // won/lost" and the two role counters stay visible underneath.
+      clashAttacksWon: stats.clashAttacksWon,
+      clashDefendsWon: stats.clashDefendsWon,
+      clashAttacksLost: stats.clashAttacksLost,
+      clashDefendsLost: stats.clashDefendsLost,
       avgCapturesPerGame:
         totalGames > 0 ? Math.round((stats.totalCaptures / totalGames) * 10) / 10 : 0,
     };

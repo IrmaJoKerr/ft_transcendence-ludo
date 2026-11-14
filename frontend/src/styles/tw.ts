@@ -142,11 +142,17 @@ export const TICKET_ACTION_PILL =
 // Home.tsx arcade cabinet + grid columns + footer.
 export const ARCADE_CONTAINER = 'flex flex-col items-center gap-[15px]';
 
+// The cabinet's screen: the surface the attract mode is painted on. It is not a
+// control — the press-start banner below is the only thing a click launches with — so
+// it carries no pointer cursor of its own.
 export const ARCADE_SCREEN_FRAME =
-  'bg-[rgb(var(--shade-rgb))] p-0 border-4 border-[#333333] shadow-[inset_0_0_20px_rgb(var(--shade-rgb)),0_0_15px_var(--accent-cyan)] relative overflow-hidden w-full h-full cursor-pointer [transition:all_0.2s_ease]';
+  'bg-[rgb(var(--shade-rgb))] p-0 border-4 border-[#333333] shadow-[inset_0_0_20px_rgb(var(--shade-rgb)),0_0_15px_var(--accent-cyan)] relative overflow-hidden w-full h-full [transition:all_0.2s_ease]';
 
+// The launch control: one line of type each, a little under half the screen wide — wide
+// enough for the longest of the three locales' titles and no wider, so the attract mode
+// behind it stays the picture rather than a frame around a caption.
 export const ARCADE_START_OVERLAY =
-  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[82%] max-w-[580px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-none [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
+  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[49.2%] max-w-[348px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-auto cursor-pointer [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
 
 export const ARCADE_START_TITLE =
   '[font-family:var(--font-heading)] text-[0.95rem] text-(--accent-yellow) [text-shadow:0_0_10px_var(--accent-yellow),0_0_20px_var(--accent-pink)] tracking-[1.5px] font-bold whitespace-nowrap';

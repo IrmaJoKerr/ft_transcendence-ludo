@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import type { CSSProperties } from 'react';
 import { COL } from '../theme';
 import { useApp } from '../store';
@@ -50,15 +50,15 @@ import { retroAudio } from '../utils/audio';
  * a mushroom cloud grows from the ground where the wall stood, the sentence naming the
  * winner pulses inside it, and the frame is cleared a second time before the jail (25.4).
  * So a breach card is attack + cloud + jail, and only a wall can break, so its attack is
- * the wall's 1600: 4200 ms, the longest card in the game (a wall that does not break is
- * 3800), and the only card whose sentence is inside an act instead of after the scene.
+ * the wall's 1600: 4000 ms, the longest card in the game (a wall that does not break is
+ * 3600), and the only card whose sentence is inside an act instead of after the scene.
  *
  * `kind` chooses only whose colour is on the ink. `n` is the wall's defender count,
  * `totalRounds > 1` says the square is a wall at all, and `banner` is the finished breach
  * sentence — this component draws strings, never looks one up.
  *
  * The clock is per act, not per scene (25.8): an element is budgeted in the act it plays
- * in — the attack's 700 (a wall's 1600), the cloud's 1400 or the jail's 1200 — so an act can
+ * in — the attack's 700 (a wall's 1600), the cloud's 1400 or the jail's 1000 — so an act can
  * be re-timed without touching the others', and every instant a player sees stayed the
  * instant the card played before the split.
  */
@@ -66,11 +66,11 @@ export type ResultFxKind = 'capture' | 'repulse';
 
 // The cell's two beats, in the JAIL act's own clock. They were 44 % and 59 % of the one
 // 1900 ms gesture, i.e. 836 and 1121 ms of the card: the jail opens at 700, so they are
-// 136 and 421 ms into its 1200, and its first 136 ms are the stillness the old card
+// 136 and 421 ms into its 1000, and its first 136 ms are the stillness the old card
 // already had before the bars move. The sound's landing is derived from the same pair, so
 // the slam can never drift from the drawing — and because the jail is the THIRD act on a
 // breach, that derivation takes the act's own start rather than a constant (see
-// `jailStartMs`: 1121 ms of the card everywhere, 2521 on a breach).
+// `jailStartMs`: 1121 ms of the card everywhere, 3421 on a breach).
 const CAGE_START_IN_JAIL_MS = 136;
 const CAGE_LAND_IN_JAIL_MS = 421;
 // The cell's half-width: 26 x 36 / 33, the old half-width carried along with the box it
@@ -119,7 +119,7 @@ const CLOUD_TEXT_LEAD_MS = 400;
 // The keyframes are written in milliseconds and converted here, so a beat reads as its
 // instant instead of a percentage somebody has to divide by 19 in their head. Each act's
 // percentages are of that act: the pair's attack at 700, a wall's attack at 1600, the jail's
-// 1200 and the cloud's 1400. The two attack scales are the same act at two lengths, which is
+// 1000 and the cloud's 1400. The two attack scales are the same act at two lengths, which is
 // why the wall's three marks take `wPct` and the shot's four stay on `aPct`: a mark that is
 // pinned inside the head of the act must not stretch when the tail is added.
 const aPct = (ms: number) => +((ms / SCENE_ATTACK_MS) * 100).toFixed(2);
@@ -235,7 +235,7 @@ function ensureKeyframes() {
         ${cPct(SCENE_CLOUD_MS)}%, 100%    { opacity: 0; }
       }
       /* the cell closes on the loser, slamming in from the winner's side, and holds
-         (11.33-35.08 % of the jail act, i.e. 136-421 ms into its 1200, 836-1121 ms of the
+         (13.6-42.1 % of the jail act, i.e. 136-421 ms into its 1000, 836-1121 ms of the
          card — ~600 ms after the 247 ms strike). */
       @keyframes fxCage {
         0%, ${jPct(CAGE_START_IN_JAIL_MS)}% { transform: translateX(var(--cageFrom, -${CAGE_TRAVEL_PX}px)); opacity: 0; }
@@ -263,7 +263,7 @@ function ensureKeyframes() {
         ${aPct(342)}%     { opacity: .95; }
         ${aPct(532)}%, 100% { opacity: .55; }
       }
-      /* WALL BROKEN reads in the read window (1900-2900): two pulses at most. */
+      /* WALL BROKEN reads in the read window (1700-2700): two pulses at most. */
       @keyframes fxBannerPulse {
         0%       { opacity: 0; }
         3%       { opacity: 1; }
@@ -619,6 +619,17 @@ export function ResultFx({
   // puncture and the flare are pinned to that instant on every path.
   const beamTravel = isWall ? beamW : BEAM_TRAVEL_PX;
   const beamEntry = `${attackerWon ? beamTravel : -beamTravel}px`;
+  // The strike may only exist inside the lane it crosses. The slide starts one stage-clear
+  // to the shooter's side of the lane so the bar reads as *entering*, and without this clip
+  // that first frame paints it behind the shooter — off the back of the winner on a
+  // right-to-left capture, off the stage edge on a repulse. Clipped, the bar is revealed
+  // starting exactly at his front face, and the rest position (which fills the lane) is
+  // unchanged. The far edge is the impact: a repulse's white head runs a few units on over
+  // the attacker it struck, so that side is given the overhang the head needs.
+  // `useId` because two cards can be mounted at once.
+  const beamClipId = useId();
+  const beamClipX = Math.min(beamFrom, impactX);
+  const beamClipW = Math.abs(impactX - beamFrom) + (attackerWon ? 0 : 16);
   // The floor each composition stands on. The wall's runs from behind the rear-most
   // defender to past the attacker's own bay; the pair's follows the cell and stops at
   // x 192, the widest both cards can show, so the flash card never cuts a mark the clash
@@ -871,8 +882,17 @@ export function ResultFx({
       )}
 
       {/* the strike: the winner's beam, entering from the winner's own side, on every act's
-          one line at `STRIKE_Y` */}
-      <g style={{ animation: fx('fxBeam'), '--beamFrom': beamEntry } as CSSProperties}>
+          one line at `STRIKE_Y`. It is clipped to the lane between the two pieces, so the
+          slide is revealed at the shooter's front face instead of painted behind him. */}
+      <defs>
+        <clipPath id={beamClipId}>
+          <rect x={beamClipX} y={STRIKE_Y - 12} width={Math.max(10, beamClipW)} height='24' />
+        </clipPath>
+      </defs>
+      <g
+        clipPath={`url(#${beamClipId})`}
+        style={{ animation: fx('fxBeam'), '--beamFrom': beamEntry } as CSSProperties}
+      >
         <rect x={beamX} y={STRIKE_Y - 3} width={Math.max(10, beamW)} height='6' rx='3' fill={winnerColor} />
         <rect x={hotX} y={STRIKE_Y - 5} width='14' height='10' rx='4' fill='#ffffff' opacity='.7' />
       </g>

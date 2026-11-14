@@ -370,14 +370,13 @@ export const fr = {
     uploadErrorGeneric: 'Une erreur est survenue lors de l\'envoi.',
     chipKeyShift: 'CHANGEMENT DE TOUCHE ×{{count}}',
     statTurns: 'TOURS',
-    statRolls: 'LANCERS',
-    statSixes: 'SIX',
     statCaptures: 'CAPTURES',
-    statPiecesHome: 'AU BUT',
-    statPiecesLost: 'PERDUES',
+    statPiecesHome: 'PIONS AU BUT',
+    statClashesWon: 'CLASH GAGNÉS',
+    statClashesLost: 'CLASH PERDUS',
     statWallsWon: 'MURS FORCÉS',
     statWallsHeld: 'MURS TENUS',
-    statRepulses: 'REPOUSSÉS',
+    statNotApplicable: 'N/A',
     loadMoreMatches: 'CHARGER PLUS',
     loadingMoreMatches: 'CHARGEMENT...',
     botTag: '[BOT]',
@@ -426,7 +425,7 @@ export const fr = {
     combatCross: 'CROIX DE COMBAT 15x15',
     winConditionLabel: '// CONDITION DE VICTOIRE :',
     fourPiecesInGoal: '4 PIÈCES À L\'ARRIVÉE',
-    allSystemsPassed: '>>> TOUS LES CONTRÔLES SYSTÈME SONT VALIDÉS. L\'ARÈNE EST PRÊTE POUR LE LANCEMENT <<<',
+    allSystemsPassed: '>>> SYSTÈMES D\'ARÈNE PRÊTS. COMBAT ACTIVÉ <<<',
     assignAtLeastOne: '>>> ATTRIBUEZ AU MOINS 1 ROBOT/CHEF D\'ESCOUADE POUR INITIALISER LE MATCH <<<',
     initializingArena: '// INITIALISATION DE L\'ARÈNE...',
     launchArenaMatch: '// LANCER LE MATCH D\'ARÈNE //',
@@ -722,7 +721,6 @@ export const fr = {
     signInBtn: 'Se connecter',
     sendResetLink: 'Envoyer le lien',
     forgotPasswordLink: 'Mot de passe oublié ?',
-    loginTag: 'ÉST. 1896 · CLASSIQUES DE TABLE',
     emailVerifiedNotice: 'E-mail vérifié : vous pouvez vous connecter.',
     assignedUsernamePrefix: "Votre nom d'utilisateur est",
     resendVerification: "Renvoyer l'e-mail de vérification",
@@ -863,6 +861,8 @@ export const fr = {
     accessRoom: 'REJOINDRE SALON',
     warping: 'CONNEXION...',
     openQuantumRooms: 'SALONS OUVERTS',
+    rulesBtn: 'RÈGLES DU JEU',
+    squadsBtn: 'LES ESCOUADES',
     colSectorCode: 'CODE SECTEUR',
     colHostCallsign: 'HÔTE',
     colCapacity: 'CAPACITÉ',
@@ -871,6 +871,39 @@ export const fr = {
     colAction: 'ACTION',
     modeBase: 'JEU DE BASE',
     noOpenRooms: 'AUCUNE ARÈNE PVP OUVERTE. INITIALISEZ UNE ARÈNE AU NIVEAU 1',
+  },
+  // Les deux pages d'escouades (34, point 2) : quatre escouades par décennie, chacune
+  // avec le surnom que son propre dessin lui donne et une courte biographie. Les deux
+  // décennies vivent ici parce que la page suit le thème, pas un sélecteur.
+  squadsPage: {
+    title: 'RENCONTREZ LES ESCOUADES',
+    subtitle: 'QUATRE COULEURS, DEUX DÉCENNIES : LES ÉQUIPES QUI PARTAGENT VOTRE ARÈNE',
+    era70: 'COLONIE ORBITALE // ANNÉES 70',
+    era80: 'VILLE NÉON // ANNÉES 80',
+    nickRed70: 'ÉQUIPE À LA PLAQUE CRÈME',
+    nickGreen70: 'ANTENNES MERCURE',
+    nickYellow70: "SOURCILS D'APOLLO",
+    nickBlue70: 'CLUB DES ÉCOUTEURS',
+    nickRed80: "PUNKS NÉON DE L'OUTRUN",
+    nickGreen80: 'NETRUNNERS DE LA GRILLE',
+    nickYellow80: "BIKERS SYNTHWAVE D'ARCADE",
+    nickBlue80: 'CYBORGS DE CHROME',
+    bioRed70:
+      "Le rouge tient le rail de lancement de la colonie, et l'équipage qui n'en est jamais descendu. La plaque est crème parce que le chantier peint ainsi tout premier casque, et chaque chef d'escouade rouge l'a gardée depuis : elle s'érafle, elle montre le travail, et c'est le seul casque qu'on repère depuis l'autre bout du couloir. Ils partent en premier, ils le disent sur le canal d'approche, et ils discuteront de l'itinéraire au retour. Ils se louent comme mercenaires, et ils préfèrent que vous le sachiez avant que les dés ne quittent votre main.",
+    bioGreen70:
+      "Le vert fait voler les antennes, et la fente qui traverse sa visière est celle que Mercure a appris à la colonie à découper. C'est l'escouade qui écoute : chaque canal, chaque relais, chaque bot qui bourdonne quand il ne devrait pas. Une pièce verte sur une étoile est la case la plus sûre du plateau, et ils vous le rappelleront pendant que l'antenne prend tranquillement le coin suivant. Mercenaires jusqu'au bout, ils vendent l'avertissement avant de vendre le coup.",
+    bioYellow70:
+      "Le jaune porte le front d'Apollon, la large plaque à travers laquelle les premiers équipages d'atterrissage ont regardé. Leur couleur est la lampe d'alarme de la colonie : une pièce jaune se voit venir de trois quadrants, et c'est le but, ce dont ils ne rougissent pas. Ils vous troqueront un couloir sûr contre un service et viendront le réclamer deux tours plus tard. La parole d'un mercenaire vaut son prix, et les garçons du front paient les deux.",
+    bioBlue70:
+      "Le bleu porte les écouteurs, et le club derrière eux est le plus ancien poste d'écoute de la colonie. Ils entendent les dés avant qu'ils ne retombent : quel coin est tendre, quelle escouade est mal placée, quelle voie vous allez prendre. Le bleu joue le plateau long, cède une case pour tenir un couloir, et se laisse très volontiers sous-estimer jusqu'à la dernière ligne droite. Leurs honoraires sont les plus élevés de l'arène, et ils les valent si vous pouvez payer.",
+    bioRed80:
+      "Le rouge, c'est la crête et le cuir : l'escouade qui court contre les fantômes de la salle d'arcade pour de l'argent. Leur couleur est le rose d'alerte de la ville, peint sur tout ce qui va assez vite pour en avoir besoin, et ils n'ont jamais ralenti par politesse. Ils prendront la voie extérieure, renverseront les dés et arriveront un demi-tour avant que vous ne les croyiez capables. Mercenaires à la coupe courte et à la platine cassette : les honoraires sont réels, la fanfaronnade est offerte.",
+    bioGreen80:
+      "Le vert fait tourner la grille : le manteau, le deck et le câble silencieux que personne d'autre ne voit. Ils lisent le plateau comme on lit un réseau : chaque voie est une route, chaque blocus un pare-feu, chaque étoile un nœud qui vaut la peine d'être tenu. Une pièce verte sur une étoile est une pièce verte dans un havre de données, et les netrunners y resteront jusqu'à la fermeture de l'arène. Ils vendent l'accès plutôt que les muscles, et la facture arrive avant la partie.",
+    bioYellow80:
+      "Le jaune porte le casque et la doudoune : une escouade qui traite le plateau comme une borne d'arcade sans la vitre. Leur couleur est l'ambre de l'enseigne, et ils prennent un virage comme un biker : d'un coup, penchés trop loin, debout quand même. Ils parieront un blocus entier sur un seul lancer parce que la foule regarde. Prenez-les pour le spectacle et gardez-les pour l'arrivée : le tarif est une pièce, l'histoire est une légende.",
+    bioBlue80:
+      "Le bleu est chromé à partir de la mâchoire : une escouade qui a remplacé sa patience par du blindage. Ils tiennent l'épaule du plateau et vous défient de passer, parce que pour un cyborg une case sûre est une case que personne d'autre ne peut atteindre. La finition bleue est un avertissement que la ville a appris à lire, et ils n'ont jamais eu besoin d'élever la voix. Mercenaires par contrat, inamovibles par tempérament : ils coûtent le plus cher, et ils partent en dernier.",
   },
   homeExtended: {
     brandTitle: "LUDO RÉTRO '42",
@@ -917,17 +950,17 @@ export const fr = {
     pilotLabel: '// CHEF D\'ESCOUADE : {{name}}',
     guestFallback: 'INVITÉ',
     activeRoomLabel: '// SALLE ACTIVE : {{status}}',
-    activeRoomYes: 'OUI [EN VOL]',
+    activeRoomYes: 'OUI [EN COMBAT]',
     activeRoomNone: 'AUCUNE',
     errorPrefix: '// ERREUR : {{message}}',
     scanningOpenSectors: 'ANALYSE DES SECTEURS OUVERTS...',
   },
   board: {
     goalLabel: 'BUT :',
-    redBay: 'CELLULE ROUGE',
-    greenBay: 'CELLULE VERTE',
-    yellowBay: 'CELLULE JAUNE',
-    blueBay: 'CELLULE BLEUE',
+    redPrison: 'PRISON ROUGE',
+    greenPrison: 'PRISON VERTE',
+    yellowPrison: 'PRISON JAUNE',
+    bluePrison: 'PRISON BLEUE',
     // Infobulle du badge ×R : attaquer une pile de R défenseurs coûte R manches.
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
     chainPricedBadgeTitle:
@@ -956,7 +989,6 @@ export const fr = {
     cancelBtn: 'ANNULER',
     confirmAbortBtn: "CONFIRMER L'ABANDON",
     abortSimulationBtn: 'ABANDONNER LA SIMULATION',
-    quitToMenuBtn: 'QUITTER VERS LE MENU',
     abortVersionTag: 'ARÈNE.{{code}}',
     rulesModalTitle: "PROTOCOLES & RÈGLES DE L'ARÈNE",
     rulesVersionTag: 'RÈGLES.v42.SYS',

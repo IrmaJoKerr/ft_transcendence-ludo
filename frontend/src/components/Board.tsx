@@ -74,7 +74,7 @@ function Yard({
 }) {
   const { t } = useTranslation();
   const col = COL[ck];
-  const label = t(`board.${ck}Bay`);
+  const label = t(`board.${ck}Prison`);
   return (
     <div
       style={{
@@ -107,6 +107,9 @@ function Yard({
             color: col.base,
             letterSpacing: '0.5px',
             textShadow: `0 0 6px ${col.base}`,
+            // One line, always: the label sits beside the goal chip in a corner a sixth
+            // of the board wide, and a wrapped seat name pushes the chip off it.
+            whiteSpace: 'nowrap',
           }}
         >
           // {label}

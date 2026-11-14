@@ -1,4 +1,5 @@
-// The twenty-five delays the engine and the SPA both count, in one file. Copied
+// The twenty-five delays the engine and the SPA both count — plus the room's own idle
+// window, which is the one number here no animation reads — in one file. Copied
 // verbatim from `backend/app/ludo-engine/src/timing.ts` and
 // `frontend/src/game/timing.ts`, which agreed value for value on 2026-11-04; from
 // here on they read these declarations instead of each other's comments.
@@ -23,7 +24,7 @@ export const CLASH_PRESS_MS = 5000; // press race window
 // next-round timer: re-timing an act moves the card on both sides at once instead of
 // leaving a hand-computed 2900 to update.
 export const SCENE_ATTACK_MS = 700; // the beam, the strike, the wall's flare, the subtraction
-export const SCENE_JAIL_MS = 1200; // the bars travel, land at 421 and hold for 779 ms
+export const SCENE_JAIL_MS = 1000; // the bars travel, land at 421 and hold for 579 ms
 // A wall's attack act is the pair's plus one beat (32.4), and the beat carries the TAIL of
 // the act, never the head: the beam arrives at 247, the flare peaks at 323 and the line is
 // subtracted at 418 on every path, and inside a longer act those instants are the same 247,
@@ -36,25 +37,25 @@ export const SCENE_WALL_ATTACK_MS = SCENE_ATTACK_MS + SCENE_WALL_BEAT_MS; // 1.6
 // grows from the ground where the wall stood, and the sentence lives inside it (25.4).
 // Everything after it moves by its length when it plays, and by nothing else.
 export const SCENE_CLOUD_MS = 1400; // breach only: the cloud, then the sentence inside it
-export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the two-act scene: 1.9 s
+export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the two-act scene: 1.7 s
 export const RESULT_HEADLINE_READ_MS = 1000; // the headline after the gesture stops
-export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.9 s
+export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.7 s
 // A wall's card is that plus the beat, read window and all: the acts do not change, one of
-// them grows, so 3800 = 1900 + 900 + 1000 and no reader has to know which act moved. A wall
+// them grows, so 3600 = 1700 + 900 + 1000 and no reader has to know which act moved. A wall
 // can also be REPULSED, and a repulse plays the same wall stage, so this is every wall card
 // that is not the breach — the won round with defenders left and the lost one alike.
 export const CLASH_WALL_RESULT_MS =
-  RESULT_FX_MS + SCENE_WALL_BEAT_MS + RESULT_HEADLINE_READ_MS; // 3.8 s
+  RESULT_FX_MS + SCENE_WALL_BEAT_MS + RESULT_HEADLINE_READ_MS; // 3.6 s
 // A breach is the one card that grows twice, and the only one whose sentence is inside a
 // scene act rather than after it: a wall's three acts and NO read window, so it is shorter
 // than `CLASH_WALL_RESULT_MS + SCENE_CLOUD_MS` by exactly the read window it gives up
-// (4200 against 4800). It is also a FINAL card by definition (there is no defender left to
+// (4000 against 5000). It is also a FINAL card by definition (there is no defender left to
 // fight), and it is the longest card there is, so the engine's freeze is derived from it
-// (`CLASH_RESULT_FREEZE_MS`, 4400) instead of a 4000 kept beside it (D31, 32.4).
-export const CLASH_BREACH_RESULT_MS = SCENE_WALL_ATTACK_MS + SCENE_CLOUD_MS + SCENE_JAIL_MS; // 4.2 s
+// (`CLASH_RESULT_FREEZE_MS`, 4200) rather than a number kept beside it (D31, 32.4).
+export const CLASH_BREACH_RESULT_MS = SCENE_WALL_ATTACK_MS + SCENE_CLOUD_MS + SCENE_JAIL_MS; // 4.0 s
 // With the acts switched off there is no scene at all, so the card is its text and nothing
 // else: it needs enough time to be read, not a gesture's worth. Deliberately neither the
-// 1000 ms read window (short because a scene has just carried the meaning) nor the 2900 ms
+// 1000 ms read window (short because a scene has just carried the meaning) nor the 2700 ms
 // card (long because a gesture is playing). D32.
 export const CLASH_TEXT_ONLY_MS = 1400;
 // The receipt's one-way trip (25.8): a client that shows a card tells the engine it is done
@@ -71,12 +72,13 @@ export const CARD_HOLD_MARGIN_MS = 200;
 // gesture is `RESULT_FX_MS` verbatim — never a rescaled copy — so the two cards cannot
 // play different clips.
 //
-// The gesture's own tail is 780 ms of a still cell (`fxCage` lands at 1121 of the 1900),
-// so the hold only has to reach ~1 s of stillness, which is the beat a result needs.
+// The gesture's own tail is 579 ms of a still cell (`fxCage` lands at 1121 of the 1700),
+// and the hold is added to that rather than replacing it, so the card ends on a beat of
+// stillness — what a result needs — however long the jail act itself runs.
 export const CAPTURE_CARD_HOLD_MS = 210; // the cell, held still AFTER the gesture stops
 export const CAPTURE_CARD_FADE_MS = 300; // the panel's own fade out
 export const CAPTURE_CARD_MS =
-  RESULT_FX_MS + CAPTURE_CARD_HOLD_MS + CAPTURE_CARD_FADE_MS; // the whole card: 2.4 s
+  RESULT_FX_MS + CAPTURE_CARD_HOLD_MS + CAPTURE_CARD_FADE_MS; // the whole card: 2.2 s
 export const CAPTURE_CARD_GRACE_MS = 150; // the roll guard's slack past the card
 
 // --- the goal beat -------------------------------------------------------------
@@ -102,3 +104,14 @@ export const GOAL_CARD_TOTAL_MS = GOAL_CARD_MS + GOAL_CARD_FADE_MS; // the card:
 // are paced so their move finishes animating before the next action fires.
 export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
 export const DICE_ROLL_ANIM_MS = 750; // dice spin before the path starts
+
+// --- the room's own window -----------------------------------------------------
+// The one number here that neither build animates: the life of the two hashes a live room
+// keeps — the engine's `game:<id>` state and the backend's `match:<id>` record beside it,
+// plus the room channel's two keys, which lapse with the room that wrote them. Every save
+// re-arms it, so it is an IDLE window and never a game clock: nothing a player does is
+// timed by it, and no score, row or seat is decided by it. Three hours, down from a day:
+// a room nobody touches for an evening should not still be holding its seats tomorrow
+// (a finished room closes itself in `POST_GAME_TIMEOUT_MS`; an abandoned one is closed by
+// the departure funnel, so this is only the backstop for both).
+export const GAME_STATE_TTL_S = 3 * 60 * 60;

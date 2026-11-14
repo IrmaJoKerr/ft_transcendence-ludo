@@ -18,11 +18,11 @@ import { COL, type ColorKey } from '../theme';
  * a redraw.
  *
  * The geometry is a hand port of `bobble.py`'s four helmets on its one shared body
- * (`bb_body` + `bb_h1`…`bb_h4`), and it is data rather than drawing calls so the
- * three places that paint a piece — the board's `Sphere`, the clash result's
- * `ResultFx`, and the home hero's crew — can share it while each keeps its own
- * renderer (SVG on the board, canvas in the hero). Nothing here snaps to a pixel:
- * the strokes are real, and a 14 px piece is drawn at 0.14 px per unit.
+ * (`bb_body` + `bb_h1`…`bb_h4`), and it is data rather than drawing calls so the two
+ * places that paint a piece — the board's `Sphere` and the clash result's `ResultFx` —
+ * can share it while each keeps its own renderer. (The third reader this comment used
+ * to name, the attract card's four-node crew, is gone with the row in 36.) Nothing here
+ * snaps to a pixel: the strokes are real, and a 14 px piece is drawn at 0.14 px per unit.
  */
 export type PieceRole =
   | 'base'

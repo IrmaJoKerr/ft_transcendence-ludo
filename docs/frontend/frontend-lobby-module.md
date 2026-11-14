@@ -24,6 +24,8 @@ The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room scree
 3. **Mode selection**: PvP (player versus player), PvE (player versus environment) or hotseat.
 4. **Match creation**: `LudoLobby.tsx` lists the rooms the caller may enter (`GET /api/games/rooms`; each row carries `mySeat`, where `true` means "you hold a seat here, so this is a REJOIN row": including a room whose game already started, as long as your seat is still inside its 45 s grace window) and the games they are seated in (`GET /api/games/mine`), and joins them (`POST /api/match/join/:code`, `POST /api/game/:id/rejoin`) or creates a PvP (player versus player) invite (`POST /api/match/pvp/invite`); for local PvE/hotseat play it hands off to the table screen (`/gamelobby/table?mode=…`). The table screen (`Lobby.tsx`) is the one that calls `POST /api/match/create` with the exact `seatColors` and `botNames`, stores the returned `activeMatch` (gameId and engine token) in the store, then navigates to `/game`, where the Socket.IO connection starts.
 
+5. **Two reference pages in the rooms header** (34, item 2): GAME RULES opens the ten-page rules deck in the lobby itself — `components/GameRulesModal.tsx`, the same component the game mounts, so there is still one rules UI — and MEET THE SQUADS navigates to `/squads`, which draws the four squads of the era the theme is in (`pages/Squads.tsx`, below).
+
 > **Note:** The lobby communicates with the real backend. Creating a match returns engine credentials (`gameId`, `token`, `engineUrl`), which the Game page uses to connect through Socket.IO.
 
 **Guest mode.** `/guest` renders the same screen with the `guest` prop set: bots fill every other seat, there is no mode picker and no active-game poll, and the launch posts `POST /api/match/guest` instead of `POST /api/match/create`. The payload is kept in the store as `guestSetup` so the end card's **Play again** can mint the same room again, and the return button goes to `/login`. See [`../guest-mode.md`](../guest-mode.md).
@@ -31,9 +33,11 @@ The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room scree
 **Landscape notice.** `common.landscapeNotice` is mounted by the auth shell only (`LandscapeNotice` in `components/RetroAuthLayout.tsx`, the bordered strip above the card). The table screen and the PvP waiting room mount no copy of it, so the landscape/keyboard warning appears once, before sign-in, and the two waiting screens stay uniform.
 
 **Room browser.** The "OPEN QUANTUM ROOMS" window is a six-column table: sector code, host
-callsign, capacity, stakes, modes, and action. Its header carries the page's error line, the room-code
-field and the **ACCESS ROOM** button: uppercase on change, 8 characters maximum, Enter submits, and the
-field is disabled while `GET /api/games/mine` reports a room (the same lock as the host pass).
+callsign, capacity, stakes, modes, and action. Its header is three groups — the counter, the arena's two
+reference buttons (GAME RULES and MEET THE SQUADS, 34 item 2) and the room-code field with the **ACCESS
+ROOM** button — and the page's error line sits on a row of its own directly under it (see below). The field
+takes the code uppercase on change, 8 characters maximum, Enter submits, and it is disabled while
+`GET /api/games/mine` reports a room (the same lock as the host pass).
 `GET /api/games/rooms` also returns the room's three
 rule flags, so the MODES cell names the variant before a player takes a seat: `BASE GAME` when no
 mutator is on, otherwise only the active ones (`CLASH MODE`, `FREE EXIT`, `NO SAFE ZONES`), with the
@@ -68,35 +72,55 @@ grid cell, hidden (`PassActionPill`): no measuring, and a translation needs no c
 border on `TICKET_ACTION_PILL` is part of that, so the borderless host pill is not 3 px narrower than the
 other two.
 
-**The error line.** The page's error channel rides in the rooms window's header, on the title's own line:
-`OPEN QUANTUM ROOMS (n)`, then the message, then the code field. It is centred in the row's slack —
-`justifyContent: 'center'` on the span it lives in — so it reads as a line of its own between the counter
-and the field instead of a caption appended to the counter: equidistant air on both sides, in whichever of
-the three locales the message arrives. One row of white, 0.75 rem mono text with the localized
-`ludoLobbyExtra.errorPrefix` in front of it and a red bloom behind it, ellipsised with the whole sentence in
-`title`. The span is mounted in both states with `width: 0` and `flex: 1 1 0`. The zero *basis* alone is not
-enough: the text still counts towards the group's max-content size and the header grew 57 → 87 px with a
-long message, so the definite zero width is what keeps the message out of the header's line-breaking maths;
-`grow` then hands it every pixel the row has left, and an empty span leaves the row exactly as it was.
-Measured header height with and without the `MATCH_ALREADY_SEATED` sentence: 57 px at 1280×720, 1280×900,
-1536×900 and 1920×1080, and 87 px at 556×800 in both states — the title and the field stay vertically
-centred on one line wherever they already shared it, so a failure never moves the passes, resizes the window
-or reflows the list. The room the line gets is the row's slack: 360 px at 1280×900, 616 at 1536×900 and
-1000 at 1920×1080, where the 726 px EN sentence fits whole and sits with 155 px of air either side. Below
-that the message fills the slack and ellipsises (`// ERROR: You already have an active game. L…`), which is
-where its 4 px margin comes in: 4 px + the group's 8 px gap on the left equals the header's own 12 px gap on
-the right, so even a full-width message keeps the same 12 px of air on both sides (measured 12.0 / 12.0 in
-EN, FR and MS at 1280×900 and 1024×768; the message's own midpoint lands on the span's to within 0.1 px at
-1920×1080, FR `// ERREUR : Vous avez déjà…` and MS `// RALAT: Anda sudah…` included). The full sentence is
-the tooltip, and the shorter failures (`Invite code not found or expired`) centre with even more air.
-`role="status"` sits on the always-mounted span, so the message is announced when it arrives instead of only
-when it is looked at.
+**The error line, and the two buttons over it.** Section 34's item 2 split the header's middle. It used to
+hold the page's error channel — a zero-width span that grew into the row's slack and centred the message
+there. Two buttons cannot share a slot measured that way (a definite zero width exists to keep *text* out of
+the line-breaking maths; two buttons in that slot would need not to exist for the maths), so the slack went
+to the buttons and the message moved to a row of its own directly beneath the header. The header is three
+groups now: the counter (`flex: 0 1 auto`, `minWidth: 0`, still ellipsised), GAME RULES and MEET THE SQUADS
+(`flex: 1 1 auto`, `justifyContent: 'center'`, 8 px apart, wrapping) and the code field with ACCESS ROOM
+(`flexShrink: 0`). Both buttons wear one module constant, `HEADER_ACTION_STYLE`, which is the ACCESS ROOM
+button's own recipe — 32 px tall, `0 14px` padding, `rgb(var(--accent-cyan-rgb) / 0.22)` on `--accent-cyan`
+with its 16 px bloom — so the strip reads as three controls of one kind. The counter and the field were not
+restyled, which is why they still share the line where they already did. The header keeps `flexWrap: 'wrap'`:
+where the three groups no longer fit, the strip takes a second line rather than shrinking the field.
+
+The message is a move, not a restyle. Same white 0.75 rem mono, the same localized `ludoLobbyExtra.errorPrefix`
+in front of it, the same bloom drawn from `--state-off-rgb`; what changed is that it is `display: block` in a
+full-width row of its own — padding `6px 14px`, the `#190a38` ground and the cyan rule **only while there is a
+message**, so an empty row collapses to nothing and the header sits exactly where it did — and therefore wraps
+instead of ellipsising: the whole sentence is what a failure now gets, and `title` still carries it untruncated.
+The row is always mounted with `role="status"`, so the live region exists before a message does and the failure
+is announced as it arrives. The old span's measurements retired with the span: the header can no longer grow
+57 → 87 px with a long message, because the message is not in that row, and the 4 px margin that squared the
+message against the group's 8 px gap went with it — the row's 14 px padding is the header's own, so a message
+starts on the same left edge as the counter above it, in all three locales.
 
 The column is one stack, so it is a flex column rather than a 12-column grid: one `gap: 3px`, the same air
 the passes keep between themselves and the same 3 px that separates Level 03 from the rooms window's top
 edge. The window closes the stack with `flex: 1 1 0` and a 180 px floor, the list filling whatever height is
-left (see above). Nothing else reserves space in the column: with the error line in the header, the 3 px
-gutter is the only strip that is not content.
+left (see above). Nothing else reserves space in the column: the error row collapses to zero height whenever
+it is empty, so the 3 px gutter is still the only strip that is not content.
+
+**The squads page.** MEET THE SQUADS leaves the lobby for `/squads` (`pages/Squads.tsx`), registered in
+`FULL_ROUTES` beside `/gamelobby` and behind the session gate like `/friends`. It is a page rather than a
+panel because it holds no state: no room, no seat, nothing to resume. It mounts the lobby's own shell — the
+CRT screen, `NavDock` with `activeRoute="/gamelobby"` so the dock still reads GAME LOBBY — a title and one
+`RETRO_BADGE` carrying the era, and one `RETRO_WINDOW` whose body is the four cards, scrollable inside the
+window so the heading and the RETURN TO GAME LOBBY button stay put however long the bios run. That only works
+because the page is a fixed-height column and not a document: the row is `h-screen`, the column `h-full
+flex-col`, and the window `flex: 1, minHeight: 0`, so the deck is the one box that gives way — with
+`min-h-screen` the column was content-sized, the window outgrew the `100vh` root and an 800 px window clipped
+the second row with nothing to scroll. The grid is `repeat(auto-fit, minmax(min(100%, max(320px, 45%)), 1fr))`:
+two columns wherever the body has ~660 px, one when it does not, and never three — a third track cannot fit,
+because 45% of the deck three times over is already more than the deck — so blue and yellow stay under red and
+green instead of blue joining the top row, which is the board's 2×2 read wrong. The cards are
+`BOARD_QUADRANTS` in order, so the 2×2 is the picker's 2×2 and the board's corners: each holds `PieceFigure`
+at 88 px in a 96 px frame, headed `RED — CREAM PLATE CREW`-style — the seat's colour in its own `COL.base`
+hue, then the nickname from `squadsPage.nick*` after a `' — '` the page supplies, because the separator is
+punctuation and the nickname is the only translatable half — and the bio under it. Which four squads and
+which words come from the store's `theme`: `era70` words for the 70s set, `era80` for the 80s, both decades in
+all three locales because the page follows the switcher instead of offering a toggle of its own.
 
 
 ---
@@ -109,6 +133,7 @@ gutter is the only strip that is not content.
 |------|------|
 | `src/pages/LudoLobby.tsx` | Main lobby page (`/gamelobby`): mode/seat setup, match creation |
 | `src/pages/Lobby.tsx` | Table view (`/gamelobby/table`): room state, ready, invites |
+| `src/pages/Squads.tsx` | The four squads of the era the theme is in (`/squads`, 34 item 2): the lobby shell and dock, one card per `BOARD_QUADRANTS` seat with `PieceFigure` and the era's nickname and bio, and RETURN TO GAME LOBBY |
 
 
 ---
@@ -188,6 +213,14 @@ arrives as `bots=0&local=1`, so its panel has no bot row at all and runs pilots 
 matrix → win condition, with the rows' 14 px gap closing up where the row was; the PvE and guest
 variants keep it. Nothing is lost, because in hotseat `canStart` asks for two local pilots rather than
 one bot, so that line could only ever read a permanent `0 UNITS`.
+
+**The launch line and the two buttons.** The status box under the launch controls carries one sentence at a
+time, and its ready state reads `>>> ARENA SYSTEMS READY. COMBAT ENABLED <<<` (`lobby.allSystemsPassed`, 43
+characters in en against the 56 it replaced, one space after `READY.`); the 0.62 rem mono line keeps the
+block one size across its four messages, so the button below it does not move when the sentence changes.
+Both full-width buttons in the window — LAUNCH and RETURN TO GAME LOBBY — are `${RETRO_BTN} justify-center`:
+the shared class is an `inline-flex` row with no `justify`, so a short label like `// ADD BOT TO START //`
+sat against the left edge of a frame that ran on to the panel's right one.
 
 ### 2. Start Game Flow
 

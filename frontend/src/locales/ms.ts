@@ -367,14 +367,13 @@ export const ms = {
     uploadErrorGeneric: 'Ralat berlaku semasa muat naik.',
     chipKeyShift: 'TUKAR KEKUNCI ×{{count}}',
     statTurns: 'GILIRAN',
-    statRolls: 'LONTARAN',
-    statSixes: 'ENAM',
     statCaptures: 'TANGKAPAN',
-    statPiecesHome: 'KE GOL',
-    statPiecesLost: 'HILANG',
+    statPiecesHome: 'BUAH KE GOL',
+    statClashesWon: 'CLASH DIMENANGI',
+    statClashesLost: 'CLASH DIKALAHI',
     statWallsWon: 'DINDING DITEBUS',
     statWallsHeld: 'DINDING DIPERTAHAN',
-    statRepulses: 'DIPATAHKAN',
+    statNotApplicable: 'N/A',
     loadMoreMatches: 'MUAT LAGI',
     loadingMoreMatches: 'MEMUAT...',
     botTag: '[BOT]',
@@ -423,7 +422,7 @@ export const ms = {
     combatCross: 'SILANG PERTEMPURAN 15x15',
     winConditionLabel: '// SYARAT KEMENANGAN:',
     fourPiecesInGoal: '4 BUAH DI MATLAMAT',
-    allSystemsPassed: '>>> SEMUA SEMAKAN SISTEM BERJAYA. ARENA SEDIA DILANCARKAN <<<',
+    allSystemsPassed: '>>> SISTEM ARENA SEDIA. PERTEMPURAN DIBENARKAN <<<',
     assignAtLeastOne: '>>> TETAPKAN SEKURANG-KURANGNYA 1 BOT/KETUA SKUAD UNTUK MEMULAKAN PERLAWANAN <<<',
     initializingArena: '// MEMULAKAN ARENA...',
     launchArenaMatch: '// LANCARKAN PERLAWANAN ARENA //',
@@ -713,7 +712,6 @@ export const ms = {
     signInBtn: 'Log Masuk',
     sendResetLink: 'Hantar Pautan',
     forgotPasswordLink: 'Lupa kata laluan?',
-    loginTag: 'EST. 1896 · KLASIK MEJA',
     emailVerifiedNotice: 'E-mel disahkan: anda kini boleh log masuk.',
     assignedUsernamePrefix: 'Nama pengguna anda ialah',
     resendVerification: 'Hantar semula e-mel pengesahan',
@@ -853,6 +851,8 @@ export const ms = {
     accessRoom: 'MASUK BILIK',
     warping: 'MEMASUKI...',
     openQuantumRooms: 'BILIK QUANTUM TERBUKA',
+    rulesBtn: 'PERATURAN PERMAINAN',
+    squadsBtn: 'KENALI SKUAD',
     colSectorCode: 'KOD SEKTOR',
     colHostCallsign: 'PANGGILAN HOS',
     colCapacity: 'KAPASITI',
@@ -861,6 +861,39 @@ export const ms = {
     colAction: 'TINDAKAN',
     modeBase: 'PERMAINAN ASAS',
     noOpenRooms: 'TIADA ARENA PVP TERBUKA. BINA ARENA PADA TAHAP 1',
+  },
+  // Dua halaman skuad (34, item 2): empat skuad setiap dekad, masing-masing dengan
+  // nama panggilan daripada lukisan buahnya sendiri dan biografi ringkas. Kedua-dua
+  // dekad berada di sini kerana halaman mengikut tema, bukan suis.
+  squadsPage: {
+    title: 'KENALI SKUAD',
+    subtitle: 'EMPAT WARNA, DUA DEKAD: KREW YANG BERKONGSI ARENA ANDA',
+    era70: 'KOLONI ORBIT // 1970-AN',
+    era80: 'BANDAR NEON // 1980-AN',
+    nickRed70: 'KREW PLAT KRIM',
+    nickGreen70: 'ANTENA MERCURY',
+    nickYellow70: 'GENG KENING APOLLO',
+    nickBlue70: 'KELAB POD TELINGA',
+    nickRed80: 'PUNK OUTRUN NEON',
+    nickGreen80: 'NETRUNNER GRID',
+    nickYellow80: 'BIKER ARKAD SYNTHWAVE',
+    nickBlue80: 'CYBORG KRONIUM',
+    bioRed70:
+      'Merah memegang landasan pelancaran koloni, dan krew yang tidak pernah turun daripadanya. Plat itu krim kerana limbungan mengecat setiap topi keledar pertama dengan warna itu, dan setiap ketua skuad merah sejak itu mengekalkannya: ia tercalar, ia menunjukkan kerja, dan ia satu-satunya topi keledar yang dapat anda cam dari hujung koridor. Mereka bergerak dahulu, mereka memberitahunya di saluran pendekatan, dan mereka akan berdebat tentang laluan dalam perjalanan pulang. Mereka menyewakan diri sebagai tentera upahan, dan mereka lebih suka anda tahu itu sebelum dadu meninggalkan tangan anda.',
+    bioGreen70:
+      'Hijau menerbangkan antena, dan celah melintang pada visornya ialah potongan yang Mercury ajarkan kepada koloni. Merekalah skuad yang mendengar: setiap saluran, setiap geganti, setiap bot yang berdengung bila sepatutnya tidak. Buah hijau di atas bintang ialah petak paling selamat di papan, dan mereka akan mengingatkan anda sambil antena itu senyap-senyap mengambil selekoh seterusnya. Tentera upahan hingga ke akhir, mereka menjual amaran sebelum menjual pukulan.',
+    bioYellow70:
+      'Kuning memakai kening Apollo, plat lebar yang ditilik oleh krew pendaratan pertama. Warna mereka ialah lampu amaran koloni sendiri, jadi buah kuning dapat dilihat datang dari tiga kuadran — itulah tujuannya, dan mereka tidak malu mengakuinya. Mereka akan menukar koridor selamat dengan satu budi dan menuntutnya dua pusingan kemudian. Kata tentera upahan ialah harganya, dan geng kening itu menunaikan kedua-duanya.',
+    bioBlue70:
+      'Biru memakai pod telinga, dan kelab di belakangnya ialah pos pendengaran tertua di koloni. Mereka mendengar dadu sebelum ia mendarat: selekoh mana yang lembut, skuad mana yang tersasar, lorong mana yang akan anda ambil. Biru bermain papan panjang, melepaskan satu petak untuk memegang koridor, dan sungguh selesa dipandang rendah sehingga penamat. Bayaran mereka yang tertinggi di gelanggang, dan ia berbaloi jika anda mampu.',
+    bioRed80:
+      'Merah ialah jambul dan kulit: skuad yang berlumba dengan hantu arkad itu sendiri untuk duit. Warna mereka ialah merah jambu amaran bandar, dicat pada segala yang cukup pantas untuk memerlukannya, dan mereka tidak pernah memperlahankan langkah demi kesopanan. Mereka akan mengambil lorong luar, menterbalikkan dadu, dan tiba separuh pusingan lebih awal daripada jangkaan anda. Tentera upahan berpotongan krew dan dek kaset: bayarannya nyata, lagaknya percuma.',
+    bioGreen80:
+      'Hijau menjalankan grid: kot, dek, dan kabel senyap yang tiada siapa lain nampak. Mereka membaca papan seperti membaca rangkaian: setiap lorong satu laluan, setiap sekatan satu tembok api, setiap bintang satu nod yang berharga dipegang. Buah hijau di atas bintang ialah buah hijau dalam tempat selamat data, dan netrunner akan duduk di nod itu sehingga arena ditutup. Mereka menjual akses, bukan tenaga, dan invois tiba sebelum permainan bermula.',
+    bioYellow80:
+      'Kuning menunggang topi keledar dan jak puff, skuad yang menganggap papan seperti kabinet arkad tanpa kaca. Warna mereka ialah ambar papan tanda, dan mereka mengambil selekoh seperti biker: serentak, condong terlalu jauh, namun masih tegak. Mereka akan mempertaruhkan seluruh sekatan pada satu gulingan kerana orang ramai menonton. Upah mereka untuk persembahan dan kekalkan mereka untuk penamat: bayarannya sekeping syiling, ceritanya sebuah legenda.',
+    bioBlue80:
+      'Biru berkromium dari rahang ke bawah: skuad yang menggantikan kesabarannya dengan perisai. Mereka memegang bahu papan dan mencabar anda semua melintas, kerana bagi cyborg petak selamat ialah petak yang tiada siapa lain dapat capai. Kemasan biru itu satu amaran yang bandar sudah belajar membacanya, dan mereka tidak pernah perlu meninggikan suara. Tentera upahan melalui kontrak, tidak berganjak melalui perangai: bayaran mereka paling mahal, dan mereka pulang paling akhir.',
   },
   homeExtended: {
     brandTitle: "LUDO RETRO '42",
@@ -907,17 +940,17 @@ export const ms = {
     pilotLabel: '// KETUA SKUAD: {{name}}',
     guestFallback: 'TETAMU',
     activeRoomLabel: '// BILIK AKTIF: {{status}}',
-    activeRoomYes: 'YA [SEDANG BERLANGSUNG]',
+    activeRoomYes: 'YA [DALAM PERTEMPURAN]',
     activeRoomNone: 'TIADA',
     errorPrefix: '// RALAT: {{message}}',
     scanningOpenSectors: 'MENGIMBAS SEKTOR TERBUKA...',
   },
   board: {
     goalLabel: 'GOL:',
-    redBay: 'SEL MERAH',
-    greenBay: 'SEL HIJAU',
-    yellowBay: 'SEL KUNING',
-    blueBay: 'SEL BIRU',
+    redPrison: 'PENJARA MERAH',
+    greenPrison: 'PENJARA HIJAU',
+    yellowPrison: 'PENJARA KUNING',
+    bluePrison: 'PENJARA BIRU',
     // Petua pada lencana ×R: menyerang timbunan R pertahanan mengambil R pusingan.
     chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
     chainPricedBadgeTitle:
@@ -946,7 +979,6 @@ export const ms = {
     cancelBtn: 'BATAL',
     confirmAbortBtn: 'SAHKAN PEMBATALAN',
     abortSimulationBtn: 'BATALKAN SIMULASI',
-    quitToMenuBtn: 'KELUAR KE MENU',
     abortVersionTag: 'ARENA.{{code}}',
     rulesModalTitle: 'PROTOKOL & PERATURAN ARENA',
     rulesVersionTag: 'PERATURAN.v42.SYS',

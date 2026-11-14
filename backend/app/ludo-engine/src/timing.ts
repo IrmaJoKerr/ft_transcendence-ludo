@@ -24,7 +24,7 @@ export const CLASH_SWITCH_GAP_MAX_MS = 1100; // longest gap between two switches
 // engine never draws the card, but it owns the freeze stamped on the game and the
 // chain's next-round timer, so it reads the same constants the client draws from —
 // and reads them for the LONGEST card, which is the breach.
-export const CLASH_RESULT_FREEZE_MS = CLASH_BREACH_RESULT_MS + CARD_HOLD_MARGIN_MS; // 4400
+export const CLASH_RESULT_FREEZE_MS = CLASH_BREACH_RESULT_MS + CARD_HOLD_MARGIN_MS; // 4200
 export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
 // The key-shift mutator widens the press window: each switch adds this to the base
 // `CLASH_PRESS_MS` (see `startClash` in clash.ts), so the sweep's outer bound has to
@@ -89,6 +89,12 @@ export const CLASH_EVENT_WINDOW_MS = 5 * 1000; // the press bucket's own window
 export const IDLE_LOBBY_TIMEOUT_MS = 5 * 60 * 1000; // empty PvP lobby
 export const POST_GAME_TIMEOUT_MS = 60 * 1000; // finished room teardown
 export const DISCONNECT_GRACE_MS = 45000; // PvP reconnect window
+// Hotseat is one device driving every seat and holds no account's seat in the lobby, so
+// its window only has to cover a reload: the socket is back in about a second, and at
+// expiry the room closes itself (a single-socket room goes with its device). Five
+// seconds, not the PvP 45 and not the PvE hour that locked the lobby behind an abandoned
+// local game.
+export const HOTSEAT_DISCONNECT_GRACE_MS = 5 * 1000;
 // A waiting-room seat gets a longer window on purpose (R12/R17): no game is being
 // played, returning to the lobby never costs the seat, and the clock is there to
 // notice a player who is not coming back. The host's window closes the room itself,

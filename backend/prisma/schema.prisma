@@ -137,15 +137,22 @@ model PlayerStats {
   botWins       Int @default(0) // rank-1 in PVE
   humanWins     Int @default(0) // rank-1 in PVP
   pveGameStreak Int @default(0) // consecutive PvE games, any outcome
+  pvpGameStreak Int @default(0) // consecutive PvP games, any outcome
 
   totalTurns          Int @default(0)
   totalCaptures       Int @default(0)
   totalPiecesInGoal   Int @default(0)
   totalPiecesLost     Int @default(0)
-  totalDiceRolls      Int @default(0)
-  totalSixes          Int @default(0)
-  clashDefends        Int @default(0) // repulses: the defender won the round
+  // Three sixes in a row forfeit the turn: the classic rule, and the only sixes
+  // tally a career keeps (the raw face count is not a number the profile prints).
+  totalThreeSixes     Int @default(0)
+  // Clash rounds, split by the side the seat stood on and by the outcome: the same
+  // seat attacks one round and defends the next, so "clashes won" is a sum of two
+  // roles, never one number the engine could have tallied on its own.
   clashAttacksWon     Int @default(0)
+  clashDefendsWon     Int @default(0) // repulses: the defender won the round
+  clashAttacksLost    Int @default(0)
+  clashDefendsLost    Int @default(0)
   clashWallBattlesWon Int @default(0) // Wall Breaker chains won on a wall
   clashWallsAttacked  Int @default(0)
   clashWallsDefended  Int @default(0)
@@ -177,6 +184,12 @@ model MatchHistory {
   gameType  GameType
   gameModes Json // the room rules as played (see room-rules.ts), plus playerCount
   color     PlayerColor
+  // 1, or anything else: the engine reports the winner and bumps every other seat to
+  // 2, so there is no placement to read and none is meant (`result-submitter.ts`).
+  // A win is therefore `status = COMPLETED AND rank = 1` — derived, never stored as a
+  // boolean: a row that brought four pieces home is the only winner, and every seat
+  // that did not is a loss. No 2nd/3rd/4th is recorded, so a reader must never label
+  // a non-1 rank as a placing.
   rank      Int
 
   // The one state a row has. An abandoned row is written by the departure
@@ -191,10 +204,13 @@ model MatchHistory {
   totalCaptures       Int @default(0)
   piecesInGoal        Int @default(0)
   piecesLost          Int @default(0)
-  diceRolls           Int @default(0)
-  sixes               Int @default(0)
-  clashDefends        Int @default(0)
+  // Three-six forfeits: the classic rule's cost, tallied per game because it is
+  // the only sixes number a row prints (faces rolled are not stored).
+  threeSixes          Int @default(0)
   clashAttacksWon     Int @default(0)
+  clashDefendsWon     Int @default(0) // repulses: the defender won the round
+  clashAttacksLost    Int @default(0)
+  clashDefendsLost    Int @default(0)
   clashWallBattlesWon Int @default(0)
   clashWallsAttacked  Int @default(0)
   clashWallsDefended  Int @default(0)

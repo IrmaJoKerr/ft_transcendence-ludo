@@ -1,6 +1,7 @@
-/* The parity contract (decision 2, `scripts/check-theme-literals.mjs`): every name
-   this file declares, `retro80/theme.css` declares too, in the same order, and the
-   gate fails on a name that appears in one table and not the other. A token read
+/* The parity contract (decision 2, the `check-theme-literals` gate, kept with the
+   harnesses at `Test-harnesses/style-gates/`): every name this file declares,
+   `retro80/theme.css` declares too, in the same order, and the gate fails on a name
+   that appears in one table and not the other. A token read
    under the wrong era renders as `unset` rather than as a wrong colour, so nothing
    but the gate catches it.
 

@@ -7,6 +7,7 @@ import {
   GAME_CHAT_MAX_LINES,
   GAME_CHAT_TTL_S,
 } from './__shared__/chat.constants';
+import { GAME_STATE_TTL_S } from './__shared__/timing.constants';
 import { chatLogKey, chatSeqKey, parseChatLine } from './game-chat';
 
 const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
@@ -56,8 +57,9 @@ function withWallBreakerDefaults(state: GameState): GameState {
     const stats = player.stats;
     // Counters that arrived with the match-history row.
     if (stats.clashWallBattlesWon === undefined) stats.clashWallBattlesWon = 0;
-    if (stats.diceRolls === undefined) stats.diceRolls = 0;
-    if (stats.sixes === undefined) stats.sixes = 0;
+    if (stats.threeSixes === undefined) stats.threeSixes = 0;
+    if (stats.clashAttacksLost === undefined) stats.clashAttacksLost = 0;
+    if (stats.clashDefendsLost === undefined) stats.clashDefendsLost = 0;
     if (stats.piecesLost === undefined) stats.piecesLost = 0;
     if (stats.clashWallsAttacked === undefined) stats.clashWallsAttacked = 0;
     if (stats.clashWallsDefended === undefined) stats.clashWallsDefended = 0;
@@ -174,11 +176,12 @@ export class RedisGameStore {
         turns: 0,
         captures: 0,
         piecesInGoal: 0,
-        clashDefends: 0,
+        clashDefendsWon: 0,
         clashAttacksWon: 0,
+        clashAttacksLost: 0,
+        clashDefendsLost: 0,
         clashWallBattlesWon: 0,
-        diceRolls: 0,
-        sixes: 0,
+        threeSixes: 0,
         piecesLost: 0,
         clashWallsAttacked: 0,
         clashWallsDefended: 0,
@@ -221,14 +224,14 @@ export class RedisGameStore {
   // Save the entire GameState to Redis (single operation)
   async saveGameState(gameId: string, state: GameState): Promise<void> {
     await this.client.hset(this.gameKey(gameId), 'state', JSON.stringify(state));
-    await this.client.expire(this.gameKey(gameId), 86400);
+    await this.client.expire(this.gameKey(gameId), GAME_STATE_TTL_S);
   }
 
   // --- the room channel (M3) ---------------------------------------------------
   // Its two keys are the room's own, beside `game:<id>`: one list and one counter,
-  // each with the state's 86400 s life, so chat volume can never evict live state and
-  // an idle room's transcript lapses with the room that wrote it. No publish: the
-  // fan-out is the engine's own room emit.
+  // each with the state's own `GAME_STATE_TTL_S` life, so chat volume can never evict
+  // live state and an idle room's transcript lapses with the room that wrote it. No
+  // publish: the fan-out is the engine's own room emit.
   async nextChatSeq(gameId: string): Promise<number> {
     const key = chatSeqKey(gameId);
     const seq = await this.client.incr(key);

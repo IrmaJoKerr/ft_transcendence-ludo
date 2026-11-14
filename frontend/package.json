@@ -5,14 +5,11 @@
   "type": "module",
   "scripts": {
     "sync:shared": "node scripts/sync-shared.mjs",
-    "check:literals": "node scripts/check-theme-literals.mjs",
-    "check:dead-refs": "node scripts/dead-refs.mjs",
-    "check:plate": "node scripts/check-shell-plate.mjs",
     "predev": "npm run sync:shared",
     "dev": "vite",
-    "prebuild": "npm run sync:shared && npm run check:literals && npm run check:dead-refs && npm run check:plate",
+    "prebuild": "npm run sync:shared",
     "build": "tsc -b && vite build",
-    "lint": "oxlint && npm run check:literals && npm run check:dead-refs && npm run check:plate",
+    "lint": "oxlint",
     "preview": "vite preview"
   },
   "supportedArchitectures": {

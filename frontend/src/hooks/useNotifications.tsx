@@ -152,13 +152,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       // flight stays, and a duplicate id updates in place.
       setNotifications((prev) => mergeById(prev, list));
       // The report is drawn once, from this first snapshot (22.2). It counts every
-      // stored type except `profile_updated`, which is the user confirming their own
-      // act and already has its own live card. One unread is enough: the rule has to
-      // be the same rule at every scale, and one is what a reload most often shows.
+      // stored type except the two that are the reader's own act: `profile_updated`,
+      // which already has its own live card, and `match_abandoned`, which the seat
+      // writes for itself the moment its socket drops — and a page refresh drops it,
+      // so a reload was opening with "you left the match before it ended" about the
+      // game the reader was still in. The bell keeps that entry; the report is news
+      // from elsewhere. One unread is enough: the rule has to be the same rule at
+      // every scale, and one is what a reload most often shows.
       if (!digestArmed.current) {
         digestArmed.current = true;
         const rows = list
-          .filter((n) => n.type !== 'profile_updated')
+          .filter((n) => n.type !== 'profile_updated' && n.type !== 'match_abandoned')
           .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
         if (rows.length >= 1) setDigest({ rows, total: rows.length });
       }
@@ -377,4 +381,3 @@ export function useFriendPresence(): Record<string, PresenceStatus> {
   const ctx = useContext(NotificationsContext);
   return ctx?.friendPresence ?? NO_PRESENCE;
 }
-

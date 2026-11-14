@@ -20,6 +20,12 @@ export const GOAL_CARD_ASPECT = 200 / 130;
 const ARRIVE_AT = Math.round(GOAL_CARD_MS * 0.49); // 540: the feet reach the slot
 const LAND_MS = Math.round(GOAL_CARD_MS * 0.24); // 264: the compress, then the settle
 const BURST_MS = Math.round(GOAL_CARD_MS * 0.35); // 385: the slot's flash
+// The rest of the climb. The station is where the piece is *counted*; the lane goes on
+// past it to the goal mouth, and a piece that stopped at its own station read as parked
+// on a step rather than home. So it carries on up the ramp and is gone at the lip, which
+// is the arrival: the station keeps the tally, the traveller leaves.
+const ASCEND_AT = ARRIVE_AT; // the touchdown is the push-off, not a stop
+const ASCEND_MS = Math.round(GOAL_CARD_MS * 0.22); // 242: ends at 71% of the hold
 
 const KEYFRAMES_ID = 'goal-card-keyframes';
 
@@ -32,6 +38,12 @@ function ensureKeyframes() {
         0%   { transform: translate(var(--gx), var(--gy)); opacity: 0; }
         14%  { opacity: 1; }
         100% { transform: translate(0, 0); opacity: 1; }
+      }
+      /* The last stretch, from the station the piece just filled to the goal mouth, where
+         it fades out: the ramp is climbed, not stepped. */
+      @keyframes goalAscend {
+        0%   { transform: translate(0, 0); opacity: 1; }
+        100% { transform: translate(var(--ax), var(--ay)); opacity: 0; }
       }
       @keyframes goalLand {
         0%   { transform: scale(1, 1); }
@@ -59,6 +71,9 @@ const SLOTS = [
   { x: 123.8, y: 52.9 },
 ];
 const FOOT = { x: 34, y: 118 }; // where the climb starts: the ramp's own foot
+// The goal mouth: the chevron at the top of the lane, and where the arriving piece is
+// finally gone. Its feet leave at the lip, just under the chevron's apex.
+const MOUTH = { x: 136, y: 36 };
 const SLOT_R = 8.5;
 const PIECE_SCALE = 0.42; // 42 units of figure against a 48-unit band
 
@@ -69,9 +84,11 @@ const PIECE_SCALE = 0.42; // 42 units of figure against a 48-unit band
  * It is the goal counter made spatial: the home stretch as a ramp with four stations, one
  * per piece a seat can bring home, filled bottom to top. The piece climbs from the ramp's
  * foot to the station it just filled — the higher the count, the longer the climb — lands
- * with its feet compressing, and the station's flash fires on the landing. What is left of
- * `GOAL_CARD_MS` is the hold, and the panel's own `GOAL_CARD_FADE_MS` fade is the wrapper's
- * (`Game.tsx`), exactly as the flash card's is.
+ * with its feet compressing, and the station's flash fires on the landing. It does not stop
+ * there: the lane goes on past the last station to the goal mouth, so the piece takes the
+ * rest of the climb and fades out at the lip, leaving the filled station behind as the
+ * tally. What is left of `GOAL_CARD_MS` is the hold, and the panel's own
+ * `GOAL_CARD_FADE_MS` fade is the wrapper's (`Game.tsx`), exactly as the flash card's is.
  *
  * `count` is the seat's pieces home **after** this move, so the arriving piece is station
  * `count - 1`. The figure is `PieceFigure`, the same one the board and the clash cast draw:
@@ -164,9 +181,11 @@ export function GoalCard({ color, count }: { color: PlayerColor; count: number }
         }}
       />
 
-      {/* The arriving piece. The travel is a CSS translate on the outer group (the climb is
-          a straight line because the lane is), the landing is a squash on the inner one
-          about its own bounding box's feet, and the figure itself carries the set. */}
+      {/* The arriving piece. The travel is a CSS translate on the outer group (the climb
+          is a straight line because the lane is), the last stretch to the goal mouth is a
+          second translate on the wrapper that fades it out at the lip, the landing is a
+          squash on the next one about its own bounding box's feet, and the figure itself
+          carries the set. */}
       <g
         style={
           {
@@ -177,16 +196,26 @@ export function GoalCard({ color, count }: { color: PlayerColor; count: number }
         }
       >
         <g
-          style={{
-            transformBox: 'fill-box',
-            transformOrigin: 'bottom center',
-            animation: `goalLand ${LAND_MS}ms ease-out ${ARRIVE_AT}ms both`,
-          }}
+          style={
+            {
+              animation: `goalAscend ${ASCEND_MS}ms cubic-bezier(.4,0,.7,1) ${ASCEND_AT}ms both`,
+              '--ax': `${(MOUTH.x - arrived.x).toFixed(1)}px`,
+              '--ay': `${(MOUTH.y - arrived.y).toFixed(1)}px`,
+            } as CSSProperties & Record<'--ax' | '--ay', string>
+          }
         >
           <g
-            transform={`translate(${arrived.x} ${arrived.y}) scale(${PIECE_SCALE}) translate(-50 -95.5)`}
+            style={{
+              transformBox: 'fill-box',
+              transformOrigin: 'bottom center',
+              animation: `goalLand ${LAND_MS}ms ease-out ${ARRIVE_AT}ms both`,
+            }}
           >
-            <PieceFigure ck={color} set={theme === 'retro70' ? 'retro70' : 'retro80'} pose="front" />
+            <g
+              transform={`translate(${arrived.x} ${arrived.y}) scale(${PIECE_SCALE}) translate(-50 -95.5)`}
+            >
+              <PieceFigure ck={color} set={theme === 'retro70' ? 'retro70' : 'retro80'} pose="front" />
+            </g>
           </g>
         </g>
       </g>

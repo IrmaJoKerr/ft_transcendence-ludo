@@ -65,10 +65,10 @@ class RedisGameStore {
   // Main state (hash field "state")
   async createGame(gameId: string, activeColors?: PlayerColor[]): Promise<void>   // Fresh game, all 16 pieces in prison; one seat per colour, in the listed order (seat identity, not the rotation)
   async loadGameState(gameId: string): Promise<GameState | null>                                       // Load the full GameState (single HGET)
-  async saveGameState(gameId: string, state: GameState): Promise<void>                                 // Save the full GameState (+ 24h expire)
+  async saveGameState(gameId: string, state: GameState): Promise<void>                                 // Save the full GameState (+ 3 h expire)
 
   // Move history
-  async saveGameState(gameId: string, state: GameState): Promise<void>                               // HSET the whole state blob + EXPIRE 86400
+  async saveGameState(gameId: string, state: GameState): Promise<void>                               // HSET the whole state blob + EXPIRE GAME_STATE_TTL_S (10800)
 
   // Match metadata (lobby / color selection)
   async getMatchData(gameId: string): Promise<Record<string, string> | null>                           // Read the match hash (seats, colors, status)
@@ -240,7 +240,7 @@ captures adds one beat and not two:
 | --- | --- |
 | into home, room's effects rule on | `GOAL_CARD_TOTAL_MS` 1400 — the ramp card and its fade |
 | into home, rule off | `GOAL_FX_MS` 900 — the confetti |
-| capture that settled no clash, rule on | `CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS`, 2410 + 150 |
+| capture that settled no clash, rule on | `CAPTURE_CARD_MS + CAPTURE_CARD_GRACE_MS`, 2210 + 150 |
 | capture that settled no clash, rule off | 0 |
 | anything else | 0 |
 
@@ -461,7 +461,7 @@ model already *is* the occupancy map: **16 nodes with a `step` field answer
 
 | Pattern | Type | TTL | Description |
 |---------|------|-----|-------------|
-| `game:{gameId}` | Hash | 86400s (24h) | One field `state` = serialized GameState JSON |
+| `game:{gameId}` | Hash | 10800s (3h) | One field `state` = serialized GameState JSON |
 | `match:{gameId}` | Hash | 3600s (aborted) | Lobby directory: `id`, `status`, `gameType`, `playerCount`, `seatColors`, `inviteCode` (PvP only), `createdAt`, `startedAt`, `idleSince`, one seat row per slot (`player{1-4}_id`, `player{1-4}_color`, `player{1-4}_isBot`), and one `seatUser_<color>` field per seat holding the account that took it (keyed by colour, not by slot). **Co-owned** — mutated by both the engine (via `RedisGameStore` helpers) and Nest (via `match/*.service.ts`). The backend reads `game:{gameId}` state through `isSeatFinalized()` only to check seat liveness; it never writes to `game:*`. |
 | `guesttok:{sha256(token)}` | Hash | 3600s (1h) | Guest handshake registry, written by the backend: `gameId`, `color`, `mode`, `ip`. The engine reads it at handshake and deletes it on abort settlement; the record is the authority for the room and the seat. |
 | `guest:abort:{sha256(ip)}`, `guest:live:{sha256(ip)}`, `guest:rooms:live` | Counter | 21600s, 3600s self-heal | Guest-mode budgets, **co-owned** with the backend. The engine increments the abort counter and frees both live slots when a guest aborts or finishes. See [guest-mode.md](../guest-mode.md). |
@@ -499,7 +499,7 @@ the face that seat's die last landed on, absent until its first roll.
 ```
 saveGameState(gameId, state)
   ├── HSET game:{gameId} state <JSON>
-  ├── EXPIRE game:{gameId} 86400
+  ├── EXPIRE game:{gameId} GAME_STATE_TTL_S
   └── Done
 ```
 

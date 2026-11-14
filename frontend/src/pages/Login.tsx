@@ -77,7 +77,6 @@ export function Login() {
 
   return (
     <RetroAuthLayout
-      tag={t('auth.loginTag')}
       topRight={
         // Pinned on the card's corner, so an opaque fill stops the card's own
         // cyan border from showing through the switch's translucent background.

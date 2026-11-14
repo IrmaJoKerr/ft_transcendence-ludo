@@ -16,15 +16,22 @@ import { ENDED_MATCH_STATUSES } from './active-game';
 export interface GameEndParticipant {
   userId: string;
   color: string;
+  // 1 for the seat that brought its fourth piece home, 2 for every other seat. The
+  // engine reports no finer order, and none is needed: a completed match has one
+  // winner and the rest are losses (`rank === 1` is the whole test, as in the career
+  // update below). A `won` boolean on `MatchHistory` would only restate this.
   rank: number;
   totalTurns?: number;
   piecesCaptured?: number;
   piecesInGoal?: number;
   piecesLost?: number;
-  diceRolls?: number;
-  sixes?: number;
-  clashDefends?: number;
+  threeSixes?: number;
+  // Clash rounds, split by the side the seat stood on. The two "lost" tallies are
+  // the seat's own half of a round the opponent won.
   clashAttacksWon?: number;
+  clashDefendsWon?: number;
+  clashAttacksLost?: number;
+  clashDefendsLost?: number;
   // Wall Breaker: clash chains won on a landing that stood a wall.
   clashWallBattlesWon?: number;
   clashWallsAttacked?: number;
@@ -89,10 +96,11 @@ export interface SeatAbandonPayload {
   piecesCaptured?: number;
   piecesInGoal?: number;
   piecesLost?: number;
-  diceRolls?: number;
-  sixes?: number;
-  clashDefends?: number;
+  threeSixes?: number;
   clashAttacksWon?: number;
+  clashDefendsWon?: number;
+  clashAttacksLost?: number;
+  clashDefendsLost?: number;
   clashWallBattlesWon?: number;
   clashWallsAttacked?: number;
   clashWallsDefended?: number;
@@ -544,18 +552,22 @@ export class MatchPostgameService {
               humanWins: gameType === 'PVP' && isWinner ? { increment: 1 } : undefined,
               botWins: gameType === 'PVE' && isWinner ? { increment: 1 } : undefined,
               // pveGameStreak: PVE increments (any rank), PVP resets to 0.
-              // Hotseat never reaches the backend (demo-and-forget).
+              // pvpGameStreak is its mirror, so each mode's streak is readable
+              // without walking the history. Hotseat never reaches the backend
+              // (demo-and-forget).
               pveGameStreak: gameType === 'PVE' ? { increment: 1 } : 0,
+              pvpGameStreak: gameType === 'PVP' ? { increment: 1 } : 0,
               // Lifetime counters, written even when the room had clash off (where they
               // all read 0): they are the only place the lifetime rules can read.
               totalTurns: { increment: p.totalTurns ?? 0 },
               totalCaptures: { increment: p.piecesCaptured ?? 0 },
               totalPiecesInGoal: { increment: p.piecesInGoal ?? 0 },
               totalPiecesLost: { increment: p.piecesLost ?? 0 },
-              totalDiceRolls: { increment: p.diceRolls ?? 0 },
-              totalSixes: { increment: p.sixes ?? 0 },
-              clashDefends: { increment: p.clashDefends ?? 0 },
+              totalThreeSixes: { increment: p.threeSixes ?? 0 },
               clashAttacksWon: { increment: p.clashAttacksWon ?? 0 },
+              clashDefendsWon: { increment: p.clashDefendsWon ?? 0 },
+              clashAttacksLost: { increment: p.clashAttacksLost ?? 0 },
+              clashDefendsLost: { increment: p.clashDefendsLost ?? 0 },
               clashWallBattlesWon: { increment: p.clashWallBattlesWon ?? 0 },
               clashWallsAttacked: { increment: p.clashWallsAttacked ?? 0 },
               clashWallsDefended: { increment: p.clashWallsDefended ?? 0 },
@@ -593,10 +605,11 @@ export class MatchPostgameService {
               totalCaptures: p.piecesCaptured ?? 0,
               piecesInGoal: p.piecesInGoal ?? 0,
               piecesLost: p.piecesLost ?? 0,
-              diceRolls: p.diceRolls ?? 0,
-              sixes: p.sixes ?? 0,
-              clashDefends: p.clashDefends ?? 0,
+              threeSixes: p.threeSixes ?? 0,
               clashAttacksWon: p.clashAttacksWon ?? 0,
+              clashDefendsWon: p.clashDefendsWon ?? 0,
+              clashAttacksLost: p.clashAttacksLost ?? 0,
+              clashDefendsLost: p.clashDefendsLost ?? 0,
               clashWallBattlesWon: p.clashWallBattlesWon ?? 0,
               clashWallsAttacked: p.clashWallsAttacked ?? 0,
               clashWallsDefended: p.clashWallsDefended ?? 0,
@@ -805,10 +818,11 @@ export class MatchPostgameService {
             totalCaptures: seat.piecesCaptured ?? 0,
             piecesInGoal: seat.piecesInGoal ?? 0,
             piecesLost: seat.piecesLost ?? 0,
-            diceRolls: seat.diceRolls ?? 0,
-            sixes: seat.sixes ?? 0,
-            clashDefends: seat.clashDefends ?? 0,
+            threeSixes: seat.threeSixes ?? 0,
             clashAttacksWon: seat.clashAttacksWon ?? 0,
+            clashDefendsWon: seat.clashDefendsWon ?? 0,
+            clashAttacksLost: seat.clashAttacksLost ?? 0,
+            clashDefendsLost: seat.clashDefendsLost ?? 0,
             clashWallBattlesWon: seat.clashWallBattlesWon ?? 0,
             clashWallsAttacked: seat.clashWallsAttacked ?? 0,
             clashWallsDefended: seat.clashWallsDefended ?? 0,

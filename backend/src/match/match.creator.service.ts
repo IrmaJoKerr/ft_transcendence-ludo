@@ -11,6 +11,7 @@ import Redis from 'ioredis';
 import { BOT_PREFIX } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
+import { GAME_STATE_TTL_S } from '../__shared__/timing.constants';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
 import { findSeatedMatch } from './active-game';
 import { GUEST_TOKEN_TTL_S, GuestLimitService, guestIpHash } from './guest-limit.service';
@@ -358,7 +359,7 @@ export class MatchCreatorService {
     }
 
     await this.redis.hset(`match:${gameId}`, updates);
-    await this.redis.expire(`match:${gameId}`, 86400);
+    await this.redis.expire(`match:${gameId}`, GAME_STATE_TTL_S);
     // A new room is a lobby change; best effort, the broadcaster's tick repairs a
     // missed publish.
     await publishRoomsChanged(this.redis);

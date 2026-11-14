@@ -539,9 +539,10 @@ Module-level constants in the engine's support files — edit at the top of each
 
 | Constant | File | Default | What it controls |
 |----------|------|---------|------------------|
-| `DISCONNECT_GRACE_MS` | `timing.ts` | 45 s | Live PvP and hotseat reconnect window before a disconnected player is pruned |
+| `DISCONNECT_GRACE_MS` | `timing.ts` | 45 s | Live PvP reconnect window before a disconnected player is pruned |
+| `HOTSEAT_DISCONNECT_GRACE_MS` | `timing.ts` | 5 s | Hotseat's own reconnect window. It keeps `isSingleSocketGame` (the room never pauses and still closes itself at expiry) but only has to cover a reload, so an abandoned local game releases the lobby in seconds instead of holding it |
 | `WAITING_SEAT_GRACE_MS` | `timing.ts` | 5 min | Waiting-room window: a participant's expiry releases the seat, the host's closes the room |
-| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `timing.ts` | 1 h | PvE simulation reconnect window before the game auto-aborts. Hotseat keeps `isSingleSocketGame` (it still never pauses and still closes itself at expiry) but reads the 45 s window, so a closed tab releases the lobby rather than locking it for an hour |
+| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | `timing.ts` | 1 h | PvE simulation reconnect window before the game auto-aborts |
 
 > `startReconnectGrace` arms its timer one second past the deadline, so an early fire re-reads the
 > deadline and waits instead of pruning a seat a client is still reconnecting to.

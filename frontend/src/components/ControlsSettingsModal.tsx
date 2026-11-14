@@ -65,10 +65,13 @@ const GROUP = { display: 'flex', flexDirection: 'column', gap: 6 } as const;
  * they stay in the waiting-room window, so nothing in this popover is host-only.
  *
  * The language and theme switches (32.1) are the navbar's own components, mounted
- * here as a fourth host. They make the popover taller than a phone, so **only the
- * rows scroll**: the body caps itself at the viewport and takes the header and the
- * audio switch out of that budget, because the switch that unmutes a silent game
- * must not be scrolled for — a row below the fold reads as a dead button.
+ * here as a fourth host, and the four preferences run in the dock's order: language,
+ * auto-close, master audio, theme. They make the popover taller than a phone, so the
+ * body caps itself at the viewport and **only the rows scroll**; the header stays put.
+ * The audio switch is the third row rather than a footer of its own (it was pinned
+ * below the body until the running order was made to match the dock's), so the row
+ * that unmutes a silent game sits in the middle of the stack instead of the bottom
+ * edge of the frame.
  *
  * Layout follows `LegalModal` (portal over the page, `RETRO_WINDOW` shell, Escape
  * and a backdrop click close), because the windows it is opened from use that
@@ -111,8 +114,8 @@ export function ControlsSettingsModal({
     >
       <div
         className={`${RETRO_WINDOW} flex w-full max-w-[340px] flex-col overflow-hidden rounded-xl border-[1.5px] border-[rgb(var(--accent-cyan-rgb)/0.4)] shadow-[0_25px_70px_rgb(var(--shade-rgb)/0.95),0_0_35px_rgb(var(--accent-cyan-rgb)/0.25)]`}
-        // The window never grows past the viewport either: the header, the rows and
-        // the audio switch are one column, and the rows are the only part that yields.
+        // The window never grows past the viewport either: the header and the rows
+        // are one column, and the rows are the only part that yields.
         style={{ maxHeight: 'calc(100dvh - 2rem)' }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -149,7 +152,7 @@ export function ControlsSettingsModal({
         <div
           className={`${WINDOW_BODY} flex flex-col bg-[rgb(var(--bg-panel-rgb)/0.92)]`}
           // Only these rows scroll (32.1). The cap is the viewport itself, because the
-          // header and the audio switch are chrome and take their height first.
+          // header is chrome and takes its height first.
           style={{
             gap: 8,
             padding: '10px 12px',
@@ -202,44 +205,31 @@ export function ControlsSettingsModal({
 
           <div style={{ borderTop: '1px solid rgb(var(--ink-rgb) / 0.1)', margin: '2px 0' }} />
 
-          {/* The second home of the auto-close preference (22.5): the same row as the
-              dock's, reading and writing the same store field. The two switches that
-              follow it (32.1) come above the full-width audio button, which is the
-              stack this popover inherited from #sectorControlWindow: divider, audio,
-              rules, one under another, with the preferences in front of the audio. */}
-          <AutoCloseToggle />
-
-          {/* Language and theme, in the dock's own running order (1 language, 4 theme)
-              and above the audio row. Both are that popover's components mounted a
-              fourth time, not forked: the theme switch takes no props and this one
-              takes the store's pair. The theme row is last because it repaints the
-              shell under it. */}
+          {/* The four preferences, in the dock's own running order (32.1): 1 language,
+              2 auto-close, 3 master audio, 4 theme. The three switches are that
+              popover's components mounted a fourth time, not forked: the theme one
+              takes no props and the language one takes the store's pair. The theme row
+              is last because it repaints the shell under it. */}
           <div style={GROUP}>
             <span style={GROUP_LABEL}>🌐 {t('navbar.languageLabel')}</span>
             <LanguageSwitcher variant="tabs" value={lang} onChange={setLang} />
           </div>
 
-          <ThemeSwitcher />
-        </div>
+          {/* 2. The second home of the auto-close preference (22.5): the same row as the
+              dock's, reading and writing the same store field. */}
+          <AutoCloseToggle />
 
-        {/* The footer, outside the scrolling body (32.1): the switch that unmutes a
-            silent game is the one control that must never be scrolled for, and its
-            beep is played by the press itself, so a row below the fold reads as a
-            dead button. */}
-        <div
-          style={{
-            flexShrink: 0,
-            padding: '10px 12px',
-            borderTop: '1px solid rgb(var(--ink-rgb) / 0.1)',
-            background: 'rgb(var(--bg-panel-rgb) / 0.92)',
-          }}
-        >
+          {/* 3. Master audio, the dock's third row: mutes/unmutes every sound (music
+              and FX) through the same `retroAudio.muted` flag the dock's own block
+              drives, and its beep is played by the press itself. */}
           <button
             className={RETRO_BADGE}
             style={{
               cursor: 'pointer',
               padding: '8px 10px',
-              background: muted ? 'rgb(var(--state-off-rgb) / 0.12)' : 'rgb(var(--state-on-rgb) / 0.12)',
+              background: muted
+                ? 'rgb(var(--state-off-rgb) / 0.12)'
+                : 'rgb(var(--state-on-rgb) / 0.12)',
               border: muted ? '1.5px solid var(--state-off)' : '1.5px solid var(--state-on)',
               color: muted ? 'var(--state-off)' : 'var(--state-on)',
               fontFamily: 'var(--font-mono)',
@@ -263,6 +253,9 @@ export function ControlsSettingsModal({
             <span>{muted ? '🔇' : '🔊'}</span>
             <span>{muted ? t('game.audioOff') : t('game.audioOn')}</span>
           </button>
+
+          {/* 4. Theme: the row that repaints the shell under the popover. */}
+          <ThemeSwitcher />
         </div>
       </div>
     </div>,

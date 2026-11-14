@@ -47,8 +47,8 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 
 | File | Holds |
 |---|---|
-| `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 86400, and `chatLength()` |
-| `common/src/timing.constants.ts` | the twenty-five both builds count: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1200, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1900 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2900 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3800 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4200 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2410 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750 |
+| `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 10800 (imported from `timing.constants`), and `chatLength()` |
+| `common/src/timing.constants.ts` | the twenty-five both builds count, plus the room's idle window: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1000, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1700 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2700 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3600 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4000 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2210 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, `DICE_ROLL_ANIM_MS` 750, `GAME_STATE_TTL_S` 10800 (the room's own idle window — the one number no animation reads; the engine's `game:<id>` state, the backend's `match:<id>` record and both chat keys all live this long) |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -72,7 +72,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 
 ### Shared
 
-0. **[The shared folder](#the-shared-folder)** — the one declaration each build copies: chat, the twenty-five timings, the Wall Breaker hand, and the test for what belongs there
+0. **[The shared folder](#the-shared-folder)** — the one declaration each build copies: chat, the twenty-six timings, the Wall Breaker hand, and the test for what belongs there
 
 ### Engine
 
@@ -129,7 +129,7 @@ from this table.
 | `CLASH_SWITCH_FIRST_MAX_MS` | 2500 | latest first key switch |
 | `CLASH_SWITCH_GAP_MIN_MS` | 800 | shortest gap between two switches |
 | `CLASH_SWITCH_GAP_MAX_MS` | 1100 | longest gap; the worst case (2500 + 1100) still leaves 1.4 s of the press window after the last switch |
-| `CLASH_RESULT_FREEZE_MS` | 4400 | input-freeze **ceiling**: the longest card (`CLASH_BREACH_RESULT_MS` 4200) plus `CARD_HOLD_MARGIN_MS`, and a client card hold can only shorten it |
+| `CLASH_RESULT_FREEZE_MS` | 4200 | input-freeze **ceiling**: the longest card (`CLASH_BREACH_RESULT_MS` 4000) plus `CARD_HOLD_MARGIN_MS`, and a client card hold can only shorten it |
 | `CARD_HOLD_MIN_MS` | 250 | floor for a reported card hold: a client that asks for less is raised to this |
 | `CLASH_SWEEP_GRACE_MS` | 15000 | outer cleanup bound measured from the clash start |
 | `CLASH_SWEEP_INTERVAL_MS` | 5000 | cadence of the orphaned-clash sweep |
@@ -167,8 +167,9 @@ action fires.
 |---|---|---|
 | `IDLE_LOBBY_TIMEOUT_MS` | 300000 (5 min) | an empty PvP lobby is aborted after this |
 | `POST_GAME_TIMEOUT_MS` | 60000 (1 min) | a finished room is torn down after this |
-| `DISCONNECT_GRACE_MS` | 45000 | live PvP and hotseat reconnect window before the seat is pruned |
-| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | 3600000 (1 h) | PvE reconnect window (bot-mode, solo seat, nothing to hold up). Hotseat reads the 45 s above, so an abandoned local game releases the lobby's lock in under a minute |
+| `DISCONNECT_GRACE_MS` | 45000 | live PvP reconnect window before the seat is pruned |
+| `HOTSEAT_DISCONNECT_GRACE_MS` | 5000 (5 s) | hotseat's own window: one device drives every seat, a reload rejoins in about a second, and at expiry the room closes itself — so an abandoned local game releases the lobby's lock in seconds instead of holding it for the PvP 45 or the PvE hour |
+| `SINGLE_SOCKET_DISCONNECT_GRACE_MS` | 3600000 (1 h) | PvE reconnect window (bot-mode, solo seat, nothing to hold up) |
 
 `player-handler.ts` arms the disconnect timer at `DISCONNECT_GRACE_MS + 1000` so the deadline is
 already past when the callback fires; the stored `reconnectDeadline` still uses the bare constant.
@@ -180,7 +181,7 @@ the lobby and the room are the same conversation at two sizes and both servers c
 |---|---|---|
 | `GAME_CHAT_MAX_LINES` | 1000 | lines the room keeps (`LPUSH` + `LTRIM`); the panel paints the tail, a stored row keeps the whole log |
 | `GAME_CHAT_FALLBACK_LINES` | 400 | lines the fallback re-post keeps when `/api/game/end` refuses the body (413) |
-| `GAME_CHAT_TTL_S` | 86400 | the two chat keys' life, the same window `game:<id>` keeps |
+| `GAME_CHAT_TTL_S` | 10800 (3 h) | the two chat keys' life: `GAME_STATE_TTL_S` itself, imported rather than restated, so the transcript lapses with the room that wrote it |
 
 `CHAT_MAX_CHARS` (300) and the `chatLength` helper (trim first, then count UTF-16 units) are shared
 with the lobby as well, so the two channels refuse the same line at the same length and paint the same
@@ -513,8 +514,8 @@ counter below zero.
 
 | Key | TTL | Set by |
 |---|---|---|
-| `game:<gameId>` (state hash) | 86400 (24 h) | `redis.ts` on every save |
-| `match:<gameId>` (room hash) | 86400 (24 h) | `match.creator.service.ts` at create |
+| `game:<gameId>` (state hash) | 10800 (3 h) | `redis.ts` on every save, from `GAME_STATE_TTL_S` |
+| `match:<gameId>` (room hash) | 10800 (3 h) | `match.creator.service.ts` at create, from the same constant |
 | `match:<gameId>` after an abort | 3600 (1 h) | `redis.ts`, so the room drops out of open-room listings sooner |
 | `guesttok:<hash>` | 3600 (1 h) | `GUEST_TOKEN_TTL_S` (§8) |
 
@@ -621,7 +622,7 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 `styles/themes/retro70/theme.css` is the second theme. The attributes are set on both `<html>` and `<body>`;
 the 70s table is placed **after** the default one because `:root` and `[data-theme='retro80']` are
 both specificity 0-1-0, so only source order decides. The two tables must declare the same names in the
-same order (`scripts/check-theme-literals.mjs` gates it), because a name one table has and the other
+same order (`Test-harnesses/style-gates/check-theme-literals.mjs` gates it when run), because a name one table has and the other
 lacks paints as `unset` under that era and no screenshot catches it.
 
 | Token | Value | Role |
@@ -650,7 +651,7 @@ lacks paints as `unset` under that era and no screenshot catches it.
 | `--window-header-text` | `#ffffff` | its text |
 | `--card-border-style` | `2px solid var(--accent-pink)` | card border shorthand |
 | `--fs-border` / `--fs-bg` / `--fs-glow` | `var(--accent-pink)` / `var(--bg-card)` / `rgb(var(--accent-pink-rgb) / 0.5)` | the theme popover's border, fill and glow; derived from the theme in `theme-base.css`, not declared per era. The three fieldset tokens beside them (`--fs-text`, `--fs-accent`, `--fs-cyan`) went with the `#color-scheme` sheet on 2026-11-12 |
-| `--shell-image` | `linear-gradient(to bottom, rgba(13,2,33,.30) 0%, rgba(13,2,33,.62) 100%)`, then `url('./80s-Synthwave-Cityscape.jpg')` | the `html, body` ground, and the only per-era layer a route may not cover: no page mounts a backdrop of its own (`todo.md` 33, steps 3 and 3b); the plate lives in the theme's own folder and Vite hashes it into `/assets/`. Read as `background-image`, so the **dim is the first layer** (the first layer paints on top) and `to bottom` is **two words** — `scripts/check-shell-plate.mjs` fails the build on an `_`, a plate on top or a missing file |
+| `--shell-image` | `linear-gradient(to bottom, rgba(13,2,33,.30) 0%, rgba(13,2,33,.62) 100%)`, then `url('./80s-Synthwave-Cityscape.jpg')` | the `html, body` ground, and the only per-era layer a route may not cover: no page mounts a backdrop of its own (`todo.md` 33, steps 3 and 3b); the plate lives in the theme's own folder and Vite hashes it into `/assets/`. Read as `background-image`, so the **dim is the first layer** (the first layer paints on top) and `to bottom` is **two words** — `Test-harnesses/style-gates/check-shell-plate.mjs` fails on an `_`, a plate on top or a missing file |
 | `--accent-*-rgb` | `255 0 127` / `0 240 255` / `255 230 0` / `157 0 255` | the four accents as `r g b`, read as `rgb(var(--accent-*-rgb) / a)` so a tint can carry an alpha and still follow the theme |
 | `--ink-rgb` / `--shade-rgb` / `--bg-primary-rgb` | `255 255 255` / `0 0 0` / `13 2 33` | the neutrals as `r g b`: the ink every surface tints with, the shadow under it, the ground |
 | `--bg-void-rgb` / `--bg-panel-rgb` | `5 2 18` / `10 2 28` | the navy ramp below the ground: a scrim or an empty well, and a panel's own fill (which is also the bottom of a raised gradient) |
@@ -716,7 +717,7 @@ not two: on and off report through the pair above, and a caution, a warning or a
 accent that already names the colour, so a `--state-warn` would be a second name for a value the accent owns and would
 drift from it. Synthwave's yellow is unchanged, which makes the 80s theme byte-identical at all 60 lines the pass moved;
 the 70s column is the amber measured above. What stays literal is an inventory rather than a rule of thumb
-(`frontend/scripts/check-theme-literals.mjs`, run by `prebuild` and `lint`): the four seat tables and the two seat maps,
+(`Test-harnesses/style-gates/check-theme-literals.mjs`, run by hand): the four seat tables and the two seat maps,
 the mode chrome as whole objects (the amber ticket with its badge, divider and launch pill, whose pink and green
 siblings are literal), the two mode and rank hue tables, the hero art, the 70s piece accent, the theme row's swatch and
 the token block. Everything else that paints reads the token.
@@ -789,7 +790,7 @@ tickets' hover shades (`#33ffaa` beside `#ff3399` and `#ffff33`) are distinct hu
 hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
 with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s
 set is black leather and a long black coat, which at `.52` on the synthwave cell is a silhouette
-(`todo.md` [28.3](todo.md#rv80-lift)); the 70s set and the hero's crew keep `.52`. `--` means "not a
+(`todo.md` [28.3](todo.md#rv80-lift)); the 70s set keeps `.52`. `--` means "not a
 colour role".
 
 | Constant | Value | Role |
@@ -818,14 +819,14 @@ celebration's four and the two animations) are in `common/src/timing.constants.t
 to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
 the overlay follows those, so they decide the card animation, never the game state.
 
-**The result card's clock — three acts' worth of numbers, one card.** The 1900 ms scene is cut into
+**The result card's clock — three acts' worth of numbers, one card.** The 1700 ms scene is cut into
 the two acts it always had, so an act can be re-timed without moving the other, and the card is their
 sum plus a per-path read window rather than one guessed total. Nothing a player sees moved in the
 split: the attack's last beat still falls at 703 and the cell still lands at 1121. A **wall** adds
 nothing to the scene's acts but time to one of them: its attack act carries a 900 ms beat (`the dome
-taking the hit, then holding`), so every card drawn on a wall is 3800 instead of 2900. A **breach** —
+taking the hit, then holding`), so every card drawn on a wall is 3600 instead of 2700. A **breach** —
 the attacker's win against the last defender of a wall — is the one card with a third act, so it is
-the longest card there is: a wall's attack + cloud + jail and no read window, 4200, because its
+the longest card there is: a wall's attack + cloud + jail and no read window, 4000, because its
 sentence lives inside the cloud act instead of after the scene.
 
 | Constant | Value | What it times |
@@ -833,20 +834,20 @@ sentence lives inside the cloud act instead of after the scene.
 | `SCENE_ATTACK_MS` | 700 | the beam, the strike, the wall's flare and the subtraction: every beat of `ResultFx`'s attack act is budgeted in this, and the marks pinned to its head keep it on a wall too |
 | `SCENE_WALL_BEAT_MS` | 900 | the wall's own beat, added to its attack act: the dome takes the hit at 260, blobs over to a peak at 700, resolves at 880, loses its face ring by 1000, then holds for the last 600 |
 | `SCENE_WALL_ATTACK_MS` | 1600 | a wall's attack act: `SCENE_ATTACK_MS + SCENE_WALL_BEAT_MS`, which is what every "after the attack act" start reads (a wall's jail opens at 1600, a breach's cloud too) |
-| `SCENE_JAIL_MS` | 1200 | the cell: the bars travel from 136, land at 421 and hold for 779 ms of stillness |
+| `SCENE_JAIL_MS` | 1000 | the cell: the bars travel from 136, land at 421 and hold for 579 ms of stillness |
 | `SCENE_CLOUD_MS` | 1400 | the breach's cloud: it is up at 500 and holds, and the sentence joins it at 400 and finishes with the act |
-| `RESULT_FX_MS` | 1900 | the scene every card has on the pair stage: `SCENE_ATTACK_MS + SCENE_JAIL_MS`, so a re-timed act moves both builds at once |
+| `RESULT_FX_MS` | 1700 | the scene every card has on the pair stage: `SCENE_ATTACK_MS + SCENE_JAIL_MS`, so a re-timed act moves both builds at once |
 | `RESULT_HEADLINE_READ_MS` | 1000 | the headline's read window after the last act |
-| `CLASH_RESULT_MS` | 2900 | a pair's card: the scene + the read window |
-| `CLASH_WALL_RESULT_MS` | 3800 | a wall's card: the same scene and read window plus the beat. A wall round mid-chain and a wall repulse alike, because the stage that plays the beat is chosen by the stack and not by who won |
-| `CLASH_BREACH_RESULT_MS` | 4200 | the breach card: a wall's attack + cloud + jail, no read window. A final card by definition, and the longest there is — the freeze is derived from it |
+| `CLASH_RESULT_MS` | 2700 | a pair's card: the scene + the read window |
+| `CLASH_WALL_RESULT_MS` | 3600 | a wall's card: the same scene and read window plus the beat. A wall round mid-chain and a wall repulse alike, because the stage that plays the beat is chosen by the stack and not by who won |
+| `CLASH_BREACH_RESULT_MS` | 4000 | the breach card: a wall's attack + cloud + jail, no read window. A final card by definition, and the longest there is — the freeze is derived from it |
 | `CLASH_TEXT_ONLY_MS` | 1400 | the card with the room's acts switched off: no scene, no scene sound, just the text |
 
 Three readers pick between them, through one function (`clashCardMs` in `frontend/src/game/timing.ts`):
 the overlay's own timer, the receipt `Game.tsx` sends the engine, and the engine's own deadline for a
 card nobody sits on (which mirrors the function in `clash-engine.ts` from the same constants). The
-receipt is the card's length plus `CARD_HOLD_MARGIN_MS` — 3100 on a pair's card, 4000 on a wall's,
-4400 on a breach and 1600 on a text-only one.
+receipt is the card's length plus `CARD_HOLD_MARGIN_MS` — 2900 on a pair's card, 3800 on a wall's,
+4200 on a breach and 1600 on a text-only one.
 
 **The opt-in capture card's clock** — shared, because three readers count it: the panel's fade, the
 client's roll guard, and the engine's bot pacing (`socket/server.ts`). It is *added* from its parts,
@@ -855,9 +856,9 @@ shorter than the clip it plays.
 
 | Constant | Value | What it times |
 |---|---|---|
-| `CAPTURE_CARD_HOLD_MS` | 210 | the cell, held still AFTER the gesture stops (the gesture's own tail is 780 ms of a still cell) |
+| `CAPTURE_CARD_HOLD_MS` | 210 | the cell, held still AFTER the gesture stops (the gesture's own tail is 579 ms of a still cell) |
 | `CAPTURE_CARD_FADE_MS` | 300 | the panel's own fade out |
-| `CAPTURE_CARD_MS` | 2410 | the whole card: `RESULT_FX_MS` 1900 + the hold + the fade |
+| `CAPTURE_CARD_MS` | 2210 | the whole card: `RESULT_FX_MS` 1700 + the hold + the fade |
 | `CAPTURE_CARD_GRACE_MS` | 150 | the roll guard's slack past the card (a press inside it is dropped; the engine paces bots by it too) |
 
 **The goal's beat** — shared for the same reason the capture card's is: two readers count it, the

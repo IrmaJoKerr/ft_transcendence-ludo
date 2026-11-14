@@ -8,6 +8,7 @@ import { Lobby } from './pages/Lobby';
 import { LudoLobby } from './pages/LudoLobby';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
+import { Squads } from './pages/Squads';
 import { Profile } from './pages/Profile';
 import { TwoFactor } from './pages/TwoFactor';
 import { ForgotPassword } from './pages/ForgotPassword';
@@ -32,6 +33,10 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
   '/reset-password': () => <ResetPassword />,
   '/verify-email': () => <VerifyEmail />,
   '/gamelobby': () => <LudoLobby />,
+  // The four squads of the era the theme is in: a page off the lobby, not a tab in
+  // it (34, item 2). It sits beside the lobby rather than under it because it has
+  // no state of its own — no room, no seat, nothing to resume.
+  '/squads': () => <Squads />,
   '/gamelobby/table': () => <Lobby />,
   // The guest setup screen: the same seat/bot/rules controls, no session, and
   // its launch posts the public guest endpoint instead of /api/match/create.

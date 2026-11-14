@@ -844,9 +844,10 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                 </div>
               </section>
 
-              {/* RETURN TO GAME LOBBY BUTTON */}
+              {/* RETURN TO GAME LOBBY BUTTON — centred for the same reason as LAUNCH:
+                  the shared `RETRO_BTN` is an `inline-flex` row with no `justify`. */}
               <button
-                className={RETRO_BTN}
+                className={`${RETRO_BTN} justify-center`}
                 style={{
                   width: '100%',
                   padding: '12px 0',
@@ -1121,7 +1122,12 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         border: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                         borderRadius: 4,
                         textAlign: 'center',
-                        fontSize: '0.82rem',
+                        // One line carries four messages, so it is one size: the retro
+                        // mono sub-line of the panel it sits in (the board's corner labels
+                        // and the key-shift blurb are the same 0.62 rem), rather than a
+                        // size per state that would move the launch button by a line
+                        // whenever the panel changed its mind (35, item 6).
+                        fontSize: '0.62rem',
                         fontFamily: 'var(--font-mono)',
                         color: canLaunch ? 'var(--state-on)' : 'var(--accent-yellow)',
                         marginTop: 12,
@@ -1139,13 +1145,16 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                   </div>
 
                   <div>
-                    {/* LAUNCH BUTTON */}
+                    {/* LAUNCH BUTTON. The label is centred in the full-width frame: the
+                        shared `RETRO_BTN` is an `inline-flex` row with no `justify`, so a
+                        short line like `// ADD BOT TO START //` sat against its left edge
+                        while the frame ran on to the panel's right one. */}
                     <button
                       onClick={() => {
                         void onStart();
                       }}
                       disabled={!canLaunch || starting}
-                      className={RETRO_BTN}
+                      className={`${RETRO_BTN} justify-center`}
                       title={lockedByActiveGame ? t('lobby.activeGameLockTooltip') : undefined}
                       style={{
                         width: '100%',

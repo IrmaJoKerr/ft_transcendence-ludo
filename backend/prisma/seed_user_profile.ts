@@ -62,6 +62,13 @@ async function writeMatches(
     const playedAt = new Date(now - m.ago);
 
     for (const p of seats) {
+      // The row's turn count and the pieces it lost, derived from the seat's own figures so
+      // the history card and the career totals below describe the same match: a seat takes
+      // a handful of turns plus the ones its captures and goals cost it, brings home what
+      // it brought home, and lost nothing if it won. The clash columns stay at their
+      // defaults (0) because these demo rooms predate the mutator — `gameModes` says so.
+      const totalTurns = 12 + 6 * p.cap + 4 * p.goal;
+      const piecesLost = p.r === 1 ? 0 : Math.max(0, 4 - p.goal);
       await prisma.matchHistory.create({
         data: {
           user_id: p.uid as string,
@@ -80,8 +87,10 @@ async function writeMatches(
           color: p.c as PlayerColor,
           rank: p.r,
           ratingDelta: ratingDeltaFor({ piecesInGoal: p.goal, rank: p.r, gameType: m.type }),
+          totalTurns,
           totalCaptures: p.cap,
           piecesInGoal: p.goal,
+          piecesLost,
           participants: snapshot,
         },
       });
@@ -133,9 +142,14 @@ async function main() {
       winStreak: 5,
       bestWinStreak: 7,
       // Lifetime counter sums, matching the 15 demo matches below (62 captures, 51
-      // pieces in goal): the card and the history then agree.
+      // pieces in goal): the card and the history then agree. The turns and the pieces
+      // lost are the same rows added up (784 / 5), and the streak is the whole window:
+      // fifteen PvP games in a row, which is what that counter counts.
       totalCaptures: 62,
       totalPiecesInGoal: 51,
+      totalTurns: 784,
+      totalPiecesLost: 5,
+      pvpGameStreak: 15,
     };
     const harleyhxngAchievement = {
       achFirstBlood: true,
@@ -376,9 +390,13 @@ async function main() {
       winStreak: 1,
       bestWinStreak: 3,
       // Lifetime counter sums, matching the 7 demo matches below (23 captures, 20
-      // pieces in goal).
+      // pieces in goal), plus the same two additions: the rows' turns and losses (306 /
+      // 7) and the seven-PvP-game streak the window is.
       totalCaptures: 23,
       totalPiecesInGoal: 20,
+      totalTurns: 306,
+      totalPiecesLost: 7,
+      pvpGameStreak: 7,
     };
     const harleynghxeduAchievement = {
       achFirstBlood: true,

@@ -60,6 +60,8 @@ export class MoveValidator {
               to,
               isCapture: captureCount > 0,
               isHomeEntry: false,
+              // An exit lands on the track (1..6), never on the goal.
+              isGoalEntry: false,
               captureCount,
               // The exit lands where the roll lands, so a wall on that square is
               // attacked by the same rule and costs the same token.
@@ -86,6 +88,10 @@ export class MoveValidator {
       }
 
       const isHomeEntry = to >= 52 && to <= 56;
+      // The goal itself (57) is the arrival the ramp and the fanfare belong to: the
+      // lane before it is just a corridor, and treating it as the finish made the
+      // celebration fire four moves early and never on the piece that actually got home.
+      const isGoalEntry = to === 57;
       // The gate is read for THIS destination, not for the board: a wall on an
       // ordinary square is attackable while this seat is armed, a wall on a
       // protected star stays a share, and an unarmed seat is blocked by the wall.
@@ -100,6 +106,7 @@ export class MoveValidator {
         to,
         isCapture,
         isHomeEntry,
+        isGoalEntry,
         captureCount,
         // A landing on a wall is the token's price, wherever the move came from.
         spendsWallBreakerToken: this.landingPaysToken(state, color, to, captureCount),
@@ -216,6 +223,8 @@ export class MoveValidator {
       to,
       isCapture: true,
       isHomeEntry: false,
+      // A wall stands on the shared track: the landing is never the goal square.
+      isGoalEntry: false,
       // The whole wall: one clash round per defender.
       captureCount: this.captureCountAt(state, color, pieceId, to, true),
       spendsWallBreakerToken: true,
@@ -370,6 +379,7 @@ export class MoveValidator {
       captured,
       capturedPieceIds,
       enteredHome: pendingMove.isHomeEntry,
+      reachedGoal: pendingMove.isGoalEntry,
       bonusRoll: diceValue === 6 || captured,
     };
   }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApi, postApi } from '../api';
 import { ColorPaletteModal } from '../components/ColorPaletteModal';
+import { GameRulesModal } from '../components/GameRulesModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { NavDock } from '../components/NavDock';
 import type { PlayerColor } from '../game/types';
@@ -105,6 +106,29 @@ function modeChipStyle(hue: string): React.CSSProperties {
 }
 
 /**
+ * The header's two reference buttons (34, item 2). They wear the small bordered
+ * control the rooms list already uses — the ACCESS ROOM button beside them — so
+ * neither reads as a new surface, and both are era-neutral because the words are.
+ */
+const HEADER_ACTION_STYLE: CSSProperties = {
+  height: 32,
+  padding: '0 14px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '0.72rem',
+  fontFamily: 'var(--font-mono)',
+  fontWeight: 700,
+  letterSpacing: '0.4px',
+  background: 'rgb(var(--accent-cyan-rgb) / 0.22)',
+  borderColor: 'var(--accent-cyan)',
+  color: 'var(--accent-cyan)',
+  boxShadow: '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)',
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+};
+
+/**
  * MODES cell: "Base Game" alone, or the active mutators only. The full names are
  * also on the cell's `title`, so a chip clipped by a narrow column still resolves
  * to something readable (a hover-only "i" would leave touch users with nothing).
@@ -197,6 +221,10 @@ export function LudoLobby() {
   // **CRT CONTROLS**
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
+  // The arena's rules, opened from the header's GAME RULES button. The modal is the
+  // game screen's own component (34, item 2), so the lobby cannot read a page the
+  // game does not have; the open flag is all this page owns.
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
@@ -799,31 +827,21 @@ export function LudoLobby() {
                 id="roomsWindow"
                 style={{ flex: '1 1 0', minHeight: 180 }}
               >
-                {/* The room-code field is the header's right-hand control. The
-                    header wraps, and the title keeps `minWidth: 0`, so the input
-                    can never squeeze it.
+                {/* The header carries the counter on the left, the two reference
+                    buttons in the middle and the room-code field on the right.
 
-                    The page's error line shares this row, between the title and the
-                    field: the header is the only strip in the lobby with slack to
-                    spare, so a failure is read where the action that caused it
-                    lives, and the list stops paying rent for a reserved band. It is
-                    centred in that slack — `justifyContent: 'center'` on the span —
-                    so every string the three locales can produce sits equidistant
-                    from the counter and the field instead of hugging the counter.
-                    The status span is `width: 0` with `flex: 1 1 0` and
-                    `minWidth: 0`: the definite zero width is what keeps the message
-                    out of the line-breaking maths (a zero basis alone still counts
-                    the text towards the group's max-content size — measured, the
-                    header grew 57 → 87 px), and `grow` hands it the row's slack, so
-                    a long message cannot widen the title group, push the field onto
-                    a second row or change the header's height. It shrinks first,
-                    ellipsising to fit (`maxWidth: 100%` on the message); an empty
-                    one leaves the row exactly as it was, and its 4 px of margin —
-                    on top of the group's 8 px gap, against the header's 12 px gap
-                    on the other side — is what keeps the air symmetric when a
-                    message fills the slack. One line, with the whole
-                    sentence in `title`. `role="status"` is on the always mounted
-                    span, so the line is announced when it arrives. */}
+                    The middle used to be the page's error line: a zero-width span
+                    with `flex: 1 1 0` that grew into the row's slack and was centred
+                    in it. Two buttons cannot share a slot measured that way — a
+                    definite zero width exists to keep text out of the line-breaking
+                    maths, and a button is not text — so the message moved to a row
+                    of its own directly under this one (34, item 2), and the two
+                    buttons took the slack between the counter and the field. It is
+                    a move, not a restyle: same type, same colours, and the three
+                    locales' longest message now has the whole width instead of the
+                    slack it had to ellipsise inside. `role="status"` stays on the
+                    always-mounted row, so a failure is still announced as it
+                    arrives. */}
                 <div
                   className={WINDOW_HEADER}
                   style={{
@@ -840,7 +858,7 @@ export function LudoLobby() {
                       alignItems: 'center',
                       gap: 8,
                       minWidth: 0,
-                      flex: '1 1 auto',
+                      flex: '0 1 auto',
                     }}
                   >
                     <span
@@ -853,51 +871,43 @@ export function LudoLobby() {
                     >
                       {t('ludoLobbyPasses.openQuantumRooms')} ({filteredRooms.length})
                     </span>
-                    <span
-                      role="status"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        // Centred in the row's slack: whatever string is in it —
-                        // any of the three locales, any length — sits equidistant
-                        // from the counter and the code field rather than hugging
-                        // the counter. A message too long for the slack fills it
-                        // (`maxWidth: 100%` on the child) and ellipsises.
-                        justifyContent: 'center',
-                        // A definite zero width is what keeps the message out of the
-                        // header's line-breaking maths (a `0` basis alone does not:
-                        // the text still counts towards the group's max-content
-                        // size). `grow` then hands it every pixel the row has left.
-                        width: 0,
-                        flex: '1 1 0',
-                        minWidth: 0,
-                        // 4 + the group's 8 px gap = the header's own 12 px gap on
-                        // the other side of this span, so a message that fills the
-                        // slack gets the same air on both sides.
-                        marginLeft: error ? 4 : 0,
+                  </div>
+
+                  {/* The arena's own two pages, one press each: the rules the game
+                      already ships, and the squads the colours belong to. */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      flex: '1 1 auto',
+                      minWidth: 0,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className={RETRO_BTN}
+                      style={HEADER_ACTION_STYLE}
+                      onClick={() => {
+                        retroAudio.playUiBeep(600, 0.05);
+                        setRulesOpen(true);
                       }}
                     >
-                      {error && (
-                        <span
-                          title={t('ludoLobbyExtra.errorPrefix', { message: error })}
-                          style={{
-                            minWidth: 0,
-                            maxWidth: '100%',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.4px',
-                            color: 'var(--text-main)',
-                            textShadow: '0 0 10px rgb(var(--state-off-rgb) / 0.65)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {t('ludoLobbyExtra.errorPrefix', { message: error })}
-                        </span>
-                      )}
-                    </span>
+                      {t('ludoLobbyPasses.rulesBtn')}
+                    </button>
+                    <button
+                      type="button"
+                      className={RETRO_BTN}
+                      style={HEADER_ACTION_STYLE}
+                      onClick={() => {
+                        retroAudio.playUiBeep(640, 0.05);
+                        navigate('/squads');
+                      }}
+                    >
+                      {t('ludoLobbyPasses.squadsBtn')}
+                    </button>
                   </div>
 
                   {/* Warp by code: the header's right-hand control. */}
@@ -971,6 +981,38 @@ export function LudoLobby() {
                         : `▶ ${t('ludoLobbyPasses.accessRoom')}`}
                     </button>
                   </div>
+                </div>
+
+                {/* The page's failure line, on its own row under the header: same
+                    type and colours it had inside the header, wrapping now instead
+                    of ellipsising because the row is the whole width (34, item 2).
+                    The row is always mounted so the live region exists before a
+                    message does; with nothing to say it collapses to nothing and
+                    the header sits exactly where it did. */}
+                <div
+                  role="status"
+                  style={{
+                    padding: error ? '6px 14px' : 0,
+                    background: error ? '#190a38' : undefined,
+                    borderBottom: error ? '1px solid rgb(var(--accent-cyan-rgb) / 0.3)' : undefined,
+                  }}
+                >
+                  {error && (
+                    <span
+                      title={t('ludoLobbyExtra.errorPrefix', { message: error })}
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.4px',
+                        color: 'var(--text-main)',
+                        textShadow: '0 0 10px rgb(var(--state-off-rgb) / 0.65)',
+                      }}
+                    >
+                      {t('ludoLobbyExtra.errorPrefix', { message: error })}
+                    </span>
+                  )}
                 </div>
 
                 <div
@@ -1210,6 +1252,10 @@ export function LudoLobby() {
           </div>
         </div>
       </div>
+
+      {/* The rules, ten pages of them: the game screen's component, mounted here so
+          the lobby's GAME RULES button and the game's read the same ten pages. */}
+      <GameRulesModal isOpen={rulesOpen} onClose={() => setRulesOpen(false)} />
 
       {/* The corner picker. It is the only place a seat colour is chosen: the host
           picks the corner the room is created in, a joiner picks from the corners

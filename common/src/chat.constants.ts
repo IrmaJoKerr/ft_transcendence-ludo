@@ -17,14 +17,17 @@
 // - `GAME_CHAT_MAX_LINES` is the room's transcript, longer because that same list is
 //   the one frozen onto a `MatchHistory` row.
 // - `GAME_CHAT_FALLBACK_LINES` is what a room re-posts when a body is refused as too
-//   large, and `GAME_CHAT_TTL_S` is a day, the same window the state keeps.
+//   large, and `GAME_CHAT_TTL_S` is the room's own idle window, imported from
+//   `timing.constants` rather than restated here: the transcript lapses with the room
+//   that wrote it, so the two keys cannot outlive the state they belong to.
+import { GAME_STATE_TTL_S } from './timing.constants';
 
 export const CHAT_MAX_CHARS = 300;
 export const CHAT_COOLDOWN_MS = 2_000;
 export const CHAT_HISTORY = 500;
 export const GAME_CHAT_MAX_LINES = 1000;
 export const GAME_CHAT_FALLBACK_LINES = 400;
-export const GAME_CHAT_TTL_S = 86400;
+export const GAME_CHAT_TTL_S = GAME_STATE_TTL_S;
 
 /** How long a line is, in the one unit both servers count: UTF-16 code units, so an
  *  ordinary character is 1 and anything above the BMP is 2, which is what it also

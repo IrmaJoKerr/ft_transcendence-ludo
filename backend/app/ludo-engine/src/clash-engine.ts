@@ -465,6 +465,10 @@ export class ClashEngine {
         // next round waits for the card. The move-level calls (executeMove,
         // applyMoveOutcome, piece_moved) run once when the chain ends, never here.
         if (attackerMeta) attackerMeta.stats.clashAttacksWon++;
+        // The round had one winner and one loser and the ledger keeps both sides:
+        // the defender's tally needs the loss, or a clash lost could only ever be
+        // reconstructed from the opponent's wins.
+        if (defenderMeta) defenderMeta.stats.clashDefendsLost++;
         if (defenderPiece) {
           defenderPiece.step = 0;
           defenderPiece.isInBase = true;
@@ -481,7 +485,7 @@ export class ClashEngine {
         delete state.clash;
         // The card this round draws, then the kick-back animation. An intermediate round
         // exists only on a wall (a chain is a stack of defenders), and a wall's card is the
-        // scene plus its beat (32.4): 3800, not the 2900 a pair's card gets. The deadline
+        // scene plus its beat (32.4): 3600, not the 2700 a pair's card gets. The deadline
         // is `armCardHold`'s to stamp — the card itself for a human, the card plus the
         // margin for the hotseat card nobody can report — so it is not guessed at here.
         const cardId = this.cardIdFor(pc.attacker, defenderColor, state.moveCounter);
@@ -514,10 +518,15 @@ export class ClashEngine {
         return;
       }
 
+      // One round, one winner and one loser: both seats keep their own half of it.
+      // A repulse is the defender's win AND the attacker's loss; a capture is the
+      // reverse. The profile prints the two sums, never a single "clashes" number.
       if (attackerWon) {
         if (attackerMeta) attackerMeta.stats.clashAttacksWon++;
+        if (defenderMeta) defenderMeta.stats.clashDefendsLost++;
       } else {
-        if (defenderMeta) defenderMeta.stats.clashDefends++;
+        if (defenderMeta) defenderMeta.stats.clashDefendsWon++;
+        if (attackerMeta) attackerMeta.stats.clashAttacksLost++;
       }
       const pendingMove = {
         pieceId: pc.pieceId,
@@ -528,6 +537,9 @@ export class ClashEngine {
         // below is applied explicitly instead.
         isCapture: false,
         isHomeEntry: pc.enteredHome,
+        // A clash is fought on the shared track, where no opponent stands on the goal
+        // square: the resolved landing is never the arrival the ramp celebrates.
+        isGoalEntry: false,
         // The defenders stamped when the clash began: 1 for a single piece, R for a
         // wall. A full clear sends exactly that many home, so the count describes
         // the move that was chosen.
@@ -724,8 +736,8 @@ export class ClashEngine {
       if (seat?.userId) users.add(seat.userId);
     }
     // The deadline is this method's to write, and it is the CARD's, not the audience's: a
-    // mid-chain card is a wall round and is held to the wall card it is (3800), a final one
-    // to the freeze (4400, sized for the longest card there is). A card somebody sits on
+    // mid-chain card is a wall round and is held to the wall card it is (3600), a final one
+    // to the freeze (4200, sized for the longest card there is). A card somebody sits on
     // keeps that, because nothing may cut what a client actually drew and only that client
     // knows when it finished.
     //
@@ -733,8 +745,8 @@ export class ClashEngine {
     // arrive — so it used to pay the ceiling whole: 1500 ms past a pair card's last frame,
     // 3000 past a text-only one. The ceiling is the wrong theory twice now that it is sized
     // for a breach (32.4): the card nobody watches is the one that must be cut, so it is
-    // timed to its own kind plus the same margin a receipt would have sent — 3100 plain,
-    // 4000 wall, 4400 breach, 1600 text-only (`clashCardMs(kind) + CARD_HOLD_MARGIN_MS`).
+    // timed to its own kind plus the same margin a receipt would have sent — 2900 plain,
+    // 3800 wall, 4200 breach, 1600 text-only (`clashCardMs(kind) + CARD_HOLD_MARGIN_MS`).
     //
     // Assigned, not `Math.min`ed against whatever the state carried: the previous round of
     // a chain leaves its expired deadline behind, and keeping the smaller number would pin
