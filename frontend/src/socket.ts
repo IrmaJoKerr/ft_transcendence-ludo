@@ -72,6 +72,10 @@ export type ServerEvents = {
   clash_start: (e: ClashStartEvent) => void;
   clash_phase: (e: { phase: ClashPhase; countdownDeadline: number; pressDeadline: number }) => void;
   clash_press: (e: { color: PlayerColor; presses: number }) => void;
+  // The roller caught their spinning die (38.7). Cosmetic: it carries the seat and nothing
+  // else, so every client plays the same acute branch and no face or landing moves. A
+  // client that receives it after its own flop has begun simply does not branch.
+  dice_tapped: (e: { color: PlayerColor }) => void;
   clash_result: (e: {
     cardId?: string;
     winner: PlayerColor;
@@ -124,6 +128,9 @@ export type ServerEvents = {
 export type ClientEvents = {
   join_game: (gameId: string, color: PlayerColor, userId?: string, displayName?: string) => void;
   roll_dice: () => void;
+  // The die was caught mid-spin (38.7). A cosmetic relay: the room plays the same branch,
+  // and nothing about the face or the landing is asserted. No ack.
+  dice_tapped: () => void;
   move_piece: (pieceId: string) => void;
   // Decline the armed Wall Breaker exit that is holding the turn: the token
   // stays in hand, the dice are spent and the turn passes.

@@ -209,7 +209,7 @@ export function Login() {
         </div>
 
         <div className={RETRO_AUTH_MUTED} style={{ textAlign: 'center' }}>
-          {t('auth.newToTable')}{' '}
+          {t('auth.newToArena')}{' '}
           <a
             onClick={() => {
               retroAudio.playUiBeep(640, 0.05);

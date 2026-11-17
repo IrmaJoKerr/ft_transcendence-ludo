@@ -57,7 +57,7 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/components/GoalBurst.tsx` | The goal's arrival, on the same anchor rule as `CaptureBurst`: twelve rays on a 30° pitch (long and short alternating, the seat's hue alternating with white), a hot core and one shock ring, all inside `GOAL_BURST_MS` 700 read through `game/timing.ts`. Mounted by the setter that lands a path's last tick, so the piece never leaves an empty cell between frames |
 | `src/components/GoalConfetti.tsx` | The goal's celebration with the room's effects rule **off**: twenty hand-laid pieces thrown from the cell the piece left, each with its own drift, spin and delay, every one of them ending exactly on `GOAL_FX_MS`. The overlay is the rule's; the starburst and the fanfare are not |
 | `src/components/GoalCard.tsx` | The goal's celebration with the rule **on**: the goal counter made spatial — the home stretch as a ramp with four stations, filled bottom to top, `PieceFigure` climbing from the ramp's foot to the station this move filled (the higher the count, the longer the climb) and the station flashing on the landing. Exports its frame (`GOAL_CARD_MAX_PX` 336, `GOAL_CARD_VIEWBOX`, `GOAL_CARD_ASPECT`), the flash card's width cap at this card's own ratio |
-| `src/components/Die.tsx` | Dice component: face rendering, accelerating roll tumble and a braked die's near-miss settle |
+| `src/components/Die.tsx` | The die as one cube: six faces painted once from `PIP_MAP` and turned by `FACE_ROTATIONS`, normalised onto the nearest full turn at rest. The acts come from `common/src/timing.constants.ts` — ACCEL, SPIN, then SLOWDOWN and FLOP untapped, or ACUTE, its three-quarter slowdown and the same FLOP when the die is caught — and every colour from the six `--dice-*` tokens |
 | `src/components/ColorPaletteModal.tsx` | The colour picker for one seat: a fixed 2×2 in board-quadrant order (`BOARD_QUADRANTS`) with a taken corner drawn as an inert dashed slot, and a turn-order diagram beside it — four numbered rings joined by clockwise arrows, numerals and arcs derived from `SEAT_COLORS`, corners not on offer dimmed to 35 %. `sm:max-w-2xl` with the diagram in a 150 px left column (stacked and centred below `sm`), and the whole body scrolls inside `max-h-[90vh]` |
 | `src/components/RoomRuleToggle.tsx` | One room-rule row, shared by the create screen's rules panel (`pages/Lobby.tsx`) and the host's in-game one (`pages/Game.tsx`): glyph, label, description and the on/off switch, with the 520/320 Hz toggle blip. The caller owns the order, so both panels read clash → mid-clash key shift → free exit → no safe zones → the cosmetic attack animations last |
 | `src/components/UserAvatar.tsx` | Avatar image: keyed by the immutable `userId`; requests the photo only when the seat is not a bot and a photo is known to exist (payload flag or a live `avatar_changed` override, which the backend pushes to that user's own clients only), otherwise renders the DiceBear default. A failed load marks that id broken for the session so it is not retried; an optional `onPhotoError` callback runs when that happens, so a parent component can show a message (the Profile page uses it to show a warning in the user's language) |
@@ -140,12 +140,23 @@ the same cell in viewport coordinates for the clash card's dim copy.
 
 ```typescript
 type DieProps = {
-  value: number;                // 1-6, the server's face once the roll lands
-  rolling?: boolean;            // If true, tumbles through random faces
-  brakeTo?: number | null;      // Set by a braked roll: shows the neighbour of this
-                                // face until the roll lands (the near-miss)
+  value: number;                // 1-6, the face the engine sent; the die rests on it
+  rolling?: boolean;            // true while a roll's acts play
+  startAt?: number | null;      // performance.now() when this device's roll began;
+                                //   null for a roll this device only watches
+  spinMs?: number;              // the spin this roll drew (DICE_SPIN_MAX_MS by default,
+                                //   the ceiling, for a roll nobody here started)
+  tappedAt?: number | null;     // the catch's own instant, null until the die is caught
 }
 ```
+
+One cube, six faces painted once from `PIP_MAP` and turned by `FACE_ROTATIONS`, which is
+normalised onto the nearest full turn at rest so the angle cannot grow across a match. The acts come
+from `common/src/timing.constants.ts`: ACCEL, SPIN, then SLOWDOWN and FLOP untapped, or ACUTE, its
+three-quarter slowdown and the same FLOP when `tappedAt` falls inside SPIN. FLOP's last tumble is the
+settle, so the face is never left mid-turn. There is no `brakeTo` and no near-miss face: the faces
+never move, the cube does. Every colour comes from the six `--dice-*` tokens, and the whole turn is
+behind the stylesheet's `prefers-reduced-motion` gate (`.die-cube`).
 
 ### OAuthButtons
 
@@ -199,16 +210,19 @@ sequenceDiagram
     participant Game as Game.tsx
     participant Die as Die.tsx
 
-    Game->>Die: <Die value={dice} rolling={rolling} brakeTo={brakeTo} />
-    alt brakeTo is set (braked roll)
-        Die->>Die: Slow the shake, hold the near-miss face
-    else rolling = true
-        Die->>Die: Apply shake animation CSS
-        Die->>Die: Flip through random faces, the interval shrinking
+    Game->>Die: <Die value={dice} rolling={rolling} startAt={start} spinMs={spin} tappedAt={tap} />
+    alt rolling = true
+        Die->>Die: ACCEL from the resting face, plan the roll from that pose
+        alt tappedAt inside SPIN
+            Die->>Die: Cut the spin at the catch, then ACUTE + its 300 ms slowdown
+        else untapped
+            Die->>Die: SPIN to its drawn end, then SLOWDOWN
+        end
+        Die->>Die: FLOP, one more turn, landing exactly on the engine's face
     else rolling = false
-        Die->>Die: Render static face for value
+        Die->>Die: Rest on value (the stored angle's nearest full turn)
     end
-    Die->>Die: Render 3x3 pip grid for face value
+    Die->>Die: Render the cube's six 3x3 pip faces, colours from the --dice-* tokens
 ```
 
 ### 4. OAuthButtons
@@ -261,11 +275,10 @@ sequenceDiagram
 
 ### Die Path
 ```
-<Die value={dice} rolling={rolling} brakeTo={brakeTo} />
-  ├── brakeTo set → near-miss face (brakeTo ± 1), slower shake
-  ├── rolling = true → accelerating face flips, shake
-  └── rolling = false → render static face
-       └── Render 3x3 pip grid for value
+<Die value={dice} rolling={rolling} startAt={start} spinMs={spin} tappedAt={tap} />
+  ├── rolling = true → ACCEL, SPIN (cut at the catch), ACUTE + acute slowdown or SLOWDOWN, FLOP
+  └── rolling = false → rest on the engine's face (nearest full turn of the stored angle)
+       └── Six 3x3 pip faces, turned by FACE_ROTATIONS, coloured by the --dice-* tokens
 ```
 
 ### OAuthButtons Path

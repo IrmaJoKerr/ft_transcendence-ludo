@@ -157,6 +157,19 @@ export class EventPublisher {
         );
         break;
 
+      // The roll's tap: the seat alone, so every client in the room plays the same branch.
+      // Nothing is stored and nothing is applied — this frame cannot move a face or a
+      // landing, which is what lets the engine relay it without taking the game lock.
+      case 'dice_tapped':
+        void this.store.publish(
+          gameId,
+          JSON.stringify({
+            type: 'dice_tapped',
+            color: event.color,
+          }),
+        );
+        break;
+
       case 'clash_result':
         void this.store.publish(
           gameId,

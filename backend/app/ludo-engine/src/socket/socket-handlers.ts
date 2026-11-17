@@ -146,6 +146,18 @@ export class SocketHandlers {
     })();
   }
 
+  // 'dice_tapped' event: the roller caught their spinning die (38.7). A cosmetic relay on
+  // the pattern `clash_press` sets — the seat, broadcast to the room, nothing else. It
+  // reads no state and takes no game lock: a tap cannot move the face or the landing, so
+  // there is nothing here for a client to profit from, and a stale one degrades to a
+  // client that does not see the branch. A socket bound to no seat asserts nothing.
+  handleDiceTap(socket: GameSocket): void {
+    const gameId = socket.data.gameId;
+    const color = socket.data.playerColor;
+    if (!gameId || !color) return;
+    this.engine.emitEvent({ type: 'dice_tapped', gameId, color });
+  }
+
   // 'clash_card_hold' event: the result-card release handshake. The client forecasts
   // its own card; the engine clamps it, keeps the smallest deadline, and releases once
   // every participant reports. A stale id or non-participant is dropped.

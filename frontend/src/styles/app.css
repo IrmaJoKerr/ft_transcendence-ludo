@@ -261,6 +261,20 @@ body {
 }
 
 /* --------------------------------------------------------------------------
+   THE DIE'S ACTS (components/Die.tsx)
+   -------------------------------------------------------------------------- */
+
+/* The cube's turn is an inline `transition`, because each act carries its own duration
+   and easing (38.1). The gate is still this stylesheet's: with reduced motion the cube
+   steps to each act's end instead of tumbling between them, so the face the engine sent
+   still lands on time and no fourth hook exists to keep in step with the other three. */
+@media (prefers-reduced-motion: reduce) {
+  .die-cube {
+    transition: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
    GRID DASHBOARD BOARDS & WIDGETS
    -------------------------------------------------------------------------- */
 

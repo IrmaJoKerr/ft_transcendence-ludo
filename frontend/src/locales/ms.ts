@@ -726,7 +726,7 @@ export const ms = {
     identifierPlaceholder: 'NightRook atau anda@parlor.gg',
     enteringBtn: 'Memasuki…',
     orContinueWith: 'ATAU TERUSKAN DENGAN',
-    newToTable: 'Baru di meja ini?',
+    newToArena: 'Baru di arena?',
     createAccountLink: 'Cipta akaun',
     signupTag: 'SERTAI 2.4J PEMAIN DI SELURUH DUNIA',
     oneMoreStep: 'SATU LANGKAH LAGI',

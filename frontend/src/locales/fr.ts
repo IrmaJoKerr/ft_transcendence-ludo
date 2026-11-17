@@ -735,7 +735,7 @@ export const fr = {
     identifierPlaceholder: 'NightRook ou vous@parlor.gg',
     enteringBtn: 'Connexion…',
     orContinueWith: 'OU CONTINUER AVEC',
-    newToTable: 'Nouveau à la table ?',
+    newToArena: 'Nouveau dans les arènes ?',
     createAccountLink: 'Créer un compte',
     signupTag: 'REJOIGNEZ 2.4M DE JOUEURS DANS LE MONDE',
     oneMoreStep: 'ENCORE UNE ÉTAPE',

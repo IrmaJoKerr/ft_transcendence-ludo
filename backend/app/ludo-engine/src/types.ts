@@ -509,6 +509,11 @@ export type GameEvent =
       pressDeadline: number;
     }
   | { type: 'clash_press'; gameId: string; color: PlayerColor; presses: number }
+  // The roller caught their spinning die (38.7). Cosmetic and seat-only, on the pattern
+  // `clash_press` sets: the room plays the same acute branch, and nothing here can move a
+  // face or a landing, so no ack and no reducer. The engine paints no part of it — the
+  // client's acts are the whole frame's content.
+  | { type: 'dice_tapped'; gameId: string; color: PlayerColor }
   | {
       type: 'clash_result';
       gameId: string;

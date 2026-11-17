@@ -116,4 +116,15 @@
   --state-on-ink: #0b021a;
   --state-off: #ff0055;
   --state-off-rgb: 255 0 85;
+  /* The die's six (38.9): the cube's two body stops, its edge, the two stops of a pip and
+     the shadow it casts. The same six names sit in the sibling table, in this order, and
+     `Die` reads them by role, so no colour literal lives in the component. Synthwave's die
+     is the plate's dark cube lit at the edges, with pips that read as neon rather than as
+     ink, and the glow under it is the era's pink instead of a black drop. */
+  --dice-face: #1a0733;
+  --dice-face-shade: #0c0220;
+  --dice-edge: var(--accent-cyan);
+  --dice-pip: var(--accent-cyan);
+  --dice-pip-shade: var(--accent-purple);
+  --dice-shadow: rgb(var(--accent-pink-rgb) / 0.45);
 }

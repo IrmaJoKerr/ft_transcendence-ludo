@@ -44,6 +44,7 @@ input/output. Each event is documented in full below; see
 |---|---|---|---|---|
 | `join_game` | Entering a room — PvP join/rejoin, PvE/hotseat seat-in (hotseat sends one call per local seat) | `(gameId: string, playerColor?, userId?, displayName?)` | Bind the socket to the room/seat (reconnect or fresh join), create the game if missing, auto-start PvE/hotseat. A non-reconnecting join to an **ACTIVE** game is only rejected when the token's own seat can no longer be resumed (exited/inactive/never seated); the refused socket is detached from the room and unbound from the seat (so it can neither observe the game nor disturb a seated player on disconnect) and told `seat_expired`/`error`. A live seat is always the token holder's own, so it is accepted as a (re)join — this keeps a reconnect working when the previous socket has not been reaped yet, and any other socket still bound to that seat is unbound (takeover) so a stale one cannot later force the seat down. Hotseat is exempt (one socket controls all its seats) | `game_joined` to the sender |
 | `roll_dice` | Current player, phase `WAITING_FOR_ROLL` | `()` | Roll the die and compute the legal moves (a 3rd six auto-forfeits the turn) | `dice_rolled` |
+| `dice_tapped` | The seat whose die is spinning — cosmetic, never validated | `()` | Relay the catch to the room (38.7). The roller draws its own spin and taps at most once per roll, so the frame carries the seat and nothing else: no state is read, no game lock is taken, and nothing it says can move a face, a landing or a turn. Its own rate bucket (10 per `EVENT_WINDOW_MS`) keeps a flood from draining the turn's budget; a socket bound to no seat is dropped silently | `dice_tapped` |
 | `move_piece` | Current player, phase `WAITING_FOR_MOVE` | `(pieceId: string)` | Validate and apply the move | `piece_moved` |
 | `arm_wall_breaker` | Current player, clash mode on, a token in hand | `(armed: boolean)` | The Wall Breaker arm switch. Engine-owned and turn-scoped (`PlayerMeta.wallBreakerArmed`): armed means this seat may land on and break a wall, disarmed means a wall blocks the landing. Refused with an `error` frame outside clash mode, off the current turn, or when arming an empty hand. No move list is recomputed: every priced wall landing is listed whether or not the seat is armed, the switch only decides whether `move_piece` accepts it, and the flag is deleted from every seat when the turn advances (and cleared when a spend empties the hand) | `state_update` |
 | `skip_wall_breaker` | Current player, phase `WAITING_FOR_MOVE`, and EVERY pending move is token-priced | `()` | Decline the held Wall Breaker turn: a PASS, not a re-roll. The dice are spent, the turn advances and the token stays in hand. Refused unless every move on the table is priced (an ordinary move means the roll is played, not skipped; there is no 6 carve-out). The engine throws inside the game lock, and the socket layer drops that refusal SILENTLY: `console.error` for the operator, no `error` frame for the player | `turn_skipped` + `state_update` |
@@ -67,6 +68,7 @@ input/output. Each event is documented in full below; see
 |---|---|---|---|
 | `game_joined` | A successful `join_game` | `GameState` | Sent to the joining socket only. The only frame that carries `state.log`, which is how a reload, a rejoin, a second tab or an engine restart rebuilds the recon panel |
 | `dice_rolled` | A die roll | `{ color, value, legalMoves, bonusRoll, currentTurn, forfeited?, log? }` | Room-wide. `color` is the seat that actually rolled (the engine has already advanced `currentTurn` on a no-move roll or the third-six forfeit, so it cannot be read off the frame's turn), and `log` carries the line this roll wrote (a `roll`, or the `thirdSixForfeit`) |
+| `dice_tapped` | The roller caught their spinning die | `{ color }` | Room-wide, the sender included. Cosmetic (38.7): every client plays the same acute branch, and the frame can never move a face or a landing. A client that receives it after its own flop has begun ignores it |
 | `piece_moved` | A legal move applied | `MoveResult` + `currentTurn` + `log?` | Room-wide. `currentTurn` is the seat the engine left holding the turn, stamped after the outcome was applied, so a client takes it instead of predicting the next seat from the rotation; `log` carries the lines the engine wrote for the move: a capture and its re-roll, or the repulse that sent the attacker home. It also arms a bot's next turn — the walk, then whatever the room paints — by one exclusive chain over `MoveResult.enteredHome` and `.captured` (`ludo-engine-redis-system.md`, *How turns are scheduled*); a move that settled a clash arms nothing here, because `clash_result` and `clash_card_released` own that card |
 | `turn_skipped` | The armed Wall Breaker exit was declined (`skip_wall_breaker`) | `{ gameId, currentTurn, log? }` | Room-wide. The turn has already advanced in the state: the SPA's reducer clears the move list and takes the seat this names, and the room's clients would otherwise keep rendering the skipped turn and its armed move. `log` carries the `wallBreakerSkipped` line |
 | `clash_start` | A capture is deferred to the QTE, or a chain starts its next round | `{ attacker, defender, attackerKey, defenderKey, attackerKeys, defenderKeys, switchAt, keyShift, serverNow, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | Room-wide. Keys are hidden until the press phase; the deadlines are absolute engine timestamps and the SPA draws the announce, countdown and press window from them. `attackerKeys`/`defenderKeys` are the key-shift schedules (element 0 is the legacy `attackerKey`/`defenderKey`, and each later element replaces the one before at `switchAt[i]`), `keyShift` is the room's count and `serverNow` is the engine clock the overlay derives its offset from; a room with the mutator off sends empty arrays, `0` and no switch. The chain fields appear only on a wall attack |
@@ -393,6 +395,23 @@ socket.emit('roll_dice');
 ---
 
 
+### `dice_tapped`
+
+The roller caught their spinning die (38.7). Cosmetic, on the pattern `clash_press` sets.
+
+```js
+socket.emit('dice_tapped');
+```
+
+**Response:** `dice_tapped` (`{ color }`) broadcast to the room, the sender included.
+
+**Nothing to refuse.** The frame carries the seat and nothing else, so it cannot move a face, a landing or a turn: the handler reads no game state and takes no game lock, and a socket bound to no seat is dropped silently. It spends its own rate bucket (10 per `EVENT_WINDOW_MS`) so a tap can neither be flooded nor drain the budget the turn's own events need, and guests may send it. A client that receives it after its own FLOP has begun ignores it, which degrades to that one player not seeing the branch.
+
+
+---
+---
+
+
 ### `move_piece`
 
 Move a piece using a legal pieceId.
@@ -513,6 +532,7 @@ A redelivered message costs nothing: `departSeat` no-ops on a seat that already 
 |---|---|---|
 | `game_joined` | `GameState` (full state) | After `join_game` |
 | `dice_rolled` | `{ color, value, legalMoves, bonusRoll, currentTurn, forfeited?, log? }` | After dice rolled |
+| `dice_tapped` | `{ color }` | The roller caught the spinning die (cosmetic, 38.7) |
 | `piece_moved` | `MoveResult` + `currentTurn` + `log?` | After piece moved |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
@@ -675,7 +695,7 @@ Module-level constants in the socket layer — edit the value at the top of the 
 | `MOVE_STEP_ANIM_MS` / `BOT_MOVE_STEP_MS` | `timing.ts` | 180 / 220 ms | Per-step piece-move animation pacing used to time bot turns |
 | `BOT_THINK_MS` | `timing.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
 | (removed) lobby and grace sweeps | `socket/server.ts` | — | The two 60 s `setInterval` sweeps were deleted with the restart-recovery work. See *Wake pass* above: deadlines are armed per room and replayed after a restart |
-| `DICE_ROLL_ANIM_MS` | `timing.ts` | 750 ms | Frontend dice-roll animation wait before a bot acts |
+| `DICE_ROLL_ANIM_MS` | `__shared__/timing.constants.ts` | 2550 ms | The die's acts added up at the widest spin (38): the roll's one ceiling, and the wait before a bot acts |
 | `CAPTURE_CARD_MS` + `CAPTURE_CARD_GRACE_MS` | `__shared__/timing.constants.ts` | 2210 + 150 ms | What a bot waits out behind a capture, added to the walk, when the room's effects rule lets the clients paint the flash card. Read from the shared tree, so the engine and the SPA count one number |
 | `GOAL_CARD_TOTAL_MS` / `GOAL_FX_MS` | `__shared__/timing.constants.ts` | 1400 / 900 ms | The goal's beat, added to the walk on every move into home: the ramp card and its fade with the rule on, the confetti with it off. Never 0 — the rule picks which overlay, not whether the piece arrives |
 | `SLOT_COLORS` | `socket/join-manager.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |
@@ -687,3 +707,5 @@ Module-level constants in the socket layer — edit the value at the top of the 
 | `PING_TIMEOUT_MS` | `timing.ts` | 15 s | How long a socket has to answer a ping before it is closed |
 | `EVENT_LIMIT` | `socket/server.ts` | 20 | Events a socket may spend from its bucket |
 | `EVENT_WINDOW_MS` | `timing.ts` | 5 s | Window the bucket refills over |
+| `CLASH_EVENT_LIMIT` | `socket/server.ts` | 125 | The press bucket, per `CLASH_EVENT_WINDOW_MS`: a mash at the 110 ms cap would close the socket on the shared bucket |
+| `DICE_TAP_EVENT_LIMIT` | `socket/server.ts` | 10 | The tap bucket, over `EVENT_WINDOW_MS`: one roll carries at most one tap, so this is several hotseat turns' worth and a flood still closes the socket |

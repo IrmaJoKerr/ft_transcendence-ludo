@@ -36,26 +36,6 @@ a:hover {
   color: #f4dfa0;
 }
 
-/* die while rolling */
-@keyframes shake {
-  0%,
-  100% {
-    transform: rotate(0deg) scale(1);
-  }
-  20% {
-    transform: rotate(-14deg) translateY(-4px) scale(1.04);
-  }
-  40% {
-    transform: rotate(12deg) translateY(2px) scale(1.02);
-  }
-  60% {
-    transform: rotate(-8deg) translateY(-3px) scale(1.03);
-  }
-  80% {
-    transform: rotate(6deg) translateY(1px) scale(1.01);
-  }
-}
-
 /* auth board */
 @keyframes floaty {
   0%,

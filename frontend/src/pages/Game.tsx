@@ -19,6 +19,8 @@ import {
   CAPTURE_CARD_MS,
   CARD_HOLD_MARGIN_MS,
   DICE_ROLL_ANIM_MS,
+  DICE_SPIN_MAX_MS,
+  DICE_SPIN_MIN_MS,
   GOAL_CARD_FADE_MS,
   GOAL_CARD_MS,
   MOVE_STEP_ANIM_MS,
@@ -32,6 +34,8 @@ import {
   RESULTS_MODAL_DELAY_MS,
   clashCardMs,
   diceLandAt,
+  diceRollMs,
+  diceTapClosesAt,
   goalCelebrationMs,
 } from '../game/timing';
 import { navigate } from '../router';
@@ -407,10 +411,10 @@ export function Game() {
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
   const isRollingRef = useRef(false);
-  // One roll's clock, in refs: the brake window opens at the tap that started the
-  // roll and closes at the landing, so a tap is never judged against a stale render.
-  // `rollStartRef` stays null for a roll this device did not start, which is what
-  // keeps an opponent's or a bot's dice un-brakeable.
+  // One roll's clock, in refs: the tap window opens at the tap that started the roll and
+  // closes when SPIN ends, so a tap is never judged against a stale render.
+  // `rollStartRef` stays null for a roll this device did not start, which is what keeps
+  // an opponent's or a bot's dice un-tap-able and its ROLL button free.
   const rollStartRef = useRef<number | null>(null);
   const rollBrakeAtRef = useRef<number | null>(null);
   const rollLandAtRef = useRef<number | null>(null);
@@ -418,9 +422,18 @@ export function Game() {
   const rollAnswerGuardRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rollLandFnRef = useRef<(() => void) | null>(null);
   const rollValueRef = useRef<number | null>(null);
-  // The face a braked die settles onto, null until the server's value is in hand;
-  // Die derives the near-miss it shows from it.
-  const [brakeTo, setBrakeTo] = useState<number | null>(null);
+  // The spin this roll drew, at `beginRoll` and once (38.E). The die's acts and the tap
+  // window both read it, so a tap can never be judged against a length the die is not
+  // playing; a roll this device only watches uses the ceiling instead (38.8).
+  const rollSpinMsRef = useRef(DICE_SPIN_MAX_MS);
+  // The instant this device caught the die, null until a tap lands and for a roll
+  // nobody tapped. `Die` branches its acts on it: ACUTE and its three-quarter slowdown
+  // in place of SLOWDOWN (38.2).
+  const [dieTapAt, setDieTapAt] = useState<number | null>(null);
+  // The face the roll will land on, known the moment the frame arrives and before the
+  // reducer takes it: FLOP has to settle on the engine's face, and the reducer still waits
+  // for the landing so the movable pieces do not light up mid-spin.
+  const [rollFace, setRollFace] = useState<number | null>(null);
   // The Space listener is bound once per match and would otherwise capture a stale
   // `canRoll`; this ref always points at the newest `beginRoll` closure (assigned
   // next to its definition, the same way `viewRef` is).
@@ -814,6 +827,9 @@ export function Game() {
         };
         retroAudio.playLaserSound();
         const arrivedAt = performance.now();
+        // The face FLOP settles on, handed to the die now: the reducer takes the frame at
+        // the landing, so `view.diceValue` is still the previous face while the die turns.
+        setRollFace(e.value);
         // Everything the landing does, in one body: a brake moves the landing
         // earlier and a slow answer moves it later, and neither path skips the
         // dispatch or the log.
@@ -827,18 +843,18 @@ export function Game() {
         rollLandFnRef.current = land;
         const start = rollStartRef.current;
         if (start == null) {
-          // A roll this device did not start (an opponent's or a bot's): the die
-          // tumbles for the full window and there is no local tap to brake it.
+          // A roll this device did not start (an opponent's or a bot's): the die plays
+          // the untapped acts at the ceiling, which is the room's one landing instant —
+          // the roller's own drawn spin can only land earlier, never later (38.8).
+          rollSpinMsRef.current = DICE_SPIN_MAX_MS;
           setIsRolling(true);
           scheduleLand(arrivedAt + DICE_ROLL_ANIM_MS);
           return;
         }
-        // This device's roll. A brake already taken means the near-miss can start
-        // now; either way only WHEN it lands changes, never the face.
+        // This device's roll. A catch already taken means the die is playing the acute
+        // branch; either way only WHEN it lands changes, never the face.
         rollValueRef.current = e.value;
-        const brakeAt = rollBrakeAtRef.current;
-        if (brakeAt != null) setBrakeTo(e.value);
-        scheduleLand(diceLandAt(start, arrivedAt, brakeAt));
+        scheduleLand(diceLandAt(start, rollSpinMsRef.current, arrivedAt, rollBrakeAtRef.current));
         return;
       }
 
@@ -1073,6 +1089,15 @@ export function Game() {
       }
     };
 
+    // The roller caught their die (38.7). Cosmetic and seat-free: this device only branches
+    // a roll it is watching (a roll it started already set its own branch when it emitted),
+    // and `Die` ignores a timestamp that lands after its own spin has ended, so a frame that
+    // arrives late degrades to this player not seeing the branch.
+    socket.on('dice_tapped', () => {
+      if (!isRollingRef.current || rollStartRef.current != null) return;
+      setDieTapAt(performance.now());
+    });
+
     socket.on('state_update', handleEngineEvent);
     socket.on('dice_rolled', handleEngineEvent);
     socket.on('piece_moved', handleEngineEvent);
@@ -1303,13 +1328,17 @@ export function Game() {
     rollLandAtRef.current = null;
     rollLandFnRef.current = null;
     rollValueRef.current = null;
+    rollSpinMsRef.current = DICE_SPIN_MAX_MS;
     isRollingRef.current = false;
     setIsRolling(false);
-    setBrakeTo(null);
+    setDieTapAt(null);
+    // The die now rests on the face the reducer is being handed in the same batch, so the
+    // landing swaps two equal values and nothing moves.
+    setRollFace(null);
   };
 
   // Start a roll this device owns. The clock starts at the tap, not at the server's
-  // answer, so the brake window is the same length whatever the round trip is.
+  // answer, so the acts and the tap window are the same length whatever the round trip is.
   const beginRoll = () => {
     if (
       !canRoll ||
@@ -1319,22 +1348,34 @@ export function Game() {
       performance.now() < flashCardGuardUntilRef.current
     )
       return;
+    // A landing still pending is a `dice_rolled` this page has not dispatched yet — the
+    // timer is all that is left of it — so it is flushed before the timers below clear it,
+    // or the face and the moves it lit would be dropped on the floor (38.F).
+    const pendingLand = rollLandFnRef.current;
     clearRollTimers();
-    rollStartRef.current = performance.now();
+    pendingLand?.();
+    const start = performance.now();
+    rollStartRef.current = start;
     rollBrakeAtRef.current = null;
     rollLandAtRef.current = null;
     rollLandFnRef.current = null;
     rollValueRef.current = null;
+    // The spin is drawn ONCE, here, so the die's acts, the tap window and this roll's own
+    // ceiling are one number (38.E).
+    rollSpinMsRef.current =
+      DICE_SPIN_MIN_MS + Math.round(Math.random() * (DICE_SPIN_MAX_MS - DICE_SPIN_MIN_MS));
     isRollingRef.current = true;
     setIsRolling(true);
-    setBrakeTo(null);
+    setDieTapAt(null);
     retroAudio.playUiBeep(980, 0.08, 'sawtooth');
     socketRef.current?.emit('roll_dice');
-    // No answer: give the die back rather than leave it spinning forever.
+    // No answer: give the die back rather than leave it spinning forever. The guard is
+    // this roll's own length plus the arming slack, never a flat number that would cut the
+    // acute act of a caught roll (38.G).
     rollAnswerGuardRef.current = setTimeout(() => {
       rollAnswerGuardRef.current = null;
       if (isRollingRef.current) resetRoll();
-    }, 2000);
+    }, diceRollMs(rollSpinMsRef.current) + DICE_BRAKE_ARM_MS);
   };
   // Assigned every render, so the Space listener bound once per match always calls
   // the newest closure (the same pattern as `viewRef`).
@@ -1356,11 +1397,14 @@ export function Game() {
     );
   };
 
-  // The die's one handler, three states: at rest it starts a roll, a spinning roll
-  // THIS device started brakes once it is armed, anything else is ignored (another
-  // seat's roll, a tap inside the arming window, a roll already braked). The brake
-  // moves only WHEN the die lands: the value stays the server's, dispatched as it
-  // arrived at the landing below.
+  // The die's one handler, three states: at rest it starts a roll, a spinning roll THIS
+  // device started catches the die once the acts are armed, anything else is ignored
+  // (another seat's roll, a tap inside the arming window, a roll already caught).
+  //
+  // The catch spends the roll's remaining time and never adds to it, and the window it can
+  // be taken in closes when SPIN ends (38.2): a tap on a die that is already slowing has no
+  // act left to branch into. The face stays the engine's, dispatched as it arrived at the
+  // landing below; the tap only decides WHEN that is.
   const tapDie = () => {
     if (!isRollingRef.current) {
       beginRoll();
@@ -1370,13 +1414,17 @@ export function Game() {
     if (start == null || rollBrakeAtRef.current != null) return;
     const now = performance.now();
     if (now - start < DICE_BRAKE_ARM_MS) return;
+    if (now >= diceTapClosesAt(start, rollSpinMsRef.current)) return;
     rollBrakeAtRef.current = now;
-    const value = rollValueRef.current;
-    // The answer is still in flight: its handler completes the brake, since only it
+    setDieTapAt(now);
+    // The room plays the same branch. Cosmetic, so the frame carries the seat and nothing
+    // else: it can never move a face or a landing, and a client that receives it after its
+    // own flop has begun simply does not see the branch (38.7).
+    socketRef.current?.emit('dice_tapped');
+    // The answer is still in flight: its handler completes the schedule, since only it
     // knows when the face arrived.
-    if (value == null) return;
-    setBrakeTo(value);
-    scheduleLand(diceLandAt(start, now, now));
+    if (rollValueRef.current == null) return;
+    scheduleLand(diceLandAt(start, rollSpinMsRef.current, now, now));
   };
 
   const movePiece = (pieceId: string) => {
@@ -1721,6 +1769,11 @@ export function Game() {
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
+  // The roll THIS device started, as against one it is only watching. `isRolling` drives
+  // the die for both, but the ROLL button and the status line belong to the local roll:
+  // a remote die must not hold this page's button down (38.F). Read off the ref rather
+  // than kept in state, because `isRolling` is what re-renders and the ref is set with it.
+  const isOwnRoll = isRolling && rollStartRef.current != null;
   // The Wall Breaker control: offered only while this device owns the turn and the
   // seat holds a token. Never on a 6, because that roll already leaves prison on the
   // room's rules, so no armed variant exists.
@@ -3242,7 +3295,7 @@ export function Game() {
                         color: isMyTurn ? 'var(--accent-yellow)' : 'var(--text-muted)',
                       }}
                     >
-                      {isRolling
+                      {isOwnRoll
                         ? t('game.statusRolling')
                         : canRoll
                           ? t('game.statusRollNow')
@@ -3253,15 +3306,15 @@ export function Game() {
                               })}
                     </div>
 
-                    {/* The die IS the brake. A tap while it is at rest rolls, a tap
-                        on a spinning roll this device started shortens it, and it
-                        stays ENABLED while spinning on purpose: a disabled button
-                        cannot report the tap. */}
+                    {/* The die IS the tap target. A tap while it is at rest rolls, a tap
+                        on a spinning roll this device started catches it and branches the
+                        rest of the acts, and it stays ENABLED while spinning on purpose:
+                        a disabled button cannot report the tap. */}
                     <div style={{ height: 90, display: 'grid', placeItems: 'center' }}>
                       <button
                         type="button"
                         onClick={tapDie}
-                        aria-label={isRolling ? t('game.rolling') : t('game.rollDiceBtn')}
+                        aria-label={isOwnRoll ? t('game.rolling') : t('game.rollDiceBtn')}
                         style={{
                           display: 'grid',
                           placeItems: 'center',
@@ -3272,14 +3325,20 @@ export function Game() {
                           cursor: isRolling || canRoll ? 'pointer' : 'default',
                         }}
                       >
-                        <Die value={view.diceValue ?? 0} rolling={isRolling} brakeTo={brakeTo} />
+                        <Die
+                          value={rollFace ?? view.diceValue ?? 0}
+                          rolling={isRolling}
+                          startAt={rollStartRef.current}
+                          spinMs={rollSpinMsRef.current}
+                          tappedAt={dieTapAt}
+                        />
                       </button>
                     </div>
 
                     <button
                       className={RETRO_BTN}
                       onClick={beginRoll}
-                      disabled={!canRoll || isRolling}
+                      disabled={!canRoll || isOwnRoll}
                       style={{
                         width: '100%',
                         padding: '14px 20px',
@@ -3291,17 +3350,21 @@ export function Game() {
                         justifyContent: 'center',
                         textAlign: 'center',
                         background:
-                          canRoll && !isRolling ? 'var(--btn-bg)' : 'rgb(var(--bg-card-rgb) / 0.5)',
+                          canRoll && !isOwnRoll
+                            ? 'var(--btn-bg)'
+                            : 'rgb(var(--bg-card-rgb) / 0.5)',
                         borderColor:
-                          canRoll && !isRolling ? 'var(--accent-pink)' : 'rgb(var(--ink-rgb) / 0.2)',
-                        boxShadow: canRoll && !isRolling ? '0 0 20px var(--accent-pink)' : 'none',
-                        animation: canRoll && !isRolling ? 'pulse-glow 1.5s infinite' : 'none',
-                        cursor: canRoll && !isRolling ? 'pointer' : 'default',
-                        opacity: canRoll && !isRolling ? 1 : 0.5,
+                          canRoll && !isOwnRoll
+                            ? 'var(--accent-pink)'
+                            : 'rgb(var(--ink-rgb) / 0.2)',
+                        boxShadow: canRoll && !isOwnRoll ? '0 0 20px var(--accent-pink)' : 'none',
+                        animation: canRoll && !isOwnRoll ? 'pulse-glow 1.5s infinite' : 'none',
+                        cursor: canRoll && !isOwnRoll ? 'pointer' : 'default',
+                        opacity: canRoll && !isOwnRoll ? 1 : 0.5,
                         boxSizing: 'border-box',
                       }}
                     >
-                      {isRolling ? t('game.rolling').toUpperCase() : t('game.rollDiceBtn')}
+                      {isOwnRoll ? t('game.rolling').toUpperCase() : t('game.rollDiceBtn')}
                     </button>
 
                     {/* Wall Breaker: the token is spent on the FIRST tap that

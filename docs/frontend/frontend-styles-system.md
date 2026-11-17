@@ -85,10 +85,13 @@ Two themes ship, and each is its own token table: **Retrowave '80**, declared on
 --window-header-bg, --window-header-text
 --state-on, --state-on-ink, --state-off   /* the pass/fail pair, see below */
 --accent-yellow                          /* the accent that is also the third state, see below */
+--dice-face, --dice-face-shade, --dice-edge, --dice-pip, --dice-pip-shade, --dice-shadow   /* the die's six, see below */
 --accent-*-rgb, --state-on-rgb, --state-off-rgb, --ink-rgb, --shade-rgb, --bg-primary-rgb   /* `r g b`, read as `rgb(var(--x-rgb) / a)` */
 ```
 
 A component only ever references `var(--accent-cyan)` (and so on), so the colour comes from the stylesheet.
+
+**The die's six.** `--dice-face` and `--dice-face-shade` are the cube's two body stops, `--dice-edge` its border, `--dice-pip` and `--dice-pip-shade` the two stops of every pip, and `--dice-shadow` the drop shadow under the cube (`todo.md` [38](todo.md#rv38-dice)). They exist because `Die.tsx` is a 3D cube now and a cube cannot borrow a plate's gradient: the 70s die is the cream object the board already painted, in the walnut's own ink and warm black, and the 80s die is a dark cube edged in `--accent-cyan` with pips that read as neon and the era's pink glowing underneath. Six names, declared in that order in both tables, and the component reads no colour literal at all — which is also why the two eras can disagree about what a die even looks like without one line of `Die.tsx` changing.
 
 **The state pair.** `--state-on` (`#00ff88` / avocado `#82903f`) and `--state-off` (`#ff0055` / cranberry rose `#e8697d`) are the only two colours that report a condition: on/off, joined/muted, valid/refused, met/missed, in/out. They are not accents, so they are not reused for a seat, a mode or a rule, and the two halves always move together (a row reads "on" by contrast with a row that reads "off"). `--state-on-ink` is the text that sits on a lit pill. Seat hues, the hero art and the mode chrome stay literal, because colour is the seat and a mode's colour is its name. Both halves moved together on 2026-11-09, which is why the accent pink that sat beside a moved green (the profile's defeats card, a lost match, the blocked card, the down delta) moved onto `--state-off` too: `--accent-pink` is the red seat's own hue, so it cannot report a failure. The pair also replaced the two unread channel tokens `--success-rgb` and `--warn-rgb`.
 

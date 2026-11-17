@@ -57,6 +57,11 @@ const EVENT_LIMIT = 20;
 // 9 presses/s per side, so the shared bucket would close the socket mid-race. 25
 // presses/s sustained keeps the press cap and phase checks as the real bound.
 const CLASH_EVENT_LIMIT = 125;
+// Die taps spend a bucket of their own for the same reason a roll is not a chat line:
+// one roll carries at most one tap, so ten per window is a hotseat device rolling both
+// its seats several times over, and anything past it is a socket relaying frames nobody
+// asked for. Kept separate so a tap never drains the budget the turn's own events need.
+const DICE_TAP_EVENT_LIMIT = 10;
 
 // The Origin gate, in one testable place. A browser origin must match the allow-list
 // exactly. `undefined` means a non-browser client (curl, the probes) or a same-origin
@@ -596,6 +601,9 @@ export class SocketServer {
       // Presses during a clash race spend this bucket instead, so a mash at the
       // 110 ms cap can never close the socket mid-QTE (see CLASH_EVENT_LIMIT).
       const clashLimiter = new EventRateLimiter(CLASH_EVENT_LIMIT, CLASH_EVENT_WINDOW_MS);
+      // Die taps spend their own bucket (see DICE_TAP_EVENT_LIMIT): one per roll is the
+      // real rate, so a tap can neither be flooded nor drain the turn's budget.
+      const tapLimiter = new EventRateLimiter(DICE_TAP_EVENT_LIMIT, EVENT_WINDOW_MS);
       socket.use(([event], next) => {
         // Guests get an allow-list, not a deny-list: a lobby-only event is logged and
         // dropped, never a disconnect, so a stray event cannot close a socket mid-clash.
@@ -604,7 +612,12 @@ export class SocketServer {
           console.warn(`Guest socket ${socket.id}: refused '${event}'.`);
           return;
         }
-        const bucket = event === 'clash_input' ? clashLimiter : limiter;
+        const bucket =
+          event === 'clash_input'
+            ? clashLimiter
+            : event === 'dice_tapped'
+              ? tapLimiter
+              : limiter;
         if (bucket.allow()) {
           next();
           return;
@@ -622,6 +635,12 @@ export class SocketServer {
 
       socket.on('roll_dice', () => {
         this.handlers.handleRollDice(socket);
+      });
+
+      // The roller caught their spinning die: a cosmetic relay of the seat (38.7), so the
+      // room plays the same act. No state is read and no lock is taken.
+      socket.on('dice_tapped', () => {
+        this.handlers.handleDiceTap(socket);
       });
 
       socket.on('move_piece', (pieceId) => {

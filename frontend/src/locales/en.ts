@@ -745,7 +745,7 @@ export const en = {
     identifierPlaceholder: 'NightRook or you@parlor.gg',
     enteringBtn: 'Entering…',
     orContinueWith: 'OR CONTINUE WITH',
-    newToTable: 'New to the table?',
+    newToArena: 'New to the arenas?',
     createAccountLink: 'Create an account',
     signupTag: 'JOIN 2.4M PLAYERS WORLDWIDE',
     oneMoreStep: 'ONE MORE STEP',

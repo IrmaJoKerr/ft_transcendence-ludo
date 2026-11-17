@@ -112,4 +112,14 @@
   --state-on-ink: #1a1009;
   --state-off: #e8697d;
   --state-off-rgb: 232 105 125;
+  /* The die's six (38.9): the cube's two body stops, its edge, the two stops of a pip and
+     the shadow it casts. The same six names sit in the sibling table, in this order, and
+     `Die` reads them by role, so no colour literal lives in the component. This era's die
+     is the cream one the board already painted, sitting on the walnut's own warm black. */
+  --dice-face: #fbf5e6;
+  --dice-face-shade: #e4d8bf;
+  --dice-edge: #cbb99a;
+  --dice-pip: #5a4a2e;
+  --dice-pip-shade: #241a0c;
+  --dice-shadow: rgba(26, 16, 9, 0.7);
 }

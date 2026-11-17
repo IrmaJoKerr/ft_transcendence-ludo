@@ -1,13 +1,15 @@
-// The twenty-five delays the engine and the SPA both count — plus the room's own idle
+// The thirty-two delays the engine and the SPA both count — plus the room's own idle
 // window, which is the one number here no animation reads — in one file. Copied
 // verbatim from `backend/app/ludo-engine/src/timing.ts` and
 // `frontend/src/game/timing.ts`, which agreed value for value on 2026-11-04; from
 // here on they read these declarations instead of each other's comments.
 //
-// Only the shared twenty-five live here. The engine's own lifecycle and bot tunables, and
-// the client's presentation-only timings (`CLASH_SWITCH_*`, `DICE_BRAKE_*`,
+// Only the shared thirty-two live here. The engine's own lifecycle and bot tunables, and
+// the client's presentation-only timings (`CLASH_SWITCH_*`, `DICE_BRAKE_ARM_MS`,
 // `CAPTURE_FX_*`, `GOAL_BURST_MS`, `RESULTS_MODAL_*`), each have one reader and stay where
-// they are.
+// they are. The die's acts are the exception that proves the rule (38): only the client
+// draws them, and they are here because the ceiling they add up to, `DICE_ROLL_ANIM_MS`, is
+// the number the engine paces a bot with.
 
 // --- the clash QTE -------------------------------------------------------------
 export const CLASH_ANNOUNCE_MS = 1500; // "CLASH!" flash, keys still hidden
@@ -100,10 +102,31 @@ export const GOAL_CARD_FADE_MS = 300; // the panel's own fade — the lever if 1
 export const GOAL_CARD_TOTAL_MS = GOAL_CARD_MS + GOAL_CARD_FADE_MS; // the card: 1.4 s
 
 // --- the turn animation --------------------------------------------------------
-// The client owns the pixels. The engine keeps the SAME two numbers because bot turns
+// The client owns the pixels. The engine keeps the SAME numbers because bot turns
 // are paced so their move finishes animating before the next action fires.
 export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
-export const DICE_ROLL_ANIM_MS = 750; // dice spin before the path starts
+
+// --- the die's acts ------------------------------------------------------------
+// A roll is ACCEL from the face the die already rests on, a SPIN whose length is drawn per
+// roll, then either the slowdown and the flop or, if a player taps the die, the acute spin
+// and its three-quarter slowdown ahead of the same flop. The flop's last tumble is the
+// settle, so there is no stop act behind it and the face is never left mid-turn.
+//
+// The ceiling is ADDED from the acts for the reason the result card's is: `DICE_ROLL_ANIM_MS`
+// is also an engine input, the pause a bot's next action waits out
+// (`DICE_ROLL_ANIM_MS + BOT_THINK_MS` in `socket/server.ts`), so retiming one act has to
+// move both builds at once instead of leaving a hand-computed total to update. It is the
+// sum at the WIDEST spin, because the spin is drawn per roll: no roll outlasts it, and a tap
+// only ever spends what is left of it.
+export const DICE_ACCEL_MS = 200; // flat, then onto its axis, from the face already showing
+export const DICE_SPIN_MIN_MS = 1200; // the initial spin, shortest draw
+export const DICE_SPIN_MAX_MS = 1500; // and longest: the tap window's far edge
+export const DICE_ACUTE_MS = 600; // a tap's own act, fixed, so the tap always reads
+export const DICE_SLOWDOWN_MS = 400; // the standard slowdown into the flop
+export const DICE_ACUTE_SLOWDOWN_MS = Math.round(DICE_SLOWDOWN_MS * 0.75); // the tapped one: 300
+export const DICE_FLOP_MS = 450; // the tumbling settle onto the face the engine sent
+export const DICE_ROLL_ANIM_MS =
+  DICE_ACCEL_MS + DICE_SPIN_MAX_MS + DICE_SLOWDOWN_MS + DICE_FLOP_MS; // the ceiling: 2.55 s
 
 // --- the room's own window -----------------------------------------------------
 // The one number here that neither build animates: the life of the two hashes a live room

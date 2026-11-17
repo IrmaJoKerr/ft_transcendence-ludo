@@ -15,6 +15,9 @@ export const GUEST_TOKEN_PREFIX = 'g_';
 export const GUEST_EVENTS = new Set([
   'join_game', // pinned by the registry's gameId
   'roll_dice',
+  // The roll's cosmetic tap (38.7): relayed like a clash press, so a guest's die branches
+  // for the room as a seated player's does.
+  'dice_tapped',
   'move_piece',
   'skip_wall_breaker',
   'arm_wall_breaker',
