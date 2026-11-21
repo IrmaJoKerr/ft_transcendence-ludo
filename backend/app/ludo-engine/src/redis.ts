@@ -194,8 +194,10 @@ export class RedisGameStore {
       players,
       // A placeholder until the start gate writes the real first mover
       // (firstActiveColor, colour order): the room is still `waiting` here, and a
-      // game cannot start before every seat has joined.
-      currentTurn: activeColors[0] ?? 'blue',
+      // game cannot start before every seat has joined. Same rule as the gate, so a
+      // waiting room never advertises a colour that will not open: `activeColors` is
+      // seat identity (claim order), and a seat index never decides who moves first.
+      currentTurn: COLORS.find((c) => activeColors.includes(c)) ?? 'blue',
       consecutiveSixes: 0,
       moveCounter: 0,
       turnPhase: 'WAITING_FOR_ROLL',

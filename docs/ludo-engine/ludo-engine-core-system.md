@@ -152,7 +152,11 @@ seat finishes instead of looping. Two rooms seating the same colours therefore r
 order their cards were filled in, and a seat index is decoration: a player whose card sits third and
 holds blue still moves first. The start gate uses the same rule — `firstActiveColor` picks the lowest
 seated-and-active colour, and `join-manager` / the ready path write that into `currentTurn` — so the
-opening mover and every later one come from one rule. Disconnecting during another player's turn does
+opening mover and every later one come from one rule. The waiting-room seed obeys it too: `createGame`
+opens `currentTurn` on the first colour in `COLORS` order among the claimed seats, not on the first
+card, so the room advertises the colour that will actually open; and both start paths push the state
+they just wrote (`state_update` after `game_started`), so a client reads the opener from the engine
+instead of inferring it from the pre-start placeholder. Disconnecting during another player's turn does
 not freeze anything — play continues, and the wait only lands when the turn reaches the departed seat.
 
 **The explicit pause flag is PvP-only.** When a PvP player drops during their *own* turn
@@ -270,7 +274,7 @@ export type GameEvent =
   | { type: 'dice_rolled'; gameId; value; legalMoves; bonusRoll; currentTurn; forfeited? }      // A roll happened; includes the value + legal moves (+ forfeited on third 6)
   | { type: 'piece_moved'; gameId; result: MoveResult; currentTurn }                            // A piece moved; full MoveResult payload + the seat left holding the turn
   | { type: 'game_ended'; gameId; winner; resultDetail }                                        // Game finished; winner + reason
-  | { type: 'game_started'; gameId }                                                            // Game transitioned from waiting → active
+  | { type: 'game_started'; gameId }                                                            // Game transitioned from waiting → active; a `state_update` carrying the gate's state (opener already set) follows it
   | { type: 'game_expired'; gameId }                                                            // Room torn down (quorum lost, single-instance expiry, idle lobby)
   | { type: 'player_exited'; gameId; color }                                                    // A player left the game, or the server pruned the seat
   | { type: 'player_aborted'; gameId; color; username }                                         // A player aborted the game

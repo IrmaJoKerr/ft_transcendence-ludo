@@ -140,9 +140,13 @@ join_game (the colour comes from the token, claimed at join)
 player_ready
   ├── Mark the seat's color ready in engine GameState (state.readyPlayers)
   ├── ≥2 active seats AND every active seat's color is ready?
-  │   ├── Yes → start the game (WAITING → ACTIVE)
+  │   ├── Yes → start the game (WAITING → ACTIVE): `firstActiveColor` becomes the opener,
+  │   │         then `game_started` + `state_update`
   │   └── No → keep waiting (lobby_update)
 ```
+
+This is the only door into a PvP match: `autoStartIfReady` (the PvE/hotseat join path) returns early
+when the match is `PVP`, so a room with a player who has not pressed START never starts.
 
 
 ---

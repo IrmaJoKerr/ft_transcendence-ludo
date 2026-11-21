@@ -413,6 +413,13 @@ export async function handlePlayerReady(
       await writeSystemChat(store, emit, gameId, 'started', '');
     }
     emit({ type: 'game_started', gameId });
+    // The gate has just moved the turn (`firstActiveColor`) and `game_started` carries
+    // no state, so without this frame every client keeps rendering the waiting room's
+    // placeholder as the opener: one seat's ROLL lit, the other's dead, and the lit
+    // roll refused because the engine already sits on the gate's colour. A departure
+    // pushes the same frame for the same reason (`player_exited`), so the turn a
+    // client draws always comes from the state, never from a guess.
+    emit({ type: 'state_update', gameId, state });
   }
 }
 

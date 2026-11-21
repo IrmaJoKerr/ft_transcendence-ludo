@@ -2908,7 +2908,7 @@ socket.emit('clash_card_hold', 'blue-red-41', 2400);
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handlePlayerReady`)
 
-Mark the current seat's color as ready (readiness is color-keyed in engine state). The game starts once ≥2 active seats are all ready.
+Mark the current seat's color as ready (readiness is color-keyed in engine state). The game starts once ≥2 active seats are all ready; the start pushes `game_started` and then a `state_update` whose `currentTurn` is already the opener (`firstActiveColor`, colour order — blue when blue is seated).
 
 ```js
 socket.emit('player_ready');
@@ -3048,7 +3048,7 @@ both result routes store on the row.
 | `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card's length; the input freeze ends at `resultCardUntil` and the SPA card keeps its own timer |
 | `chat:message` | `{ line: ChatLine }` where `ChatLine` is `{ id, seq, senderId, senderName, text, at, ch, kind?, code? }` | One line entered the room's channel (M3). A player's line is sent **per socket**, with the block ledger applied, so a blocked pair never receives the other side's post-block speech; an engine-written line (`kind: 'system'`, `code: 'left'` or `'started'`, empty `text`) goes room-wide because it holds no speech |
 | `chat:history` | `{ lines: ChatLine[] }`, oldest first, already cut at the block ledger | Right after `game_joined`, on a join and on a rejoin. The transcript is per seat, which is why it cannot ride the room frame |
-| `game_started` | `{ gameId }` | Game transitions from waiting → active |
+| `game_started` | `{ gameId }` | Game transitions from waiting → active. Always followed by `state_update` with the gate's state (`currentTurn` already the opener) |
 | `game_ended` | `{ winner, resultDetail }` | Game finished |
 | `game_timeout` | none | Post-game lobby expired (60s) — room torn down |
 | `game_expired` | `{ gameId }` | Idle lobby (5 min, < 2 seated), single-instance disconnect window expired, or quorum lost after an exit |

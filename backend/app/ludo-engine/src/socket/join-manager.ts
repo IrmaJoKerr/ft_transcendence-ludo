@@ -313,6 +313,12 @@ export class JoinManager {
   // a ready-check quorum. PvE registers its bot seats here; hotseat waits
   // for every local seat to join before flipping the game active.
   private async autoStartIfReady(gameId: string, matchData: Record<string, string>): Promise<void> {
+    // PvP is ready-gated and always has been: a room starts only when every active
+    // seat has pressed START (`player_ready`). PvE and hotseat have no remote second
+    // player to wait on, which is the only reason this auto-path exists; the guard
+    // keeps a future caller from starting a PvP room behind the gate's back.
+    if (matchData.gameType === 'PVP') return;
+
     const state = await this.store.loadGameState(gameId);
     if (!state) return;
 
@@ -387,6 +393,11 @@ export class JoinManager {
       state.status = 'active';
       await this.store.saveGameState(gameId, state);
       this.engine.emitEvent({ type: 'game_started', gameId });
+      // The gate moved the turn and `game_started` carries no state. The joining
+      // socket is resynced a few lines below (`game_joined`), but that ordering is an
+      // accident of this handler, not a contract: the frame makes the opener right
+      // whichever way a room reaches ACTIVE.
+      this.engine.emitEvent({ type: 'state_update', gameId, state });
     }
   }
 }
