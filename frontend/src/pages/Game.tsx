@@ -5,7 +5,7 @@ import { CaptureBurst } from '../components/CaptureBurst';
 import { GoalBurst } from '../components/GoalBurst';
 import { GoalCard, GOAL_CARD_ASPECT, GOAL_CARD_MAX_PX } from '../components/GoalCard';
 import { GoalConfetti } from '../components/GoalConfetti';
-import { Die } from '../components/Die';
+import { Die, DiceFace } from '../components/Die';
 import { RoomRuleToggle } from '../components/RoomRuleToggle';
 import { avatarSeed, localizedBotName, localizedColor } from '../utils/botName';
 import { applyEvent, initialView } from '../game/reducer';
@@ -79,53 +79,9 @@ const SEAT_HUES: Record<PlayerColor, string> = {
   blue: '#00f0ff',
 };
 
-/** Pip indexes (3x3 grid, row-major) lit per face value - mirrors Die.tsx. */
-const MINI_PIP_MAP: Partial<Record<number, number[]>> = {
-  1: [4],
-  2: [0, 8],
-  3: [0, 4, 8],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 2, 3, 5, 6, 8],
-};
-
-/** Compact 3x3 mini-die face for the "Last Rolled" box in the player rows. */
+/** Compact die for the "Last Rolled" box in the player rows: the cube's own face at 38 px. */
 function MiniDie({ value }: { value: number }) {
-  const on = MINI_PIP_MAP[value] ?? [];
-  return (
-    <div
-      style={{
-        width: 38,
-        height: 38,
-        borderRadius: 8,
-        background: '#190a38',
-        boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3), inset 0 0 4px rgb(var(--accent-pink-rgb) / 0.3)',
-        border: '1.5px solid var(--accent-cyan)',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gridTemplateRows: '1fr 1fr 1fr',
-        padding: 4,
-        gap: 2,
-        flex: 'none',
-      }}
-    >
-      {Array.from({ length: 9 }, (_, i) => (
-        <div key={i} style={{ display: 'grid', placeItems: 'center' }}>
-          {on.includes(i) ? (
-            <div
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: 'var(--accent-yellow)',
-                boxShadow: '0 0 4px var(--accent-yellow)',
-              }}
-            />
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
+  return <DiceFace value={value} size={38} />;
 }
 
 /**
@@ -218,6 +174,17 @@ const CARD_ROOM_OVERHANG = 46;
 // sledgehammer) reads as "breaker", which is what the toggle actually does. One
 // constant, so switching glyphs is one edit.
 const WALL_BREAKER_GLYPH = '🧨';
+
+// The plate the die turns on (38). A cube's silhouette while it tumbles is its own
+// diagonal whichever way it is turned — 80 × √2 ≈ 113 for the die at rest's 80 px — and the
+// perspective magnifies the near corner again: stood on its corner the die measures 121 px
+// wide and 139 px tall, the edge the tail falls off is 114 square, and the lean the spin
+// wobbles on widens the whole roll to 140 × 139. A row sized to the die at rest spilled the
+// tumble over the status line above and the ROLL button below; this is the room the acts
+// actually use, with ~20 px of air around the cube, reserved whether it is turning or still
+// so the column never reflows when a roll starts. The drop shadow's soft tail is deliberately
+// left to fall into the gap below rather than to be contained.
+const DIE_STAGE = 180;
 
 // Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the
 // tail, and a few hundred is enough scrollback without growing this page's state on
@@ -3309,8 +3276,18 @@ export function Game() {
                     {/* The die IS the tap target. A tap while it is at rest rolls, a tap
                         on a spinning roll this device started catches it and branches the
                         rest of the acts, and it stays ENABLED while spinning on purpose:
-                        a disabled button cannot report the tap. */}
-                    <div style={{ height: 90, display: 'grid', placeItems: 'center' }}>
+                        a disabled button cannot report the tap. The plate is the stage's,
+                        not the die's, so the tumble turns inside it instead of over the
+                        status line and the button — it is the plate that grows, never the
+                        cube, so the die still reads at its own size. */}
+                    <div
+                      style={{
+                        height: DIE_STAGE,
+                        width: '100%',
+                        display: 'grid',
+                        placeItems: 'center',
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={tapDie}

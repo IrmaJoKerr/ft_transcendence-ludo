@@ -39,8 +39,8 @@ export const CLASH_PRESS_CAP_MS = 110; // min ms between accepted presses per si
 // count is built from. The fast base sits JUST above CLASH_PRESS_CAP_MS: bots call
 // the store directly today, so they bypass the cap, and a base under 110 would
 // silently start losing presses the day they are routed through the capped path.
-export const CLASH_BOT_FAST_MS_BASE = 111; // fast profile's press interval base
-export const CLASH_BOT_CASUAL_MS_BASE = 129; // casual profile's press interval base
+export const CLASH_BOT_FAST_MS_BASE = 122; // fast profile's press interval base
+export const CLASH_BOT_CASUAL_MS_BASE = 130; // casual profile's press interval base
 export const CLASH_BOT_JITTER_MS = 30; // random spread added to each interval
 // Bot reaction pauses: one CONSTANT per profile, never drawn. The bands are the
 // research figures for "see the key, then press it". A touch-typist does not read

@@ -57,7 +57,7 @@ The shared components are reusable UI (user interface) building blocks used on s
 | `src/components/GoalBurst.tsx` | The goal's arrival, on the same anchor rule as `CaptureBurst`: twelve rays on a 30° pitch (long and short alternating, the seat's hue alternating with white), a hot core and one shock ring, all inside `GOAL_BURST_MS` 700 read through `game/timing.ts`. Mounted by the setter that lands a path's last tick, so the piece never leaves an empty cell between frames |
 | `src/components/GoalConfetti.tsx` | The goal's celebration with the room's effects rule **off**: twenty hand-laid pieces thrown from the cell the piece left, each with its own drift, spin and delay, every one of them ending exactly on `GOAL_FX_MS`. The overlay is the rule's; the starburst and the fanfare are not |
 | `src/components/GoalCard.tsx` | The goal's celebration with the rule **on**: the goal counter made spatial — the home stretch as a ramp with four stations, filled bottom to top, `PieceFigure` climbing from the ramp's foot to the station this move filled (the higher the count, the longer the climb) and the station flashing on the landing. Exports its frame (`GOAL_CARD_MAX_PX` 336, `GOAL_CARD_VIEWBOX`, `GOAL_CARD_ASPECT`), the flash card's width cap at this card's own ratio |
-| `src/components/Die.tsx` | The die as one cube: six faces painted once from `PIP_MAP` and turned by `FACE_ROTATIONS`, normalised onto the nearest full turn at rest. The acts come from `common/src/timing.constants.ts` — ACCEL, SPIN, then SLOWDOWN and FLOP untapped, or ACUTE, its three-quarter slowdown and the same FLOP when the die is caught — and every colour from the six `--dice-*` tokens |
+| `src/components/Die.tsx` | The die as one cube: six faces painted once from `PIP_MAP` and turned by `FACE_ROTATIONS`, normalised onto the nearest full turn at rest. The acts come from `common/src/timing.constants.ts` — ACCEL up onto a corner, a four-beat SPIN about the vertical, then SLOWDOWN and one to three FLOPs untapped, or ACUTE, its three-quarter slowdown and the same FLOPs when the die is caught — with the tail planned backwards from the face it settles on. Each era paints the faces itself (`diceParts70.ts`, `diceParts80.ts`, the pair the piece sets set) and every colour is one of the eight `--dice-*` tokens; the roll's three cues (`playDiceSpinTick`, `playDiceFlop`, `playDiceSettle`) are scheduled off the same plan. Exports `DiceFace`, so the roster's 38 px die is the same face |
 | `src/components/ColorPaletteModal.tsx` | The colour picker for one seat: a fixed 2×2 in board-quadrant order (`BOARD_QUADRANTS`) with a taken corner drawn as an inert dashed slot, and a turn-order diagram beside it — four numbered rings joined by clockwise arrows, numerals and arcs derived from `SEAT_COLORS`, corners not on offer dimmed to 35 %. `sm:max-w-2xl` with the diagram in a 150 px left column (stacked and centred below `sm`), and the whole body scrolls inside `max-h-[90vh]` |
 | `src/components/RoomRuleToggle.tsx` | One room-rule row, shared by the create screen's rules panel (`pages/Lobby.tsx`) and the host's in-game one (`pages/Game.tsx`): glyph, label, description and the on/off switch, with the 520/320 Hz toggle blip. The caller owns the order, so both panels read clash → mid-clash key shift → free exit → no safe zones → the cosmetic attack animations last |
 | `src/components/UserAvatar.tsx` | Avatar image: keyed by the immutable `userId`; requests the photo only when the seat is not a bot and a photo is known to exist (payload flag or a live `avatar_changed` override, which the backend pushes to that user's own clients only), otherwise renders the DiceBear default. A failed load marks that id broken for the session so it is not retried; an optional `onPhotoError` callback runs when that happens, so a parent component can show a message (the Profile page uses it to show a warning in the user's language) |
@@ -151,12 +151,54 @@ type DieProps = {
 ```
 
 One cube, six faces painted once from `PIP_MAP` and turned by `FACE_ROTATIONS`, which is
-normalised onto the nearest full turn at rest so the angle cannot grow across a match. The acts come
-from `common/src/timing.constants.ts`: ACCEL, SPIN, then SLOWDOWN and FLOP untapped, or ACUTE, its
-three-quarter slowdown and the same FLOP when `tappedAt` falls inside SPIN. FLOP's last tumble is the
-settle, so the face is never left mid-turn. There is no `brakeTo` and no near-miss face: the faces
-never move, the cube does. Every colour comes from the six `--dice-*` tokens, and the whole turn is
-behind the stylesheet's `prefers-reduced-motion` gate (`.die-cube`).
+normalised onto the nearest full turn at rest so the angle cannot grow across a match. A pose is
+`rotateY(spin) rotateX(x) rotateY(y)`, and all three terms are always written: a transform list
+interpolates term by term only while both ends are the same list, and the leading spin is the turn
+about the vertical that neither of the other two can reach once the cube stands on a corner. The acts
+come from `common/src/timing.constants.ts`: ACCEL tips the die off the face it is resting on and up
+onto a corner — a body diagonal, `atan(√2)` of lean and a corner's own 45° across, half a turn already
+on it — SPIN turns it there in four beats with a lean that decays beat by beat, which is the nutation
+a top reads as, and then SLOWDOWN finishes the spin on a whole turn and drops it onto an edge, or
+ACUTE takes the spin two turns further and its three-quarter slowdown does the same when `tappedAt`
+falls inside SPIN; either way FLOP flops it over one, two or three edges. The tail is planned
+BACKWARDS from the face the engine sent — the die is balanced one tip short of the face it has to fall
+towards — so its last flop is the settle, the face is never left mid-turn, and the count only decides
+how many faces are seen on the way there. How many flops and which way is the component's own draw,
+because the tail's length is `DICE_FLOP_MS` whatever it draws and nothing outside the file reads it.
+There is no `brakeTo` and no near-miss face: the faces never move, the cube does.
+
+**The faces are the era's.** Two modules draw them, `diceParts70.ts` and `diceParts80.ts`, the pair
+`game/pieceParts.ts` and `pieceParts80.ts` already set: each returns a flat list of `DicePart`s (a
+disc or a rounded rect, painted with a slot name rather than a colour) in the piece sets' 100-unit
+box, and `Die` renders that list into one `<svg viewBox="0 0 100 100">` inside the face div, which
+keeps the gradient, the border and the `translateZ` that place it on the cube. The 70s face is a
+molded body: a bevel highlight, a well sunk into it, and a pip with an ink rim and a sheen. The 80s
+face is a device: a recessed core, an LED strip in two passes (every segment unlit, then the lit ones
+dashed over them) and a pip that is a seven-disc rosette, with the bloom as a `box-shadow` on the
+face div rather than an SVG filter — six blurred faces inside a tumbling `preserve-3d` transform is a
+per-frame cost, and a filter needs an id namespace the six faces would share. Faces 4 and 6 take
+`--dice-pip-alt` in both eras. The era is read from the store, as `Board.tsx` reads it for the piece
+set, so the five props stay five and no call site passes a theme. Eight `--dice-*` tokens carry every
+colour, mapped from a slot to a token in one table in the component, so neither face module holds a
+literal.
+
+**The roll is heard as well as seen** (`playDiceSpinTick`, `playDiceFlop`, `playDiceSettle` in
+`utils/audio.ts`), and every cue is scheduled off the plan that turns the cube: a tick per quarter
+turn of SPIN, a flop per landing of the tail, and the settle on the last one, which is the landing.
+The era is passed as an argument, and no cue adds a length the acts do not already have — the tick's
+spacing is `spinMs / 16`, the flops are `DICE_FLOP_MS`'s own shares. A replan (a catch, or the face
+arriving mid-spin) only voices the instants still ahead, so a caught roll never replays its rattle.
+
+The whole turn is behind the stylesheet's `prefers-reduced-motion` gate (`.die-cube`). The
+component's own box is the die at rest — `SIZE`, 80 px — and the plate it turns on belongs to the
+page: `DIE_STAGE` (180 px) in `pages/Game.tsx` is sized to the roll's own silhouette (121 px wide stood
+on its corner and 139 px tall, 140 × 139 once the spin's wobble is counted under the 520 px
+perspective), so the acts turn inside the plate instead of over the status line and the ROLL button,
+and the column does not reflow when a roll starts.
+
+`DiceFace` is exported: the painted face alone, at any size, sharing the same `PIP_MAP` and the same
+tokens. The roster rows' `MiniDie` (38 px) in `pages/Game.tsx` is that component and nothing else, so
+the small die is not a second drawing of a die.
 
 ### OAuthButtons
 
@@ -212,17 +254,18 @@ sequenceDiagram
 
     Game->>Die: <Die value={dice} rolling={rolling} startAt={start} spinMs={spin} tappedAt={tap} />
     alt rolling = true
-        Die->>Die: ACCEL from the resting face, plan the roll from that pose
+        Die->>Die: ACCEL up onto a corner; plan the acts from that pose and draw the tail
         alt tappedAt inside SPIN
-            Die->>Die: Cut the spin at the catch, then ACUTE + its 300 ms slowdown
+            Die->>Die: Cut the spin at the catch, then ACUTE + its 420 ms slowdown
         else untapped
-            Die->>Die: SPIN to its drawn end, then SLOWDOWN
+            Die->>Die: SPIN to its drawn end (four beats, a lean that decays), then SLOWDOWN
         end
-        Die->>Die: FLOP, one more turn, landing exactly on the engine's face
+        Die->>Die: Onto the edge the tail falls off, then 1-3 FLOPs, the last exactly on the engine's face
     else rolling = false
         Die->>Die: Rest on value (the stored angle's nearest full turn)
     end
-    Die->>Die: Render the cube's six 3x3 pip faces, colours from the --dice-* tokens
+    Die->>retroAudio: A tick per quarter turn, a flop per landing, the settle on the last
+    Die->>Die: Render the six faces from the era's module (diceParts70 or diceParts80), slots to --dice-* tokens
 ```
 
 ### 4. OAuthButtons
@@ -276,9 +319,9 @@ sequenceDiagram
 ### Die Path
 ```
 <Die value={dice} rolling={rolling} startAt={start} spinMs={spin} tappedAt={tap} />
-  ├── rolling = true → ACCEL, SPIN (cut at the catch), ACUTE + acute slowdown or SLOWDOWN, FLOP
+  ├── rolling = true → ACCEL up onto a corner, SPIN (cut at the catch), ACUTE + acute slowdown or SLOWDOWN, 1-3 FLOPs
   └── rolling = false → rest on the engine's face (nearest full turn of the stored angle)
-       └── Six 3x3 pip faces, turned by FACE_ROTATIONS, coloured by the --dice-* tokens
+       └── Six 3x3 pip faces, turned by FACE_ROTATIONS, drawn by the era's module, coloured by the --dice-* tokens
 ```
 
 ### OAuthButtons Path
@@ -362,7 +405,7 @@ Per-constant notes:
 | `GoalBurst` | `react`, `game/timing.ts` | Its own keyframes and `GOAL_BURST_MS`; no theme import, the caller passes the anchor and the seat's colour |
 | `GoalConfetti` | `react`, `__shared__/timing.constants` | Its own keyframes and `GOAL_FX_MS`, the shared figure the engine's bot waits on too; no theme import |
 | `GoalCard` | `react`, `theme.ts`, `store.tsx`, `PieceFigure`, `__shared__/timing.constants` | `COL` for the seat's hue, `useApp` for the theme — which picks the piece set the climbing figure is drawn in (`retro70` or `retro80`), the same choice the board makes, so a card can never show the other decade's cast — `PieceFigure` itself, and `GOAL_CARD_MS` for the climb's own timeline |
-| `Die` | `react` | Inline `shake` animation and pip-grid faces (no theme import) |
+| `Die` | `react`, `store.tsx`, `utils/audio.ts`, `components/diceParts70.ts`, `components/diceParts80.ts` | `useApp` for the era the faces are painted in, `retroAudio` for the roll's three cues, and the two face modules (one per era, both drawn in the piece sets' 100-unit box) |
 | `OAuthButtons` | `styles/tw.ts` | `OAUTH_BTN`, the class form of the deleted `btnOutline` style object |
 | `NavDock` | `hooks/useDockPrefs.ts`, `RetroNavbar`, `LobbyChat` | The dock's width and chat preference, forwarded into the bar |
 | `RetroNavbar` | `store.tsx` | `useApp` for `user`, `lang`, `setLang`, `logout` |

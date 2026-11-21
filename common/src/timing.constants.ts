@@ -112,21 +112,28 @@ export const MOVE_STEP_ANIM_MS = 180; // one board step of the path animation
 // and its three-quarter slowdown ahead of the same flop. The flop's last tumble is the
 // settle, so there is no stop act behind it and the face is never left mid-turn.
 //
+// Every length here is GENEROUS on purpose (2026-11-18): the roll is something the room
+// watches, not something it waits on, and a roll that reads as long is a knob turned down
+// later, while a roll that reads as rushed has already eaten the two cues it was given. The
+// four knobs are ACCEL (how long the throw is seen), the spin pair (how long the rattle
+// lasts), FLOP (how heavy the settle is) and ACUTE (how much a catch adds). Nothing else in
+// the file reads any of them, so they can be re-timed one at a time.
+//
 // The ceiling is ADDED from the acts for the reason the result card's is: `DICE_ROLL_ANIM_MS`
 // is also an engine input, the pause a bot's next action waits out
 // (`DICE_ROLL_ANIM_MS + BOT_THINK_MS` in `socket/server.ts`), so retiming one act has to
 // move both builds at once instead of leaving a hand-computed total to update. It is the
 // sum at the WIDEST spin, because the spin is drawn per roll: no roll outlasts it, and a tap
 // only ever spends what is left of it.
-export const DICE_ACCEL_MS = 200; // flat, then onto its axis, from the face already showing
-export const DICE_SPIN_MIN_MS = 1200; // the initial spin, shortest draw
-export const DICE_SPIN_MAX_MS = 1500; // and longest: the tap window's far edge
-export const DICE_ACUTE_MS = 600; // a tap's own act, fixed, so the tap always reads
-export const DICE_SLOWDOWN_MS = 400; // the standard slowdown into the flop
-export const DICE_ACUTE_SLOWDOWN_MS = Math.round(DICE_SLOWDOWN_MS * 0.75); // the tapped one: 300
-export const DICE_FLOP_MS = 450; // the tumbling settle onto the face the engine sent
+export const DICE_ACCEL_MS = 320; // flat, then onto its axis, from the face already showing
+export const DICE_SPIN_MIN_MS = 1800; // the initial spin, shortest draw
+export const DICE_SPIN_MAX_MS = 2200; // and longest: the tap window's far edge
+export const DICE_ACUTE_MS = 760; // a tap's own act, fixed, so the tap always reads
+export const DICE_SLOWDOWN_MS = 560; // the standard slowdown into the flop
+export const DICE_ACUTE_SLOWDOWN_MS = Math.round(DICE_SLOWDOWN_MS * 0.75); // the tapped one: 420
+export const DICE_FLOP_MS = 620; // the tumbling settle onto the face the engine sent
 export const DICE_ROLL_ANIM_MS =
-  DICE_ACCEL_MS + DICE_SPIN_MAX_MS + DICE_SLOWDOWN_MS + DICE_FLOP_MS; // the ceiling: 2.55 s
+  DICE_ACCEL_MS + DICE_SPIN_MAX_MS + DICE_SLOWDOWN_MS + DICE_FLOP_MS; // the ceiling: 3.70 s
 
 // --- the room's own window -----------------------------------------------------
 // The one number here that neither build animates: the life of the two hashes a live room

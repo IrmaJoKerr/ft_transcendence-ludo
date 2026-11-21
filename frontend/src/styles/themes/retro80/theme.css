@@ -116,15 +116,19 @@
   --state-on-ink: #0b021a;
   --state-off: #ff0055;
   --state-off-rgb: 255 0 85;
-  /* The die's six (38.9): the cube's two body stops, its edge, the two stops of a pip and
-     the shadow it casts. The same six names sit in the sibling table, in this order, and
-     `Die` reads them by role, so no colour literal lives in the component. Synthwave's die
-     is the plate's dark cube lit at the edges, with pips that read as neon rather than as
-     ink, and the glow under it is the era's pink instead of a black drop. */
+  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the LED ring, the two
+     stops of a pip, the alternate pip and the shadow it casts. Same eight names, same order
+     as the sibling table, and the era's face art (`components/diceParts80.ts`) reads them by
+     role. Synthwave's die is the plate's dark cube lit at the edges: `--dice-hi` is the LED
+     ring around each face's core, `--dice-pip-alt` is the pink faces 4 and 6 light instead of
+     cyan, and the glow under the cube is the era's pink instead of a black drop. The face's
+     own bloom is a `box-shadow` in `styles/app.css`, never an SVG filter. */
   --dice-face: #1a0733;
   --dice-face-shade: #0c0220;
   --dice-edge: var(--accent-cyan);
+  --dice-hi: #b9fbff;
   --dice-pip: var(--accent-cyan);
   --dice-pip-shade: var(--accent-purple);
+  --dice-pip-alt: var(--accent-pink);
   --dice-shadow: rgb(var(--accent-pink-rgb) / 0.45);
 }

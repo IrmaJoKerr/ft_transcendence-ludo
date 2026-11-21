@@ -33,7 +33,12 @@ export const CLASH_SWITCH_WARN_HOLD_MS = 300; // and lingers this long after it
 export const CLASH_SWITCH_FLIP_MS = 110; // half a flip: edge-on exactly at the switch
 export const CLASH_SWITCH_PAD_STAGGER_MS = 40; // per-circle landing delay
 
-export const DICE_BRAKE_ARM_MS = 200; // a tap younger than this is a double tap, not a catch
+// `DICE_ACCEL_MS` is the gate, not a number of its own: the throw owns the die until it is up
+// on its corner, so a tap inside ACCEL is a double tap rather than a catch — and a catch the
+// die cannot play must not shorten the landing either, or the panel would land on a face the
+// cube was still turning towards. (It was 200 while ACCEL was 200; the retime made the two
+// different, so the pair is now one number.)
+export const DICE_BRAKE_ARM_MS = DICE_ACCEL_MS; // a tap younger than this is a double tap, not a catch
 export const RESULTS_MODAL_DELAY_MS = 900; // beat after the last move before the modal
 export const PENDING_MOVE_GUARD_MS = 3000; // safety net for a move that never answers
 
@@ -110,8 +115,8 @@ export function goalCelebrationMs(animations: boolean): number {
 // An untapped roll slows down and flops (`DICE_SLOWDOWN_MS` + `DICE_FLOP_MS`); a tapped
 // one catches the die and plays the acute pair instead (`DICE_ACUTE_MS` + its
 // three-quarter slowdown), then the same flop onto the same face.
-const DICE_UNTAPPED_TAIL_MS = DICE_SLOWDOWN_MS + DICE_FLOP_MS; // 850
-const DICE_TAPPED_TAIL_MS = DICE_ACUTE_MS + DICE_ACUTE_SLOWDOWN_MS + DICE_FLOP_MS; // 1350
+const DICE_UNTAPPED_TAIL_MS = DICE_SLOWDOWN_MS + DICE_FLOP_MS; // 1180
+const DICE_TAPPED_TAIL_MS = DICE_ACUTE_MS + DICE_ACUTE_SLOWDOWN_MS + DICE_FLOP_MS; // 1800
 
 /**
  * How long one roll runs from its tap: ACCEL, the spin it drew, then its untapped tail.

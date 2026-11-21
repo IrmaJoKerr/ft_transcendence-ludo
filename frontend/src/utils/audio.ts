@@ -1,5 +1,68 @@
 /* **RETRO WAVE ARCADE - WEB AUDIO CHIPTUNE SYNTHESIZER** */
 
+/** The two eras the die is voiced for: the molded plastic die and the LED one. */
+export type DiceEra = 'retro70' | 'retro80';
+
+/**
+ * Everything the die's three cues are made of, so a walk can re-voice the rattle without
+ * reading a method (38).
+ *
+ * The LENGTHS of the roll are not here: they are the acts in
+ * `common/src/timing.constants.ts`, because the ceiling they add up to also paces a bot.
+ * These are the sounds those acts are given — how bright a tick is, how heavy a flop lands,
+ * and which note the face settles on. Each era has its own eight numbers, so the two dice
+ * can be as far apart as a Bakelite cube and a 1980s LED toy without one line of the engine
+ * changing: 70s is triangle/sine and low, 80s is square and bright.
+ *
+ * `settleHz` is the note face 1 lands on; faces 2 to 6 climb a semitone each, so the die's
+ * face is HEARD as well as seen (`playDiceSettle`).
+ */
+type DiceVoicing = {
+  /** The rattle's tick: one per quarter turn, so the interval is the plan's, not a number. */
+  tickType: OscillatorType;
+  tickHz: number;
+  tickSeconds: number;
+  /** A flop: the body thump (falling `flopHz` → `flopDropHz`) and the edge's noise. */
+  flopType: OscillatorType;
+  flopHz: number;
+  flopDropHz: number;
+  flopSeconds: number;
+  flopNoiseHz: number;
+  /** The settle: the face's own note, held, plus a fifth above it. */
+  settleType: OscillatorType;
+  settleHz: number;
+  settleSeconds: number;
+};
+
+export const DICE_SFX: Record<DiceEra, DiceVoicing> = {
+  retro70: {
+    tickType: 'triangle',
+    tickHz: 1180,
+    tickSeconds: 0.036,
+    flopType: 'sine',
+    flopHz: 900,
+    flopDropHz: 240,
+    flopSeconds: 0.16,
+    flopNoiseHz: 1500,
+    settleType: 'triangle',
+    settleHz: 320,
+    settleSeconds: 0.32,
+  },
+  retro80: {
+    tickType: 'square',
+    tickHz: 2100,
+    tickSeconds: 0.028,
+    flopType: 'square',
+    flopHz: 1500,
+    flopDropHz: 420,
+    flopSeconds: 0.13,
+    flopNoiseHz: 3200,
+    settleType: 'square',
+    settleHz: 620,
+    settleSeconds: 0.26,
+  },
+};
+
 export class RetroAudioEngine {
   ctx: AudioContext | null = null;
   volume = 0.2;
@@ -676,6 +739,112 @@ export class RetroAudioEngine {
       // `noiseBurst` always starts at `currentTime`, so the sparkle is scheduled by being
       // called: it belongs to the arrival, and the arrival is now.
       this.noiseBurst(0.32, 6200, 2600, 0.22);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // The die's three cues (38), voiced from `DICE_SFX` and scheduled by `Die` at the plan's
+  // own instants: the rattle is the SPIN's tempo, a flop is one landing of the tail, and the
+  // settle is the last of them, which is the landing. The era is an ARGUMENT, not state on
+  // the engine, because the store already owns the theme and a second copy could disagree
+  // with it (`playUiBeep(520, 0.06)` is the same shape).
+  //
+  // A tick is a click, not a note: short, quiet, no tail. Sixteen of them at their own
+  // spacing is a cup being shaken, and anything longer than the spacing smears into a tone.
+  playDiceSpinTick(era: DiceEra = 'retro80') {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const v = DICE_SFX[era];
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = v.tickType;
+      osc.frequency.setValueAtTime(v.tickHz, now);
+      osc.frequency.exponentialRampToValueAtTime(v.tickHz * 0.82, now + v.tickSeconds);
+
+      gain.gain.setValueAtTime(this.volume * 0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + v.tickSeconds);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + v.tickSeconds);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // One landing of the tail. `index` is which flop it is, and it is what makes a tail of
+  // three read as a die losing momentum: each one is lighter and shorter than the one
+  // before, so the ear hears the roll coming to rest rather than three equal bangs.
+  playDiceFlop(index = 0, era: DiceEra = 'retro80') {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const v = DICE_SFX[era];
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+      const weight = Math.max(0.4, 1 - index * 0.22);
+      const seconds = v.flopSeconds * Math.max(0.6, 1 - index * 0.15);
+
+      const body = ctx.createOscillator();
+      const bodyGain = ctx.createGain();
+      body.type = v.flopType;
+      body.frequency.setValueAtTime(v.flopHz * (1 + index * 0.08), now);
+      body.frequency.exponentialRampToValueAtTime(v.flopDropHz, now + seconds);
+      bodyGain.gain.setValueAtTime(this.volume * 0.9 * weight, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + seconds);
+      body.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
+      body.start(now);
+      body.stop(now + seconds);
+
+      // The edge meeting the felt: the same noise body the other impacts use, banded high
+      // for the 80s die and low for the 70s one.
+      this.noiseBurst(seconds, v.flopNoiseHz, v.flopDropHz, 0.5 * weight);
+    } catch (e) {
+      console.debug('Audio error:', e);
+    }
+  }
+
+  // The die has stopped, on `value`'s face. The face is a note: `settleHz` is face 1 and
+  // each face above it climbs a semitone, so a 6 rings higher than a 1 and the roll's
+  // outcome is heard before the panel prints it. A fifth above it is the chiptune edge, and
+  // the same short noise burst as a flop is the cube landing on the plate.
+  playDiceSettle(value = 1, era: DiceEra = 'retro80') {
+    if (this.muted) return;
+    try {
+      this.initContext();
+      if (!this.ctx) return;
+      const v = DICE_SFX[era];
+      const ctx = this.ctx;
+      const now = ctx.currentTime;
+      const root = v.settleHz * Math.pow(2, (Math.min(6, Math.max(1, value)) - 1) / 12);
+
+      const notes = [
+        { freq: root, gain: 0.9 },
+        { freq: root * 1.5, gain: 0.35 },
+      ];
+      for (const note of notes) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = v.settleType;
+        osc.frequency.setValueAtTime(note.freq, now);
+        gain.gain.setValueAtTime(this.volume * note.gain, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + v.settleSeconds);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + v.settleSeconds);
+      }
+
+      this.noiseBurst(0.06, v.flopNoiseHz, v.flopDropHz, 0.45);
     } catch (e) {
       console.debug('Audio error:', e);
     }

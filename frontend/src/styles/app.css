@@ -261,13 +261,25 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   THE DIE'S ACTS (components/Die.tsx)
+   THE DIE (components/Die.tsx)
    -------------------------------------------------------------------------- */
+
+/* The 80s face's bloom (38): a `box-shadow` on the face itself, never an SVG filter. The
+   app carries no `<filter>` anywhere, six blurred faces inside a tumbling `preserve-3d`
+   transform is a per-frame cost, and a filter would want an id namespace the six faces
+   would share. One rule for the cube's faces and the roster's 38 px one, because both are
+   the same component. */
+.die-face[data-era='retro80'] {
+  box-shadow:
+    0 0 9px rgb(var(--accent-cyan-rgb) / 0.45),
+    inset 0 0 10px rgb(var(--accent-pink-rgb) / 0.22);
+}
 
 /* The cube's turn is an inline `transition`, because each act carries its own duration
    and easing (38.1). The gate is still this stylesheet's: with reduced motion the cube
-   steps to each act's end instead of tumbling between them, so the face the engine sent
-   still lands on time and no fourth hook exists to keep in step with the other three. */
+   steps to each act's end instead of tumbling between them — the spin is four beats, so it
+   steps four times inside the one act — and the face the engine sent still lands on time,
+   with no fourth hook to keep in step with the other three. */
 @media (prefers-reduced-motion: reduce) {
   .die-cube {
     transition: none !important;

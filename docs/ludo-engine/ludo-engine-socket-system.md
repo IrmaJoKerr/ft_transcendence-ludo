@@ -695,7 +695,7 @@ Module-level constants in the socket layer — edit the value at the top of the 
 | `MOVE_STEP_ANIM_MS` / `BOT_MOVE_STEP_MS` | `timing.ts` | 180 / 220 ms | Per-step piece-move animation pacing used to time bot turns |
 | `BOT_THINK_MS` | `timing.ts` | 500 ms | Flat "thinking" pause before a bot rolls |
 | (removed) lobby and grace sweeps | `socket/server.ts` | — | The two 60 s `setInterval` sweeps were deleted with the restart-recovery work. See *Wake pass* above: deadlines are armed per room and replayed after a restart |
-| `DICE_ROLL_ANIM_MS` | `__shared__/timing.constants.ts` | 2550 ms | The die's acts added up at the widest spin (38): the roll's one ceiling, and the wait before a bot acts |
+| `DICE_ROLL_ANIM_MS` | `__shared__/timing.constants.ts` | 3700 ms | The die's acts added up at the widest spin (38): the roll's one ceiling, and the wait before a bot acts |
 | `CAPTURE_CARD_MS` + `CAPTURE_CARD_GRACE_MS` | `__shared__/timing.constants.ts` | 2210 + 150 ms | What a bot waits out behind a capture, added to the walk, when the room's effects rule lets the clients paint the flash card. Read from the shared tree, so the engine and the SPA count one number |
 | `GOAL_CARD_TOTAL_MS` / `GOAL_FX_MS` | `__shared__/timing.constants.ts` | 1400 / 900 ms | The goal's beat, added to the walk on every move into home: the ramp card and its fade with the rule on, the confetti with it off. Never 0 — the rule picks which overlay, not whether the piece arrives |
 | `SLOT_COLORS` | `socket/join-manager.ts` | blue, red, green, yellow | Seat order used when creating games / auto-filling bot seats |

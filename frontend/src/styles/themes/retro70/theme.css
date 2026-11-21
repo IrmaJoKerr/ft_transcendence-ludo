@@ -112,14 +112,22 @@
   --state-on-ink: #1a1009;
   --state-off: #e8697d;
   --state-off-rgb: 232 105 125;
-  /* The die's six (38.9): the cube's two body stops, its edge, the two stops of a pip and
-     the shadow it casts. The same six names sit in the sibling table, in this order, and
-     `Die` reads them by role, so no colour literal lives in the component. This era's die
-     is the cream one the board already painted, sitting on the walnut's own warm black. */
+  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded
+     highlight, the two stops of a pip, the alternate pip and the shadow it casts. The same
+     eight names sit in the sibling table, in this order, and the era's face art
+     (`components/diceParts70.ts`, `diceParts80.ts`) reads them by role, so no colour literal
+     lives in either face module. This era's die is the cream one the board already painted,
+     sitting on the walnut's own warm black: `--dice-hi` is the sheen its bevel and its
+     molded pips catch, and `--dice-pip-alt` is the teal faces 4 and 6 wear instead of ink.
+     That teal is the accent carried two steps down (`#5fb3b0` is 2.3:1 on this cream, a
+     pip that stops reading as ink), and the ink outline round every pip is
+     `--dice-pip-shade`, so there is no ninth name. */
   --dice-face: #fbf5e6;
   --dice-face-shade: #e4d8bf;
   --dice-edge: #cbb99a;
+  --dice-hi: #fffdf6;
   --dice-pip: #5a4a2e;
   --dice-pip-shade: #241a0c;
+  --dice-pip-alt: #2e6f68;
   --dice-shadow: rgba(26, 16, 9, 0.7);
 }

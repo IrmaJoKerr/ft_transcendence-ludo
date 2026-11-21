@@ -48,7 +48,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 | File | Holds |
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 10800 (imported from `timing.constants`), and `chatLength()` |
-| `common/src/timing.constants.ts` | the thirty-two both builds count, plus the room's idle window: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1000, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1700 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2700 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3600 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4000 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2210 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, then the die's acts (38): `DICE_ACCEL_MS` 200, `DICE_SPIN_MIN_MS` 1200, `DICE_SPIN_MAX_MS` 1500, `DICE_ACUTE_MS` 600, `DICE_SLOWDOWN_MS` 400, `DICE_ACUTE_SLOWDOWN_MS` 300, `DICE_FLOP_MS` 450, `DICE_ROLL_ANIM_MS` 2550 (the acts added up at the widest spin: the roll's one ceiling, and the pause a bot's next action waits out), `GAME_STATE_TTL_S` 10800 (the room's own idle window — the one number no animation reads; the engine's `game:<id>` state, the backend's `match:<id>` record and both chat keys all live this long) |
+| `common/src/timing.constants.ts` | the thirty-two both builds count, plus the room's idle window: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1000, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1700 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2700 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3600 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4000 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2210 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, then the die's acts (38): `DICE_ACCEL_MS` 320, `DICE_SPIN_MIN_MS` 1800, `DICE_SPIN_MAX_MS` 2200, `DICE_ACUTE_MS` 760, `DICE_SLOWDOWN_MS` 560, `DICE_ACUTE_SLOWDOWN_MS` 420, `DICE_FLOP_MS` 620, `DICE_ROLL_ANIM_MS` 3700 (the acts added up at the widest spin: the roll's one ceiling, and the pause a bot's next action waits out), `GAME_STATE_TTL_S` 10800 (the room's own idle window — the one number no animation reads; the engine's `game:<id>` state, the backend's `match:<id>` record and both chat keys all live this long) |
 | `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
 | `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
 
@@ -118,7 +118,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 **Owner:** `backend/app/ludo-engine/src/timing.ts` ⚙️ — "every delay the engine owns and no other
 build counts". The thirty-two both builds count (the three clash windows, the result scene's acts, the
 four card lengths and the receipt's margin, the text-only card, the opt-in capture card's four, the goal
-celebration's four, the step animation and the die's six acts with the 2550 ceiling they add up to)
+celebration's four, the step animation and the die's six acts with the 3700 ceiling they add up to)
 are in `common/src/timing.constants.ts` 📦, so they are absent
 from this table.
 
@@ -815,7 +815,7 @@ colour role".
 **Owner:** `frontend/src/game/timing.ts` 🖥️ — "the delays the client owns and no other build counts".
 The thirty-two both builds count (the three clash windows, the result scene's acts, the four card
 lengths and the receipt's margin, the text-only card, the opt-in capture card's four, the goal
-celebration's four, the step animation and the die's six acts with the 2550 ceiling they add up to)
+celebration's four, the step animation and the die's six acts with the 3700 ceiling they add up to)
 are in `common/src/timing.constants.ts` 📦; the SPA reads
 `../__shared__/timing.constants` and the engine reads its own copy, so there is no second declaration
 to keep in step. The clash windows stay **presentation only**: the server sends absolute deadlines and
@@ -899,7 +899,7 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 | `CLASH_FIGHT_FLASH_MS` | 700 | "FIGHT!" flash at press start |
 | `CLASH_UI_TICK_MS` | 250 | overlay re-render cadence (bars, timer) |
 | `TOUCH_FLASH_MS` | 120 | touch pad pressed state |
-| `DICE_BRAKE_ARM_MS` | 200 | a tap younger than this is a double tap, not a catch |
+| `DICE_BRAKE_ARM_MS` | 320 | a tap younger than this is a double tap, not a catch — `DICE_ACCEL_MS` itself, so the throw owns the die |
 | `RESULTS_MODAL_DELAY_MS` | 900 | beat after the last move before the results modal |
 | `PENDING_MOVE_GUARD_MS` | 3000 | safety net for a move that never answers |
 | `CAPTURE_FX_MS` | 600 | the capture burst's own length; interpolated into both copies' inline `animation` so the keyframes hold no 600 |
@@ -909,17 +909,34 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 **The die's landing — `diceLandAt(start, spinMs, valueAt, brakeAt)`** is the whole clamp, and the
 acts it is added up from are the shared ones (38.4). The two totals are the client's only sums:
 
-- no catch → `max(valueAt, start + 200 + spinMs + 400 + 450)` — 2250 to 2550 by the draw
-- a catch → `max(valueAt, min(the untapped end, brakeAt + 600 + 300 + 450))` — 1350 from the catch
+- no catch → `max(valueAt, start + 320 + spinMs + 560 + 620)` — 3300 to 3700 by the draw
+- a catch → `max(valueAt, min(the untapped end, brakeAt + 760 + 420 + 620))` — 1800 from the catch
 
 A catch can shorten a roll, never extend it, and the window it can be taken in closes when SPIN ends
-(`diceTapClosesAt`, `start + 200 + spinMs`), so a tap on a die that is already slowing lands the
+(`diceTapClosesAt`, `start + 320 + spinMs`), so a tap on a die that is already slowing lands the
 untapped roll. A slow server answer wins over the shortened window rather than settling on a face
 nobody sent. `piece_moved` then waits out what is **left** of `rollLandAtRef`, not the whole constant.
+`DICE_BRAKE_ARM_MS` is `DICE_ACCEL_MS` itself, never a second number: the throw owns the die until
+it is up on its corner, and a tap the die cannot branch on must not shorten the landing either.
 
-The sweep over the new function (2026-11-17, 4.3 item 6 rewritten for 38): every draw from 1200 to
-1500 and every catch instant in its window, 17,135 landings, all between 1550 and 2550 from the
-start, none past the untapped end, and a late answer still the only thing that can outlast it.
+The sweep over it (2026-11-18, 4.3 item 6 rewritten for 38 and re-run on the generous acts): every
+draw from 1800 to 2200, every catch instant in its window, and a late answer at 600, 800, 2000, 3699
+and 3701 — **804,406 checks, all green**: every landing falls between 2120 and 3700 ms from the
+start, none past the untapped end of its own roll, a later catch never lands earlier, a catch outside
+the window lands the untapped roll, and only a slow answer outlasts the ceiling.
+
+**The die's three cues** are the client's alone, voiced from one exported table (`DICE_SFX` in
+`utils/audio.ts`) and scheduled by `Die` at instants the acts already have — no cue adds time:
+
+| Cue | How often | Its spacing |
+|---|---|---|
+| `playDiceSpinTick(era)` | once per quarter turn of SPIN | `spinMs / 16`, so 112.5 to 137.5 ms by the draw; a catch's acute act ticks its own eight at `DICE_ACUTE_MS / 8` = 95 ms |
+| `playDiceFlop(index, era)` | once per landing of the tail, all but the last | the tail's own `DICE_FLOP_MS` shares (413/207, 310/207/103 by the draw) |
+| `playDiceSettle(value, era)` | once, on the last landing | the landing itself — the same instant `diceLandAt` returns |
+
+The era is an argument from the call site (the `playUiBeep(520, 0.06)` pattern), not state on the
+engine, so the store's theme stays the only copy; every one of the three is gated on `muted`, scaled
+by `volume` and wrapped in `try/catch`, like every other cue in the file.
 
 
 ### **14. Client cadences**
