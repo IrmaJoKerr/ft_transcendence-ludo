@@ -1,0 +1,176 @@
+import type { GameState, PlayerColor, GameEvent, ChatLine } from '../types';
+import type { RedisGameStore } from '../redis';
+import { systemLine } from '../game-chat';
+
+export const COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
+
+// Whether a room has a chat channel at all (M3): PvP's alone. A PvE, hotseat or guest
+// room writes no `chat:game:*` key, so nothing is stored and a row from one of those
+// rooms has no empty transcript to carry.
+export function hasChat(matchData: Record<string, string> | null | undefined): boolean {
+  return matchData?.gameType === 'PVP';
+}
+
+// One system line, written where the thing happened, so the seat that leaves and the
+// seats that stay read it at the same position of the same transcript. A failure only
+// logs: a channel that cannot be written must never fail the departure it describes.
+export async function writeSystemChat(
+  store: RedisGameStore,
+  emit: (event: GameEvent) => void,
+  gameId: string,
+  code: NonNullable<ChatLine['code']>,
+  name: string,
+): Promise<void> {
+  try {
+    const seq = await store.nextChatSeq(gameId);
+    const line = systemLine(gameId, seq, code, name);
+    await store.appendChat(gameId, line);
+    emit({ type: 'chat_message', gameId, line });
+  } catch (error) {
+    console.error(
+      `Failed to write the room channel line for ${gameId}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+// The first active seat in colour order: the rule the start gate and the turn
+// advance share. currentTurn must always point at a seated colour (an inactive
+// currentTurn soft-locks the game), and colour order is what decides who moves
+// first, so a room seating green and blue opens on blue whatever order its cards
+// were filled in.
+export function firstActiveColor(state: GameState): PlayerColor | undefined {
+  return COLORS.find((c) => state.players.find((p) => p.color === c)?.status === 'active');
+}
+
+// Move to the next seat that can play, walking `COLORS` in their canonical order
+// (blue → red → green → yellow) whatever index each seat holds in players[].
+// Colour order is the whole rule: two rooms seating the same colours rotate
+// alike, and a skipped corner is simply not visited. Exited seats are skipped; a
+// disconnected seat with an open grace window holds the turn. Clears the paused
+// flag once its owner reconnects or is pruned.
+export function advanceTurnInState(state: GameState): void {
+  // If paused, check if the pause owner has reconnected or been pruned
+  if (state.paused) {
+    const pausedPlayer = state.players.find((p) => p.color === state.pauseTurnOwner);
+    if (pausedPlayer?.status === 'active' || pausedPlayer?.status === 'exited') {
+      // Past the grace window: clear the pause and continue advancing
+      delete state.paused;
+      delete state.pauseTurnOwner;
+      delete state.pausedReason;
+    } else {
+      // Still in grace window: stay paused
+      return;
+    }
+  }
+
+  // Find the current turn's place in colour order. State arrives as Redis JSON,
+  // so the compile-time PlayerColor guarantee does not hold and an unknown
+  // currentTurn has to finish the game rather than loop forever.
+  const currentIdx = COLORS.indexOf(state.currentTurn);
+  if (currentIdx === -1) {
+    state.status = 'finished';
+    return;
+  }
+
+  let loopCount = 0;
+  let nextIdx = (currentIdx + 1) % COLORS.length;
+  let next: PlayerColor | undefined;
+  while (loopCount < COLORS.length) {
+    const color = COLORS[nextIdx];
+    const p = state.players.find((pl) => pl.color === color);
+    if (p?.status === 'active') {
+      next = color;
+      break;
+    }
+    if (p?.status === 'disconnected') {
+      const disc = state.disconnectedPlayers.find((d) => d.color === color);
+      if (disc && Date.now() < disc.reconnectDeadline) {
+        // The turn waits on this seat; a reconnect resumes it in place.
+        next = color;
+        break;
+      }
+    }
+    // No seat on this colour, or 'exited', 'inactive', expired disconnected: skip
+    nextIdx = (nextIdx + 1) % COLORS.length;
+    loopCount++;
+  }
+
+  if (!next) {
+    // No colour yielded a playable seat.
+    state.status = 'finished';
+    return;
+  }
+  state.currentTurn = next;
+
+  state.firstRollOfTurn = true;
+  // Clear the previous player's turn snapshot: the pending roll and moves
+  // belong to them, and keeping them blocks the next player from acting.
+  state.turnPhase = 'WAITING_FOR_ROLL';
+  state.pendingLegalMoves = [];
+  state.pendingDiceValue = undefined;
+  state.pendingIsFirstRoll = undefined;
+  // The Wall Breaker arm switch is turn-scoped too: clash mode grants the
+  // OPPORTUNITY to break a wall, and each turn the player decides again. A seat
+  // that lost the turn cannot leave an arm behind for a later roll.
+  for (const p of state.players) delete p.wallBreakerArmed;
+  const nextPlayer = state.players.find((p) => p.color === state.currentTurn);
+  if (nextPlayer) {
+    // Reset the new player's turn-scoped flags so nothing leaks across turns:
+    // the 6-streak, the "already rolled" flag, and a bonus roll they never
+    // earned.
+    nextPlayer.consecutiveSixes = 0;
+    nextPlayer.hasRolled = false;
+    nextPlayer.bonusRoll = false;
+  }
+}
+
+// Handle a player clicking "ready". When every active seat is ready the
+// game transitions to 'active'.
+export async function handlePlayerReady(
+  store: RedisGameStore,
+  emit: (event: GameEvent) => void,
+  gameId: string,
+  color: PlayerColor,
+): Promise<void> {
+  const state = await store.loadGameState(gameId);
+  if (state?.status !== 'waiting') return;
+
+  // Add to ready list if not already there
+  if (!state.readyPlayers.includes(color)) {
+    state.readyPlayers.push(color);
+  }
+
+  await store.saveGameState(gameId, state);
+
+  // Start gate: at least 2 active seats and every one of them ready. A lone
+  // host marking themselves ready must not flip a pvp match to 'active' with
+  // nobody else in the room.
+  const activeCount = state.players.filter((p) => p.status === 'active').length;
+  const allReady =
+    activeCount >= 2 &&
+    state.players
+      .filter((p) => p.status === 'active')
+      .every((p) => state.readyPlayers.includes(p.color));
+
+  if (allReady) {
+    state.currentTurn = firstActiveColor(state) ?? state.currentTurn;
+    state.status = 'active';
+    await store.saveGameState(gameId, state);
+    // The one "Game started" line (M3), written where the room leaves the waiting
+    // state. It separates waiting-room chatter from the match's own, and the status
+    // check above is what keeps a repeated start from writing a second one.
+    const matchData = await store.getMatchData(gameId);
+    if (hasChat(matchData)) {
+      await writeSystemChat(store, emit, gameId, 'started', '');
+    }
+    emit({ type: 'game_started', gameId });
+    // The gate has just moved the turn (`firstActiveColor`) and `game_started` carries
+    // no state, so without this frame every client keeps rendering the waiting room's
+    // placeholder as the opener: one seat's ROLL lit, the other's dead, and the lit
+    // roll refused because the engine already sits on the gate's colour. A departure
+    // pushes the same frame for the same reason (`player_exited`), so the turn a
+    // client draws always comes from the state, never from a guess.
+    emit({ type: 'state_update', gameId, state });
+  }
+}

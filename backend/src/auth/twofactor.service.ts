@@ -1,7 +1,7 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import Redis from 'ioredis';
+import { Inject, Injectable } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
-import { secret } from '../secrets';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { AUTH } from './auth.constants';
 
 const VERIFY_TOKEN_TTL_S = AUTH.verifyTokenTtlS; // signup verification links
@@ -16,25 +16,9 @@ const MAX_RESENDS = AUTH.challenge.maxResends;
 // `verify:`/`reset:` (links), `2fa:` (login codes), `emailchange:` (staged
 // changes) and `emailchange:user:<userId>` (reverse pointer, watched by MailService).
 @Injectable()
-export class TwoFactorService implements OnModuleDestroy {
+export class TwoFactorService {
   // Redis client for all short-lived auth state (verify/reset/2FA keys).
-  private redis: Redis;
-
-  constructor() {
-    // Host/port stay plain env : they're topology, not secrets.
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit();
-  }
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private hash(value: string): string {
     return createHash('sha256').update(value).digest('hex');
@@ -137,8 +121,8 @@ export class TwoFactorService implements OnModuleDestroy {
   }
 
   // Creates a 2FA login challenge: a pending token (stored in the client's
-  // cookie) plus a 6-digit code emailed to the user. Called by auth.service.ts
-  // login() for accounts with 2FA enabled.
+  // cookie) plus a 6-digit code emailed to the user. Called by
+  // AuthRegistrationService for accounts with 2FA enabled.
   async startChallenge(userId: string): Promise<{ pendingToken: string; code: string }> {
     const pendingToken = randomBytes(32).toString('hex');
     const key = `2fa:${this.hash(pendingToken)}`;

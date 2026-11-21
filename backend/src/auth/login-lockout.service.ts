@@ -1,7 +1,7 @@
-import { Injectable, OnModuleDestroy, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import Redis from 'ioredis';
-import { secret } from '../secrets';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { AUTH } from './auth.constants';
 
 const FAIL_WINDOW_S = AUTH.loginLockout.windowS;
@@ -16,25 +16,8 @@ const MAX_DELAY_STEPS = 5;
 // nginx's limit_req are keyed by client address, so these counters are keyed by
 // the account. Ladder, thresholds and error shape: backend-auth-module.md.
 @Injectable()
-export class LoginLockoutService implements OnModuleDestroy {
-  private redis: Redis;
-
-  constructor() {
-    // Same idiom as TwoFactorService / SessionService: host and port are
-    // topology (plain env), the password is a secret.
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Login lockout Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit();
-  }
+export class LoginLockoutService {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   // Hashed like twofactor/session tokens, so a Redis dump holds no usernames.
   // Case-folded, so "Bob" and "bob" cannot each spend a fresh budget.

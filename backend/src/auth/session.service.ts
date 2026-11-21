@@ -1,8 +1,8 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import Redis from 'ioredis';
+import { Inject, Injectable } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { createHash, randomBytes } from 'node:crypto';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { AUTH_REVOKED_PREFIX } from './auth.constants';
-import { secret } from '../secrets';
 
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // refresh tokens live 7 days
 // A consumed token presented again this soon, while its replacement is still
@@ -41,29 +41,15 @@ return evicted
 
 @Injectable()
 // Refresh-token session store in Redis: minting, rotation and revocation of
-// the 7-day refresh tokens that back the 15-min JWT access tokens. Used by
-// auth.service.ts (login, refresh, logout, password reset).
-export class SessionService implements OnModuleDestroy {
+// the 7-day refresh tokens that back the 15-min JWT access tokens. Used by the
+// auth services (login, refresh, logout, password reset, account deletion).
+export class SessionService {
   // Redis client holding refresh:<sha256(token)> -> userId, plus a
   // sessions:<userId> set indexing the account's live sessions. The set holds at
   // most one hash (D8), and stays the list `issue`, `revokeAll` and
   // `revokeAllExcept` walk: deleting a refresh key alone would leave a hash
   // behind for the next sweep to try.
-  private redis: Redis;
-
-  constructor() {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit();
-  }
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private hash(value: string): string {
     return createHash('sha256').update(value).digest('hex');

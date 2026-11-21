@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AvatarMetaModule } from '../avatar/avatar-meta.module';
+import { REDIS_CLIENT, RedisClientLifecycle, createRedisClient } from '../common/redis-client';
 import { PresenceModule } from '../presence/presence.module';
 import { PrismaService } from '../prisma.service';
 import { FriendshipEventsService } from './friendship-events.service';
@@ -9,7 +10,12 @@ import { FriendshipEventsService } from './friendship-events.service';
 // (MatchModule already imports AuthModule).
 @Module({
   imports: [PresenceModule, AvatarMetaModule],
-  providers: [FriendshipEventsService, PrismaService],
+  providers: [
+    FriendshipEventsService,
+    { provide: REDIS_CLIENT, useFactory: () => createRedisClient('Friendship events Redis') },
+    RedisClientLifecycle,
+    PrismaService,
+  ],
   exports: [FriendshipEventsService],
 })
 export class FriendshipEventsModule {}

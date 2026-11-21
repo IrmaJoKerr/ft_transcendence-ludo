@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -8,8 +9,8 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notification/notification.service';
-import { secret } from '../secrets';
-import Redis from 'ioredis';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { publishRoomsChanged } from '../common/channels';
 import { pairKey } from '../friends/friendship-pair';
 import { isEngineGameStarted, isSeatFinalized } from './seat-finalization';
@@ -25,22 +26,12 @@ import { SLOT_COLORS } from './slot-colors';
 // checks, exiting, and marking matches started. Edits the match:* hashes
 // in Redis. Used by MatchService.
 export class MatchPlayerService {
-  // Redis client for match:* game hashes and ready:<gameId> sets.
-  private redis: Redis;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly notificationService: NotificationService,
-  ) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   // Join an existing WAITING match at one corner. The joiner chooses it (`color`) and
   // the claim is final: no default, no swap afterwards.

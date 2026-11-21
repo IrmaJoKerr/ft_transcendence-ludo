@@ -4,9 +4,11 @@ import { MatchService } from './match.service';
 import { MatchCreatorService } from './match.creator.service';
 import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
+import { MatchAbandonService } from './match.abandon.service';
 import { MatchPostgameService } from './match.postgame.service';
 import { GuestLimitService } from './guest-limit.service';
 import { PrismaService } from '../prisma.service';
+import { REDIS_CLIENT, RedisClientLifecycle, createRedisClient } from '../common/redis-client';
 import { AuthModule } from '../auth/auth.module';
 import { AchievementsModule } from '../achievements/achievements.module';
 import { LeaderboardModule } from '../leaderboard/leaderboard.module';
@@ -28,6 +30,9 @@ import { FriendshipEventsModule } from '../friends/friendship-events.module';
     MatchPlayerService,
     MatchQueryService,
     MatchPostgameService,
+    MatchAbandonService,
+    { provide: REDIS_CLIENT, useFactory: () => createRedisClient('Match Redis') },
+    RedisClientLifecycle,
     GuestLimitService,
     PrismaService,
   ],

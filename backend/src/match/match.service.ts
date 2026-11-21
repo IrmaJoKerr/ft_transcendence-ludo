@@ -2,20 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { MatchCreatorService } from './match.creator.service';
 import { MatchPlayerService } from './match.player.service';
 import { MatchQueryService } from './match.query.service';
-import { MatchPostgameService, type GameEndPayload, type SeatAbandonPayload } from './match.postgame.service';
+import { MatchAbandonService, type SeatAbandonPayload } from './match.abandon.service';
+import { MatchPostgameService, type GameEndPayload } from './match.postgame.service';
 import type { RoomRules } from './room-rules';
 import type { CreateGuestMatchDto } from './dto/create-guest-match.dto';
-export type { GameEndPayload, SeatAbandonPayload } from './match.postgame.service';
+export type { SeatAbandonPayload } from './match.abandon.service';
+export type { GameEndPayload } from './match.postgame.service';
 
 @Injectable()
-// Facade over the four match sub-services (creator, player, query,
-// postgame). Every match route in match.controller.ts goes through here.
+// Facade over the match sub-services (creator, player, query, postgame,
+// abandon). Every match route in match.controller.ts goes through here.
 export class MatchService {
   constructor(
     private readonly creator: MatchCreatorService,
     private readonly player: MatchPlayerService,
     private readonly query: MatchQueryService,
     private readonly postgame: MatchPostgameService,
+    private readonly abandon: MatchAbandonService,
   ) {}
 
   // Creation
@@ -119,6 +122,6 @@ export class MatchService {
   // One seat's abandonment row, written at the departure while the room keeps
   // playing (and once per seat by a room that loses quorum).
   async recordAbandonedSeat(gameId: string, seat: SeatAbandonPayload) {
-    return this.postgame.recordAbandonedSeat(gameId, seat);
+    return this.abandon.recordAbandonedSeat(gameId, seat);
   }
 }

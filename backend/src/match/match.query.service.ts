@@ -1,9 +1,9 @@
 // Read-only match queries: open rooms, my-rooms, and the one snapshot the
 // realtime broadcaster diffs (socket consolidation, Phase 2).
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { secret } from '../secrets';
-import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
+import type Redis from 'ioredis';
 import { readRoomRules } from './room-rules';
 import { ENDED_MATCH_STATUSES } from './active-game';
 
@@ -174,22 +174,10 @@ function readEngineState(
 // from Postgres. Used by match.controller.ts via MatchService, and by the
 // realtime broadcaster, which diffs one snapshot per rooms-change event.
 export class MatchQueryService {
-  // Redis client for scanning match:* game hashes.
-  private redis: Redis;
-
-  constructor(private readonly prisma: PrismaService) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.redis.quit();
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   // Every room the lobby or a rejoin banner could show anybody, read once: the
   // hash scan, one engine-state read per room, and one Postgres query for the

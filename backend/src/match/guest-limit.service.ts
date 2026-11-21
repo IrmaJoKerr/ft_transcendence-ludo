@@ -1,7 +1,7 @@
-import { HttpException, HttpStatus, Injectable, OnModuleDestroy } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import Redis from 'ioredis';
-import { secret } from '../secrets';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
 
 // --- GUEST LIMITS: the whole knob block. Edit here, nowhere else. ---
 // One guest room is a Redis hash, a socket and a bot loop, allocated anonymously.
@@ -55,25 +55,8 @@ return left
 // burst limit. An address is coarse (campus NAT, CGNAT), so the concurrency cap
 // matters more than the mint cap.
 @Injectable()
-export class GuestLimitService implements OnModuleDestroy {
-  private redis: Redis;
-
-  constructor() {
-    // Same idiom as LoginLockoutService / SessionService: host and port are
-    // topology (plain env), the password is a secret.
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Guest limit Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy() {
-    await this.redis.quit();
-  }
+export class GuestLimitService {
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private async count(key: string): Promise<number> {
     const raw = await this.redis.get(key);
