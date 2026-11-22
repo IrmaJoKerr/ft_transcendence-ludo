@@ -16,7 +16,7 @@ import {
 } from './clash';
 import { MoveValidator } from './move-validator';
 import { applyMoveOutcome } from './turn';
-import { WALL_BREAKER_TOKEN_CAP } from './__shared__/wall-breaker.constants';
+import { WALL_BREAKER_TOKEN_CAP } from './__shared__/clash.constants';
 import { createRng, seedFrom } from './rng';
 import type { Rng } from './rng';
 import { botPace, botPressTimes } from './clash-pace';
@@ -81,15 +81,8 @@ export class ClashEngine {
     private random: Rng = Math.random,
   ) {}
 
-  // Start the QTE and arm its phase timers. Bot pressers begin exactly at
-  // press-phase start, because they press their own side instead of hunting keys:
-  // each bot side is handed a pace profile (fast 38 presses / casual 33, see
-  // clash-pace.ts) and paces itself from the window's real opening. The profile
-  // also fixes its reaction pause — 200 ms of recognition plus muscle memory for the
-  // fast one, 600 ms of choice reaction for the casual one — so the hesitation is a
-  // constant, not a draw, and a side that eats a letter switch pays the same re-read
-  // a human pays (4.7).
-  // `info` names the round inside a chain (absent: the single-defender case).
+  // Start the QTE and arm its phase timers. Bot pressers run from the press window's
+  // real opening on a per-profile pace. `info` names a chain round; absent means one defender.
   async startClash(
     gameId: string,
     attacker: PlayerColor,
@@ -110,13 +103,9 @@ export class ClashEngine {
     // (inside the manager), the switch schedule and the bot presses, so a round's
     // whole random shape replays from a single seed.
     const rng = createRng(seedFrom(this.random));
-    // The pace profile is the seat's, not a global: the backend rolls it once when
-    // the bot seat is created, so one table's bots are not three clones of each
-    // other and the same game behaves the same way twice. `botFastRate` is the
-    // speed against a human; an absent field (a state written before the profile
-    // existed) falls back to the baseline, so nothing needs a migration. Bot
-    // against bot keeps its 50/50 assignment below: that draw decides which of the
-    // two runs fast, not how fast either one is.
+    // Pace profile belongs to the seat and is rolled once at bot creation, so one table's
+    // bots differ and a game replays the same way. Absent values use the baseline; a
+    // bot-vs-bot draw decides which side is fast, not how fast either runs.
     const state = await this.store.loadGameState(gameId);
     const fastRateOf = (color: PlayerColor): number => {
       const rate = state?.players.find((p) => p.color === color)?.botFastRate;
@@ -128,10 +117,8 @@ export class ClashEngine {
     this.armClashPhaseTimers(gameId, (pressStartAt, window) => {
       if (!attackerIsBot && !defenderIsBot) return;
       const round = info?.round ?? 1;
-      // The letter switches this round charges for, and the extension the mutator
-      // already granted the window (0 in a plain room, so the schedule is unchanged
-      // to the millisecond). A bot that eats a switch pays `CLASH_BOT_REREAD_MS`
-      // out of that slack — the same re-read a human pays, per decision 4.7.
+      // This round's switch instants and the extension already added to its window.
+      // Each eaten switch costs a bot `CLASH_BOT_REREAD_MS` from that slack.
       const switches: BotSwitchCost = {
         at: window.switchAt,
         extraMs: Math.max(0, window.pressMs - CLASH_PRESS_MS),
@@ -180,10 +167,8 @@ export class ClashEngine {
   // a restart resumes a clash mid-phase instead of restarting its window.
   private armClashPhaseTimers(
     gameId: string,
-    // Called when the press phase opens, with the absolute time it opened and the
-    // window it opened (`switchAt` and `pressMs`) so a bot presser can charge the
-    // letter switches it eats. Bot pressers schedule against that anchor, not against
-    // the timer's own firing moment, so a late phase flip cannot shift the schedule.
+    // Press-phase open anchor and window, used to charge bot switches. Scheduling from
+    // the anchor keeps a late timer firing from shifting the rest of the schedule.
     onPressStart?: (
       pressStartAt: number,
       window: { switchAt: number[]; pressMs: number },
@@ -266,13 +251,9 @@ export class ClashEngine {
           countdownDeadline: st.clash.countdownDeadline,
           pressDeadline: st.clash.pressDeadline,
         });
-        // The window opens exactly at the countdown deadline the state carries (the
-        // press window is countdownDeadline .. pressDeadline), so that is the anchor
-        // handed to the pressers (a bot pays its reaction from here). Reading
-        // `pressDeadline - CLASH_PRESS_MS` would be early by the key-shift extension —
-        // which is also why the extension is handed over as a number rather than
-        // derived: `pressDeadline - countdownDeadline` is the window the mutator gave
-        // this round, `CLASH_PRESS_MS` is the one it would have had.
+        // The press window is countdownDeadline to pressDeadline, so the countdown
+        // deadline is the anchor. Deriving the start from `CLASH_PRESS_MS` would be early
+        // by the key-shift extension; the actual span is handed over instead.
         onPressStart?.(st.clash.countdownDeadline, {
           switchAt: st.clash.switchAt ?? [],
           pressMs: st.clash.pressDeadline - st.clash.countdownDeadline,

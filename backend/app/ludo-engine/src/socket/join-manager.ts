@@ -13,10 +13,8 @@ import type { PlayerColor, PlayerMeta } from '../types';
 // auto-fill bot seats (the seat order must match the original match).
 export const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
-// Whether a seat in the match hash is a bot. The hash says what the seat is
-// (`player<N>_isBot`, written by the backend beside the seat id), and that field
-// is the only answer: no reader infers the kind from the id's shape, so a seat
-// without the flag is a human seat even if its id looks like a bot.
+// Whether a match-hash seat is a bot. Read `player<N>_isBot`, written by the backend;
+// never infer the kind from the id, so a seat without the flag is human.
 function isBotMatchSeat(matchData: Record<string, string>, color: PlayerColor): boolean {
   const slot = SLOT_COLORS.indexOf(color) + 1;
   return matchData[`player${slot}_isBot`] === 'true';

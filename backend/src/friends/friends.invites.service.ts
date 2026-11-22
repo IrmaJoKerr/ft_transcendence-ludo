@@ -23,10 +23,8 @@ import {
   type RefusalPairLike,
 } from './friendship-pair';
 
-// One offer the caller has out. Two kinds travel this list because two acts put an
-// entry here (19.6): a *challenge*, which is a duel and points at no room until it
-// is accepted, and a *room invite*, which offers a seat in the waiting room the
-// caller already sits in. `sentAt` is what the reader expires either on.
+// One offer the caller sent: a challenge, or a seat in the caller's waiting room.
+// `sentAt` is the time the reader expires either kind on.
 export type SentChallenge = {
   userId: string;
   kind: 'challenge' | 'room';
@@ -35,11 +33,9 @@ export type SentChallenge = {
   sentAt: number;
 };
 
-// One field of `invite:<userId>`: one offer from one sender, either kind. Every
-// field is optional because the record is read back off Redis, where each value is
-// a claim to verify rather than a value to trust. The field's own `expiresAt` is its
-// real life: the key's TTL is only the newest entry's, and a field past its stamp is
-// dropped on read (22.6).
+// One field of `invite:<userId>`: one offer from one sender. Fields are optional
+// because Redis values are claims to verify. Each field's `expiresAt` is its real
+// life; the key TTL covers only the newest entry.
 type PendingInvite = {
   kind?: 'challenge' | 'room';
   fromUserId?: string;
@@ -48,18 +44,16 @@ type PendingInvite = {
   gameId?: string;
   inviteCode?: string;
   playerCount?: number;
-  /** When the sender pressed: the strip's order, newest first. */
+  // When the sender pressed: the strip's order, newest first.
   sentAt?: number;
-  /** `sentAt + CHALLENGE_TTL_MS`: this field's own life. */
+  // `sentAt + CHALLENGE_TTL_MS`: this field's own life.
   expiresAt?: number;
-  /** The bell row that announced it, so accept or decline can delete that row. */
+  // The bell row that announced it, so accept or decline can delete that row.
   notificationId?: string;
 };
 
-// How long an accept waits for the challenger to become free, and how often it
-// asks. Polled rather than refused on the first tick because the two answers come
-// a second or two apart — one player finishing an abort, a socket reconnecting —
-// and a refusal there would spend a challenge that was about to be answered.
+// How long and how often an accept waits for the challenger to become free. Polling
+// avoids spending a challenge that was one tick from being answered.
 const PRESENCE_GATE_MS = 2000;
 const PRESENCE_GATE_STEP_MS = 100;
 
@@ -78,10 +72,8 @@ export class FriendsInvitesService {
   ) {}
 
   // POST /api/friends/:friendId/challenge
-  //
-  // A duel. Nothing is created here: the room is made by the accept, because a room
-  // made at the send holds an id, seats and colours for a challenge that may never
-  // be answered, and blocks both players from starting anything else while it waits.
+  // A duel: no room is created until the accept, so an unanswered challenge holds no
+  // seats and blocks neither player.
   async challengeFriend(userId: string, friendId: string, hostColor?: string) {
     const pair = await this.assertOfferable(userId, friendId);
     this.assertNoRefusalCooldown(pair, friendId);
@@ -92,10 +84,8 @@ export class FriendsInvitesService {
         message: 'Pick a corner before challenging',
       });
 
-    // The room the accept will make seats the challenger first, so a challenger who
-    // already holds a seat would be handed a room they cannot enter. That is
-    // answered here, on the sender's own screen, rather than as a failed accept on
-    // the other player's.
+    // The accept seats the challenger first, so a seated challenger would get a room
+    // they cannot enter. Refuse here, on the sender's screen.
     if (await this.matchService.seatedMatch(userId))
       throw new ForbiddenException({
         code: 'MATCH_ALREADY_SEATED',
@@ -131,10 +121,8 @@ export class FriendsInvitesService {
   }
 
   // POST /api/friends/:friendId/invite
-  //
-  // A seat, not a duel: the caller already sits in a waiting room and offers the
-  // friend one of its free corners. The friend answers it by joining, so there is
-  // nothing here to decline and nothing to count.
+  // A seat, not a duel: the caller offers one free corner of their waiting room. The
+  // friend answers by joining, so there is nothing to decline or count.
   async inviteToRoom(userId: string, friendId: string, gameId?: string) {
     await this.assertOfferable(userId, friendId);
 
@@ -186,10 +174,8 @@ export class FriendsInvitesService {
   }
 
   // POST /api/friends/challenges/:friendId/accept
-  //
-  // The accept is where the room is made (19.6). It seats the challenger first, at
-  // the corner they named when they sent, then the invitee, and answers with the
-  // credentials that put the invitee at that table.
+  // The accept creates the room, seats the challenger at the named corner and then the
+  // invitee, and returns the invitee's credentials.
   async acceptChallenge(userId: string, fromUserId: string) {
     const pending = await this.readPending(userId, fromUserId);
     if (pending?.kind !== 'challenge' || pending.fromUserId !== fromUserId)
@@ -246,10 +232,8 @@ export class FriendsInvitesService {
       throw error;
     }
 
-    // The accepter's own ladder resets: they answered, which is what a streak
-    // measures the absence of. The offer's field and the challenger's entry are
-    // spent either way, and so is the bell row that announced it: a duel accepted on
-    // one device leaves nothing behind on another (22.6 item 5).
+    // Answering resets the accepter's refusal ladder. Spend both offer records and the
+    // bell row, so an accepted duel leaves nothing behind on another device.
     await this.resetRefusalStreak(userId, fromUserId);
     await this.redis.hdel(`invite:${userId}`, fromUserId);
     await this.redis.hdel(`challenge:${fromUserId}`, userId);

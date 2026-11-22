@@ -1,65 +1,11 @@
 import type { ColorKey } from '../theme';
 import type { PiecePart } from './pieceParts';
 
-/**
- * The 1980s piece set: one figure per seat, drawn in a 100x100 box, traced from
- * the supplied sheet (`spritesheet-80's.jpg`) and painted in the language of the
- * 1970s set in `pieceParts.ts` — roles from that seat's value ladder, `pop` for
- * the one accent, real strokes, no pixel snapping.
- *
- * Where the 70s set is one body with four helmets, the 80s sheet is four
- * *characters*, so each seat owns its whole figure: the punk's crest, the
- * cyborg's pauldrons, the netrunner's coat, the biker's helmet and puffer. The
- * silhouette, not the helmet, is what tells them apart.
- *
- * Every body is symmetric about x 50 and nothing is held. The sheet's pistol,
- * rifle and laptop are gone: a prop gives a figure a stance, not a direction, and
- * a mirrored prop reads as the wrong hand rather than a head turned (`todo.md`
- * 30). The facing is the face plate sliding inside a fixed head - the
- * `PIECE_FACE_80` slice below - which is the 70s helmet's own rule.
- *
- * Three rules the sheet forced, all learned the hard way in the 30 px box the
- * board draws a piece in (36 px when it is a legal target):
- *
- *  - `deep` is unusable as a garment here. It is 74% black, and the synthwave
- *    cell is `#050515`; a leather jacket painted `deep` disappears into the
- *    board, and so does `ink`, which is darker still. Value runs bright head ->
- *    mid torso -> mid legs -> bright feet instead, with `lo`/`shd` for cloth.
- *  - The garment rung itself stands higher than the 70s set's. These figures are
- *    black leather and one long black coat, and `.52` black on the synthwave cell
- *    is a silhouette at 30 px, so this set takes its palette from
- *    `piecePalette80` in `pieceParts.ts` — `lo` at `.30`, every `lo` on the
- *    figure together, so a lifted coat never sits beside an unlifted sleeve. The
- *    70s pieces and the hero crew keep `.52`.
- *  - Heads are 54 units across, the 1970s globe's own size, up from the ~34 that
- *    tracing the sheet's own proportions gave. At 30 px a 34-unit head is a 10 px
- *    face and loses its eyes; 54 is a 16 px head with 3 px eyes, which is what
- *    keeps these readable — and it is what lets a board in one theme be compared
- *    head to head with a board in the other. The bodies paid for the room: the
- *    bobble pass in `.scratch/80s/parts80.py` squashes them on y to 39 units
- *    while keeping their full width, so the silhouette still reads as a shape.
- *
- * Every head starts at y 4 and every head fits inside x 21..79 — the widest is the
- * cyborg's 57.9 — so all four read at one head size and none bleeds into the next
- * cell. Nothing reaches past 83.2 any more: with the props gone the widest thing in
- * the set is the cyborg's own pauldron, and the whole cast stands inside the box
- * with room to spare.
- *
- * Feet land on y 95.5 — the 70s boot line — so the two themes stand on the same
- * floor inside the same box, and a board recorded in one replays in the other.
- *
- * The head/body seam is a shipped contract rather than an internal detail of the
- * generator: `PIECE_HEAD_80` exports how many parts of each figure sit above the neck,
- * so `PieceFigure` can turn a head for the clash card's poses without re-deriving
- * where that neck is. `PIECE_FACE_80` is the other half of the same contract: the
- * half-open slice of each head a pose may move - the eyes on the punk, the visor bar
- * on the cyborg, the slit on the netrunner, the aperture on the biker - with the jaw,
- * the ears, the pods and the chin bar left outside it. That is why the head turns on
- * its collar instead of sliding off it (`discarded.md` IP), and both numbers are
- * emitted from `parts80.py`, which asserts the slice against the art on import.
- */
+// The 1980s piece set: one figure per seat, drawn in a 100x100 box, traced from the supplied sheet
+// (`spritesheet-80's.jpg`) and painted in the language of the 1970s set in `pieceParts.ts` — roles
+// from that seat's value ladder, `pop` for the one accent, real strokes, no pixel snapping.
 
-/** NEON OUTRUN PUNK (red): crest, shaved sides, studded jacket, hands at its sides. */
+// NEON OUTRUN PUNK (red): crest, shaved sides, studded jacket, hands at its sides.
 const PUNK: PiecePart[] = [
   {
     kind: 'path',
@@ -491,7 +437,7 @@ const PUNK: PiecePart[] = [
   },
 ];
 
-/** CHROME CYBORG (blue): bulk plate, visor bar, amber grille, chest core. */
+// CHROME CYBORG (blue): bulk plate, visor bar, amber grille, chest core.
 const CYBORG: PiecePart[] = [
   {
     kind: 'path',
@@ -906,7 +852,7 @@ const CYBORG: PiecePart[] = [
   },
 ];
 
-/** GRID NETRUNNER (green): long coat with rim light, headset, one visor slit, centred antenna. */
+// GRID NETRUNNER (green): long coat with rim light, headset, one visor slit, centred antenna.
 const NETRUNNER: PiecePart[] = [
   {
     kind: 'line',
@@ -1188,7 +1134,7 @@ const NETRUNNER: PiecePart[] = [
   },
 ];
 
-/** SYNTHWAVE ARCADE BIKER (yellow): full-face helmet, iridescent visor, puffer. */
+// SYNTHWAVE ARCADE BIKER (yellow): full-face helmet, iridescent visor, puffer.
 const BIKER: PiecePart[] = [
   { kind: 'circle', cx: 50, cy: 31, r: 27, fill: 'gid', stroke: 'ink', strokeW: 3.57 },
   {
@@ -1411,13 +1357,9 @@ const BIKER: PiecePart[] = [
   },
 ];
 
-/**
- * How many of each figure's parts sit above the neck, which is how a pose finds the
- * head: `parts80.py` authors every figure head-first and body-after with `HEAD_END`
- * between them, and `bobble()` keeps that order, so the seam is a count. Read by
- * `PieceFigure` through `cutAtNeck`, and never re-counted by hand - a wrong number
- * slides a boot off a coat.
- */
+// How many of each figure's parts sit above the neck, which is how a pose finds the head:
+// `parts80.py` authors every figure head-first and body-after with `HEAD_END` between them, and
+// `bobble()` keeps that order, so the seam is a count.
 export const PIECE_HEAD_80: Record<ColorKey, number> = {
   red: 12,
   blue: 13,
@@ -1425,13 +1367,9 @@ export const PIECE_HEAD_80: Record<ColorKey, number> = {
   yellow: 6,
 };
 
-/**
- * The slice of each head a pose turns: `[from, to)`, counted from the top of the
- * figure. Everything outside it - the jaw, the ears, the pods, the chin bar - is
- * outline and stays where it was drawn, which is what keeps the head on its collar
- * when it looks left. Emitted from `FACE80` in `parts80.py`, which asserts every
- * range against the art on import; `cutAtNeck` reads it as the turning run.
- */
+// The slice of each head a pose turns: `[from, to)`, counted from the top of the figure.
+// Everything outside it - the jaw, the ears, the pods, the chin bar - is outline and stays where
+// it was drawn, which is what keeps the head on its collar when it looks left.
 export const PIECE_FACE_80: Record<ColorKey, readonly [number, number]> = {
   red: [4, 12],
   blue: [2, 5],
@@ -1439,7 +1377,7 @@ export const PIECE_FACE_80: Record<ColorKey, readonly [number, number]> = {
   yellow: [1, 4],
 };
 
-/** One figure per seat, in the same 100-unit box as `PIECE_PARTS`. */
+// One figure per seat, in the same 100-unit box as `PIECE_PARTS`.
 export const PIECE_PARTS_80: Record<ColorKey, PiecePart[]> = {
   red: PUNK,
   blue: CYBORG,

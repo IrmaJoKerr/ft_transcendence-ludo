@@ -12,19 +12,19 @@ import {
 
 type UserAvatarProps = {
   username: string;
-  /** Immutable user id; the photo key. Without one (bots, hotseat seats) there is no photo. */
+    // Immutable user id; the photo key. Without one (bots, hotseat seats) there is no photo.
   userId?: string;
   size: number;
   fallbackStyle?: CSSProperties;
   avatarStyle?: string | null;
   style?: CSSProperties;
-  /** Whether a photo exists. Unknown counts as "no photo", so nothing is requested. */
+    // Whether a photo exists. Unknown counts as "no photo", so nothing is requested.
   hasAvatarPhoto?: boolean;
-  /** Bots and other non-account seats have no photo: never request one for them. */
+    // Bots and other non-account seats have no photo: never request one for them.
   isBot?: boolean;
-  /** Called when a photo was expected but failed to load (404 on a posted
-   *  avatar, or bytes the browser cannot decode). The DiceBear fallback always
-   *  still happens; this only lets a parent announce the failure. */
+    // Called when a photo was expected but failed to load (404 on a posted
+  //  avatar, or bytes the browser cannot decode). The DiceBear fallback always
+  //  still happens; this only lets a parent announce the failure.
   onPhotoError?: () => void;
 };
 

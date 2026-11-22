@@ -15,9 +15,7 @@ const SR_ONLY = {
   border: 0,
 } as const;
 
-/**
- * "i" badge that reveals the localised password policy on password-create fields.
- */
+// "i" badge that reveals the localised password policy on password-create fields.
 export function PasswordInfo() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

@@ -9,10 +9,8 @@ import type { Rng } from './rng';
 // the right-hand one.
 export const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 export const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
-// The clash WINDOWS and the result card's four lengths live in `common/src/timing.constants.ts`
-// (`./__shared__/timing.constants` here) because the client counts the same ones; the rest of
-// the clash delays are the engine's. Both are re-exported from this module so the existing
-// imports (clash-engine, the socket layer, harnesses) keep their path.
+// Shared clash windows and card lengths are re-exported here so existing imports keep
+// their path. Engine-only clash delays stay in `timing.ts`.
 export {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
@@ -55,14 +53,8 @@ import {
   CLASH_SWITCH_GAP_MAX_MS,
 } from './timing';
 export const CLASH_TARGET = 42; // the base presses to win the race (a key-shift room scales it)
-// The most one accepted press may be worth is `CLASH_TAP_COUNT`, shared with the
-// client so a pad tap and the clamp are the same number; the clamp in `recordPress`
-// keeps the wire from asking for more, so the ceiling stays 2x and no further.
-// Bot pacing draws: which profile a bot side runs at. The profile decides the
-// press count (38 fast, 33 casual, see clash-pace.ts), so these are the odds of
-// DRAWING the fast profile, not a handicap multiplier. Against a passive human
-// that is also the odds of winning the clash, which is what the bot's move
-// valuation (captureOdds in bot.ts) discounts by.
+// One press is capped by shared `CLASH_TAP_COUNT`; bot odds choose the pace profile,
+// not a handicap. Against a passive human, the same odds are the win chance.
 export const CLASH_BOT_FAST_VS_HUMAN = 0.25; // vs a human seat: 1 in 4 draws fast
 export const CLASH_BOT_FAST_VS_BOT = 0.5; // bot vs bot: coin flip decides who is fast
 
@@ -77,12 +69,8 @@ export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
-// Draw one side's schedule for a round: `count` DISTINCT letters from that side's
-// own nine-key pool, so a switch can never land on the letter already on screen.
-// `previousLast` is the letter the seat ended the previous round of a CHAIN on:
-// round n+1 must not open there, or the seam between two rounds would read as no
-// switch at all. The exclusion only applies when a spare letter remains, which the
-// nine-key pool always has at the three-letter ceiling.
+// Draw `count` distinct letters from one side's key pool. A chain's next round also
+// avoids the letter the seat ended on, so the seam reads as a switch.
 export function drawKeySchedule(
   rng: Rng,
   pool: readonly string[],
@@ -139,11 +127,8 @@ export class ClashManager {
     private random: Rng = Math.random,
   ) {}
 
-  // Start a clash: draw one letter schedule per side, stamp absolute phase deadlines,
-  // persist them, then announce. `info` carries the chain counters and this round's
-  // defender; absent means one defender, the R = 1 case of the same shape.
-  // `rng` is the clash's generator when the caller owns one (ClashEngine does);
-  // on its own the manager seeds a fresh one from its entropy source.
+  // Draw schedules, stamp absolute deadlines, persist, then announce. `info` carries
+  // chain counters; absent means the single-defender case.
   async startClash(
     gameId: string,
     attacker: PlayerColor,
@@ -151,10 +136,8 @@ export class ClashManager {
     info?: ChainRound,
     rng: Rng = createRng(seedFrom(this.random)),
   ): Promise<void> {
-    // The room's mutator and the chain's seam both live in the game state, so they
-    // are read here rather than threaded through two more positional arguments from
-    // every caller. The engine's per-game lock covers this call, so the load cannot
-    // race a write, and a state that predates the mutator simply reads as 0.
+    // Mutator and chain seam come from state. The per-game lock makes the load safe;
+    // older state reads as no mutator.
     const state = await this.store.loadGameState(gameId);
     const shift = state?.clashKeyShift === 1 || state?.clashKeyShift === 2 ? state.clashKeyShift : 0;
     const previous = state?.pendingCapture?.lastKeys;
@@ -167,10 +150,8 @@ export class ClashManager {
     const startedAt = Date.now();
     const countdownDeadline = startedAt + CLASH_ANNOUNCE_MS + CLASH_COUNTDOWN_MS;
     const switchAt = switchInstants(rng, countdownDeadline, shift);
-    // The key-shift mutator widens the race so presses-per-second holds at every
-    // shift, and the target scales with the window for the same reason: widening it
-    // under a fixed 42 would hand a shifted round to whoever presses fastest and make
-    // a two-shift room easier than a plain one. 42 / 5000, 55 / 6500, 67 / 8000.
+    // Each shift widens the window, so the target scales with it. A fixed target would
+    // make a shifted room easier: 42 / 5000, 55 / 6500, 67 / 8000.
     const pressMs = CLASH_PRESS_MS + CLASH_KEYSHIFT_EXTRA_MS * shift;
     const target = Math.round((CLASH_TARGET * pressMs) / CLASH_PRESS_MS);
     // The chain's seam for the next round: what this one ends on, per seat.
@@ -237,11 +218,8 @@ export class ClashManager {
     });
   }
 
-  // Record one press. Return meter 0 and store nothing when the press phase has not
-  // started, the deadline has passed, the key is not this player's or the press falls
-  // inside the per-side cap. Bots skip the key check. On success it also returns the
-  // round's `target`, so the caller can fire the instant win against the scaled
-  // threshold (42/55/67) instead of the base constant.
+  // Record one press. Invalid phase, expired deadline, wrong key or cap returns meter 0
+  // and stores nothing; bots skip the key check. Success also returns the scaled target.
   async recordPress(
     gameId: string,
     color: PlayerColor,
@@ -270,11 +248,8 @@ export class ClashManager {
       return { meter: 0, target: 0 };
     }
 
-    // Tablet tap weight: one tap counts as several presses because tapping is slower
-    // than holding a key. Clamp it here, on the server, to the shared `CLASH_TAP_COUNT`
-    // so the wire cannot ask for more than the pad sends. The clamp is finite-guarded
-    // and ROUNDS, so a NaN reads as 1 by intent (not an accident of `||`) and a
-    // fractional weight never truncates to 0.
+    // Tablet tap weight: clamp on the server to shared `CLASH_TAP_COUNT`. The finite
+    // guard and rounding make NaN read as 1 and keep a fraction from truncating to 0.
     const weight = Math.min(
       CLASH_TAP_COUNT,
       Math.max(1, Math.round(Number.isFinite(count) ? count : 1)),

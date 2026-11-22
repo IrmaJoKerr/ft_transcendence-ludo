@@ -14,13 +14,8 @@ const LINE = '#00f0ff';
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
   const { theme } = useApp();
 
-  // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the
-  // 1980s characters, each in a 100-unit box with real strokes and no pixel snapping.
-  // The BOX is unchanged — same tile, same 30/36 px footprint the stacking geometry
-  // was measured on — so a board recorded in one theme and replayed in the other moves
-  // no piece; what differs inside it is the drawing, and a figure ~50 units wide in a
-  // 100-unit box reads narrower than the invader glyph that used to fill 11 of 13.
-  // That is the picked silhouette, not slack.
+    // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the 1980s
+  // characters, each in a 100-unit box with real strokes and no pixel snapping.
   return (
     <svg
       viewBox="0 0 100 100"
@@ -67,7 +62,7 @@ function Yard({
   ck: ColorKey;
   basePieces: Array<{ id: string; armed: boolean }>;
   goalCount: number;
-  /** Wall Breaker tokens this seat still holds (0 = none, and no chip shows). */
+    // Wall Breaker tokens this seat still holds (0 = none, and no chip shows).
   wallBreakerTokens: number;
   legalPieceIds: Set<string>;
   onPieceClick?: (pieceId: string) => void;
@@ -257,7 +252,7 @@ function Yard({
   );
 }
 
-/** The four start cells, tinted the owner color. Each is also a safe square (SAFE_STAR_CELLS). */
+// The four start cells, tinted the owner color. Each is also a safe square (SAFE_STAR_CELLS).
 const STARTS: Partial<Record<string, ColorKey>> = {
   '6,1': 'red',
   '1,8': 'green',
@@ -276,38 +271,18 @@ const SAFE_STAR_CELLS: Record<string, boolean> = (() => {
   return m;
 })();
 
-/**
- * The safe-zone star is drawn as TWO layers, not one color, because one color
- * cannot clear all five cell fills. The core is white and the outline is black,
- * and each layer covers exactly where the other one fails:
- *
- *   against #050515 (plain cell)  white core 20.2:1 — the black ring is invisible, the core carries it
- *   against red #ff007f           core 3.8:1, ring 5.6:1   — both clear the 3:1 graphics threshold
- *   against green #00ff88         core 1.3:1, ring 15.7:1  — the ring carries it
- *   against yellow #ffe600        core 1.3:1, ring 16.6:1  — the ring carries it
- *   against blue #00f0ff          core 1.4:1, ring 14.9:1  — the ring carries it
- *
- * A single deep indigo (#3c0fe6, the "most visible color" candidate) was measured
- * and rejected: 2.3:1 against #050515, so it sinks into the dark cell, and only
- * 2.3:1 against the red start cell, where the previous violet #b14aff looked pale
- * for the same reason. The duplex star is immune to that, and it also matches how
- * the pieces are already drawn: `Sphere` gives every invader a #000000 stroke, so
- * an outlined star reads as part of the same board language.
- */
+// The safe-zone star is drawn as TWO layers, not one color, because one color cannot clear all
+// five cell fills. The core is white and the outline is black, and each layer covers exactly where
+// the other one fails:
 const SAFE_STAR_COLOR = '#ffffff';
 const SAFE_STAR_OUTLINE = '#000000';
-/** 10-point star, bbox 21.16 x 20.13 inside the 24 box, so the 2.2 stroke fits. */
+// 10-point star, bbox 21.16 x 20.13 inside the 24 box, so the 2.2 stroke fits.
 const SAFE_STAR_POINTS =
   '12.00,1.93 14.63,9.44 22.58,9.62 16.25,14.45 18.54,22.07 12.00,17.54 5.46,22.07 7.75,14.45 1.42,9.62 9.37,9.44';
 
-/**
- * The safe-zone star. One element for every star square (the four start cells
- * and the four pre-start safe cells) so the eight markers are identical: the
- * start cells used to draw a white star at 44% and the rest a yellow one at
- * 40%, which is what made half the set look like a different feature. SVG rather
- * than a clip-path div because the stroke has to be a real stroke: 2.2 units of
- * the 24 box is ~1.1px at the ~12px the star occupies on a 450px board.
- */
+// The safe-zone star: one white core with a black outline for all eight star squares. The
+// duplex treatment stays visible on every cell fill; the 2.2 stroke in the 24 box is about
+// 1.1 px at the star's ~12 px size on a 450 px board.
 function SafeStar() {
   return (
     <svg viewBox="0 0 24 24" style={{ width: '44%', height: '44%', display: 'block' }}>
@@ -322,7 +297,7 @@ function SafeStar() {
   );
 }
 
-/** Home-stretch lane color for a track cell, or null for a plain cell. */
+// Home-stretch lane color for a track cell, or null for a plain cell.
 function laneColor(r: number, c: number): string | null {
   if (r === 7 && c >= 1 && c <= 5) return COL.red.base;
   if (c === 7 && r >= 1 && r <= 5) return COL.green.base;
@@ -340,33 +315,26 @@ type BoardProps = {
     to: number;
     isCapture: boolean;
     isHomeEntry: boolean;
-    /** Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds. */
+        // Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds.
     captureCount?: number;
-    /** Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag. */
+        // Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag.
     spendsWallBreakerToken?: boolean;
   }>;
   onPieceClick?: (pieceId: string) => void;
-  /** While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation. */
+    // While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation.
   animating?: { pieceId: string; step: number } | null;
-  /** Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay. */
+    // Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay.
   fx?: { color: string; to: number } | null;
-  /**
-   * Hardcore room rule, stored inverted (false = the variant is off, which is a
-   * standard room). While false all eight safe squares wear the violet star,
-   * because they still protect; while true every star is withheld — the four
-   * start squares as well as the four pre-start cells — because none of them
-   * protect any longer.
-   */
+  // Hardcore room rule, stored inverted: false means a standard room. When true every safe
+  // square loses its star, including the four start cells.
   noSafeZones?: boolean;
-  /**
-   * True while the player has armed the Wall Breaker control for this roll: only
-   * then is a token-priced exit a tap target (and badged), so tapping a piece can
-   * never spend a token by accident. Client-local state, owned by Game.tsx.
-   */
+    // True while the player has armed the Wall Breaker control for this roll: only
+  // then is a token-priced exit a tap target (and badged), so tapping a piece can
+  // never spend a token by accident. Client-local state, owned by Game.tsx.
   breakerArmed?: boolean;
 };
 
-/** The classic 15×15 cross board, rendered procedurally: no images. */
+// The classic 15×15 cross board, rendered procedurally: no images.
 export function Board({
   pieces = [],
   players = [],

@@ -81,11 +81,8 @@ export class UserController {
     return this.userService.uploadAvatar(req.user.id, file.buffer, file.mimetype);
   }
 
-  // The photo, keyed by the immutable user id: a rename can never turn this URL
-  // into a 404 the way a display-name-keyed route could. Signed-in only, but
-  // deliberately NOT block-checked: the bytes are not a capability — the same
-  // picture is on the leaderboard — and the profile card keeps the avatar in its
-  // degraded form on purpose.
+  // Photo keyed by immutable user id, so a rename cannot break the URL. Signed-in only,
+  // but not block-checked: the bytes are already public on the leaderboard.
   @UseGuards(JwtAuthGuard)
   @Get('id/:userId/avatar')
   async getAvatarById(@Param('userId') userId: string, @Res() res: Response) {

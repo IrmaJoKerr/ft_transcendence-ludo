@@ -6,11 +6,7 @@ import { useApp, type ActiveMatch } from '../store';
 import { retroAudio } from '../utils/audio';
 import { isPendingOfferLapsed, notificationAge, offerMechanismLabel } from './notificationParts';
 
-// **The live offers strip** (22.9)
-// Above the friends list, one row per offer still open. This is the assessment
-// surface the bell never was: the bell indexes and routes (22.7), the toast acts
-// on what just arrived, and this strip is where a duel is chosen deliberately —
-// with the refusal band the bell could not have.
+// The live offers strip (22.9): above the friends list, one row per offer still open.
 
 // One offer as `GET /api/friends/invites/pending` answers it (22.6). Every field
 // is optional because the record is read back off Redis: a claim to verify, not a
@@ -21,11 +17,11 @@ type PendingOffer = {
   fromUsername?: string;
   gameId?: string;
   inviteCode?: string;
-  /** The strip's order: newest first. */
+    // The strip's order: newest first.
   sentAt?: number;
-  /** The offer's own life, which is what the strip schedules itself against. */
+    // The offer's own life, which is what the strip schedules itself against.
   expiresAt?: number;
-  /** A room invite whose room has started or ended: the row stays, the verb goes. */
+    // A room invite whose room has started or ended: the row stays, the verb goes.
   expired?: boolean;
 };
 

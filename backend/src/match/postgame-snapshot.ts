@@ -1,7 +1,5 @@
-// Pure postgame readers and row shapes shared by the two writers: the completed
-// match (`match.postgame.service.ts`) and the one-seat abandonment
-// (`match.abandon.service.ts`). Nothing here holds a connection or a Nest
-// dependency; splitting the file keeps each writer focused on its own guard.
+// Pure postgame readers and row shapes shared by the completed-match writer and the
+// one-seat abandonment writer. No connection or Nest dependency lives here.
 
 import type Redis from 'ioredis';
 
@@ -65,14 +63,9 @@ export const HISTORY_TRIM = 50;
 // is only a fallback).
 export const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
 
-// The colours whose seat the room hash flags as a bot. `player<N>_isBot` is the
-// only answer this service accepts: it is written by MatchCreatorService beside
-// the seat, the engine reads the same field, and nothing here looks at the shape
-// of an id, so a seat without the flag counts as a human seat whatever its id
-// reads like. A room whose hash is gone (a Redis restart mid-game) flags nobody:
-// the engine reports human seats only, and the account check in processGameEnd
-// still keeps a seat with no User row out of the transaction.
-// See docs/ludo-engine/ludo-engine-bot-module.md and backend-match-module.md.
+// Bot colours come only from `player<N>_isBot`, never from an id. A missing hash flags
+// nobody, and the account check in `processGameEnd` still keeps seats without a User
+// row out of the transaction.
 export function botSeatColors(matchData: Record<string, string>): Set<string> {
   const bots = new Set<string>();
   SLOT_COLORS.forEach((fallback, index) => {

@@ -10,10 +10,8 @@ import { RETRO_BTN } from '../styles/tw';
 import { NotificationRow } from './NotificationRow';
 import { offerMechanism, offerMechanismLabel, parseNotificationPayload } from './notificationParts';
 
-// **The clock**
-// One window for every card (22.4): the live card, the boot report, and any card
-// added later. The entrance (30 ms) and the exit (350 ms) are transitions, not
-// windows, and stay where they are.
+// One autoclose window for every card: the shared 8 s clock. The 30 ms entrance and
+// 350 ms exit are transitions, not autoclose timers, and are not controlled here.
 export const TOAST_AUTOCLOSE_MS = 8_000;
 
 // **Helpers**
@@ -52,10 +50,8 @@ function getToastInfo(
         actionMessage: t('notifications.actionFriendAccepted'),
       };
     case 'game_invite':
-      // Two mechanisms, one type (22.9): a challenge asks for a duel, a room
-      // invite offers a seat in a table that already exists. The row says which
-      // one it is, and the badge no longer guesses at a headcount the room will
-      // decide at kickoff.
+      // Challenge and room invite share `game_invite`; `offerMechanism` selects the
+      // label, tag and action so the row never guesses at a headcount.
       return offerMechanism(payload) === 'room'
         ? {
             tag: t('notifications.matchInviteTag'),
@@ -746,11 +742,9 @@ export function NotificationToasts({
 
 // **Digest Toast**
 
-// The boot report (22.2): one card, once per page load, drawn from the unread
-// snapshot the handshake delivered and then frozen. It counts every stored type
-// except `profile_updated`, which is the user confirming their own act. Its `x`
-// wipes the report and deletes nothing: the entries stay in the bell, which is
-// where the detail lives. A report is not a row.
+// The boot report: one card per page load, built from the unread handshake snapshot
+// and then frozen. It excludes `profile_updated`; its `x` only hides the card, never
+// deletes the stored notifications.
 export function NotificationDigest({
   report,
   bottom,
@@ -758,7 +752,7 @@ export function NotificationDigest({
   onDismiss,
 }: {
   report: DigestReport | null;
-  /** Clearance from the viewport bottom, so it stacks above any live toasts. */
+    // Clearance from the viewport bottom, so it stacks above any live toasts.
   bottom: number;
   onOpen: () => void;
   onDismiss: () => void;

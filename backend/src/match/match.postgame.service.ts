@@ -26,10 +26,8 @@ import { readRoomRules } from './room-rules';
 export interface GameEndParticipant {
   userId: string;
   color: string;
-  // 1 for the seat that brought its fourth piece home, 2 for every other seat. The
-  // engine reports no finer order, and none is needed: a completed match has one
-  // winner and the rest are losses (`rank === 1` is the whole test, as in the career
-  // update below). A `won` boolean on `MatchHistory` would only restate this.
+  // Rank 1 for the seat with four pieces home, 2 for every other seat. The engine gives
+  // no finer order; `rank === 1` is the whole win test.
   rank: number;
   totalTurns?: number;
   piecesCaptured?: number;
@@ -50,10 +48,8 @@ export interface GameEndParticipant {
 export interface GameEndPayload {
   gameId: string;
   participants: GameEndParticipant[];
-  // The kind of rows this report writes. `completed` is a game that ended with a
-  // winner and is the default; `abandoned` is a room torn down without one, where
-  // every seat keeps a row but nobody scores (R19: the no-stats rule is one
-  // condition, in one place).
+  // `completed` is a game with a winner, the default. `abandoned` is a room torn down
+  // without one: every seat keeps a row, but nobody scores.
   status?: 'completed' | 'abandoned';
   // The room's channel (M3): every line and the ledger that says which pair fell out
   // when. One payload serves the whole room — the write below cuts it per seat, so a
@@ -67,10 +63,8 @@ export interface GameEndPayload {
 // before any row is written, so they earn nothing.
 
 @Injectable()
-// Post-game processing: writes one MatchHistory row per seat and updates the
-// PlayerStats row each one holds, awards piece-based rating, refreshes the Redis
-// leaderboard, triggers achievement evaluation, and notifies players. Used by
-// POST /api/game/end.
+// Post-game processing for POST /api/game/end: one MatchHistory row per seat, stats and
+// piece-based rating, leaderboard refresh, achievement evaluation, and notifications.
 export class MatchPostgameService {
   constructor(
     private readonly prisma: PrismaService,
@@ -98,13 +92,9 @@ export class MatchPostgameService {
       });
     }
 
-    // Idempotency guard: an engine retry after a network blip hits this read and
-    // returns early : points are never double-awarded. The guard is a *completed*
-    // row, not any row: an abandoned seat's row exists while the room is still being
-    // played, and answering "already processed" on it would throw away the real
-    // result for the seats that stayed (the case this pass exists to fix).
-    // `@@unique([user_id, game_id])` is the half that cannot race : see the P2002
-    // catch around the transaction below.
+    // Idempotency guard for an engine retry: only a COMPLETED row counts, because an
+    // abandoned row may exist while the room is still live. The unique pair catches the
+    // race; see the P2002 handling around the transaction.
     const completed = await this.prisma.db.matchHistory.findFirst({
       where: { game_id: gameId, status: 'COMPLETED' },
       select: { id: true },

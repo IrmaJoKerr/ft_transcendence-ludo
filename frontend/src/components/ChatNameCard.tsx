@@ -9,51 +9,32 @@ import { retroAudio } from '../utils/audio';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import type { ChatCardStatus } from './chatCardTypes';
 
-// The card a name opens (M3/19.7): what this viewer can do about that pilot. It is one
-// component for both channels, because the name card used to exist twice and did not
-// do the same thing twice: the room offered BLOCK alone, so a player who met somebody
-// across the board could not add them without leaving the game. What a surface offers
-// is now a property of the pilot in front of it, not of the channel it was pressed in.
-//
-// Two acts are gated, because neither can be taken back. ADD FRIEND asks first (the
-// same button, relabelled: a request cannot be withdrawn once it is sent, and the card
-// sits over a live board where a stray press is easy), and BLOCK confirms through
-// `ConfirmActionModal`, the app's one destructive shell, which is also what keeps the
-// dialog above this card instead of under it (it portals at 10006; this card is 10005
-// and the transcript 10004).
-//
-// The one optional action is CHALLENGE, and it is the host's: a room invites from its
-// occupancy panel rather than from a name, so the room passes nothing and the card
-// offers no duel there. Every outcome is reported to the host's band, and the card
-// closes with it: two surfaces saying the same thing is what this design avoids.
+// The card a name opens (M3/19.7): what this viewer can do about that pilot.
 
-/** The card's width, its upper bound for the clamp, and the gap it keeps from the
- *  window edges. The height is an estimate, not a size: it counts the tallest stack
- *  the card can build (title, the friend state, CHALLENGE, BLOCK under its rule and
- *  CLOSE), and the card itself is as tall as what it offers. */
+// The card's width, its upper bound for the clamp, and the gap it keeps from the window edges.
 const NAME_CARD_WIDTH = 220;
 const NAME_CARD_HEIGHT = 244;
 const NAME_CARD_MARGIN = 12;
 
-/** The pilot whose name was pressed, and where that name was in the window. */
+// The pilot whose name was pressed, and where that name was in the window.
 export type ChatNameCardTarget = { id: string; name: string; anchor: DOMRect };
 
 export interface ChatNameCardProps {
-  /** Who was pressed, and the rectangle the press came from: the transcript scrolls
-   *  under the pointer, so the card is placed once, off that rectangle. */
+    // Who was pressed, and the rectangle the press came from: the transcript scrolls
+  //  under the pointer, so the card is placed once, off that rectangle.
   target: ChatNameCardTarget;
-  /** The friendship snapshot, read by the host so opening a card refetches nothing. */
+    // The friendship snapshot, read by the host so opening a card refetches nothing.
   friends: FriendRow[];
   requests: { sent: FriendRequestRow[]; received: FriendRequestRow[] };
   loading: boolean;
-  /** CHALLENGE, when the host has one to offer. `onPress` rejects with the sentence
-   *  the band should carry, because the host owns the refusal's wording. */
+    // CHALLENGE, when the host has one to offer. `onPress` rejects with the sentence
+  //  the band should carry, because the host owns the refusal's wording.
   challenge?: { sent: boolean; onPress: () => Promise<void> };
   onClose: () => void;
-  /** The band the outcome lands in: the host's, so a room reports into the room. */
+    // The band the outcome lands in: the host's, so a room reports into the room.
   onStatus: (status: ChatCardStatus | null) => void;
-  /** Re-read the friendship snapshot: a block is a mutation, and a host whose feed
-   *  filters blocked senders builds its filter from that snapshot. */
+    // Re-read the friendship snapshot: a block is a mutation, and a host whose feed
+  //  filters blocked senders builds its filter from that snapshot.
   onBlocked: () => void;
 }
 
@@ -93,11 +74,8 @@ export function ChatNameCard({
     };
   });
 
-  // Escape and an outside press close it, the same pair of gestures the transcript
-  // card uses. `pointerdown` so a drag that ends outside does not count as a press.
-  // Both stand down while the confirm is up: the modal owns Escape and answers a
-  // press anywhere (`CyberModal` cancels on an overlay click), so acting on the same
-  // gestures here would dismiss the card behind the confirm as well.
+    // Escape and an outside press close it, the same pair of gestures the transcript card uses.
+  // `pointerdown` so a drag that ends outside does not count as a press.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (confirmBlock) return;

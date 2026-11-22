@@ -473,10 +473,9 @@ export const fr = {
       challenge: 'DÉFIER',
       block: 'BLOQUER',
     },
-    // La confirmation de blocage de la carte de nom, dans les deux canaux
-    // (`ChatNameCard`). C’est la seule coquille destructive : la conséquence nomme ce
-    // qu’il y a réellement à perdre, donc une amitié ou une demande en attente est
-    // mentionnée et un inconnu ne l’est pas.
+        // La confirmation de blocage de la carte de nom, dans les deux canaux (`ChatNameCard`). C’est la
+    // seule coquille destructive : la conséquence nomme ce qu’il y a réellement à perdre, donc une
+    // amitié ou une demande en attente est mentionnée et un inconnu ne l’est pas.
     block: {
       title: 'ROMPRE LE LIEN ?',
       confirm: 'Bloquer {{name}} ?',
@@ -656,10 +655,9 @@ export const fr = {
     clashRoundOver: 'MANCHE TERMINÉE',
     clashRoundWon: 'Encore {{left}} défenseur(s) — préparez la manche suivante…',
     clashChainBroken: 'Mur brisé — la case est à vous !',
-    // La ligne de repoussée nomme la CASE, pas le mur : une chaîne qui s'arrête à
-    // une manche ultérieure a déjà renvoyé des défenseurs chez eux, donc le mur est
-    // plus mince même si l'attaque a échoué. Parler de « la case » reste exact dans
-    // les deux cas.
+        // La ligne de repoussée nomme la CASE, pas le mur : une chaîne qui s'arrête à une manche
+    // ultérieure a déjà renvoyé des défenseurs chez eux, donc le mur est plus mince même si l'attaque
+    // a échoué. Parler de « la case » reste exact dans les deux cas.
     clashChainRepulsed: 'Attaque repoussée — la case reste aux défenseurs.',
     // La phrase de la brèche totale, dessinée DANS l'acte du nuage, au sol là où le mur
     // se dressait (25.4). Elle porte le nom du vainqueur, donc sa taille se calcule sur sa

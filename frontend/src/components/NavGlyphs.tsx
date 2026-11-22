@@ -1,33 +1,12 @@
-/** The rail's marks, drawn rather than typed (decision 1.4, 2026-11-09).
- *
- *  The rail used to hold one string per route — `⌂ ♛ @/ ♟ >_` — which is three
- *  systems of drawing in one column: `⌂` and `♛` are glyphs whose shape came from
- *  whatever font won the fallback, `♟` is a chess piece in a set the rest of the
- *  app never uses, and `@/` and `>_` are ASCII art pretending to be icons. At 34 px
- *  they read as five unrelated marks at three different weights, which is exactly
- *  what an icon set exists to stop.
- *
- *  One set, one grid, one weight: every path is drawn on a 24-unit grid, stroked
- *  with `currentColor` at 1.75 with round caps, and sized by the caller. Because
- *  the stroke is the inherited colour, a glyph follows the theme and the active
- *  state for free — the rail only sets `color`, never per-icon fills. No icon
- *  package: six shapes is not a dependency, and an SVG sprite would be a second
- *  build step for the same six strings.
- *
- *  Shapes, in the order the rail shows them: a house (home), a cup (the
- *  leaderboard — `♛` said "best", a trophy says "ranking"), a person (profile), two
- *  people (friends), and a console with a prompt and a cursor (the lobby channel —
- *  `>_` was already that idea, so the drawing keeps it and drops the ASCII). The
- *  sixth is `chat`: a speech bubble, which is the compact rail's only way into
- *  Hyperspace Comms (decided 2026-11-09). It is not a route and not in `navItems`;
- *  the bubble is a different idea from the channel's console, because one is a mark
- *  for a destination and the other opens a card over the page. */
+// The rail's six marks, drawn on one 24-unit grid and stroked with `currentColor` so
+// they follow the theme and active state. Five are route marks (home, board, profile,
+// friends, channel); `chat` opens Hyperspace Comms and is not a route.
 
 export type NavGlyphName = 'home' | 'board' | 'profile' | 'friends' | 'channel' | 'chat';
 
-/** One entry per shape, each a list of `d` attributes on the same grid. Paths are
- *  stroked, never filled: an outline at 34 px keeps its weight when the rail's
- *  active state changes colour, and a fill would need one value per state. */
+// One entry per shape, each a list of `d` attributes on the same grid. Paths are
+//  stroked, never filled: an outline at 34 px keeps its weight when the rail's
+//  active state changes colour, and a fill would need one value per state.
 const GLYPH_PATHS: Record<NavGlyphName, string[]> = {
   home: [
     // Roof, then the walls down to the ground, then the door.

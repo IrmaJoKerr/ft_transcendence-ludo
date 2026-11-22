@@ -81,12 +81,8 @@ export class FriendsController {
     return this.friends.unblockUser(req.user.id, targetUserId);
   }
 
-  // Game Invitations
-  //
-  // **Two routes, one per act** (19.6). A challenge is a duel: nothing is created
-  // until the invitee accepts, and the answer comes back through the same target.
-  // A room invite offers a seat in a room the caller already sits in, so it carries
-  // that room's id and never creates one.
+  // Game invitations: two routes, one per act. A challenge creates nothing until the
+  // invitee accepts; a room invite offers a seat in the caller's existing room.
   @UseGuards(JwtAuthGuard)
   @Throttle(FRIENDS_THROTTLE.invite)
   @Post('api/friends/:friendId/challenge')

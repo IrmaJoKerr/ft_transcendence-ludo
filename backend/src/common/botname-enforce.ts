@@ -1,7 +1,5 @@
-// Bot ids are `bot-<color>`, owned here for the backend; the engine keeps its own
-// copy in socket/auth.ts. The prefix mints an id; what a seat *is* comes from the
-// `player<N>_isBot` flag written beside it, so nothing classifies a seat by
-// looking at the shape of its id.
+// Bot ids use `bot-<color>`; the engine keeps its own copy. The prefix only mints an id:
+// a seat's kind comes from `player<N>_isBot`, never from the id shape.
 export const BOT_PREFIX = 'bot-';
 
 // A human (display) name may not masquerade as a bot: reserve the `bot` stem

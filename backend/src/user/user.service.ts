@@ -21,14 +21,9 @@ export class UserService {
     private readonly friendshipEvents: FriendshipEventsService,
   ) {}
 
-  // Profile of a user (stats, rating, avatar info, online status) as the caller
-  // is allowed to see it. Used by GET /api/user/:username.
-  //
-  // The block gate lives here, not in the client router: a deep link or a curl
-  // reaches this method with no click behind it. A block returns 200 with
-  // `visibility` set and the payload degraded to the identity and avatar — a
-  // block hides the relationship, not the person, and both are already public
-  // on the leaderboard. Every stat and the live presence drop out.
+  // Profile as the caller may see it. The block gate lives here, not in the client:
+  // a block returns 200 with degraded identity and avatar only, because a block hides
+  // the relationship, not the person. Stats and presence drop out.
   async getPublicProfile(username: string, viewerId: string) {
     const user = await this.prisma.db.user.findUnique({
       where: { username },
@@ -63,10 +58,8 @@ export class UserService {
       throw new NotFoundException(`User "${username}" not found`);
     }
 
-    // Repair the avatar-meta cache from the row we already loaded (no extra
-    // query), so a missed write or an eviction converges on the next read. The
-    // returned stamp is the record's own `?v=`: the card busts a stale photo
-    // without minting a new stamp on every view.
+    // Repair the avatar-meta cache from the loaded row, so a missed write converges on
+    // the next read. The stamp is the record's `?v=`, not a new one per view.
     const avatarV = await this.avatarMeta.syncFromUser(user);
 
     const { avatarPhotoContentType, ...rest } = user;
@@ -97,11 +90,9 @@ export class UserService {
     const user = await this.prisma.db.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found' });
 
-    // Build the derivative BEFORE the row write, so the single update carries
-    // both columns: a reader never sees the new photo next to the previous
-    // photo's thumbnail, and `avatarPhotoContentType` keeps meaning exactly
-    // "has a photo". A null result (undecodable image) is written as null, which
-    // also clears a previous thumbnail, and the route falls back to the original.
+    // Build the thumbnail before the row write, so one update carries both columns and a
+    // reader never sees a new photo beside the old thumbnail. A null result clears the
+    // thumbnail and the route falls back to the original.
     const thumb = await this.avatarThumbnail.build(data);
 
     // Prisma 7 uses Bytes type for avatarPhoto
@@ -149,12 +140,9 @@ export class UserService {
     return { contentType };
   }
 
-  // The stored photo by immutable id; null when there is none, and the caller
-  // falls back to the generated avatar. Used by GET /api/user/id/:userId/avatar.
-  //
-  // Serves the 256 px thumbnail when there is one and the original otherwise (a
-  // row from before thumbnails existed, or an upload sharp could not decode), so
-  // the route's contract — stable URL, ETag over the bytes — is unchanged.
+  // Stored photo by immutable id, or null so the caller falls back to a generated
+  // avatar. Serves the thumbnail when present and the original otherwise; the route's
+  // stable URL and ETag contract is unchanged.
   async getAvatarById(userId: string): Promise<{ data: Buffer; contentType: string } | null> {
     const user = await this.prisma.db.user.findUnique({
       where: { id: userId },
@@ -273,10 +261,8 @@ export class UserService {
         clashWallsAttacked: row.clashWallsAttacked,
         clashWallsDefended: row.clashWallsDefended,
         participants: row.participants,
-        // The transcript is the owner's alone (M3/R5): a friend's view of the same row
-        // omits it entirely rather than shipping a field the UI hides, and the history
-        // expander is never rendered for anyone else. `chatTruncated` rides with it,
-        // because a cut transcript must never read as a complete one.
+        // Transcript is owner-only: another viewer's row omits it, not merely hides it.
+        // `chatTruncated` rides with it so a cut transcript never reads as complete.
         ...(viewerId === user.id && row.chat !== null
           ? { chat: row.chat, chatTruncated: row.chatTruncated }
           : {}),

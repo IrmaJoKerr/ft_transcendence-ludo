@@ -5,10 +5,8 @@ import { FriendsRequestsService } from './friends.requests.service';
 
 export type { SentChallenge } from './friends.invites.service';
 
-// Friend system: friend requests/accept/decline, friend list with online status,
-// blocking, and game invitations. Called by friends.controller.ts. Each screen has
-// its own service; this one is the stable name the controller and the rest of the
-// backend inject, and it only forwards.
+// Friend system facade: requests, list, blocks and invitations. Each screen has its
+// own service; this stable name only forwards what the controller and backend inject.
 @Injectable()
 export class FriendsService {
   constructor(

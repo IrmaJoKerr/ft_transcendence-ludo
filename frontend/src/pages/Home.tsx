@@ -69,10 +69,9 @@ export function Home() {
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-  // **4. CYBER COMM // FRIEND LIST & AUDIO**
-  // One initial read for first paint; from then on `friendship:changed` drives the
-  // column and the request badge (socket D2). The 12 s poll, and the separate
-  // request fetch it repeated, are gone.
+    // 4. CYBER COMM // FRIEND LIST & AUDIO: one initial read for first paint; from then on
+  // `friendship:changed` drives the column and the request badge (socket D2). The 12 s poll, and the
+  // separate request fetch it repeated, are gone.
   const { friends: friendRows, requests, loading: friendsLoading } = useFriendships();
   const friends = useMemo(
     () => (friendsLoading ? null : [...friendRows].sort((a, b) => b.rating - a.rating)),
@@ -80,10 +79,7 @@ export function Home() {
   );
   const pendingRequestsCount = requests.received.length;
 
-  // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the
-  // session socket. D11 removed the first-paint REST read: the gateway hands a
-  // freshly connected socket the number it last pushed, and the store keeps that
-  // value for as long as the connection lives (so a remount still paints).
+    // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the session socket.
 
   // **5. HUB ARCADE CABINET: ATTRACT MODE & PRESS START**
   // The canvas, its scene and its one rAF loop belong to `useHeroScene`; the theme

@@ -3,18 +3,8 @@ import { createSceneState, paintHero, type HeroFrame } from '../heroBackdrops';
 import { HERO_SCENES, sceneArt } from '../heroScenes';
 import type { ThemeType } from '../store';
 
-/**
- * Drives the home cabinet's one canvas: seeds the scene, advances the frame clocks
- * and calls the painter its theme picked, once per animation frame.
- *
- * The frame state lives in this effect rather than in React state on purpose — a
- * `useState` clock at 60 Hz would re-render the whole dashboard sixty times a
- * second to draw on a canvas React does not own. `theme` is the only dependency, so
- * a theme flip tears the loop down and starts the other painter from frame zero;
- * a language switch does not, because the marquee rides a ref that the loop reads
- * each frame (that is what keeps the starfield from being reshuffled by a
- * `useTranslation` re-render).
- */
+// Drives the home cabinet's one canvas: seeds the scene, advances the frame clocks and calls the
+// painter its theme picked, once per animation frame.
 export function useHeroScene(
   theme: ThemeType,
   marquee: string,
@@ -34,10 +24,9 @@ export function useHeroScene(
 
     const scene = HERO_SCENES[theme];
     const state = createSceneState(scene, canvas.width);
-    // The scene's own still loads in the background; the rAF loop paints it the
-    // frame it decodes, and until then the painter draws what that card was before
-    // it had one. The file sits in its theme's folder (todo.md 33, decision 19) and
-    // `sceneArt` is what says which file belongs to which scene.
+        // The scene's own still loads in the background; the rAF loop paints it the frame it decodes, and
+    // until then the painter draws what that card was before it had one. The file sits in its theme's
+    // folder (todo.md 33, decision 19) and `sceneArt` is what says which file belongs to which scene.
     const art = new Image();
     art.src = sceneArt(scene);
     state.plateImg = art;

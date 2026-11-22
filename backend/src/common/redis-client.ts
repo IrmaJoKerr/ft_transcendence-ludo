@@ -2,12 +2,9 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
 import { secret } from '../secrets';
 
-// One token and one factory for the process-local Redis clients the backend
-// services share. A module that used to open its own client in its constructor
-// now provides this once and injects it; the lifecycle provider quits it when the
-// module goes down. Redis pub/sub does not need a dedicated connection: ioredis
-// enters subscriber mode per client, and every publisher here only calls
-// `publish`, which is legal on a normal connection.
+// One token and factory for process-local Redis clients. Modules inject the shared
+// client and the lifecycle provider quits it. Pub/sub needs no dedicated connection:
+// ioredis enters subscriber mode per client, and publishers here only call `publish`.
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
 export function createRedisClient(label = 'Redis'): Redis {

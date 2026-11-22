@@ -11,11 +11,9 @@ function syncPiecesInGoal(state: GameState, player: PlayerMeta): void {
   player.stats.piecesInGoal = inGoal;
 }
 
-// The move's lines for the recon panel, written here because this is the one funnel a
-// plain move and a resolved clash both pass through, and it runs immediately before
-// the caller saves the state. The victim colour comes from the clash fields when the
-// engine stamped them: a repulse lists the ATTACKER's own id in capturedPieceIds, so
-// reading the victim off that id (as the client used to) names the wrong seat.
+// Write the move's recon lines here, the one funnel both plain and clash moves pass.
+// A repulse lists the attacker's id in `capturedPieceIds`, so the victim colour must
+// come from the clash fields, not that id.
 function logMoveOutcome(state: GameState, result: MoveResult, attackerWon: boolean): LogEntry[] {
   if (!result.captured) return [];
   const ids = result.capturedPieceIds ?? [];
@@ -50,11 +48,9 @@ function logMoveOutcome(state: GameState, result: MoveResult, attackerWon: boole
   return lines;
 }
 
-// Apply a move's outcome: sync piece mirrors, bump the counter, run the win check,
-// update stats and advance the turn, or re-roll on a 6 or capture. `attackerWon` only
-// matters for a clash: a defender who won repulses the attacker, so no re-roll. Returns
-// the winner (null while the game runs) and the log lines the move wrote, so the frame
-// that announces the move can carry the very entries that were stored.
+// Apply the outcome: sync mirrors, count the move, check the win, update stats and
+// advance or re-roll. `attackerWon` only matters for a clash. Returns the winner and the
+// stored log lines so the announcing frame carries them.
 export function applyMoveOutcome(
   state: GameState,
   result: MoveResult,

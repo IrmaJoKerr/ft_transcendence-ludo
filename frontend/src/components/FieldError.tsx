@@ -15,7 +15,7 @@ const SLOT: CSSProperties = {
   overflowWrap: 'anywhere',
 };
 
-/** Reserved error slot under a field; empty when valid, announced on submit. */
+// Reserved error slot under a field; empty when valid, announced on submit.
 export function FieldError({ id, message }: { id?: string; message: string | null }) {
   return (
     <div id={id} className="field-error" role="alert" style={SLOT}>

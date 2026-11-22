@@ -1,24 +1,7 @@
 #!/usr/bin/env node
-// Copies `common/src` into this tree's `src/__shared__`, which is generated and
-// gitignored: never edit those files, edit `common/src` and run this again.
-//
-// Why a copy and not an import: each of the three builds has its own root (a compose
-// context each), and two of them cannot reach outside it. `frontend/tsconfig.app.json`
-// includes `src`, the engine states `rootDir: ./src`, and the backend has no `rootDir`
-// at all, so a `../common/src` import would move `dist/main.js` for the backend and fail
-// the engine's rootDir outright. A copy keeps every path and every start script byte for
-// byte as it was. The same body is dropped in all three trees because each one builds on
-// its own; it finds the source by walking up from its own location.
-//
-// Sources are tried in order, first hit wins:
-//   LUDO_COMMON_SRC          an explicit override
-//   ../common/src            backend/, frontend/
-//   ../../../common/src      backend/app/ludo-engine/
-//   /common/src              the compose mount into the frontend containers
-//
-// Modes:
-//   node scripts/sync-shared.mjs           copy (what `prebuild`/`predev` run)
-//   node scripts/sync-shared.mjs --check   compare only, exit 1 on drift (harnesses)
+// Copies `common/src` into generated, gitignored `src/__shared__`. Never edit the copy:
+// edit `common/src` and rerun. `--check` compares only; the default copies. `LUDO_COMMON_SRC`
+// overrides source discovery; copying keeps each build's root intact.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

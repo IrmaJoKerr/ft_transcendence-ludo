@@ -17,7 +17,7 @@ function emit() {
   for (const l of listeners) l();
 }
 
-/** Push (or replace) a new URL and re-render. Every nav resets scroll to top. */
+// Push (or replace) a new URL and re-render. Every nav resets scroll to top.
 export function navigate(to: string, opts: { replace?: boolean } = {}) {
   if (opts.replace) window.history.replaceState(null, '', to);
   else window.history.pushState(null, '', to);

@@ -45,13 +45,9 @@ function normalizeRoomRules(raw: unknown): RoomRules {
   };
 }
 
-// The key-shift count: 0 (off), 1 or 2, never anything else. The create routes read
-// one `@Body('x')` at a time, so no ValidationPipe runs and this can arrive as a
-// string, a float, an array or a boolean; the join also reads it back out of a flat
-// Redis hash, where the same laxity applies. A room without clash mode can only hold
-// 0, because the mutator has nothing to change. The Nest app carries its own copy in
-// `backend/src/match/room-rules.ts` (separate package, no shared import path), and
-// `room-rules-harness.ts` asserts the two agree value for value.
+// Clamp the key-shift count to 0, 1 or 2. Input is lax (string, float, array or
+// boolean), and a room without clash mode can only hold 0. The Nest copy in
+// `backend/src/match/room-rules.ts` must agree; the room-rules harness asserts it.
 export function clampClashKeyShift(raw: unknown, clashEnabled: boolean): 0 | 1 | 2 {
   if (!clashEnabled) return 0;
   const n =
@@ -83,10 +79,8 @@ export class LudoEngine {
   // ClashEngine owns the timers, the manager owns the clash record, and the
   // engine owns the lock the clash work runs under.
   private clashEngine: ClashEngine;
-  // The engine's entropy source, the only place randomness enters a game. A
-  // harness passes a fixed generator and the whole write path becomes
-  // replayable; production keeps Math.random. Seeds are drawn from it, never
-  // reused as the die stream itself.
+  // The only randomness source for a game. A harness can pass a fixed generator to make
+  // the write path replayable; seeds are drawn from it, never reused as the die stream.
   private random: Rng;
 
   constructor(store: RedisGameStore, clashManager: ClashManager, random: Rng = Math.random) {
@@ -120,10 +114,9 @@ export class LudoEngine {
     this.exitSubmitter = submitter;
   }
 
-  // The delivery flag of one seat's record, written only after a 2xx. Deliberately not
-  // under the game lock: the one caller is the submitter, which may already run inside
-  // a departure's lock (a re-entrant wait would deadlock), and a lost update can only
-  // cause a duplicate POST, which the row's unique index refuses.
+  // One seat's delivery flag, written only after a 2xx. Not under the game lock: the
+  // submitter may already hold it, and a lost update only risks a duplicate POST,
+  // which the row's unique index refuses.
   async markExitSubmitted(gameId: string, color: PlayerColor): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     const seat = state?.players.find((p) => p.color === color);
@@ -479,19 +472,14 @@ export class LudoEngine {
         }
       }
 
-      // Apply the move outcome: sync piece mirrors, bump the counter, run the win
-      // check, update stats and hand off the turn. Returns the winner if the game
-      // finished; `attackerWon` is true for an already-resolved move. `log` is the
-      // narrative this move wrote: a capture, its re-roll or a repulse. It rides the
-      // same frame the move already sends, so a live client never re-derives a line.
+      // Apply the outcome: sync pieces, count the move, check the win, update stats and
+      // hand off the turn. Returns the winner if finished; `log` rides the same frame.
       const { winner, log } = applyMoveOutcome(state, result, diceValue, true);
 
       await this.store.saveGameState(gameId, state);
 
-      // `currentTurn` is the seat that holds the turn once this outcome is applied:
-      // the engine advanced it, handed it back on a bonus roll, or (on a winning move)
-      // left it on the winner. It rides this frame so a client never predicts the next
-      // seat from the rotation, which is the one thing it had to guess here before.
+      // `currentTurn` is the seat holding the turn after this outcome, including a bonus
+      // roll or a win, so no client predicts it from the rotation.
       this.emit({ type: 'piece_moved', gameId, result, currentTurn: state.currentTurn, log });
       // A token spend or any turn change sends a full-state frame: the count and the
       // arm switch ride players[], and a stale frame would show a token or an arm the
@@ -627,13 +615,9 @@ export class LudoEngine {
     this.clashEngine.forget(gameId);
   }
 
-  // Settle a mid-clash disconnect by meters, tie to the attacker, as on timeout. In a
-  // chain this settles the round: a win continues, a loss repels the attack. Called
-  // after the disconnect lock releases, so it cannot re-enter it. `goneColor` is the
-  // seat that left: R1, the tie-break (and any lead the leaver was ahead on) may not
-  // hand the round to the side that abandoned it, so a winner equal to `goneColor` is
-  // dropped and the other side takes it. The sweep and the timeout pass no colour and
-  // keep the plain tie-to-attacker rule.
+  // Settle a mid-clash disconnect by meters, tie to the attacker. In a chain a win
+  // continues and a loss repels. `goneColor` may not win the round it abandoned, so that
+  // result is dropped; the sweep and timeout pass no colour and keep the plain tie rule.
   async resolveClashOnDisconnect(gameId: string, goneColor?: PlayerColor): Promise<void> {
     const state = await this.store.loadGameState(gameId);
     if (!state?.clash) return;

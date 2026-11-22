@@ -2,27 +2,25 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 type FitTextSizeOptions = {
-  /** Font size (px) kept whenever the text already fits: the design size. */
+    // Font size (px) kept whenever the text already fits: the design size.
   maxFontSize: number;
-  /** Lower bound (px) so long locales never shrink into illegibility. */
+    // Lower bound (px) so long locales never shrink into illegibility.
   minFontSize?: number;
-  /** Extra horizontal px kept free around the text as breathing room. */
+    // Extra horizontal px kept free around the text as breathing room.
   reserve?: number;
 };
 
-/** Font size the off-screen measuring span is rendered at. */
+// Font size the off-screen measuring span is rendered at.
 const REFERENCE_FONT_SIZE = 100;
-/** Fitted sizes are floored to this step to avoid sub-pixel clipping. */
+// Fitted sizes are floored to this step to avoid sub-pixel clipping.
 const FONT_SIZE_STEP = 0.25;
-/** Separator used to turn the candidate strings into a stable dependency key. */
+// Separator used to turn the candidate strings into a stable dependency key.
 const TEXT_SEPARATOR = '\u0000';
 
 let measureSpan: HTMLSpanElement | null = null;
 
-/**
- * Width of `text` rendered in `font` (a CSS font shorthand) with letter-spacing
- * switched off, so callers can add their own tracking back into the equation.
- */
+// Width of `text` rendered in `font` (a CSS font shorthand) with letter-spacing
+// switched off, so callers can add their own tracking back into the equation.
 function measureTextWidth(text: string, font: string): number {
   if (!measureSpan) {
     measureSpan = document.createElement('span');
@@ -42,18 +40,9 @@ function measureTextWidth(text: string, font: string): number {
   return measureSpan.getBoundingClientRect().width;
 }
 
-/**
- * Keeps single-line text (input placeholder/value, nowrap labels) inside its own
- * box regardless of locale: the returned `fontSize` is the largest size at or
- * below `maxFontSize` for which every entry of `texts` fits the element's
- * content box. Sizes only ever shrink, so locales that already fit (and every
- * desktop width) render exactly as designed.
- *
- * Attach the returned `ref` to the measured element and feed `fontSize` into its
- * own `font-size`. Everything else (font family, weight, letter-spacing, padding)
- * is read from the element's computed style, so the maths matches real glyph
- * metrics instead of estimates.
- */
+// Keeps single-line text (input placeholder/value, nowrap labels) inside its own box regardless of
+// locale: the returned `fontSize` is the largest size at or below `maxFontSize` for which every
+// entry of `texts` fits the element's content box.
 export function useFitTextSize<T extends HTMLElement = HTMLInputElement>(
   texts: ReadonlyArray<string | null | undefined>,
   { maxFontSize, minFontSize = 9, reserve = 0 }: FitTextSizeOptions,

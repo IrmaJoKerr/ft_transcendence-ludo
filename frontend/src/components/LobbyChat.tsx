@@ -24,41 +24,23 @@ import { railButtonStyle, railGlyphFrameStyle, railHoverHandlers } from './railB
 import { NavGlyph } from './NavGlyphs';
 import { RETRO_BTN, THEME_TRIGGER_BTN_BASE } from '../styles/tw';
 
-// The dock's chat slot, wired to the public channel (queue item 3). The plate is
-// the screen: it previews the newest lines and opens the card, which carries the
-// whole transcript and the composer. Every string is a locale key now, and the
-// composer has one reserved status line under the input, so "message too long" and
-// "NO SPAMMING" never move the card. Since M3 the head, the feed and the composer are
-// `ChatCard.tsx`'s; since 19.8 the band is too (`ChatStatusBand`, the same one the
-// room paints), so both channels count one `n / 300` from `chatLength` and reserve one
-// height, and both draw the same head — the room's panel switch is the one thing either
-// host puts in it that the other leaves out. Since 19.7 the name card is
-// `ChatNameCard.tsx`'s, the same component the room mounts, so a pilot met here and a
-// pilot met across the board are offered the same acts; the lobby's own contribution
-// to it is CHALLENGE, which it passes because it has a duel to offer. The feed drops
-// the lines of whoever this reader has blocked, which the channel's own empty state
-// promises. On the rail (`compact`) none of that is drawn: the same host renders one
-// glyph button and the same card, because an 88 px rail has no width for a screen and a
-// reader under 1280 px otherwise has no way into the channel at all (decision 1.4).
+// The dock's chat slot, wired to the public channel (queue item 3). The plate is the screen: it
+// previews the newest lines and opens the card, which carries the whole transcript and the
+// composer.
 const SCREEN_PREVIEW_LINES = 3;
 
-/** The screen's floor, in both states. The 720p budget is 656 px (100vh − 64)
- *  minus 40 of dock padding, 74 of profile pill, 316 of nav track (five 52 px
- *  buttons, four 10 px gaps, 16 of padding), 59 of notifications and 42 of gaps:
- *  531, which leaves 125 for the panel. 112 fits that with 13 px to spare, so the
- *  track is not the box that shrinks at 720p; below about 707 px of window height
- *  it does. */
+// The screen's floor, in both states.
 const SCREEN_MIN_HEIGHT = 112;
 
 interface LobbyChatProps {
-  /** ON lights the screen; OFF leaves the same plate black, and inert: the card
-   *  cannot be opened from a powered-down screen. The compact rail has no screen to
-   *  switch, so it never reads this. */
+    // ON lights the screen; OFF leaves the same plate black, and inert: the card
+  //  cannot be opened from a powered-down screen. The compact rail has no screen to
+  //  switch, so it never reads this.
   open: boolean;
   onToggle: () => void;
-  /** The rail's form: one glyph instead of the screen, and the card hanging off it
-   *  (decision 1.4, 2026-11-09). It carries no ON/OFF state and no unread cue, and
-   *  the card closes itself, so the glyph is one press in either direction. */
+    // The rail's form: one glyph instead of the screen, and the card hanging off it
+  //  (decision 1.4, 2026-11-09). It carries no ON/OFF state and no unread cue, and
+  //  the card closes itself, so the glyph is one press in either direction.
   compact?: boolean;
 }
 
@@ -81,12 +63,8 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   // closes on a press, so the list is what a reopened card reads after a reload.
   const { isSent, challenge: sendChallenge } = useChallenges();
 
-  // A block hides that pilot's lines from this reader — the rule the channel's own
-  // empty state already promised. A room gets it server-side, per seat
-  // (`filterChatForSeat` + the block ledger); here the ledger is already in hand, so
-  // the filter is local, and unblocking brings the lines back with no refetch. The
-  // other direction cannot be honoured: a block is not disclosed, so the blocked side
-  // has no list to filter against (the room, which seats both, does cut it both ways).
+    // A block hides that pilot's lines from this reader — the rule the channel's own empty state
+  // already promised.
   const blockedIds = useMemo(() => new Set(blocked.map((row) => row.id)), [blocked]);
   const lines = useMemo(
     () =>
@@ -113,10 +91,9 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   const [box, setBox] = useState<CardBox | null>(null);
   const plateRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  // The compact glyph is the plate's stand-in: it is the trigger, the rectangle `place()`
-  // measures, the element an outside press exempts and the one focus returns to. Reaching
-  // both through one accessor is what keeps those four jobs written once instead of twice
-  // (decision 1.4).
+    // The compact glyph is the plate's stand-in: it is the trigger, the rectangle `place()` measures,
+  // the element an outside press exempts and the one focus returns to. Reaching both through one
+  // accessor is what keeps those four jobs written once instead of twice (decision 1.4).
   const glyphRef = useRef<HTMLButtonElement>(null);
   const anchor = useCallback(
     () => (compact ? glyphRef.current : plateRef.current),
@@ -185,12 +162,9 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     [user],
   );
 
-  // CHALLENGE is this surface's to offer: the friends list's own duel, thrown at the
-  // room the viewer already sits in — a seat offer, not a duel, because a duel makes
-  // its own room at the accept and a seated player cannot host a second one (19.6).
-  // It is thrown on refusal so the card's band carries the server's sentence, and it
-  // stays optional because a name card without a duel (the room's) simply does not
-  // pass it.
+    // CHALLENGE is this surface's to offer: the friends list's own duel, thrown at the room the viewer
+  // already sits in — a seat offer, not a duel, because a duel makes its own room at the accept and
+  // a seated player cannot host a second one (19.6).
   const challengeName = useCallback(
     async (target: ChatNameCardTarget) => {
       if (!activeMatch) throw new Error(t('friends.genericError'));
@@ -203,25 +177,17 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     [activeMatch, sendChallenge, t],
   );
 
-  // Measured from the plate's own rectangle rather than from CSS: where the plate
-  // sits depends on the nav track, the notifications and the window height, and
-  // the card has to clear the viewport edges at every one of them. Its floor is the
-  // bell row, which the bar marks `data-chat-reserve` (19.3): the card stops one
-  // pixel above it, so a navbar that reflows moves the card with it and no second
-  // constant has to track the nav's height. The height is `chatCardHeight()` — a
-  // share of the viewport since decision 1.4 — and the window, the reserve row, or
-  // the dock's own rows are the only things allowed to shorten it.
+    // Measured from the plate's own rectangle rather than from CSS: where the plate sits depends on
+  // the nav track, the notifications and the window height, and the card has to clear the viewport
+  // edges at every one of them.
   const place = useCallback(() => {
     const plate = anchor();
     if (!plate) return;
     const r = plate.getBoundingClientRect();
     const reserve = document.querySelector('[data-chat-reserve]');
     const floor = reserve ? reserve.getBoundingClientRect().top : r.bottom;
-    // Left-aligned with the plate where that fits, held inside the right edge
-    // otherwise; rising out of the screen from the reserve rather than dropping
-    // over it. The compact glyph measures the rail's own left edge, and a 480 px card
-    // there would open on top of the rail, so that card anchors right instead
-    // (decision 1.4).
+        // Left-aligned with the plate where that fits, held inside the right edge otherwise; rising out of
+    // the screen from the reserve rather than dropping over it.
     const bottom = Math.min(floor - 1, window.innerHeight - CHAT_CARD_MARGIN);
     const height = Math.max(0, Math.min(chatCardHeight(), bottom - CHAT_CARD_MARGIN));
     const width = Math.min(CHAT_CARD_WIDTH, window.innerWidth - CHAT_CARD_MARGIN * 2);
@@ -288,11 +254,8 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     };
   }, [anchor, cardOpen, closeCard]);
 
-  // Focus moves into the card on open, so Escape and the composer are reachable
-  // without a second tab stop; `closeCard` puts it back on the anchor — the plate in
-  // the dock, the glyph on the rail. The box is not measured here: `openCard` measures
-  // it in the same tick as the click, and the resize/scroll listeners keep it on its
-  // anchor afterwards.
+    // Focus moves into the card on open, so Escape and the composer are reachable without a second tab
+  // stop; `closeCard` puts it back on the anchor — the plate in the dock, the glyph on the rail.
   useEffect(() => {
     if (cardOpen) cardRef.current?.focus();
   }, [cardOpen]);
@@ -308,10 +271,8 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     else openCard();
   }, [cardOpen, closeCard, openCard]);
 
-  // The card and the name card are the same on both hosts: each hangs off whichever
-  // element is the anchor, so the rail reuses them unchanged. The gate keeps the wide
-  // dock's rule that a powered-down screen leaves no card floating over the page; the
-  // rail has no such switch, so it asks only whether the card is open (decision 1.4).
+    // The card and the name card are the same on both hosts: each hangs off whichever element is the
+  // anchor, so the rail reuses them unchanged.
   const overlay = (
     <>
       {/* The expanded card. Portaled to `document.body` (the dock is a sticky
@@ -602,8 +563,8 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   );
 }
 
-/** The plate's empty state: the same two lines, smaller, because the screen is the
- *  narrow one. */
+// The plate's empty state: the same two lines, smaller, because the screen is the
+//  narrow one.
 function ScreenEmpty() {
   const { t } = useTranslation();
   return (

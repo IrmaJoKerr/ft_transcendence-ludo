@@ -10,26 +10,17 @@ import {
 import { COLORS, hasChat, writeSystemChat } from './turn';
 import { closeRoom, departSeat, isSingleSocketGame } from './departure';
 
-// How long an away seat may stay away, decided by the room it is in: one hour for a PvE
-// simulation (the browser tab is the game), 45 s for a live PvP seat, five minutes for a
-// waiting-room seat, and five seconds for hotseat. Hotseat takes the shortest window of
-// the four because it is the one room that can afford it: one device drives every seat, a
-// reload rejoins in about a second, and a closed tab leaves nothing anyone could play, so
-// the room closes itself at expiry instead of holding the lobby's lock-out behind it. It
-// still never pauses, because `isSingleSocketGame` is unchanged; only the window it waits
-// is. The waiting room is deliberately more relaxed (R12/R17): returning to the lobby
-// never costs the seat, so the window is there to notice a player who is not coming back,
-// not to punish a quick look away.
+// Away window by room: one hour for PvE, 45 s for live PvP, five minutes for a waiting
+// seat, and five seconds for hotseat. Hotseat never pauses and closes at expiry; the
+// waiting room is relaxed so a lobby visit never costs the seat.
 function reconnectWindowMs(state: GameState, gameType: string | undefined): number {
   if (gameType === 'HOTSEAT') return HOTSEAT_DISCONNECT_GRACE_MS;
   if (isSingleSocketGame(gameType)) return SINGLE_SOCKET_DISCONNECT_GRACE_MS;
   return state.status === 'waiting' ? WAITING_SEAT_GRACE_MS : DISCONNECT_GRACE_MS;
 }
 
-// Arm a seat's reconnect window: mark it 'disconnected' with a deadline instead of
-// exiting it, and hand the deadline to whichever caller owns the timer. This is
-// the only place a window begins, and it never departs anybody: the expiry is
-// expireReconnectGrace's job, which is why this name says what it does.
+// Arm a reconnect window: mark the seat disconnected with a deadline and return it to
+// the caller's timer. Only `expireReconnectGrace` departs the seat.
 export async function startReconnectGrace(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
@@ -89,17 +80,13 @@ export async function startReconnectGrace(
     emit({ type: 'state_update', gameId, state });
   }
 
-  // Expiry is a reconnect deadline, not a forfeit. The window lives in Redis,
-  // so the server sweep can replay this call after a restart. The timer is armed
-  // one second past the deadline, so an expiry that fires early re-reads and waits
-  // rather than pruning a seat a client was still reconnecting to.
+  // Expiry is a deadline, not a forfeit. The Redis window lets a restart replay it; the
+  // timer runs one second late so an early fire re-reads instead of pruning.
   setTimeout(onExpire, windowMs + 1000);
 }
 
-// Settle an expired reconnect window: a waiting-room participant's seat is
-// released, a waiting-room host's room is closed, and a live-game seat departs
-// through the funnel. Safe to call repeatedly; it no-ops unless the deadline has
-// passed.
+// Settle an expired window: release a waiting participant, close a waiting host's room,
+// or depart a live seat. Idempotent while the deadline has not passed.
 export async function expireReconnectGrace(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
@@ -126,10 +113,8 @@ export async function expireReconnectGrace(
 
   if (state.status === 'waiting') {
     const player = state.players.find((p) => p.color === color);
-    // An absent host can never start the room: the start gate needs every active
-    // seat ready, and only the host's own socket can mark their seat ready. So the
-    // host's five minutes close the room, participants present or not (R17). The
-    // hash's seat row is the authority for which corner the host sits in.
+    // An absent host blocks the start gate, so the host's window closes the room. The
+    // hash's seat row identifies the host's corner.
     const slot = COLORS.indexOf(color) + 1;
     const hostSeat =
       !!matchData?.hostId &&

@@ -18,74 +18,42 @@ import { systemLineText } from './chatCardTypes';
 import type { ChatCardLine, ChatCardStatus, ChatHeadGlyph } from './chatCardTypes';
 import { CHAT_SURFACE } from './chatSurface';
 
-// The chat card, in one place (M3/R8). The lobby dock and the board's left column
-// both render this: the lobby anchors it to its plate as an overlay, the board mounts
-// the compact feed in the slot and opens the same card on click. Nothing here knows
-// which channel it is showing — the host owns the transport and the text of the
-// channel's own lines. The wire-side types and the cap live in `chatCardTypes.ts`, so
-// what this file exports is components and one size.
-//
-// Since 19.8 the band under the composer is this file's too (`ChatStatusBand`), and a
-// host with a panel to offer passes it as `sidePanel`: portaled beside the open card
-// rather than laid out next to it, so the card's width is the card's business and the
-// board's column never reflows when the panel appears. The switch that opens it is the
-// head's (`ChatCardHead`'s `glyph`), beside CLOSE: the band under the composer is one
-// reserved line of text and does not also have to hold a control.
-//
-// Since 19.3 that one size is `CHAT_CARD_WIDTH`, `chatCardHeight()` and
-// `CHAT_CARD_MARGIN`, exported below: both hosts drew 440 × 560 at 16 before, and the
-// dock now imports these instead of keeping a copy. The height is a share of the
-// viewport since decision 1.4 (2026-11-09). Neither host may grow the card — the head
-// and the band are drawn inside its height and the transcript gives up rows.
+// The chat card, in one place (M3/R8). The lobby dock and the board's left column both render
+// this: the lobby anchors it to its plate as an overlay, the board mounts the compact feed in the
+// slot and opens the same card on click.
 
-/** The card's budget, one home for both hosts (19.3): 480 wide, 16 off the
- *  window's edges. The width is a constant; the height is not. Since decision 1.4
- *  (2026-11-09) it is `clamp(420px, 60vh, 720px)` — a share of the screen rather
- *  than the 560 px both hosts drew — because a transcript card is a reading surface
- *  and a fixed 560 wastes a 1080 window and crowds a 720 one. Three fifths of the
- *  viewport is the rule; the 420 px floor is the one place it is overruled (below
- *  700 px tall), because a card too short to hold its composer is not a card; 720
- *  is where more rows stop helping. The head and the composer — the reserved band
- *  included — are still drawn inside that height and the transcript is `flex: 1 1 0`
- *  with `min-height: 0`, so a composer that grows to six rows eats list rows and
- *  never the card. Only the window, or a dock whose own rows leave less, can
- *  shorten it further. */
+// The card's budget, one home for both hosts (19.3): 480 wide, 16 off the window's edges. The
+// width is a constant; the height is not.
 export const CHAT_CARD_WIDTH = 480;
 export const CHAT_CARD_MIN_HEIGHT = 420;
 export const CHAT_CARD_VH = 0.6;
 export const CHAT_CARD_MAX_HEIGHT = 720;
 export const CHAT_CARD_MARGIN = 16;
 
-/** `clamp(420px, 60vh, 720px)`, kept in JS because both hosts portal the card
- *  with a measured `top` and `height` (its slot's rectangle decides both, and CSS
- *  cannot place a fixed box off another element). One function rather than a
- *  second copy of the numbers, so the card and the panel beside it agree. */
+// `clamp(420px, 60vh, 720px)`, kept in JS because both hosts portal the card with a measured `top`
+// and `height` (its slot's rectangle decides both, and CSS cannot place a fixed box off another
+// element).
 export function chatCardHeight(viewportHeight = window.innerHeight): number {
   return Math.round(
     Math.min(CHAT_CARD_MAX_HEIGHT, Math.max(CHAT_CARD_MIN_HEIGHT, viewportHeight * CHAT_CARD_VH)),
   );
 }
 
-/** The composer's ceiling once it starts growing: six rows at the card's line
- *  (20 px of line plus 6 + 6 of padding), about 140 px, after which the box keeps
- *  its own scrollbar. One row to start. */
+// The composer's ceiling once it starts growing: six rows at the card's line
+//  (20 px of line plus 6 + 6 of padding), about 140 px, after which the box keeps
+//  its own scrollbar. One row to start.
 const COMPOSER_MAX_HEIGHT = 140;
 
-/** How many lines the collapsed board card previews. */
+// How many lines the collapsed board card previews.
 const PREVIEW_LINES = 3;
 
-/** The panel a host can mount beside the open card (INVITE COMMS, 19.8). It is
- *  portaled, so it costs the card no width: the card is placed first and the panel
- *  reads `left` off its right edge (or its left one, when the right will not fit),
- *  8 px away and clamped inside the viewport. 240 holds a six-row friend list and a
- *  truncated name beside its INVITE press. */
+// The panel a host can mount beside the open card (INVITE COMMS, 19.8).
 const PANEL_WIDTH = 240;
 const PANEL_GAP = 8;
 
-/** Every line the band can show, in one list, so its height is reserved for the
- *  longest of them in every language (`PassActionPill`'s trick, kept from the
- *  lobby's band, which is where this component comes from — 19.8 moved it here so
- *  both channels reserve one height). */
+// Every line the band can show, in one list, so its height is reserved for the longest of them in
+// every language (`PassActionPill`'s trick, kept from the lobby's band, which is where this
+// component comes from — 19.8 moved it here so both channels reserve one height).
 const STATUS_KEYS = [
   'error.CHAT_EMPTY',
   'error.CHAT_TOO_LONG',
@@ -97,8 +65,8 @@ const STATUS_KEYS = [
   'status.blocked',
 ] as const;
 
-/** The friend actions' refusals, which arrive as server codes rather than chat
- *  strings. They are part of the reservation for the same reason. */
+// The friend actions' refusals, which arrive as server codes rather than chat
+//  strings. They are part of the reservation for the same reason.
 const FRIEND_ERROR_CODES = [
   'FRIEND_REQUEST_PENDING',
   'FRIEND_REQUEST_COOLDOWN',
@@ -106,46 +74,40 @@ const FRIEND_ERROR_CODES = [
   'RATE_LIMITED',
 ] as const;
 
-/** The longest display name a profile may hold, used to size the invite line. */
+// The longest display name a profile may hold, used to size the invite line.
 const NAME_SAMPLE = 'W'.repeat(24);
 
-/** The glyph the room puts in the card's head: the INVITE COMMS panel's switch. One
- *  constant, so the two surfaces that name it (the head and the panel) cannot drift. */
+// The glyph the room puts in the card's head: the INVITE COMMS panel's switch. One
+//  constant, so the two surfaces that name it (the head and the panel) cannot drift.
 const INVITE_GLYPH = '👥';
 
 export interface ChatCardProps {
-  /** Oldest first, the order this component paints. */
+    // Oldest first, the order this component paints.
   lines: ChatCardLine[];
-  /** One line out. The ack is the host's own transport answer. */
+    // One line out. The ack is the host's own transport answer.
   send: (text: string, ack: (reply: { ok: true } | { ok: false; error: string }) => void) => void;
-  /** Whether the transport is open. A closed one leaves the composer disabled. */
+    // Whether the transport is open. A closed one leaves the composer disabled.
   connected: boolean;
-  /** The panel a host can mount beside the open card (the room's INVITE COMMS,
-   *  waiting room only). Portaled, so it never changes the card's width or the
-   *  board's, and behind the head's glyph: the switch exists exactly while there is a
-   *  panel to open, so a room never shows one that does nothing. */
+        // The panel a host can mount beside the open card (the room's INVITE COMMS, waiting room only).
   sidePanel?: ReactNode;
-  /** The name pressed in the transcript: the host owns the card it opens and the
-   *  calls that card makes, and takes the pressed rectangle so the card can be placed
-   *  against the name (the feed scrolls under the pointer). */
+    // The name pressed in the transcript: the host owns the card it opens and the
+  //  calls that card makes, and takes the pressed rectangle so the card can be placed
+  //  against the name (the feed scrolls under the pointer).
   onOpenName?: (userId: string, displayName: string, anchor: DOMRect) => void;
-  /** A clash is up: the card stays mounted and readable but takes no keys (E7). */
+    // A clash is up: the card stays mounted and readable but takes no keys (E7).
   inert?: boolean;
   titleKey?: string;
   scopeKey?: string;
   emptyTitleKey?: string;
   emptyDescKey?: string;
-  /** The collapsed title, for the board's slot. */
+    // The collapsed title, for the board's slot.
   slotTitleKey?: string;
-  /** The composer's status, owned by the host when it reports friend actions too. */
+    // The composer's status, owned by the host when it reports friend actions too.
   status?: ChatCardStatus | null;
   onStatus?: (status: ChatCardStatus | null) => void;
 }
 
-/** The card's title row: the channel, its scope, the host's panel switch, and the way
- *  out. The switch sits beside CLOSE, in the same corner, because both leave the card's
- *  own business: the band under the composer reserves one line and says only what
- *  happened, so a control is the head's. */
+// The card's title row: the channel, its scope, the host's panel switch, and the way out.
 export function ChatCardHead({
   onClose,
   titleKey = 'chat.title',
@@ -155,7 +117,7 @@ export function ChatCardHead({
   onClose?: () => void;
   titleKey?: string;
   scopeKey?: string;
-  /** The host's panel switch, when it has a panel to open (the room's INVITE COMMS). */
+    // The host's panel switch, when it has a panel to open (the room's INVITE COMMS).
   glyph?: ChatHeadGlyph;
 }) {
   const { t } = useTranslation();
@@ -265,8 +227,8 @@ export function ChatCardHead({
   );
 }
 
-/** The transcript. Newest line at the bottom, scrolled there as it arrives, and a
- *  live region so a line is announced rather than only painted. */
+// The transcript. Newest line at the bottom, scrolled there as it arrives, and a
+//  live region so a line is announced rather than only painted.
 export function ChatCardFeed({
   lines,
   onOpenName,
@@ -322,9 +284,9 @@ export function ChatCardFeed({
   );
 }
 
-/** One line of the transcript. A player's line is two rows (the sender above, the
- *  text below), which is the layout that survives a 400 px card and a long name. A
- *  system line is one centred row of muted text, because nobody said it. */
+// One line of the transcript. A player's line is two rows (the sender above, the
+//  text below), which is the layout that survives a 400 px card and a long name. A
+//  system line is one centred row of muted text, because nobody said it.
 function FeedLine({
   line,
   onOpenName,
@@ -405,8 +367,8 @@ function FeedLine({
   );
 }
 
-/** The transcript's empty state. It stays a live region like the feed, so the first
- *  line is announced where the placeholder was. */
+// The transcript's empty state. It stays a live region like the feed, so the first
+//  line is announced where the placeholder was.
 function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string }) {
   const { t } = useTranslation();
   return (
@@ -432,15 +394,7 @@ function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string })
   );
 }
 
-/** The reserved line under the composer: one cell, as tall as the longest string it can
- *  show. Every string the band can hold is mounted in it, hidden, so the cell is as tall
- *  as the longest of them in the current language (`PassActionPill`'s trick) — a chat
- *  refusal, a friend action's error and a "friend invite sent" confirmation all appear
- *  and clear without moving the composer or the transcript by a pixel.
- *
- *  One shape for both channels (19.8 moved it here from the lobby), and text only: a
- *  host's switch is a control, and controls live in the head (`ChatCardHead`'s `glyph`),
- *  so a panel toggle never changes what this line has to reserve. */
+// The reserved line under the composer: one cell, as tall as the longest string it can show.
 export function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
   const { t } = useTranslation();
 
@@ -492,19 +446,8 @@ export function ChatStatusBand({ status }: { status: ChatCardStatus | null }) {
   );
 }
 
-/** The composer: one message box, one send, a counter, and the band under it. The
- *  band is always mounted, so a refusal never resizes the card. Both channels render
- *  this one component and one band; what differs between them is a host's business,
- *  and the one control either host adds (the room's panel switch) is the head's, not
- *  this row's.
- *
- *  The box is a `<textarea>` since decision 1.4 (2026-11-09), not an `<input>`: an
- *  input cannot hold a newline at all, and a player who wants two lines of taunt had
- *  to send two messages. `Enter` sends, `Shift+Enter` breaks the line, and the
- *  transport already carries the newline unchanged — the gateway trims the ends of
- *  the body only and `chatLength` counts characters — so a two-line message is one
- *  message. It starts at one row and grows from `scrollHeight` to six rows, then
- *  scrolls itself. */
+// The composer: one message box, one send, a counter, and the band under it. The band is always
+// mounted, so a refusal never resizes the card.
 export function ChatCardComposer({
   draft,
   onDraft,
@@ -536,11 +479,8 @@ export function ChatCardComposer({
   const disabled = !connected || inert === true;
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
-  // Grown from the rendered text rather than from a row count: the browser is the
-  // only thing that knows how many rows a 200-character line wraps to. Reset to
-  // `auto` first, or the box can grow but never shrink; clamped at the ceiling, past
-  // which `overflowY` gives it a scrollbar of its own. Runs on every draft change,
-  // including the one that clears it after a send.
+    // Grown from the rendered text rather than from a row count: the browser is the only thing that
+  // knows how many rows a 200-character line wraps to.
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
@@ -641,13 +581,9 @@ export function ChatCardComposer({
   );
 }
 
-/** The card a room renders in the board's left column: a compact feed in the slot,
- *  and the full card as an overlay on click. One component for both states, so a
- *  re-render of the board cannot re-key the composer (E7) and the transcript stays
- *  mounted across every `game_state` frame.
- *
- *  A clash takes absolute precedence (E7): the card stays open and readable, but the
- *  composer is disabled and nothing takes focus until the clash resolves. */
+// The card a room renders in the board's left column: a compact feed in the slot, and the full
+// card as an overlay on click. One component for both states, so a re-render of the board cannot
+// re-key the composer (E7) and the transcript stays mounted across every `game_state` frame.
 export function ChatCard({
   lines,
   send,
@@ -685,13 +621,8 @@ export function ChatCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Anchored to the slot's own rectangle: where the slot sits depends on the grid,
-  // the roster's overhang and the window height, so CSS cannot say it. The panel's
-  // left edge is measured from the card's, not from the slot's: it sits 8 px off the
-  // card's right edge, and flips to the left one when the right will not fit
-  // (19.9 item 5). Both boxes are clamped inside the viewport, so the pair never
-  // leaves the screen; on a narrow window the clamped panel covers the card, which is
-  // the recorded trade rather than a second layout.
+    // Anchored to the slot's own rectangle: where the slot sits depends on the grid, the roster's
+  // overhang and the window height, so CSS cannot say it.
   const place = useCallback(() => {
     const slot = slotRef.current;
     if (!slot) return;
@@ -733,10 +664,8 @@ export function ChatCard({
     setPanelOpen((was) => !was);
   }, [panelOpen, sidePanel]);
 
-  // Escape closes, and so does a press outside the card, its slot and its panel.
-  // `pointerdown` rather than `click`: a drag that ends outside must not close what
-  // the user aimed at. Escape takes the panel first when it is up, so one key press
-  // puts away the thing the last press brought in.
+    // Escape closes, and so does a press outside the card, its slot and its panel. `pointerdown`
+  // rather than `click`: a drag that ends outside must not close what the user aimed at.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -797,10 +726,9 @@ export function ChatCard({
         setStatus({ tone: 'error', text: t('chat.error.CHAT_TOO_LONG', { max: CHAT_MAX_CHARS }) });
         return;
       }
-      // The transmission (23.7), fired between the last validation and the send: one
-      // call here covers all three composers, since they all submit through this. The two
-      // refusals above get `deny` instead, so the press is answered before the band's
-      // words are read.
+            // The transmission (23.7), fired between the last validation and the send: one call here covers
+      // all three composers, since they all submit through this. The two refusals above get `deny`
+      // instead, so the press is answered before the band's words are read.
       retroAudio.playChatSend();
       setStatus(null);
       send(text, (reply) => {

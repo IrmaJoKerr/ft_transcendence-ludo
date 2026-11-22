@@ -1,11 +1,9 @@
 import type { CSSProperties } from 'react';
 import { retroAudio } from '../utils/audio';
 
-// One room-rule row of the create screen's rules panel and of the host's in-game
-// one. The caller owns the ORDER, so a panel writes its rules in reading order
-// instead of hiding them inside a mapped array: clash, the mid-clash key shift it
-// owns, free exit, no safe zones (the hardest gameplay rule), then the purely
-// cosmetic attack animations last.
+// One room-rule row: icon, label, description and switch. The caller owns the order,
+// so the create and in-game panels can keep the same reading order without a mapped
+// array. The toggle reuses the seat add/remove blips: 520 Hz on, 320 Hz off, both 0.05 s.
 const ROW: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -25,7 +23,7 @@ const TEXT: CSSProperties = { display: 'flex', flexDirection: 'column', lineHeig
 
 const DESC: CSSProperties = { fontSize: '0.62rem', color: 'var(--text-muted)' };
 
-/** One room-rule row: glyph, label, description and the on/off switch. */
+// One room-rule row: glyph, label, description and the on/off switch.
 export function RoomRuleToggle({
   icon,
   label,

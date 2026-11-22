@@ -1,16 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
 
-// Derivative build for uploaded avatars: a 256 px WebP copy of the photo (the
-// largest on-screen avatar is 95 px, so 256 px covers a 2x display). The
-// canonical upload is kept untouched in `avatarPhoto`; this is only the copy the
-// avatar route prefers to serve.
-//
-// Everything here is bounded, because the input is user-supplied. Note that
-// libvips' `limitInputPixels` applies PER FRAME, not to the whole animation: a
-// 120-frame GIF passes a 25 MP limit 120 times over, so the frame count has to
-// be capped here (MAX_FRAMES). Animated WebP keeps the frame delays and loops
-// forever, so an animated GIF upload stays animated.
+// Build a 256 px WebP thumbnail while keeping the canonical upload untouched.
+// Input is user-supplied: `limitInputPixels` is per frame, so the frame count is capped
+// here. Animated uploads stay animated, with delays and looping preserved.
 const THUMB_SIZE = 256;
 const THUMB_QUALITY = 80;
 // 4 = the encoder's default balance; higher efforts buy a few bytes for a lot of

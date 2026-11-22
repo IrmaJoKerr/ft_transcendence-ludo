@@ -18,19 +18,19 @@ import {
 interface ControlsSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Mirrors the `retroAudio` singleton: the flag lives there, not in here. */
+    // Mirrors the `retroAudio` singleton: the flag lives there, not in here.
   muted: boolean;
   onToggleSound: () => void;
 }
 
-/** One label/key line: the label left, its key right. */
+// One label/key line: the label left, its key right.
 const ROW = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
 } as const;
 
-/** The key cap, sized for a popover rather than a column-wide box. */
+// The key cap, sized for a popover rather than a column-wide box.
 const KEY_CHIP = {
   color: 'var(--text-main)',
   fontFamily: 'var(--font-mono)',
@@ -39,7 +39,7 @@ const KEY_CHIP = {
   border: '1px solid var(--accent-cyan)',
 } as const;
 
-/** A preference group's heading, the row the dock's popover draws above its own. */
+// A preference group's heading, the row the dock's popover draws above its own.
 const GROUP_LABEL = {
   fontFamily: 'var(--font-display)',
   fontSize: '0.76rem',
@@ -48,36 +48,12 @@ const GROUP_LABEL = {
   letterSpacing: '0.5px',
 } as const;
 
-/**
- * A group's layout: its heading over the switch it names. The theme switch draws
- * its own heading inside itself; the language one is wrapped here, the way the
- * dock's popover wraps it.
- */
+// A group's layout: its heading over the switch it names. The theme switch draws
+// its own heading inside itself; the language one is wrapped here, the way the
+// dock's popover wraps it.
 const GROUP = { display: 'flex', flexDirection: 'column', gap: 6 } as const;
 
-/**
- * The keys, the audio switch and the two preference switches, in a popover under
- * the board.
- *
- * This is the old `#sectorControlWindow` moved and slimmed, not a new panel: the
- * same three rows and the same audio toggle, minus the rules button, which now
- * stands beside it as GAME RULES. The room's rule switches are not here either —
- * they stay in the waiting-room window, so nothing in this popover is host-only.
- *
- * The language and theme switches (32.1) are the navbar's own components, mounted
- * here as a fourth host, and the four preferences run in the dock's order: language,
- * auto-close, master audio, theme. They make the popover taller than a phone, so the
- * body caps itself at the viewport and **only the rows scroll**; the header stays put.
- * The audio switch is the third row rather than a footer of its own (it was pinned
- * below the body until the running order was made to match the dock's), so the row
- * that unmutes a silent game sits in the middle of the stack instead of the bottom
- * edge of the frame.
- *
- * Layout follows `LegalModal` (portal over the page, `RETRO_WINDOW` shell, Escape
- * and a backdrop click close), because the windows it is opened from use that
- * chrome. It is a popover rather than a column, so it takes a fixed comfortable
- * width instead of matching the roster box's overhang, and the rows tighten.
- */
+// The keys, the audio switch and the two preference switches, in a popover under the board.
 export function ControlsSettingsModal({
   isOpen,
   onClose,

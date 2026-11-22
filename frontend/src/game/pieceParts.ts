@@ -1,29 +1,6 @@
 import { COL, type ColorKey } from '../theme';
 
-/**
- * The 1970s piece set: one bobblehead per seat, drawn in a 100×100 box.
- *
- * The box is 100 units because every number in the approved stills is in that box
- * (`/tmp/theme-mockups`, `bobble.py`): the head is 54 units, the torso 32, the arms
- * reach 42, and the neck leaves a 3-unit gap between the chin at y 63 and the
- * shoulders at y 66. A smaller box would mean re-deriving all of it, and the picks
- * were stamped at this weight.
- *
- * **Roles, not colours.** No part names a hex value except the ink, the creams
- * and the 80s set's one face, which are the same on every seat. Every other paint
- * is a slot — `base`, `lo`, `deep`, `pop`… — that `piecePalette` fills from that
- * seat's own value ladder, so ONE drawing serves all four hues and parts are
- * separated by lightness, never by hue. The only hue-specific choice is `pop`, the
- * accent, which is why a helmet drawn for red can be handed to a blue seat without
- * a redraw.
- *
- * The geometry is a hand port of `bobble.py`'s four helmets on its one shared body
- * (`bb_body` + `bb_h1`…`bb_h4`), and it is data rather than drawing calls so the two
- * places that paint a piece — the board's `Sphere` and the clash result's `ResultFx` —
- * can share it while each keeps its own renderer. (The third reader this comment used
- * to name, the attract card's four-node crew, is gone with the row in 36.) Nothing here
- * snaps to a pixel: the strokes are real, and a 14 px piece is drawn at 0.14 px per unit.
- */
+// The 1970s piece set: one bobblehead per seat, drawn in a 100×100 box.
 export type PieceRole =
   | 'base'
   | 'hi'
@@ -36,27 +13,24 @@ export type PieceRole =
   | 'ink'
   | 'cream'
   | 'white'
-  /** The 80s set's one face paint. Hue-independent, like the creams: a face is a
-   *  face on every seat, and the four teams are four characters, not four hues. */
+    // The 80s set's one face paint. Hue-independent, like the creams: a face is a
+  //  face on every seat, and the four teams are four characters, not four hues.
   | 'skin'
-  /** Linear body gradient, hi → base → lo: the torso. */
+    // Linear body gradient, hi → base → lo: the torso.
   | 'lid'
-  /** The hero's torso: the same ramp lit flatter, for a figure 47 px tall. */
+    // The hero's torso: the same ramp lit flatter, for a figure 47 px tall.
   | 'lidCrew'
-  /** Radial body gradient, hi → base → lo: the helmet globe. */
+    // Radial body gradient, hi → base → lo: the helmet globe.
   | 'gid';
 
-/** A paint slot, or `none` for a stroke-only part. */
+// A paint slot, or `none` for a stroke-only part.
 type Paint = PieceRole | 'none';
 
 type Linecap = 'butt' | 'round';
 
-/**
- * One part of the figure. Five shapes rather than one path string, because the
- * source is rect/circle/ellipse/line/path and both renderers have a native call for
- * each — a rotated ellipse baked into path arcs by hand is where a port like this
- * goes wrong silently.
- */
+// One part of the figure. Five shapes rather than one path string, because the source is
+// rect/circle/ellipse/line/path and both renderers have a native call for each — a rotated ellipse
+// baked into path arcs by hand is where a port like this goes wrong silently.
 export type PiecePart =
   | {
       kind: 'rect';
@@ -86,7 +60,7 @@ export type PiecePart =
       cy: number;
       rx: number;
       ry: number;
-      /** Degrees about the ellipse's own centre. */
+            // Degrees about the ellipse's own centre.
       rotate?: number;
       fill: Paint;
       stroke?: Paint;
@@ -114,14 +88,12 @@ export type PiecePart =
       linecap?: Linecap;
     };
 
-/** The ink every outline is drawn in: near-black, warmed so it reads on walnut. */
+// The ink every outline is drawn in: near-black, warmed so it reads on walnut.
 const INK = '#0a0716';
 
-/**
- * One accent per hue that can never collide with its own body. Cream works for
- * three of them; on yellow it is invisible, so yellow gets the violet complement.
- * This is the ONLY hue-specific value in the set.
- */
+// One accent per hue that can never collide with its own body. Cream works for
+// three of them; on yellow it is invisible, so yellow gets the violet complement.
+// This is the ONLY hue-specific value in the set.
 const POP: Record<ColorKey, string> = {
   blue: '#ffb000',
   red: '#f6e7c6',
@@ -129,15 +101,15 @@ const POP: Record<ColorKey, string> = {
   yellow: '#7b4dff',
 };
 
-/** The palette's fixed creams: the H2 faceplate and the highlight literals. */
+// The palette's fixed creams: the H2 faceplate and the highlight literals.
 const CREAM = '#ffe7bd';
 const WHITE = '#ffffff';
-/** The 80s set's one face paint. One tone, no shading wash: at 30 px a second
- *  skin tone is 1.6 px of blended mud, and roles-not-colours holds — a face is a
- *  face, not a surface, so it sits beside the creams rather than on the ladder. */
+// The 80s set's one face paint. One tone, no shading wash: at 30 px a second
+//  skin tone is 1.6 px of blended mud, and roles-not-colours holds — a face is a
+//  face, not a surface, so it sits beside the creams rather than on the ladder.
 const SKIN = '#c98a63';
 
-/** `t` of the way from `a` to `b`, both `#rrggbb`. */
+// `t` of the way from `a` to `b`, both `#rrggbb`.
 function mix(a: string, b: string, t: number): string {
   const parts = (hex: string) =>
     [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
@@ -151,15 +123,13 @@ function mix(a: string, b: string, t: number): string {
   );
 }
 
-/** Every colour role resolved for one seat. The three gradient roles are built from
- *  these stops, not from a colour of their own. */
+// Every colour role resolved for one seat. The three gradient roles are built from
+//  these stops, not from a colour of their own.
 export type PiecePalette = Record<Exclude<PieceRole, 'lid' | 'lidCrew' | 'gid'>, string>;
 
-/**
- * The value ladder: `hi`/`lit` lift the seat hue towards white, `shd`/`lo`/`deep`
- * sink it towards black, and `deepink` is a hue-tinted near-black so an outline
- * still belongs to the piece it surrounds. Percentages are the stills'.
- */
+// The value ladder: `hi`/`lit` lift the seat hue towards white, `shd`/`lo`/`deep`
+// sink it towards black, and `deepink` is a hue-tinted near-black so an outline
+// still belongs to the piece it surrounds. Percentages are the stills'.
 export function piecePalette(color: ColorKey): PiecePalette {
   const base = COL[color].base;
   return {
@@ -178,39 +148,18 @@ export function piecePalette(color: ColorKey): PiecePalette {
   };
 }
 
-/**
- * The 80s garment rung: `lo` sunk 30 per cent towards black, where the 70s ladder
- * sinks it 52. See `piecePalette80` for why the second rung exists.
- */
+// The 80s garment rung: `lo` sunk 30 per cent towards black, where the 70s ladder
+// sinks it 52. See `piecePalette80` for why the second rung exists.
 const LO_80 = 0.3;
 
-/**
- * The 80s set's palette: the same ladder, with the garment rung lifted.
- *
- * `lo` is the garment tone and the dark stop of both body gradients, and the 70s
- * pieces were picked at .52 and are signed off there — so this is a second export
- * rather than a change to `piecePalette`, which still answers for the 70s set and
- * for the crew in the hero window.
- *
- * The 80s sprites are black leather and one long black coat. On the synthwave cell
- * a .52 `lo` is a silhouette: at 30 px the punk's jacket, the runner's coat and the
- * biker's trousers read as one dark mass with no inside to them. .30 is three
- * quarters of the way from that rung up to `shd` (.22) — still dark enough to be
- * cloth, light enough that the ink outline and the seat hue can say where a volume
- * turns. Every `lo` on the figure moves, not just the jacket, so a lifted coat can
- * never end up beside an unlifted sleeve.
- */
+// The 80s set's palette: the same ladder, with the garment rung lifted.
 export function piecePalette80(color: ColorKey): PiecePalette {
   const base = COL[color].base;
   return { ...piecePalette(color), lo: mix(base, '#000000', LO_80) };
 }
 
-/**
- * The two body gradients, as stops the renderer turns into ink: `lid` is linear
- * (torso), `gid` radial about 0.33/0.28 at radius 0.9 (helmet globe). Both run
- * hi → base → lo, and the offsets are the stills'. `lidCrew` is the hero's torso:
- * the same figure lit a little flatter, because at 47 px the tighter ramp bands.
- */
+// The two body gradients, as stops the renderer turns into ink: `lid` is linear (torso), `gid`
+// radial about 0.33/0.28 at radius 0.9 (helmet globe).
 export const PIECE_GRADIENT = {
   lid: { from: 'hi', mid: 'base', to: 'lo', midAt: 0.46 },
   lidCrew: { from: 'lit', mid: 'base', to: 'lo', midAt: 0.55 },
@@ -220,28 +169,20 @@ export const PIECE_GRADIENT = {
   { from: PieceRole; mid: PieceRole; to: PieceRole; midAt: number }
 >;
 
-/** Where `gid`'s radial gradient sits: the light comes from upper left. */
+// Where `gid`'s radial gradient sits: the light comes from upper left.
 export const GLOBE_GRADIENT = { cx: 0.33, cy: 0.28, r: 0.9 } as const;
 
-/** `lid`'s vector, in bounding-box fractions (the SVG's own `x1/y1/x2/y2`). */
+// `lid`'s vector, in bounding-box fractions (the SVG's own `x1/y1/x2/y2`).
 export const LID_VECTOR = { x1: 0.12, y1: 0, x2: 0.62, y2: 1 } as const;
 
-/**
- * The two bounding boxes the gradients are measured against, in the 100-box. A
- * renderer needs them because a canvas gradient is a coordinate, not a fraction:
- * 0.12 of `TORSO_BOX`'s width from its left edge is x 37.23.
- */
+// The two bounding boxes the gradients are measured against, in the 100-box. A
+// renderer needs them because a canvas gradient is a coordinate, not a fraction:
+// 0.12 of `TORSO_BOX`'s width from its left edge is x 37.23.
 export const TORSO_BOX = { x: 33.2, y: 66, w: 33.6, h: 24.5 } as const;
 export const GLOBE_BOX = { x: 23, y: 9, w: 54, h: 54 } as const;
 
-/**
- * The one shared body: neck, stub torso with two straps, hanging arms with mitts,
- * two boots, and exactly one accent — a thin ring on the chest.
- *
- * The neck is drawn FIRST, before the helmet, so the dome covers its top on every
- * design and only the three units between chin and shoulders ever show. The body is
- * the constant across the four seats, so a board compares helmets and nothing else.
- */
+// The one shared body: neck, stub torso with two straps, hanging arms with mitts, two boots, and
+// exactly one accent — a thin ring on the chest.
 const BODY: PiecePart[] = [
   {
     kind: 'rect',
@@ -296,7 +237,7 @@ const BODY: PiecePart[] = [
   { kind: 'circle', cx: 50, cy: 79, r: 4.2, fill: 'none', stroke: 'pop', strokeW: 1.8 },
 ];
 
-/** The helmet globe every design is built on, plus its specular arc. */
+// The helmet globe every design is built on, plus its specular arc.
 export const PIECE_GLOBE: PiecePart[] = [
   { kind: 'circle', cx: 50, cy: 36, r: 27, fill: 'gid', stroke: 'ink', strokeW: 3 },
   {
@@ -310,18 +251,12 @@ export const PIECE_GLOBE: PiecePart[] = [
   },
 ];
 
-/**
- * A helmet in two groups, because the hero's crew turns its head towards its partner
- * and the turn has to reach the right parts: `visor` is drawn inside a squashed,
- * slid group (a flat visor seen at 37°, cos 37° = 0.80), `outside` after it at full
- * width, since a pod stays round and an aerial stays upright however the head turns.
- *
- * On the board nothing turns, so both groups are drawn untransformed and the split
- * costs nothing: it is the same table either way.
- */
+// A helmet splits into `visor` (turns with the face) and `outside` (pods and aerials
+// stay upright), so the crew can turn its head. On the board both groups are drawn
+// untransformed.
 export type HelmetSet = { visor: PiecePart[]; outside: PiecePart[] };
 
-/** The ear pods, part of the silhouette: they must not be squashed with the visor. */
+// The ear pods, part of the silhouette: they must not be squashed with the visor.
 const PODS: PiecePart[] = [25.5, 74.5].flatMap(
   (cx): PiecePart[] => [
     { kind: 'circle', cx, cy: 41, r: 9, fill: 'lo', stroke: 'ink', strokeW: 2.8 },
@@ -330,7 +265,7 @@ const PODS: PiecePart[] = [25.5, 74.5].flatMap(
   ],
 );
 
-/** H1 EAR PODS: the widest silhouette, and the busiest of the four at board size. */
+// H1 EAR PODS: the widest silhouette, and the busiest of the four at board size.
 const H1: HelmetSet = {
   visor: [
     // The visor is ink with an accent gasket, so it never reads as a face.
@@ -348,13 +283,8 @@ const H1: HelmetSet = {
   ],
   outside: PODS,
 };
-/**
- * H2 INSET FACEPLATE: cream, inset to 28 of the head's 54 units so seat-coloured
- * shell shows at both temples. Cream is the one fixed colour in the set, so the ink
- * bezel and the dark brow are what keep it legible on every hue (yellow worst) — the
- * inset seam is DARK rather than the accent, because on the red seat the accent is
- * itself cream.
- */
+// H2 INSET FACEPLATE: cream, inset to 28 of the head's 54 units so seat-coloured shell shows at
+// both temples.
 const H2: HelmetSet = {
   visor: [
     { kind: 'rect', x: 26, y: 30, w: 10, h: 18, rx: 5, fill: 'lo', stroke: 'ink', strokeW: 2.6 },
@@ -398,7 +328,7 @@ const H2: HelmetSet = {
   outside: [],
 };
 
-/** H3's aerial, trimmed to y 7.5 so the figure is no taller than its neighbours'. */
+// H3's aerial, trimmed to y 7.5 so the figure is no taller than its neighbours'.
 const AERIAL: PiecePart[] = [
   { kind: 'line', x1: 50, y1: 15, x2: 50, y2: 8, stroke: 'deepink', strokeW: 5.4 },
   { kind: 'line', x1: 50, y1: 15, x2: 50, y2: 8.6, stroke: 'lit', strokeW: 2.4 },
@@ -429,12 +359,9 @@ const H4: HelmetSet = {
   outside: [],
 };
 
-/**
- * Which design each seat wears. The assignment is the one the wait-room crew, the
- * board and the stills all use: red H2 inset cream faceplate, green H3 Mercury slit,
- * yellow H4 Apollo brow, blue H1 ear pods — so no two seats on a board share a
- * silhouette, even in greyscale.
- */
+// Which design each seat wears. The assignment is the one the wait-room crew, the board and the
+// stills all use: red H2 inset cream faceplate, green H3 Mercury slit, yellow H4 Apollo brow, blue
+// H1 ear pods — so no two seats on a board share a silhouette, even in greyscale.
 export const PIECE_HELMET: Record<ColorKey, HelmetSet> = {
   red: H2,
   green: H3,
@@ -442,74 +369,35 @@ export const PIECE_HELMET: Record<ColorKey, HelmetSet> = {
   blue: H1,
 };
 
-/** A turned visor's horizontal squash, cos 37 degrees. */
+// A turned visor's horizontal squash, cos 37 degrees.
 export const CREW_TURN = { squash: 0.8, slide: 6 } as const;
 
-/**
- * Each seat's complete figure, body first: what the board stamps and what the clash
- * result draws. The four helmet groups below are laid onto the shared body, so the
- * art lives here once and every screen that draws a piece reads it from here.
- */
+// Each seat's complete figure, body first: what the board stamps and what the clash
+// result draws. The four helmet groups below are laid onto the shared body, so the
+// art lives here once and every screen that draws a piece reads it from here.
 export const PIECE_PARTS: Record<ColorKey, PiecePart[]> = {
   red: [...BODY, ...PIECE_GLOBE, ...H2.visor, ...H2.outside],
   green: [...BODY, ...PIECE_GLOBE, ...H3.visor, ...H3.outside],
   yellow: [...BODY, ...PIECE_GLOBE, ...H4.visor, ...H4.outside],
   blue: [...BODY, ...PIECE_GLOBE, ...H1.visor, ...H1.outside],
 };
-/**
- * The three poses a fight needs, and the board does not.
- *
- * `front` is the drawing every screen has shown so far: the figure faces the viewer,
- * which is what a token in a square should do. `left` and `right` are for the clash
- * card, where a defender and an attacker stand on one line and the shot needs a
- * direction. Neither set has a profile drawing, and a profile would be eight new
- * figures, so a pose is ONE transform on the parts above the neck — the same numbers
- * the hero's crew has been turning its heads with since the wait-room window.
- */
+// The three poses a fight needs, and the board does not.
 export type PiecePose = 'front' | 'left' | 'right';
 
-/** Which decade's drawing to lay down: the 70s bobbleheads or the 80s set. */
+// Which decade's drawing to lay down: the 70s bobbleheads or the 80s set.
 export type PieceSet = 'retro70' | 'retro80';
 
-/**
- * One run of a figure's parts, drawn together: `turn` marks the run a pose moves.
- *
- * A figure is a LIST of runs, not three named layers, because the two tables do not agree
- * on the order. The 70s draws body, then the helmet's visor, then the helmet's shell; the
- * 80s draws the whole head first and the body after, so its collar is painted over the
- * chin. Drawing the 80s head last — the obvious reading of "head over body" — puts a chin
- * on top of a collar that the signed-off drawing has under it, and that alone was 314 to
- * 1,288 changed pixels in a 400 px front render (`parity.py`, flat table vs cut figure).
- * A pose must change nothing at `front`, so the order comes from the table.
- */
+// One run of a figure's parts, drawn together: `turn` marks the run a pose moves.
 export type PieceLayer = { parts: PiecePart[]; turn: boolean };
 
-/** A figure cut at the neck, in the order it has to be drawn. */
+// A figure cut at the neck, in the order it has to be drawn.
 export type PieceLayers = PieceLayer[];
 
-/*
- * The turn's two numbers: a horizontal squash about the box's centre, and a slide
- * towards the side the figure is looking — `CREW_TURN`'s pair, unchanged since the
- * first crew card turned its heads with it, and now read only by `poseTurn` below.
- *
- * The slide is safe for exactly one reason, and it took a wrong cut to say it plainly:
- * the thing that moves has to be a FACE inside a head that stays put. The 70s has always
- * done that — a visor travelling across a helmet shell, the shell keeping the head on the
- * shoulders. The 80s did not: its head was one unbroken drawing whose jaw was also its
- * collar, so a 6-unit slide carried the jaw off the neck (`discarded.md` IP). It now
- * authors a face plate per head (`PIECE_FACE_80` in `pieceParts80.ts`) and its props are
- * gone, so the same 6 units is the same look on both sets and there is no per-set number
- * left to disagree (`todo.md` 30).
- */
+// The turn's two numbers: a horizontal squash about the box's centre, and a slide towards the side
+// the figure is looking — `CREW_TURN`'s pair, unchanged since the first crew card turned its heads
+// with it, and now read only by `poseTurn` below.
 
-/**
- * The turn as the one matrix a pose needs: x -> 50 + (x - 50) * squash + dir * slide.
- *
- * Three nested transforms (`translate(50) scale(.8 1) translate(-50)` and then the
- * slide) say the same thing and are what the crew's canvas painter uses; a matrix is
- * one attribute here, because this is emitted per figure per render. `null` at `front`,
- * so a board's drawing is not wrapped at all.
- */
+// The turn as the one matrix a pose needs: x -> 50 + (x - 50) * squash + dir * slide.
 export function poseTurn(pose: PiecePose): string | null {
   const dir = pose === 'left' ? -1 : pose === 'right' ? 1 : 0;
   if (!dir) return null;
@@ -518,19 +406,7 @@ export function poseTurn(pose: PiecePose): string | null {
   return `matrix(${a} 0 0 1 ${e} 0)`;
 }
 
-/**
- * Cut a flat part list into the runs a pose draws: outline, face, outline, body.
- *
- * The 80s generator marks two seams, not one: `headCount` (`PIECE_HEAD_80`) is where the
- * head ends and the body begins, and `face` (`PIECE_FACE_80`) is the slice of the head a
- * pose may move. Everything else about the head — the jaw, the ears, the pods, the chin
- * bar — is outline and is drawn where it was authored, which is what keeps a turning head
- * on its collar. The runs keep the table's order, because the 80s collar is painted over
- * its chin; an empty run is dropped, so a face that ends on the neck leaves three.
- *
- * Both numbers come from the generator and never from a count typed here: a wrong
- * `headCount` slides a boot off a coat, and a wrong `face` turns a jaw into a second head.
- */
+// Cut a flat part list into the runs a pose draws: outline, face, outline, body.
 export function cutAtNeck(
   parts: PiecePart[],
   headCount: number,
@@ -545,12 +421,8 @@ export function cutAtNeck(
   ].filter((run) => run.parts.length > 0);
 }
 
-/**
- * The 70s figure cut at the neck, from the two tables that already describe it: the
- * helmet's `visor` group is the head — it is the only thing that turns, since a pod stays
- * round and an aerial stays upright — and the shell is drawn after it, as the flat table
- * has it (`[BODY, GLOBE, visor, outside]`).
- */
+// The 70s figure cut at the neck: the helmet's `visor` group is the only turning part,
+// and the outside pieces are drawn after it in the flat table's order.
 function layers70(ck: ColorKey): PieceLayers {
   const all = PIECE_PARTS[ck];
   const { visor, outside } = PIECE_HELMET[ck];
@@ -561,7 +433,7 @@ function layers70(ck: ColorKey): PieceLayers {
   ];
 }
 
-/** The 70s layers, one seat each, resolved once at module load. */
+// The 70s layers, one seat each, resolved once at module load.
 export const PIECE_LAYERS: Record<ColorKey, PieceLayers> = {
   red: layers70('red'),
   green: layers70('green'),

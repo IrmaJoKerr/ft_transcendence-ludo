@@ -27,10 +27,9 @@ export interface LeaderboardResponse {
   source: 'redis'; // where the data was read from
 }
 
-// The boards that exist. A bot is a seat, not an account, so there is no bot
-// board: every rating here belongs to a PlayerStats row, and the `match:*` hash is
-// where a bot lives. `global` is what the client asks for today; `ranked`/`casual`
-// are the same board until per-mode ratings exist.
+// Available boards. Bots have no board: ratings belong to PlayerStats, and a bot
+// lives only in the `match:*` hash. `ranked` and `casual` alias `global` until
+// per-mode ratings exist.
 export type LeaderboardMode = 'global' | 'ranked' | 'casual';
 
 @Injectable()

@@ -1,18 +1,5 @@
-/**
- * The attract-mode painters: one function per theme, each handed a scene from
- * `heroScenes.ts` and one frame of animation state.
- *
- * They are plain functions over a 2D context, not components and not hooks: the
- * cabinet in `Home.tsx` owns exactly one canvas, one effect and one rAF loop, and a
- * theme chooses which painter that loop calls. The alternative — a canvas per theme,
- * or a component that remounts — would put two animations on one screen or throw
- * the loop away on every hair-trigger render.
- *
- * Geometry stays here as literals next to the calls that use them; only colour comes
- * from the scene. The card is the canvas's own 720×400 (its `width`/`height` are
- * attributes, not CSS), so a painter reads its size from `ctx.canvas` and nothing
- * has to agree on a constant.
- */
+// The attract-mode painters: one function per theme, each handed a scene from `heroScenes.ts` and
+// one frame of animation state.
 
 import type {
   Colony70sScene,
@@ -22,13 +9,13 @@ import type {
   Synthwave80sScene,
 } from './heroScenes';
 
-/** One drifting star. `y` is advance-mutated by the painter, as it always was. */
+// One drifting star. `y` is advance-mutated by the painter, as it always was.
 export type Star = { x: number; y: number; size: number; speed: number; alpha: number };
 
-/** One streak crossing the sky: a short stroke drawn back along its own velocity. */
+// One streak crossing the sky: a short stroke drawn back along its own velocity.
 export type Meteor = { x: number; y: number; vx: number; vy: number; len: number; alpha: number };
 
-/** One tumbling stone crossing the sky: a polygon that turns as it travels. */
+// One tumbling stone crossing the sky: a polygon that turns as it travels.
 export type Rock = {
   x: number;
   y: number;
@@ -40,35 +27,31 @@ export type Rock = {
   alpha: number;
 };
 
-/** The clocks the painters advance, shared by both cards. */
+// The clocks the painters advance, shared by both cards.
 export type HeroFrame = { time: number; gridOffset: number };
 
-/** What a scene carries between frames: its starfield, seeded once per scene, the
- *  scene's own still once it has decoded (`sceneArt`), and whatever drifts across
- *  the card — stars on the 80s card, streaks and stones on the 70s one. */
+// What a scene carries between frames: its starfield, seeded once per scene, the
+//  scene's own still once it has decoded (`sceneArt`), and whatever drifts across
+//  the card — stars on the 80s card, streaks and stones on the 70s one.
 export type SceneState = {
   stars: Star[];
   plateImg?: HTMLImageElement;
   meteors?: Meteor[];
   rocks?: Rock[];
-  /** The 70s card's frame, keyed off the still once it decodes: the pixels the sky
-   *  must not be painted over. Null until the still is there, and forever if it is
-   *  not — a card with no picture has no frame to hide anything behind. */
+    // The 70s card's frame, keyed off the still once it decodes: the pixels the sky
+  //  must not be painted over. Null until the still is there, and forever if it is
+  //  not — a card with no picture has no frame to hide anything behind.
   frameMask?: HTMLCanvasElement | null;
-  /** The layer the stones and streaks are drawn into before the frame cuts them. */
+    // The layer the stones and streaks are drawn into before the frame cuts them.
   skyLayer?: HTMLCanvasElement;
-  /** Set once the 70s traffic has been seeded against the still's own porthole. The
-   *  first frame the still is up reseeds everything `createSceneState` placed at the
-   *  card's edges, so no stone spends its first pass drifting over the colony's
-   *  terraces — which is where the card-wide seeds put it, because before the picture
-   *  arrives there is no window to enter through. */
+        // Set once the 70s traffic has been seeded against the still's own porthole.
   trafficPlaced?: boolean;
 };
 
-/** A full turn, for the arcs and ellipses a painter closes. */
+// A full turn, for the arcs and ellipses a painter closes.
 const TAU = Math.PI * 2;
 
-/** The starfield the synthwave card drifts, seeded once per scene. */
+// The starfield the synthwave card drifts, seeded once per scene.
 export function seedStars(count: number, width: number, horizon: number): Star[] {
   return Array.from({ length: count }, () => ({
     x: Math.random() * width,
@@ -79,7 +62,7 @@ export function seedStars(count: number, width: number, horizon: number): Star[]
   }));
 }
 
-/** Pinpricks for a static sky: no drift, and a band rather than a whole card. */
+// Pinpricks for a static sky: no drift, and a band rather than a whole card.
 function seedPinpricks(
   count: number,
   xMin: number,
@@ -96,22 +79,17 @@ function seedPinpricks(
   }));
 }
 
-/**
- * The band the traffic drifts in, as fractions of the porthole's radius either side of
- * its centre: -1 is the window's crown and 0 its middle. The traffic lives above the
- * middle, which is the sky the colony's town sits under — the band `-0.90..-0.28` is
- * the card rows 58 to 196 on a 720×400 card, i.e. under the marquee's baseline and
- * over the tallest spire.
- */
+// The band the traffic drifts in, as fractions of the porthole's radius either side of its centre:
+// -1 is the window's crown and 0 its middle.
 const GLASS_BAND: readonly [number, number] = [-0.9, -0.28];
 
-/** How far outside the glass a streak or a stone is seeded, so it slides out from
- *  behind the frame instead of appearing in the middle of the sky. */
+// How far outside the glass a streak or a stone is seeded, so it slides out from
+//  behind the frame instead of appearing in the middle of the sky.
 const GLASS_SPAWN_MARGIN = 16;
 
-/** A spawn point on the porthole's rim: the row it enters at, and the side it enters
- *  from. Both painters read it, so a streak and a stone come in through the same
- *  window rather than through two different bands. */
+// A spawn point on the porthole's rim: the row it enters at, and the side it enters
+//  from. Both painters read it, so a streak and a stone come in through the same
+//  window rather than through two different bands.
 function glassEdge(glass: PlateCircle): { x: number; y: number; fromLeft: boolean } {
   const dy = glass.r * (GLASS_BAND[0] + Math.random() * (GLASS_BAND[1] - GLASS_BAND[0]));
   const y = glass.cy + dy;
@@ -123,11 +101,9 @@ function glassEdge(glass: PlateCircle): { x: number; y: number; fromLeft: boolea
   return { x, y, fromLeft };
 }
 
-/** Whether traffic has crossed the whole window and may be seeded again: past the far
- *  edge of the glass, or lost above/below it. `vx` decides which edge is the far one, so
- *  an object still outside the near edge — where it was just seeded — is not reseeded.
- *  The painters fall back to the card-wide bounds while there is no still, and so no
- *  porthole, to measure against. */
+// Whether traffic has crossed the whole window and may be seeded again: past the far edge of the
+// glass, or lost above/below it. `vx` decides which edge is the far one, so an object still
+// outside the near edge — where it was just seeded — is not reseeded.
 function leftGlass(thing: { x: number; y: number; vx: number }, glass: PlateCircle): boolean {
   const dy = Math.abs(thing.y - glass.cy);
   if (dy > glass.r) return true;
@@ -139,11 +115,7 @@ function leftGlass(thing: { x: number; y: number; vx: number }, glass: PlateCirc
     : thing.x < glass.cx - half - GLASS_SPAWN_MARGIN;
 }
 
-/** Hold a drifting thing inside the band it was seeded in. The window's rim is where it
- *  would otherwise leave early — the band's top row is only a fraction of a radius under
- *  the crown, so a slow upward drift reaches it long before the far edge — and a stone
- *  that vanishes at the top of the sky reads as a dropped frame rather than as a pass.
- *  The drift is reflected rather than clamped, so a stone keeps moving. */
+// Hold a drifting thing inside the band it was seeded in.
 function holdInBand(thing: { y: number; vy: number }, glass: PlateCircle): void {
   const top = glass.cy + GLASS_BAND[0] * glass.r;
   const bottom = glass.cy + GLASS_BAND[1] * glass.r;
@@ -156,12 +128,7 @@ function holdInBand(thing: { y: number; vy: number }, glass: PlateCircle): void 
   }
 }
 
-/** One streak at a random edge, drifting across the sky at a slow crawl. Its band is
- *  the 70s card's air — below the marquee's 28 px baseline, above the colony's domes —
- *  and its pace is a tenth of a pixel a frame: a streak that crossed the card in a
- *  second would read as an effect rather than as distance. Inside the porthole it
- *  enters at the glass's own edge (`glassEdge`); before the still resolves there is no
- *  porthole, so it enters at the card's. */
+// One streak at a random edge, drifting across the sky at a slow crawl.
 function seedMeteor(width: number, glass: PlateCircle | null): Meteor {
   const edge = glass ? glassEdge(glass) : null;
   const fromLeft = edge?.fromLeft ?? Math.random() < 0.5;
@@ -179,19 +146,7 @@ function seedMeteors(count: number, width: number, glass: PlateCircle | null = n
   return Array.from({ length: count }, () => seedMeteor(width, glass));
 }
 
-/**
- * One stone at a random edge, tumbling slowly across the same band the streaks use.
- *
- * The smallest is 6 px across and the largest 12, which at this card's scale is a
- * pebble rather than a moon — big enough to keep its cream rim on a sky this busy,
- * small enough not to read as a second porthole — and the spin is 0.002..0.005 rad a
- * frame, so a rotation takes the better part of a minute: the sky should feel like it
- * is drifting, not like it is being shaken.
- *
- * A stone is seeded at the porthole's rim, not at the card's: the window is the only
- * place a rock belongs, and one that appeared over the colony's terraces read as a
- * ghost drifting through the habitat.
- */
+// One stone at a random edge, tumbling slowly across the same band the streaks use.
 function seedRock(width: number, glass: PlateCircle | null): Rock {
   const edge = glass ? glassEdge(glass) : null;
   const fromLeft = edge?.fromLeft ?? Math.random() < 0.5;
@@ -211,7 +166,7 @@ function seedRocks(count: number, width: number, glass: PlateCircle | null = nul
   return Array.from({ length: count }, () => seedRock(width, glass));
 }
 
-/** Seed a scene's state. Both cards get stars; only the 80s card moves them. */
+// Seed a scene's state. Both cards get stars; only the 80s card moves them.
 export function createSceneState(scene: HeroScene, width: number): SceneState {
   if (scene.kind === '70s-Colony') {
     // The pinpricks are for the frames before the still decodes: they stand in for
@@ -225,7 +180,7 @@ export function createSceneState(scene: HeroScene, width: number): SceneState {
   return { stars: seedStars(scene.starCount, width, scene.horizonY) };
 }
 
-/** The four nudges that make a glyph's halo: left, right, up, down. */
+// The four nudges that make a glyph's halo: left, right, up, down.
 const LABEL_HALO = [
   [-1, 0],
   [1, 0],
@@ -233,17 +188,9 @@ const LABEL_HALO = [
   [0, 1],
 ] as const;
 
-/**
- * The 80s card: the era's own still, drifting stars and the marquee on top — or,
- * until that still decodes, the sunset this card used to be: a banded sun, a horizon
- * grid running towards the camera, and the same stars and marquee over it.
- *
- * The four hologram nodes that used to stand along the card's bottom edge (RED,
- * GREEN, YELLOW, BLUE, at y 350-360) are gone: the row sat in the card's lowest band,
- * which put four coloured pawn labels on the same line as the cabinet's PRESS TO START
- * button and made the button look like part of the crew's legend. The still says the
- * era on its own, and the marquee is the one line the card needs.
- */
+// The 80s card: the era's own still, drifting stars and the marquee on top — or, until that still
+// decodes, the sunset this card used to be: a banded sun, a horizon grid running towards the
+// camera, and the same stars and marquee over it.
 export function paintSynthwave(
   ctx: CanvasRenderingContext2D,
   scene: Synthwave80sScene,
@@ -294,17 +241,8 @@ export function paintSynthwave(
   paintMarquee(ctx, marquee, scene.marqueeColor, scene.bgBot);
 }
 
-/**
- * The marquee: one line, 13 px, centred on the card's midline at y 28, in the scene's
- * own accent with a one-pixel halo in the card's ink.
- *
- * Both cards want exactly this and want it for the same reason: the sky behind it is a
- * photograph, and the brightest pixel in that band is never the type. Four nudges
- * rather than a shadow, so a glyph stays crisp while the glow does its work — the 80s
- * card measured 1.98:1 before the halo, and the 70s card's worst pixel is 1.95:1
- * (todo.md 34, decision 10). The offset is one pixel because the card is drawn at its
- * own 720×400 and never scaled.
- */
+// The marquee: one line, 13 px, centred on the card's midline at y 28, in the scene's own accent
+// with a one-pixel halo in the card's ink.
 function paintMarquee(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -326,9 +264,9 @@ function paintMarquee(
   ctx.restore();
 }
 
-/** Where the still lands on the card: cover-cropped rather than stretched, and its art row
- *  `horizon` put on the card row `at`. The painter and the frame mask both read it, so a
- *  mask keyed off these pixels cannot drift away from the pixels it was keyed from. */
+// Where the still lands on the card: cover-cropped rather than stretched, and its art row
+//  `horizon` put on the card row `at`. The painter and the frame mask both read it, so a
+//  mask keyed off these pixels cannot drift away from the pixels it was keyed from.
 function placePlate(
   plate: HeroPlate,
   img: HTMLImageElement,
@@ -341,10 +279,9 @@ function placePlate(
   return { x: (width - w) / 2, y: plate.at - plate.horizon * h, w, h };
 }
 
-/** One circle of the still, on the card: `art` is in the art's own fractions, and this is
- *  the same placement the still is drawn with, so the porthole and the planet stay on the
- *  glass and the disc whatever the crop does. The radius rides the width because the
- *  placement scales both axes by one factor. */
+// One circle of the still, on the card: `art` is in the art's own fractions, and this is the same
+// placement the still is drawn with, so the porthole and the planet stay on the glass and the disc
+// whatever the crop does.
 function plateCircle(
   plate: HeroPlate,
   img: HTMLImageElement,
@@ -356,20 +293,7 @@ function plateCircle(
   return { cx: x + art.cx * w, cy: y + art.cy * h, r: art.r * w };
 }
 
-/**
- * The card's still, or `false` while it has not decoded.
- *
- * One placement for both eras, out of the plate's own two numbers: the art is
- * cover-cropped to the card rather than stretched, and the art row `plate.horizon`
- * is put on the card row `plate.at`. The 80s card uses it to put the art's haze line
- * (62 per cent down) on its own horizon at 260, which keeps the skyline above the
- * grid and makes the swap from the drawn fallback invisible; the 70s card pins the
- * art's top edge to the card's, because a poster has no horizon to line up with.
- *
- * The dim over it comes from the plate too: each era dims with its own ink, and the
- * alphas are the portrait's — what reads over a plate is a marquee rather than body
- * text.
- */
+// The card's still, or `false` while it has not decoded.
 function paintPlate(
   ctx: CanvasRenderingContext2D,
   plate: HeroPlate,
@@ -390,8 +314,8 @@ function paintPlate(
   return true;
 }
 
-/** The drawn sunset: the upper half of a disc, plus scanlines that share its clip
- *  path so a stroke cannot reach past the silhouette. */
+// The drawn sunset: the upper half of a disc, plus scanlines that share its clip
+//  path so a stroke cannot reach past the silhouette.
 function paintSun(ctx: CanvasRenderingContext2D, scene: Synthwave80sScene): void {
   const { y: sunY, r: sunRadius } = scene.sun;
   const sunGrad = ctx.createRadialGradient(360, sunY, 7, 360, sunY, sunRadius);
@@ -420,8 +344,8 @@ function paintSun(ctx: CanvasRenderingContext2D, scene: Synthwave80sScene): void
   ctx.restore();
 }
 
-/** The ground grid: lines running towards the camera, then the radiating ones from
- *  the vanishing point at (360, `horizonY`). `gridOffset` scrolls the former. */
+// The ground grid: lines running towards the camera, then the radiating ones from
+//  the vanishing point at (360, `horizonY`). `gridOffset` scrolls the former.
 function paintGrid(
   ctx: CanvasRenderingContext2D,
   scene: Synthwave80sScene,
@@ -452,15 +376,13 @@ function paintGrid(
   ctx.restore();
 }
 
-/* ------------------------------------------------------------------------------------
-   THE COLONY: the era's own still, with stones tumbling across its sky
-   ------------------------------------------------------------------------------------ */
+// ------------------------------------------------------------------------------------
+// THE COLONY: the era's own still, with stones tumbling across its sky
+// ------------------------------------------------------------------------------------
 
-/**
- * Seven facets at fixed angles, as multiples of a stone's own radius, so every stone
- * is the same stone turned: a random outline per stone would make the tumble read as
- * flicker, because the silhouette would change on every respawn.
- */
+// Seven facets at fixed angles, as multiples of a stone's own radius, so every stone
+// is the same stone turned: a random outline per stone would make the tumble read as
+// flicker, because the silhouette would change on every respawn.
 const ROCK_RIM: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
   [0.95, 0.82],
@@ -471,18 +393,8 @@ const ROCK_RIM: ReadonlyArray<readonly [number, number]> = [
   [5.5, 0.92],
 ];
 
-/**
- * Advance and paint the streaks crossing the sky, each respawning at a random edge
- * once it leaves it.
- *
- * `colour` is the scene's cream rather than a literal because a canvas stroke cannot
- * read a theme's custom property: the streak is this era's own highlight, and the one
- * place it is written down is `RETRO70_CFG.meteorColor`.
- *
- * The context it is handed is the card's own or the sky layer's (`paintColony`): both are
- * the card's size, which is what the card-wide bounds fall back to when `glass` is null
- * (the frames before the still resolves, when there is no porthole to keep to).
- */
+// Advance and paint the streaks crossing the sky, each respawning at a random edge once it leaves
+// it.
 function paintMeteors(
   ctx: CanvasRenderingContext2D,
   state: SceneState,
@@ -508,16 +420,7 @@ function paintMeteors(
   });
 }
 
-/**
- * Advance and paint the stones: a dark polygon with a lit edge, turned by its own
- * spin.
- *
- * The fill is the card's own ground (`bgBot`) rather than a grey of its own, which is
- * what makes a stone read as a silhouette against the sky instead of as a pale blob:
- * backlit rock is dark. The rim is the same cream the streaks use, at two thirds of
- * the stone's own alpha, so a far stone fades as one object rather than as a body and
- * an outline.
- */
+// Advance and paint the stones: a dark polygon with a lit edge, turned by its own spin.
 function paintRocks(
   ctx: CanvasRenderingContext2D,
   state: SceneState,
@@ -561,28 +464,7 @@ function paintRocks(
   });
 }
 
-/**
- * The colony's frame, as the pixels the sky must not be painted over.
- *
- * The card is a view *out* of the colony: the still's cream metal — the arch across the
- * top corners, the beam that crosses it, the struts and the ring the porthole is set in —
- * stands between the eye and the sky, so a stone that sails over it reads as a scratch on
- * the glass rather than as something passing behind it. The mask is the still's own
- * pixels, keyed once per scene, and the sky is cut with it before it lands on the card.
- *
- * The key is metal, in the three numbers that separate it from everything else on the
- * poster: the metal is never bluer than it is red (the sky is), never more than 0.62
- * saturated (the planet's bands are 0.85) and never darker than 55/255 (its shadows are
- * the floor of it). Everything the eye reads as frame passes; both skies fail at least
- * one test. Keyed off the art rather than a hand-measured clip path, so a replacement
- * still cannot leave an old outline behind — and a still that never decodes has no frame,
- * and so no mask.
- *
- * One hole is punched in it: the planet's disc. The planet is sky rather than frame — a
- * rock crossing in front of it is the one place a stone should be visible over something
- * bright — and the disc's own cream bands are exactly the metal key's third case, so left
- * alone the mask cut a stone in half as it crossed the giant.
- */
+// The colony's frame, as the pixels the sky must not be painted over.
 const FRAME_SATURATION_MAX = 0.62;
 const FRAME_LUMINANCE_MIN = 55;
 
@@ -654,8 +536,8 @@ function plateFrameMask(
   return mask;
 }
 
-/** The layer the stones and streaks are drawn into: one canvas per scene, kept between
- *  frames rather than allocated on each of them. */
+// The layer the stones and streaks are drawn into: one canvas per scene, kept between
+//  frames rather than allocated on each of them.
 function skyLayer(state: SceneState, width: number, height: number): HTMLCanvasElement {
   const layer = state.skyLayer ?? document.createElement('canvas');
   if (layer.width !== width) layer.width = width;
@@ -664,25 +546,7 @@ function skyLayer(state: SceneState, width: number, height: number): HTMLCanvasE
   return layer;
 }
 
-/**
- * The 70s card: the orbital colony's own still, full bleed, with its sky moving.
- *
- * The card is one band, not four. The still *is* the card (todo.md 34, decision 7):
- * it is laid down cover-cropped and top-anchored, dimmed, and the only things drawn
- * over it are what the picture cannot have — the stones that tumble across its upper
- * third and the streaks that cross with them, both of them behind the window's frame
- * (`plateFrameMask`) because the frame is in front of the sky, and both of them inside
- * the still's own porthole (`RETRO70_CFG.porthole`), so a stone enters and leaves at the
- * glass's edge rather than drifting over the colony's terraces. The marquee prints last,
- * through the same `paintMarquee` the 80s card uses, because amber over this card's
- * brighter sky measures 8.0:1 at the median and 1.95:1 at its worst, and the halo is
- * what carries that worst case (decision 10).
- *
- * Before the still decodes — and forever if it never does — the card is the retired
- * room's night sky and its pinpricks, with the same stones over them, so a cold load
- * shows a moving sky rather than an empty rectangle. That fallback is three colour
- * stops and no geometry: the room's own painters went with the room.
- */
+// The 70s card: the orbital colony's own still, full bleed, with its sky moving.
 export function paintColony(
   ctx: CanvasRenderingContext2D,
   scene: Colony70sScene,
@@ -709,15 +573,8 @@ export function paintColony(
     }
   }
 
-  // 2. What the picture cannot have: stones and streaks, in its own band — and behind the
-  //    window's frame rather than over it. They are drawn into a layer and the layer is
-  //    cut with the still's own metal before it lands on the card, which is the whole
-  //    difference between a stone passing behind a strut and a stone scratching the glass.
-  //    A card with no still has no frame: its fallback sky is a gradient, so the traffic
-  //    is drawn straight onto it.
-  //    The two circles come off the same still: `glass` is the porthole the traffic enters
-  //    and leaves through (so no stone ever drifts over the colony's terraces), and
-  //    `planet` is the hole the mask leaves for the gas giant.
+    // 2. What the picture cannot have: stones and streaks, in its own band — and behind the window's
+  // frame rather than over it.
   const still = state.plateImg;
   const placed = still?.complete && still.naturalWidth > 0 ? still : null;
   const glass = placed ? plateCircle(scene.plate, placed, width, height, scene.porthole) : null;
@@ -749,19 +606,13 @@ export function paintColony(
   // 3. The marquee, over the brightest thing on the card.
   paintMarquee(ctx, marquee, scene.marqueeColor, scene.bgBot);
 
-  // The frame is not read: the stones advance by their own velocity and this card has
-  // no grid to scroll. It stays in the signature because `paintHero` hands one frame
-  // to whichever painter the theme picked, and a painter that could not take one
-  // could not be swapped for the other.
+    // The frame is not read: the stones advance by their own velocity and this card has no grid to
+  // scroll. It stays in the signature because `paintHero` hands one frame to whichever painter the
+  // theme picked, and a painter that could not take one could not be swapped for the other.
   void frame;
 }
 
-/**
- * Paint one frame of whichever card the theme picked.
- *
- * One entry point, so the hook has no `switch` of its own and a third theme is one
- * painter plus one scene, not a third branch in two files.
- */
+// Paint one frame of whichever card the theme picked.
 export function paintHero(
   ctx: CanvasRenderingContext2D,
   scene: HeroScene,

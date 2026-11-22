@@ -1,12 +1,9 @@
 import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 
-// The session socket (socket consolidation): one connection per signed-in tab on
-// the backend's `/ws` namespace, on its own path so it cannot collide with the
-// engine's game socket at `/socket.io/`. Presence rides on it today; the room,
-// friendship and notification pushes join it in later phases.
-// One row of the lobby, as `rooms:list` carries it. `mySeat` is viewer-relative:
-// the broadcaster derives the list per account (D1).
+// The session socket (socket consolidation): one connection per signed-in tab on the backend's
+// `/ws` namespace, on its own path so it cannot collide with the engine's game socket at
+// `/socket.io/`.
 export type LobbyRoom = {
   id: string;
   roomCode: string;
@@ -18,13 +15,13 @@ export type LobbyRoom = {
   maxSeats: number;
   mode: 'classic' | 'duel';
   mySeat?: boolean;
-  /** The corners a joiner may still claim, in canonical order (the join palette's list). */
+    // The corners a joiner may still claim, in canonical order (the join palette's list).
   freeColors?: string[];
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift?: 0 | 1 | 2;
-  /** The attack animations: positive flag, independent of clash mode. */
+    // The attack animations: positive flag, independent of clash mode.
   captureFx?: boolean;
 };
 
@@ -43,10 +40,9 @@ export type MyRoom = {
 // row from all three.
 export type FriendshipViewState = 'accepted' | 'pending-in' | 'pending-out' | 'blocked' | 'none';
 
-// One row of `friendship:changed`, already in the recipient's own terms:
-// `friendsSince` is when the current state began (friends since / blocked since /
-// requested at) and `requestId` is set while a request is pending, because that is
-// the id accept/decline take.
+// One row of `friendship:changed`, already in the recipient's own terms: `friendsSince` is when
+// the current state began (friends since / blocked since / requested at) and `requestId` is set
+// while a request is pending, because that is the id accept/decline take.
 export type FriendshipFriend = {
   id: string;
   username: string;
@@ -152,10 +148,9 @@ export type SessionClientEvents = {
 
 export type SessionSocket = Socket<SessionServerEvents, SessionClientEvents>;
 
-// Same origin as the page: nginx (or, in dev, the Vite proxy) forwards
-// /ws-socket.io/ to the backend, so the browser never needs its real host/port.
-// `withCredentials` is what sends the httpOnly `token` cookie the handshake
-// authenticates on; the token is never exposed to JS.
+// Same origin as the page: nginx (or, in dev, the Vite proxy) forwards /ws-socket.io/ to the
+// backend, so the browser never needs its real host/port. `withCredentials` is what sends the
+// httpOnly `token` cookie the handshake authenticates on; the token is never exposed to JS.
 export function connectSessionSocket(): SessionSocket {
   return io(`${window.location.origin}/ws`, {
     path: '/ws-socket.io',

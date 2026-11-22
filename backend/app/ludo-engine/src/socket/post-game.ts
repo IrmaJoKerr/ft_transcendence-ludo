@@ -29,10 +29,8 @@ export class PostGameManager {
     });
   }
 
-  // Definitive termination via the "End Game" button. The departure funnel owns
-  // the terminal decision: a single-socket room is closed, and a PvP room is closed
-  // when this seat was the last second human in it. So the only thing left here is
-  // the record: the log line and the frame for the clients still watching.
+  // End Game. The departure funnel decides whether the room closes, so this only writes
+  // the log line and the frame for clients still watching.
   async handleEndGame(socket: GameSocket): Promise<void> {
     const gameId = socket.data.gameId;
     const color = socket.data.playerColor;

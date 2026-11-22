@@ -49,16 +49,9 @@ import { SilentEventRejectionFilter } from './silent-event-rejection.filter';
 // on every socket this class sees.
 type SessionData = { userId?: string; username?: string };
 
-// The session socket: one connection per tab, authenticated by the same httpOnly
-// `token` cookie the API uses. Presence rides on it (Phase 1): the connection is
-// the liveness signal and `presence:playing` is one of the two things the client
-// sends, the other being a chat line. The account's online count reaches every
-// socket as `counts:online`. Rooms, friendships, notifications and the public
-// chat channel join it in the later phases.
-//
-// Throttling is off by decision: every event this socket carries is
-// edge-triggered and idempotent, and the global HTTP guard cannot count a
-// websocket anyway.
+// Session socket: one connection per tab, authenticated by the API's httpOnly `token`
+// cookie. The connection is presence; clients send `presence:playing` and chat lines.
+// Throttling is off because every event is edge-triggered and HTTP guards cannot count sockets.
 @SkipThrottle()
 @WebSocketGateway({
   namespace: WS_NAMESPACE,
@@ -88,11 +81,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   // must not cost a round trip per event.
   private connected = new Map<string, Set<string>>();
 
-  // userId -> the ids that account has blocked. The chat filter's per-recipient
-  // half (queue item 3): seeded at connect from one Prisma read and kept current
-  // from `friendship:changed`, so filtering a frame costs no query. The other half
-  // travels with the frame, because a block is never announced to the side it
-  // hides from.
+  // Account to blocked ids. Seeded at connect and kept current from
+  // `friendship:changed`, so filtering costs no query. The sender's own list travels
+  // with the frame, because a block is not announced to the side it hides from.
   private blocked = new Map<string, Set<string>>();
 
   // socket.id -> when it last sent a chat line, the channel's only throttle. A
@@ -153,11 +144,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     await this.presence.openConnection(data.userId, socket.id);
     socket.emit(EVENT_PRESENCE_HELLO);
 
-    // The badge's first paint (D11). The live number is a namespace emit from the
-    // broadcaster, but `presence:count` is coalesced to one push per 5 s, so a
-    // socket connecting between two edges would sit without a number. This hands
-    // it the cached one; a cold cache is not a hole, because the connection above
-    // started a push of its own.
+    // Badge's first paint. Counts are coalesced to one push per 5 s, so a socket that
+    // connects between edges gets the cached value; a cold cache is covered by the push
+    // its own connection started.
     const count = this.presence.currentCount();
     if (count !== null) socket.emit(EVENT_COUNTS_ONLINE, { count });
 
@@ -202,10 +191,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     this.server.in(friendsRoom(userId)).emit(EVENT_FRIENDSHIP_CHANGED, record);
   }
 
-  // One chat frame to every socket, minus the pairs a block hides: the recipient's
-  // own list and the sender's, because either direction is enough. The sender's
-  // list travelled with the frame, so no per-recipient query runs and an instance
-  // with none of the sender's sockets can still filter correctly.
+  // One chat frame to every socket, minus blocked pairs in either direction. The
+  // sender's list travels with the frame, so filtering needs no query and works on an
+  // instance with none of the sender's sockets.
   emitChat(message: ChatMessage, senderBlocked: readonly string[]): void {
     if (!this.server) return;
     const senderBlocks = new Set(senderBlocked);
@@ -262,11 +250,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     this.server.in(userRoom(userId)).emit(event, payload);
   }
 
-  // The only client -> server event (D3). The pipe is explicit because a gateway
-  // handler is not a controller: an unknown field is stripped, a non-boolean is
-  // refused, and the service ignores an event that races the socket's close. A
-  // refused payload is dropped silently (no ack is expected, and logging it would
-  // be one ERROR per packet on an unthrottled socket).
+  // The only client-to-server event. The explicit pipe strips unknown fields and
+  // refuses a non-boolean; a close race is ignored. Refused payloads are silent, so an
+  // unthrottled socket cannot log one error per packet.
   @UseFilters(SilentEventRejectionFilter)
   @UsePipes(new ValidationPipe({ whitelist: true }))
   @SubscribeMessage(EVENT_PRESENCE_PLAYING)

@@ -32,10 +32,8 @@ export class RoomLifecycle {
 
   constructor(private readonly deps: RoomLifecycleDeps) {}
 
-  // Drop a room's in-memory state: its RoomContext (seat bindings + timers), its pending
-  // bot turn and the clash engine's own entries for it (a card hold nobody may report and
-  // the two chain timers). Called on teardown, and by the wake pass when an entry has no
-  // state behind it.
+  // Drop a room's in-memory state: context and timers, pending bot turn, and clash card
+  // and chain entries. Called on teardown and by the wake pass for an orphaned entry.
   cleanupGame(gameId: string): void {
     this.deps.rooms.delete(gameId);
     this.deps.botScheduler.clear(gameId);

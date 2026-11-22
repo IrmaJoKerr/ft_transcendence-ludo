@@ -9,15 +9,9 @@ import { RealtimeBroadcaster } from './realtime-broadcaster.service';
 import { RealtimeGateway } from './realtime.gateway';
 import { SessionAuthService } from './session-auth';
 
-// The session socket (socket consolidation): the gateway, the handshake gate, the
-// presence wiring, the rooms diff, the notification sink and the Redis subscriber.
-// AuthModule exports the configured JwtModule, so the handshake verifies tokens
-// with the API's own rule rather than a copy; PresenceModule exports the service
-// the gateway registers connections with (Phase 1); MatchModule exports the query
-// service whose snapshot the broadcaster diffs (Phase 2); NotificationModule
-// exports the hub the gateway sets its deliverer on (Phase 4); ChatModule owns the
-// public channel's transcript and fan-out (queue item 3), and BlockStateModule is
-// the Prisma-only leaf the chat filter is seeded from.
+// Session socket wiring: gateway, handshake, presence, room diff, notifications and
+// Redis subscriber. Auth supplies the JWT rule, Match the room snapshot, Notification
+// the deliverer, Chat the public channel, and BlockState the chat filter seed.
 @Module({
   imports: [
     AuthModule,

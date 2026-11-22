@@ -1,9 +1,7 @@
 import type { CSSProperties, MouseEvent } from 'react';
 
-// Every colour the rail's buttons use is a theme token (26.5). They were five literals
-// until 2026-11-09, which meant the one lit row on the 70s theme was neon pink with a
-// synthwave cyan halo: the rest of the rail already reads `--accent-*`, so the button
-// box is shell chrome and follows them, never the state pair.
+// Rail colours are theme tokens: button chrome follows `--accent-*`, while seat-state
+// colours stay on the board. No per-theme literals live here.
 const REST_BORDER = 'rgb(var(--accent-cyan-rgb) / 0.3)';
 const HOVER_BORDER = 'var(--accent-cyan)';
 const HOVER_GLOW = '0 0 14px rgb(var(--accent-cyan-rgb) / 0.35)';
@@ -27,10 +25,8 @@ export function railButtonStyle(active: boolean): CSSProperties {
   };
 }
 
-/** The 34 px square a rail row draws its mark in, and the one home for that geometry.
- *  The five routes and the compact chat glyph are the same row, so the frame, the
- *  mark's colour and its glow move together; `lit` is the row's own state — the active
- *  route, or the chat card being open — and it is the only thing that changes. */
+// The 34 px frame shared by the five route marks and the compact chat glyph. `lit` is
+// the row's only changing state: its background, mark colour and glow move together.
 export function railGlyphFrameStyle(lit: boolean): CSSProperties {
   return {
     width: 34,

@@ -20,7 +20,7 @@ import { AppProvider, useApp } from './store';
 import { NotificationsProvider, useNotifications } from './hooks/useNotifications';
 import { NotificationDigest, NotificationToasts } from './components/NotificationToast';
 
-/** All routes render full-screen. */
+// All routes render full-screen.
 const FULL_ROUTES: Record<string, () => ReactNode> = {
   '/home': () => <Home />,
   '/leaderboard': () => <Leaderboard />,
@@ -46,7 +46,7 @@ const FULL_ROUTES: Record<string, () => ReactNode> = {
   '/terms': () => <LegalPage initialDoc="terms" />,
 };
 
-/** Public routes, can be reached wihout a session */
+// Public routes, can be reached wihout a session
 const PUBLIC_ROUTES = new Set([
   '/login',
   '/signup',
@@ -59,9 +59,9 @@ const PUBLIC_ROUTES = new Set([
   '/terms',
 ]);
 
-/** Routes reached by an emailed account action rather than by browsing. A
- * signed-in user must still see them: most such arrivals are recognizable from
- * the query string, but the router cannot see a URL fragment. */
+// Routes reached by an emailed account action rather than by browsing. A
+// signed-in user must still see them: most such arrivals are recognizable from
+// the query string, but the router cannot see a URL fragment.
 const ACCOUNT_ACTION_ROUTES = new Set(['/verify-email', '/reset-password']);
 
 function Screen() {

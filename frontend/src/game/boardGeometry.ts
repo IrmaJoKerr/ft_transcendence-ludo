@@ -1,11 +1,8 @@
 import type { ColorKey } from '../theme';
 
-/**
- * Board geometry: the engine's logical steps (0-57) mapped onto the 15×15 cross
- * board. Pure data and pure functions, so both the board's renderer and anything
- * that needs to point at a square (the capture burst's anchor) share ONE mapping.
- * The board has exact 4-fold symmetry, so one red segment is rotated four times.
- */
+// Board geometry: the engine's logical steps (0-57) mapped onto the 15×15 cross board. Pure data
+// and pure functions, so both the board's renderer and anything that needs to point at a square
+// (the capture burst's anchor) share ONE mapping.
 export type Cell = { r: number; c: number };
 
 const RED_SEGMENT: Cell[] = [
@@ -24,7 +21,7 @@ const RED_SEGMENT: Cell[] = [
   { r: 0, c: 8 },
 ];
 
-/** 90° clockwise rotation about the 15×15 grid's center (7,7). */
+// 90° clockwise rotation about the 15×15 grid's center (7,7).
 function rotate90({ r, c }: Cell): Cell {
   return { r: c, c: 14 - r };
 }
@@ -35,7 +32,7 @@ function rotateN(cell: Cell, n: number): Cell {
   return out;
 }
 
-/** The full 52-cell shared outer loop, track position 1-52 → board cell. */
+// The full 52-cell shared outer loop, track position 1-52 → board cell.
 export const TRACK_CELLS: Cell[] = [0, 1, 2, 3].flatMap((rot) =>
   RED_SEGMENT.map((cell) => rotateN(cell, rot)),
 );
@@ -57,14 +54,12 @@ const HOME_LANES: Record<ColorKey, Cell[]> = {
 
 const TRACK_OFFSET: Record<ColorKey, number> = { red: 0, green: 13, yellow: 26, blue: 39 };
 
-/** The eight protected squares, as track positions 1-52: the four start squares and the
- *  four stars. Board topology, so it is mirrored from the engine's
- *  `BoardMapper.SAFE_TRACK_POSITIONS` rather than shared through `common/`; the
- *  room-rules harness asserts the two agree. Exported here so the board's renderer and
- *  anything else that points at a star read ONE list inside this tree. */
+// The eight protected squares, as track positions 1-52: the four start squares and the four stars.
+// Board topology, so it is mirrored from the engine's `BoardMapper.SAFE_TRACK_POSITIONS` rather
+// than shared through `common/`; the room-rules harness asserts the two agree.
 export const SAFE_TRACK_POSITIONS: readonly number[] = [1, 9, 14, 22, 27, 35, 40, 48];
 
-/** Map a piece's logical step (1-57) to a board cell, or null if not on the board (base/goal). */
+// Map a piece's logical step (1-57) to a board cell, or null if not on the board (base/goal).
 export function stepToCell(color: ColorKey, step: number): Cell | null {
   if (step >= 52 && step <= 56) return HOME_LANES[color][step - 52];
   if (step >= 1 && step <= 51) {

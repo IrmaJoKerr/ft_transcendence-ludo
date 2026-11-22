@@ -35,14 +35,12 @@ interface UserProfile {
   displayName?: string;
   avatarStyle: string | null;
   hasAvatarPhoto: boolean;
-  /** The avatar-meta stamp, echoed into `?v=` so a stale photo is never reused. */
+    // The avatar-meta stamp, echoed into `?v=` so a stale photo is never reused.
   avatarV?: number;
-  /** Absent only from a pre-gate payload; read as full. */
+    // Absent only from a pre-gate payload; read as full.
   visibility?: ProfileVisibility;
-  /**
-   * The career row (PlayerStats), not the account: rating, record and streaks all
-   * live together there. Absent on a blocked payload, which carries identity only.
-   */
+    // The career row (PlayerStats), not the account: rating, record and streaks all
+  // live together there. Absent on a blocked payload, which carries identity only.
   stats?: {
     rating: number;
     highestRating: number;
@@ -91,10 +89,9 @@ type MatchHistoryRow = {
   gameType: 'PVP' | 'PVE';
   gameModes: RoomRules | null;
   color: string;
-  // 1 on the winning row, 2 on every other: the engine records no placement, so this
-  // is a win/loss bit and never a podium. A `rank` that is not 1 on a completed row
-  // is a loss — not "second" — because the only seat that finished is the one that
-  // brought its fourth piece home.
+    // 1 on the winning row, 2 on every other: the engine records no placement, so this is a win/loss
+  // bit and never a podium. A `rank` that is not 1 on a completed row is a loss — not "second" —
+  // because the only seat that finished is the one that brought its fourth piece home.
   rank: number | null;
   // COMPLETED or ABANDONED (M5). A win is `rank === 1` on a completed row; an
   // abandoned row is neither a win nor a loss, and shows as its own third state.
@@ -121,7 +118,7 @@ type MatchHistoryRow = {
   // The room's channel (M3), owner-only: the API ships this field to the row's own
   // account and omits it entirely for a friend, so its absence is the permission.
   chat?: TranscriptLine[] | null;
-  /** True when the engine had to cut the payload: a cut transcript says so. */
+    // True when the engine had to cut the payload: a cut transcript says so.
   chatTruncated?: boolean;
 };
 
@@ -172,7 +169,7 @@ const STATUS_KEYS: Record<PresenceStatus, string> = {
   offline: 'friends.offline',
 };
 
-/** The 15 visible achievements. */
+// The 15 visible achievements.
 const ACHIEVEMENTS_DEF = [
   {
     key: 'achFirstBlood',
@@ -257,12 +254,8 @@ const ACHIEVEMENTS_DEF = [
   },
 ];
 
-/** Copy-to-clipboard state for a handle: the same affordance the PvP waiting
- *  room gives its room code (`[COPY]` → `[COPIED OK]` for 1.5 s, tooltip, UI
- *  beep, see `copyRoomCode` in `Game.tsx`). Shared by the two places the page
- *  shows a handle — the window header line and the blocked card — because the
- *  username is the immutable identifier (display names get renamed) and it is
- *  what the friends page adds people by. */
+// Copy-to-clipboard state for a handle: the same affordance the PvP waiting room gives its room
+// code (`[COPY]` → `[COPIED OK]` for 1.5 s, tooltip, UI beep, see `copyRoomCode` in `Game.tsx`).
 function useUsernameCopy(username: string) {
 
   const [copied, setCopied] = useState(false);
@@ -292,8 +285,8 @@ function useUsernameCopy(username: string) {
   return { copied, copyUsername };
 }
 
-/** The handle as a chip: `@username [COPY]`. Used where the handle is not
- *  already printed in surrounding copy (the blocked card). */
+// The handle as a chip: `@username [COPY]`. Used where the handle is not
+//  already printed in surrounding copy (the blocked card).
 function UsernameCopyChip({ username }: { username: string }) {
   const { t } = useTranslation();
   const { copied, copyUsername } = useUsernameCopy(username);
@@ -328,10 +321,9 @@ function UsernameCopyChip({ username }: { username: string }) {
   );
 }
 
-/** The degraded profile a block leaves behind: identity, avatar and the notice.
- *  The page still renders (the gate answers 200, not 403) because a block hides
- *  the relationship, not the person — the identity and avatar are already public
- *  on the leaderboard. Unblock is offered only for a block this viewer holds. */
+// The degraded profile a block leaves behind: identity, avatar and the notice. The page still
+// renders (the gate answers 200, not 403) because a block hides the relationship, not the person —
+// the identity and avatar are already public on the leaderboard.
 function BlockedProfileCard({
   profile,
   crtEnabled,
@@ -531,10 +523,9 @@ export function Profile() {
   // The backend only returns entries for achievements the user has touched, so
   // a missing key must read as "no report yet" even though the map type is dense.
   const getAchievementReport = (key: string): AchievementReport | undefined => achievements[key];
-  // The bell's destinations name the tab (22.7 item 3): `?tab=` is the initial value,
-  // and later changes are followed in an effect because the bell is a portal — a second
-  // click while already here changes only the query, not the page. Clicking the tab by
-  // hand changes the state and not the URL: the param is a destination, not a mirror.
+    // The bell's destinations name the tab (22.7 item 3): `? tab=` is the initial value, and later
+  // changes are followed in an effect because the bell is a portal — a second click while already
+  // here changes only the query, not the page.
   const [mainTab, setMainTab] = useState<'history' | 'achievements'>(() =>
     query.get('tab') === 'achievements' ? 'achievements' : 'history',
   );
@@ -881,7 +872,7 @@ export function Profile() {
                 {t('profile.playerNotFoundArchives', { username })}
               </div>
             ) : (
-              /* Full-Width Unified Retro Window Container */
+                            // Full-Width Unified Retro Window Container
               <section
                 className={RETRO_WINDOW}
                 style={{
@@ -1857,7 +1848,7 @@ export function Profile() {
                         }}
                       >
                         {mainTab === 'history' ? (
-                          /* Match Activity Stream */
+                                                    // Match Activity Stream
                           !gamesData || gamesData.games.length === 0 ? (
                             <div
                               style={{
@@ -1896,10 +1887,9 @@ export function Profile() {
                                         fg: 'var(--state-off)',
                                       };
                                 const playedAt = new Date(g.playedAt);
-                                // The chips come from the room the match recorded, not
-                                // from the lobby: a finished game's rules survive only
-                                // on the row. `{}` draws none (a standard room), and a
-                                // rule this client does not know yet draws none either.
+                                                                // The chips come from the room the match recorded, not from the lobby: a finished game's rules
+                                // survive only on the row. `{}` draws none (a standard room), and a rule this client does not know
+                                // yet draws none either.
                                 const chips: string[] = [];
                                 if (g.gameModes?.clashEnabled) chips.push(t('game.clashMode'));
                                 if (g.gameModes?.noSafeZones)
@@ -1909,11 +1899,9 @@ export function Profile() {
                                 const keyShift = g.gameModes?.clashKeyShift ?? 0;
                                 if (keyShift > 0)
                                   chips.push(t('profile.chipKeyShift', { count: keyShift }));
-                                // The counters a row keeps. Rolls and sixes are gone: the
-                                // engine no longer tallies faces, and "lost" (your pieces
-                                // sent home) was the only number it ever printed that read
-                                // like a game result. "Pieces in goal" is the count the
-                                // rating is computed from, so it is the one that matters.
+                                                                // The counters a row keeps. Rolls and sixes are gone: the engine no longer tallies faces, and
+                                // "lost" (your pieces sent home) was the only number it ever printed that read like a game result.
+                                // "Pieces in goal" is the count the rating is computed from, so it is the one that matters.
                                 const clashOn = Boolean(g.gameModes?.clashEnabled);
                                 const notApplicable = t('profile.statNotApplicable');
                                 const counters: Array<[string, number | string]> = [
@@ -1931,10 +1919,9 @@ export function Profile() {
                                     t('profile.statClashesLost'),
                                     clashOn ? g.clashAttacksLost + g.clashDefendsLost : notApplicable,
                                   ],
-                                  // A clash room's wall numbers. The chips are printed in
-                                  // every row so the layout never shifts between a clash
-                                  // game and a standard one: a room without clash prints
-                                  // N/A rather than a zero that reads as "fought, none won".
+                                                                    // A clash room's wall numbers. The chips are printed in every row so the layout never shifts
+                                  // between a clash game and a standard one: a room without clash prints N/A rather than a zero that
+                                  // reads as "fought, none won".
                                   [
                                     t('profile.statWallsWon'),
                                     clashOn ? g.clashWallBattlesWon : notApplicable,
@@ -2164,7 +2151,7 @@ export function Profile() {
                             </div>
                           )
                         ) : (
-                          /* Achievements Grid & Progress */
+                                                    // Achievements Grid & Progress
                           <div>
                             {/* Progress Bar */}
                             <div style={{ marginBottom: 14 }}>
@@ -2594,10 +2581,9 @@ export function Profile() {
   );
 }
 
-// The transcript on one history row (M3, Q4). It expands in place: the row grows to
-// hold it, the page does not navigate, and the lines are painted as text nodes with a
-// system line's code resolved in the reader's own language. `N/A` is for the owner's
-// own PvE rows and for an old row that predates the channel, never for a friend.
+// The transcript on one history row (M3, Q4). It expands in place: the row grows to hold it, the
+// page does not navigate, and the lines are painted as text nodes with a system line's code
+// resolved in the reader's own language.
 function TranscriptRow({
   chat,
   chatTruncated,
@@ -2607,7 +2593,7 @@ function TranscriptRow({
   chat?: TranscriptLine[] | null;
   chatTruncated: boolean;
   gameType: 'PVP' | 'PVE';
-  /** The row's own account: its lines are the ones painted in the channel's colour. */
+    // The row's own account: its lines are the ones painted in the channel's colour.
   ownerId: string;
 }) {
   const { t } = useTranslation();

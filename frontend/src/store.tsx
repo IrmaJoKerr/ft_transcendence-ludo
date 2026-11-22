@@ -30,8 +30,8 @@ export type AuthUser = {
   hasAvatarPhoto?: boolean;
 };
 
-/** Pulls a localized message out of a nestjs error body. The server `message` is
- * English by contract: log it and fall back to the caller's localized string. */
+// Pulls a localized message out of a nestjs error body. The server `message` is
+// English by contract: log it and fall back to the caller's localized string.
 function apiError(body: unknown, fallback: string): string {
   const b = body as { code?: string; message?: string | string[] } | null;
   const localized = translateErrorCode(b?.code);
@@ -40,40 +40,36 @@ function apiError(body: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Outcome of redeeming an emailed verify link. 'error' means the request itself
- * failed, so the single-use token was never consumed and the link still works. */
+// Outcome of redeeming an emailed verify link. 'error' means the request itself
+// failed, so the single-use token was never consumed and the link still works.
 export type VerifyOutcome = 'signup' | 'change' | 'conflict' | 'invalid' | 'error';
 
-/**
- * One card of the Lobby roster. A seated card owns its colour: the colour is the
- * seat, so it is picked when the seat is taken and never re-derived from the card
- * index afterwards. An empty card owns nothing (there is no colour to own yet).
- */
+// One card of the Lobby roster. A seated card owns its colour: the colour is the
+// seat, so it is picked when the seat is taken and never re-derived from the card
+// index afterwards. An empty card owns nothing (there is no colour to own yet).
 export type Seat =
   | { type: 'you'; color: ColorKey }
   | { type: 'bot'; name: string; color: ColorKey }
   | { type: 'player'; name: string; color: ColorKey }
   | { type: 'empty' };
 
-/** A seat that occupies a card, and therefore holds one of the four corners. */
+// A seat that occupies a card, and therefore holds one of the four corners.
 export type OccupiedSeat = Exclude<Seat, { type: 'empty' }>;
 
-/** Narrows a roster card to the ones that own a colour. */
+// Narrows a roster card to the ones that own a colour.
 export function isOccupiedSeat(seat: Seat): seat is OccupiedSeat {
   return seat.type !== 'empty';
 }
 
-/**
- * The corners nobody has claimed yet, in the canonical blue-first order. Every
- * palette is built from this: a taken colour is never offered, so the picker
- * cannot produce a duplicate (the server checks the same rule).
- */
+// The corners nobody has claimed yet, in the canonical blue-first order. Every
+// palette is built from this: a taken colour is never offered, so the picker
+// cannot produce a duplicate (the server checks the same rule).
 export function freeColors(seats: Seat[]): ColorKey[] {
   const taken = new Set(seats.filter(isOccupiedSeat).map((seat) => seat.color));
   return SEAT_COLORS.filter((color) => !taken.has(color));
 }
 
-/** A fresh roster: four empty cards. */
+// A fresh roster: four empty cards.
 function emptySeats(): Seat[] {
   return [{ type: 'empty' }, { type: 'empty' }, { type: 'empty' }, { type: 'empty' }];
 }
@@ -83,24 +79,14 @@ export type PlayerCount = 2 | 3 | 4;
 export type Lang = 'en' | 'fr' | 'ms';
 export type ThemeType = 'retro80' | 'retro70';
 
-/** Languages offered in the account menu. */
+// Languages offered in the account menu.
 export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'ms', label: 'Bahasa Melayu', flag: '🇲🇾' },
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
 ];
 
-/**
- * The themes the shell offers, in the order the account menu lists them.
- *
- * One list, three readers: the switcher renders it, `storedTheme()` validates the
- * saved value against it, and the tables in `styles/themes/` are keyed
- * by the same `id`s — so a theme cannot be offered without a palette, or kept in
- * storage without a switcher row. The labels are the era names the approved 1970s
- * stills print (`/tmp/theme-mockups`, `PAL[*].label`) and are deliberately not
- * translated: a decade is spelled the same way in all three locales. `swatch` is
- * the pair of token colours the row paints as a two-tone chip.
- */
+// The themes the shell offers, in the order the account menu lists them.
 export const THEMES: Array<{ id: ThemeType; label: string; swatch: [string, string] }> = [
   { id: 'retro80', label: "RETRO 80'S", swatch: ['#ff007f', '#00f0ff'] },
   { id: 'retro70', label: "RETRO 70'S", swatch: ['#e5340b', '#ffb000'] },
@@ -138,15 +124,11 @@ function storedAutoClose(): boolean {
 // docs).
 const ACCESS_TOKEN_REFRESH_MS = 14 * 60 * 1000;
 
-/** The transcript's length is `CHAT_HISTORY`, from `common/src/chat.constants.ts`: one
- *  number for the backend's Redis list and this ring, so the two cannot disagree about
- *  how far back a reader can scroll. The ring lives here rather than in the dock's
- *  panel, so switching the channel off, or being on `/game` where no panel renders,
- *  drops no line. The dock's plate previews the newest 3 of them; the card paints the
- *  whole ring. */
-/** settingOn/toggleSetting key for "show the rules popup when a match starts": read by Lobby's Rules button and Game.tsx. */
+// The transcript's length is `CHAT_HISTORY`, from `common/src/chat.constants.ts`: one number for
+// the backend's Redis list and this ring, so the two cannot disagree about how far back a reader
+// can scroll.
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
-/** Defaults for the settings toggles, keyed "<group>-<row>". */
+// Defaults for the settings toggles, keyed "<group>-<row>".
 export const SETTING_DEFAULTS: Record<string, boolean> = {
   '0-0': true, // Sound effects
   '0-1': true, // Music
@@ -157,7 +139,7 @@ export const SETTING_DEFAULTS: Record<string, boolean> = {
   '2-1': false, // Weekly recap
 };
 
-/** Credentials returned by POST /api/match/create: stored in context so Game page can connect to the engine. */
+// Credentials returned by POST /api/match/create: stored in context so Game page can connect to the engine.
 export type ActiveMatch = {
   gameId: string;
   token: string;
@@ -180,8 +162,8 @@ function storedActiveMatch(): ActiveMatch {
   }
 }
 
-/** One invoice row: a seat plus the avatar facts the engine's roster reported for it.
- *  Bots, hotseat seats and the lobby-seat fallback have no account, so they carry none. */
+// One invoice row: a seat plus the avatar facts the engine's roster reported for it.
+//  Bots, hotseat seats and the lobby-seat fallback have no account, so they carry none.
 export type ResultPlayer = {
   color: PlayerColor;
   username: string;
@@ -197,7 +179,7 @@ export type ResultPlayer = {
   abandoned?: boolean;
 };
 
-/** Snapshot of a finished match's outcome: set from Game.tsx's `game_ended` handler so Results.tsx can render real data instead of mock podium rows. */
+// Snapshot of a finished match's outcome: set from Game.tsx's `game_ended` handler so Results.tsx can render real data instead of mock podium rows.
 export type LastResult = {
   // Null when nothing finished: an abandoned room has no champion, and inventing one
   // (the seat whose turn it was) put a dropped player on the podium.
@@ -206,16 +188,16 @@ export type LastResult = {
   mode: 'pvp' | 'pve' | 'hotseat';
   playerCount: number;
   players: ResultPlayer[];
-  /** True when the match was abandoned/expired: a different Results card (no winner/podium). */
+    // True when the match was abandoned/expired: a different Results card (no winner/podium).
   abandoned?: boolean;
 } | null;
 
-/** The guest setup payload, kept in memory so the end card's "Play again" can
- * mint another room with the same seats and rules without re-walking the setup
- * screen. Not persisted: a guest session dies with the tab. */
+// The guest setup payload, kept in memory so the end card's "Play again" can
+// mint another room with the same seats and rules without re-walking the setup
+// screen. Not persisted: a guest session dies with the tab.
 export type GuestSetup = {
   botCount: number;
-  /** The guest's own corner: the palette is theirs too, and there is no default. */
+    // The guest's own corner: the palette is theirs too, and there is no default.
   hostColor: string;
   botColors?: string[];
   botNames?: string[];
@@ -230,29 +212,29 @@ type AppState = {
   user: AuthUser | null;
   setUser: (u: AuthUser | null) => void;
   authReady: boolean;
-  /** Factor one. `identifier` is a username or email. Session = {}, emailed
-   *  code = { pendingToken }; otherwise { error }. */
+    // Factor one. `identifier` is a username or email. Session = {}, emailed
+  //  code = { pendingToken }; otherwise { error }.
   login: (
     identifier: string,
     password: string,
   ) => Promise<{ error?: string; pendingToken?: string; notVerified?: boolean }>;
-  /** Success = { username } (verification email sent, no session yet); failure = { error }. */
+    // Success = { username } (verification email sent, no session yet); failure = { error }.
   register: (
     username: string,
     password: string,
     email: string,
   ) => Promise<{ error?: string; username?: string }>;
-  /** Factor two. Success = null (session cookie set, user in store); failure = message. */
+    // Factor two. Success = null (session cookie set, user in store); failure = message.
   verify2fa: (pendingToken: string, code: string) => Promise<string | null>;
-  /** Re-issues the login code for a live 2FA challenge. Success = null. */
+    // Re-issues the login code for a live 2FA challenge. Success = null.
   resend2fa: (pendingToken: string) => Promise<string | null>;
-  /** Emails a reset link. Always resolves null (generic response: no account enumeration). */
+    // Emails a reset link. Always resolves null (generic response: no account enumeration).
   forgotPassword: (email: string) => Promise<string | null>;
-  /** Redeems a reset token and sets a new password. Success = null; failure = message. */
+    // Redeems a reset token and sets a new password. Success = null; failure = message.
   resetPassword: (token: string, password: string) => Promise<string | null>;
-  /** Resends a signup verification link (public). Success = null. */
+    // Resends a signup verification link (public). Success = null.
   resendVerification: (email: string) => Promise<string | null>;
-  /** Redeems an emailed verify link (signup or email-change). */
+    // Redeems an emailed verify link (signup or email-change).
   verifyEmail: (token: string) => Promise<VerifyOutcome>;
   logout: () => Promise<void>;
   playerCount: PlayerCount;
@@ -262,18 +244,18 @@ type AppState = {
   turn: number;
   settings: Record<string, boolean>;
   setPlayerCount: (c: PlayerCount) => void;
-  /** Seats the host (`you`) on card `i` with the picked colour. One host card only: a re-pick moves the seat. */
+    // Seats the host (`you`) on card `i` with the picked colour. One host card only: a re-pick moves the seat.
   placeHost: (i: number, color: ColorKey) => void;
-  /** Seats a bot on card `i` at the picked colour. */
+    // Seats a bot on card `i` at the picked colour.
   addBot: (i: number, color: ColorKey) => void;
-  /** Seats a local hotseat pilot on card `i` at the picked colour. */
+    // Seats a local hotseat pilot on card `i` at the picked colour.
   addPlayer: (i: number, color: ColorKey) => void;
-  /** Empties card `i`, host card included: an emptied card gives its colour back. */
+    // Empties card `i`, host card included: an emptied card gives its colour back.
   removeSeat: (i: number) => void;
   renamePlayer: (i: number, name: string) => void;
-  /** Clears every card: call when entering the sub-lobby so a fresh room never inherits seats from a previous session. */
+    // Clears every card: call when entering the sub-lobby so a fresh room never inherits seats from a previous session.
   resetSeats: () => void;
-  /** False until the host is seated: every other card is added after the host's colour is theirs. */
+    // False until the host is seated: every other card is added after the host's colour is theirs.
   startGame: () => boolean;
   roll: () => void;
   endTurn: () => void;
@@ -283,27 +265,27 @@ type AppState = {
   setTheme: (t: ThemeType) => void;
   lang: Lang;
   setLang: (l: Lang) => void;
-  /** True when a notification card closes itself (22.5). Off means it stays until
-   * its `x`, and it governs the boot report as well as the live cards. Stored
-   * under `lr.notifAutoClose`, on when the key is absent. */
+    // True when a notification card closes itself (22.5). Off means it stays until
+  // its `x`, and it governs the boot report as well as the live cards. Stored
+  // under `lr.notifAutoClose`, on when the key is absent.
   notifAutoClose: boolean;
   setNotifAutoClose: (on: boolean) => void;
   setPlaying: (playing: boolean) => void;
-  /** The session socket, or null while signed out (a guest never opens one).
-   * Presence rides on it; screens subscribe to its pushes. */
+    // The session socket, or null while signed out (a guest never opens one).
+  // Presence rides on it; screens subscribe to its pushes.
   sessionSocket: SessionSocket | null;
-  /** The last site-wide online count the socket pushed. The badge's only source
-   * (D11): there is no REST read, and it survives a screen remount because this
-   * listener lives as long as the connection. Null until the first push. */
+    // The last site-wide online count the socket pushed. The badge's only source
+  // (D11): there is no REST read, and it survives a screen remount because this
+  // listener lives as long as the connection. Null until the first push.
   onlineCount: number | null;
-  /** Whether the session socket is up right now. The chat composer is disabled
-   * while it is not: an emit made offline would be queued and land minutes later. */
+    // Whether the session socket is up right now. The chat composer is disabled
+  // while it is not: an emit made offline would be queued and land minutes later.
   sessionConnected: boolean;
-  /** The public channel's transcript, oldest first, at most `CHAT_HISTORY` lines. Held
-   * above the panel so a collapsed channel and `/game` both keep it current. */
+    // The public channel's transcript, oldest first, at most `CHAT_HISTORY` lines. Held
+  // above the panel so a collapsed channel and `/game` both keep it current.
   chatLog: ChatMessage[];
-  /** Sends one line to the public channel. The ack reports a refusal (too long,
-   * too soon, empty, or the transport being down) for the panel's status line. */
+    // Sends one line to the public channel. The ack reports a refusal (too long,
+  // too soon, empty, or the transport being down) for the panel's status line.
   sendChat: (text: string, done?: (reply: ChatAck) => void) => void;
   activeMatch: ActiveMatch;
   setActiveMatch: (match: ActiveMatch) => void;
@@ -338,7 +320,7 @@ function storedSeats(): Seat[] {
     if (parsed.some((seat, i) => seat?.type !== 'empty' && seats[i].type === 'empty')) return emptySeats();
     return seats;
   } catch {
-    /* a corrupt value is a fresh roster */
+        // a corrupt value is a fresh roster
     return emptySeats();
   }
 }
@@ -578,11 +560,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // the connect-time emit happens once per connection, so a listener owned by the
   // connection cannot miss it the way a per-mount one would after a navigation.
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
-  // The public channel's transcript (queue item 3), and whether the socket is up.
-  // Both live here rather than in the dock's panel: the channel can be switched
-  // off, and most screens render no panel at all, but the log must not lose a line
-  // and the composer must know if a send is possible. The ring itself is
-  // `useChatFeed`'s (19.8), capped at `CHAT_HISTORY`.
+    // The public channel's transcript (queue item 3), and whether the socket is up. Both live here
+  // rather than in the dock's panel: the channel can be switched off, and most screens render no
+  // panel at all, but the log must not lose a line and the composer must know if a send is possible.
   const {
     lines: chatLog,
     replace: replaceChatLog,
@@ -629,10 +609,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
     socket.on('disconnect', () => setSessionConnected(false));
 
-    // The transcript. The connect-time history replaces the ring, a live line
-    // appends to it, and the id merge that keeps the overlap between the two from
-    // painting the newest line twice is `useChatFeed`'s — the same hook the room's
-    // channel drives, so the two surfaces cannot order or dedupe differently.
+    // The transcript: connect-time history replaces the ring, live lines append, and
+    // `useChatFeed` owns the shared id dedupe and ordering.
     socket.on('chat:history', (messages) => replaceChatLog(messages));
     socket.on('chat:message', (message) => appendChatLog(message));
 
@@ -641,11 +619,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // first paint as well as its updates.
     socket.on('counts:online', (event) => setOnlineCount(event.count));
 
-    // The handshake is the one auth point on this transport (D4): the access
-    // token can be 15 minutes old by the time a reconnect reads the cookie, and
-    // only HTTP refreshes it. So a refused handshake refreshes and lets the
-    // client retry; persistent refusal means the session is gone, and signing out
-    // is better than looping against the refresh route.
+        // The handshake is the one auth point on this transport (D4): the access token can be 15 minutes
+    // old by the time a reconnect reads the cookie, and only HTTP refreshes it.
     let refused = 0;
     socket.on('connect_error', (error) => {
       if (error.message !== 'Authentication required' && error.message !== 'Invalid token') return;

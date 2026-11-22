@@ -283,5 +283,5 @@ before the fields existed behaves exactly as it did and no migration exists.
 | `LudoEngine` | Rolls the dice and executes moves |
 | `RedisGameStore` | Loads/saves game state |
 | `BoardMapper` | `isSafeZoneStep()` used in move scoring, `parsePieceId()` for the tie order's piece index |
-| `common/src/wall-breaker.constants.ts` | `WALL_BREAKER_TOKEN_CAP`, via `WALL_BREAKER_TOKEN_CAP` re-export: the cap that opens the surplus appetite band |
+| `common/src/clash.constants.ts` | `WALL_BREAKER_TOKEN_CAP`: the cap that opens the surplus appetite band |
 | `socket/auth.ts` | `BOT_PREFIX`: the namespace a bot seat's id is minted in; a seat's kind is never read from it |

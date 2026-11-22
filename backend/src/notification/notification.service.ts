@@ -48,10 +48,9 @@ type Deliver = (target: string | 'all', event: NotificationPayload) => void;
 const UNREAD_CAP = 60;
 const NOTIFICATION_TTL_S = 14 * 24 * 60 * 60;
 
-// One write: the entry, its unread index, both TTLs and the trim, in one round
-// trip. The trim runs server-side, so a second tab cannot push the set past the
-// cap between two client calls. The score is createdAt in ms, stamped once, so
-// the order and the payload cannot disagree.
+// One atomic write: entry, unread index, both TTLs and the trim. The server-side trim
+// stops a second tab from exceeding the cap; one `createdAt` score keeps order and
+// payload in step.
 const WRITE_NOTIFICATION = `
 local hash = KEYS[1]
 local unread = KEYS[2]

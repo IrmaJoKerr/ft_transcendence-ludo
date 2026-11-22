@@ -2,11 +2,9 @@
    APP - the shell rule, keyframes, fieldsets and components
    ========================================================================== */
 
-/* Everything here is app, not era: no palette lives in this file. The two theme
-   tables and the tokens derived from them are `theme-base.css`, loaded before this
-   sheet by `main.tsx`, and `--fs-*` arrives from there too. A colour spelled in this
-   file is a literal the sweep reports unless it is on its inventory, so read a token
-   instead (`Test-harnesses/style-gates/check-theme-literals.mjs`, run by hand). */
+/* Everything here is app, not era: no palette lives in this file. The two theme tables and the
+   tokens derived from them are `theme-base.css`, loaded before this sheet by `main.tsx`, and
+   `--fs-*` arrives from there too. */
 /* --------------------------------------------------------------------------
    GLOBAL & RESET STYLES
    -------------------------------------------------------------------------- */
@@ -87,11 +85,7 @@ body {
    HYPERSPACE COMMS SCREEN (components/LobbyChat.tsx)
    -------------------------------------------------------------------------- */
 
-/* The dock's chat screen is one plate in both states: black glass with a hairline
-   edge. Throwing the switch does not resize it — a dock that reflows when a
-   decoration toggles drags the page sideways and re-wraps every column under the
-   reader — so the plate stays where it is and the picture lights up inside it,
-   the way a CRT raster opens from a line to a frame. */
+/* The dock's chat screen is one plate in both states: black glass with a hairline edge. */
 .chat-screen {
   position: relative;
   background: rgb(var(--shade-rgb));
@@ -244,12 +238,8 @@ body {
   }
 }
 
-/* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath
-   of the keyframe above, no second keyframe to tune and keep distinct. The gate is
-   the stylesheet's own `prefers-reduced-motion` query rather than a third hook in
-   the overlay (the room keeps ONE gate, and it is CSS): with reduced motion the
-   line simply stays lit for the 700 ms it is visible, which is what it did before
-   the pulse existed. The sting beside it is audio, so it follows the mute switch. */
+/* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath of the keyframe
+   above, no second keyframe to tune and keep distinct. */
 .clash-switch-warn {
   animation: none;
 }
@@ -264,22 +254,17 @@ body {
    THE DIE (components/Die.tsx)
    -------------------------------------------------------------------------- */
 
-/* The 80s face's bloom (38): a `box-shadow` on the face itself, never an SVG filter. The
-   app carries no `<filter>` anywhere, six blurred faces inside a tumbling `preserve-3d`
-   transform is a per-frame cost, and a filter would want an id namespace the six faces
-   would share. One rule for the cube's faces and the roster's 38 px one, because both are
-   the same component. */
+/* The 80s face's bloom (38): a `box-shadow` on the face itself, never an SVG filter. The app
+   carries no `<filter>` anywhere, six blurred faces inside a tumbling `preserve-3d` transform is
+   a per-frame cost, and a filter would want an id namespace the six faces would share. */
 .die-face[data-era='retro80'] {
   box-shadow:
     0 0 9px rgb(var(--accent-cyan-rgb) / 0.45),
     inset 0 0 10px rgb(var(--accent-pink-rgb) / 0.22);
 }
 
-/* The cube's turn is an inline `transition`, because each act carries its own duration
-   and easing (38.1). The gate is still this stylesheet's: with reduced motion the cube
-   steps to each act's end instead of tumbling between them — the spin is four beats, so it
-   steps four times inside the one act — and the face the engine sent still lands on time,
-   with no fourth hook to keep in step with the other three. */
+/* The cube's turn is an inline `transition`, because each act carries its own duration and
+   easing (38.1). */
 @media (prefers-reduced-motion: reduce) {
   .die-cube {
     transition: none !important;

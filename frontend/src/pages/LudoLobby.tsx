@@ -49,12 +49,9 @@ type MatchResult = {
 
 const ROOM_AVATAR_HUES = [COL.red.base, COL.green.base, COL.yellow.base, COL.blue.base];
 
-/**
- * The corners a room still offers, narrowed to the palette's key type. A room that
- * lists none is full; a code that matches no listed room has no list at all, so the
- * palette offers every corner and the server answers MATCH_COLOR_TAKEN if one is
- * gone (the claim is final either way).
- */
+// The corners a room still offers, narrowed to the palette's key type. A room that lists none is
+// full; a code that matches no listed room has no list at all, so the palette offers every corner
+// and the server answers MATCH_COLOR_TAKEN if one is gone (the claim is final either way).
 function claimableColors(free?: string[]): ColorKey[] {
   const pool = free ?? SEAT_COLORS;
   return SEAT_COLORS.filter((color) => pool.includes(color));
@@ -105,11 +102,9 @@ function modeChipStyle(hue: string): React.CSSProperties {
   };
 }
 
-/**
- * The header's two reference buttons (34, item 2). They wear the small bordered
- * control the rooms list already uses — the ACCESS ROOM button beside them — so
- * neither reads as a new surface, and both are era-neutral because the words are.
- */
+// The header's two reference buttons (34, item 2). They wear the small bordered
+// control the rooms list already uses — the ACCESS ROOM button beside them — so
+// neither reads as a new surface, and both are era-neutral because the words are.
 const HEADER_ACTION_STYLE: CSSProperties = {
   height: 32,
   padding: '0 14px',
@@ -128,11 +123,9 @@ const HEADER_ACTION_STYLE: CSSProperties = {
   cursor: 'pointer',
 };
 
-/**
- * MODES cell: "Base Game" alone, or the active mutators only. The full names are
- * also on the cell's `title`, so a chip clipped by a narrow column still resolves
- * to something readable (a hover-only "i" would leave touch users with nothing).
- */
+// MODES cell: "Base Game" alone, or the active mutators only. The full names are
+// also on the cell's `title`, so a chip clipped by a narrow column still resolves
+// to something readable (a hover-only "i" would leave touch users with nothing).
 function RoomModes({ room }: { room: Room }) {
   const { t } = useTranslation();
   const active = ROOM_MODES.filter((mode) => room[mode.key]);
@@ -140,10 +133,8 @@ function RoomModes({ room }: { room: Room }) {
     ? active.map((mode) => t(mode.label)).join(' · ')
     : t('ludoLobbyPasses.modeBase');
 
-  // All four mutators would otherwise wrap 3 + 1 in the wide MODES column; a
-  // two-column grid lays them out 2 + 2 instead, which reads more symmetric.
-  // Rooms with fewer mutators keep a single wrapping line, so a pair is shown
-  // side by side and a lone chip is never split off onto its own row.
+    // All four mutators would otherwise wrap 3 + 1 in the wide MODES column; a two-column grid lays
+  // them out 2 + 2 instead, which reads more symmetric.
   const twoColumns = active.length === 4;
 
   return (
@@ -171,18 +162,16 @@ function RoomModes({ room }: { room: Room }) {
     </div>
   );
 }
-// The three passes end in the same control in three colours, so the three pills
-// share one width: the widest of the labels the active language can produce.
-// Each pill stacks all of those labels in one grid cell, hidden, so the cell —
-// and with it the pill — is as wide as the longest one. Nothing is measured and
-// no number is stored, so a new translation or a longer label needs no code.
+// The three passes end in the same control in three colours, so the three pills share one width:
+// the widest of the labels the active language can produce. Each pill stacks all of those labels
+// in one grid cell, hidden, so the cell — and with it the pill — is as wide as the longest one.
 interface PassActionPillProps {
   label: string;
-  /** Every label the three pills can show, in the active language. */
+    // Every label the three pills can show, in the active language.
   probes: string[];
-  /** The pill's tone: its border, ground and ink. */
+    // The pill's tone: its border, ground and ink.
   className?: string;
-  /** A computed remainder the caller owns (the host pill dims itself while busy). */
+    // A computed remainder the caller owns (the host pill dims itself while busy).
   style?: CSSProperties;
 }
 
@@ -277,10 +266,9 @@ export function LudoLobby() {
     fetchHasActiveGame();
   }, []);
 
-  // The push half. `rooms:list` is already filtered for this viewer, so the rows
-  // drop straight in; `rooms:mine` answers the "active game" lock. A reconnect
-  // refetches once, because the broadcaster only emits a diff and the socket may
-  // have missed a change while it was down.
+    // The push half. `rooms:list` is already filtered for this viewer, so the rows drop straight in;
+  // `rooms:mine` answers the "active game" lock. A reconnect refetches once, because the broadcaster
+  // only emits a diff and the socket may have missed a change while it was down.
   useEffect(() => {
     if (!sessionSocket) return;
     const onRooms = (rooms: Room[]) => setRooms(rooms);
@@ -309,11 +297,8 @@ export function LudoLobby() {
     setError(null);
     retroAudio.playUiBeep(920, 0.08);
     try {
-      // A PvP room is created with the standard rules (false/false/false: clash
-      // off, free exit off, safe zones ON, stored inverted). The host flips them
-      // from the room's rules panel, which is where the wire carries the object.
-      // `hostColor` is the corner the host picked: the room is theirs, so their
-      // seat is written at that colour's slot and the other three stay claimable.
+            // A PvP room is created with the standard rules (false/false/false: clash off, free exit off, safe
+      // zones ON, stored inverted).
       const res = await postApi<MatchResult>('/api/match/pvp/invite', {
         hostColor,
         clashEnabled: false,
@@ -481,11 +466,8 @@ export function LudoLobby() {
     };
   };
 
-  // A friend invite lands here as `?join=<code>`: the accept path in the notification
-  // bell/toast carries the room, not a seat, so the invitee claims a corner exactly
-  // like a hand-typed code. It waits for the first room snapshot, because that is
-  // what tells the palette which corners the room still offers; the ref makes it
-  // one-shot, so closing the palette does not reopen it on the next render.
+    // A friend invite lands here as `? join=<code>`: the accept path in the notification bell/toast
+  // carries the room, not a seat, so the invitee claims a corner exactly like a hand-typed code.
   const handledJoinCode = useRef<string | null>(null);
   useEffect(() => {
     const code = (query.get('join') ?? '').trim().toUpperCase();

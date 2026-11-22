@@ -41,10 +41,8 @@ export class MatchController {
     @Body('clashKeyShift') clashKeyShift?: 0 | 1 | 2,
     // The attack animations: a positive flag, ON only for a literal `true`.
     @Body('captureFx') captureFx?: boolean,
-    // The host's own corner. The room browser asks for it before the room exists,
-    // so the host's colour is theirs before anybody can claim another one; the
-    // remaining three corners stay free for joiners. Required at runtime, never
-    // defaulted: the service refuses a call that omits it (MATCH_INVALID_COLOR).
+    // Host's corner, chosen before the room exists so joiners cannot take it. Required
+    // at runtime; the service refuses an omitted value (MATCH_INVALID_COLOR).
     @Body('hostColor') hostColor?: string,
   ) {
     return this.match.createInvite(
@@ -214,10 +212,8 @@ export class MatchController {
     return this.match.recordAbandonedSeat(gameId, body);
   }
 
-  // The caller's own result for this match, answered from the database: the signal a
-  // client makes when it can no longer join (a refused join_game, a reconnect that
-  // failed, a mount whose match is already terminal). It is the only way a seat that
-  // was away when the room ended learns the outcome.
+  // Caller's result for this match, read from the database. A client asks when it can no
+  // longer join; this is how an away seat learns the outcome after the room ended.
   @UseGuards(JwtAuthGuard)
   @Throttle(MATCH_THROTTLE.result)
   @Get('api/game/:id/result')

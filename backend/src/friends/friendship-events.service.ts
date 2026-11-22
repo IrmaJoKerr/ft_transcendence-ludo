@@ -40,15 +40,9 @@ type ProfileRow = {
   stats: { rating: number } | null;
 };
 
-// The publisher for `friendship:changed` (socket D2). A leaf module on purpose:
-// the trigger sites span friends, auth, user and match, and MatchModule already
-// imports AuthModule, so a publisher inside FriendsModule would close that cycle.
-//
-// `publishPair` emits both directions of a changed row; `publishSubject` emits an
-// `accepted` record to every accepted friend when the account's own row changes
-// (display name, avatar, postgame rating). Both are best effort: a live-update
-// failure is logged and never fails the write that caused it. Nothing is built
-// when no recipient has a live presence row (D2's zero-watcher rule).
+// Publisher for `friendship:changed`. A leaf module avoids a FriendsModule cycle
+// across friends, auth, user and match. `publishPair` sends both directions;
+// `publishSubject` sends accepted rows to friends. Delivery is best effort.
 @Injectable()
 export class FriendshipEventsService {
   constructor(

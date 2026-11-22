@@ -1,7 +1,5 @@
-// The five room rules in one place: the wire names (`clashEnabled`, `noSafeZones`,
-// `freeExit`, `clashKeyShift`, `captureFx`), the `match:*` hash keys the engine
-// reads, the defaulting rule and the polarity. A standard room is clash off, free
-// exit off, safe zones on, no key switch, no attack animations.
+// The five room rules in one place: wire names, `match:*` keys, defaulting and polarity.
+// Standard room: clash off, free exit off, safe zones on, no key switch, no attack FX.
 export type RoomRules = {
   clashEnabled: boolean;
   noSafeZones: boolean;
@@ -9,19 +7,14 @@ export type RoomRules = {
   // How many times the required letter changes mid-clash (0, 1 or 2). Forced to 0
   // whenever clash mode is off, so the two can never disagree.
   clashKeyShift: 0 | 1 | 2;
-  // The attack animations: a positive flag, ON only for a literal `true`, and
-  // independent of clash mode (a plain room may want it, and a clash room's captures
-  // outside a clash still show it). It is the ONE gate on every act of the result card
-  // in every mode (25.7), so a clash room with it off shows the text-only card. No
-  // clamp: a boolean has no edges.
+  // Attack animations: ON only for literal `true`, independent of clash mode. This is the
+  // one gate on every result-card act, so off means the text-only card.
   captureFx: boolean;
 };
 
-// The key-shift count, clamped. Same body as the engine's `clampClashKeyShift`
-// (`backend/app/ludo-engine/src/engine.ts`): the two are separate packages with no
-// shared import path, so `room-rules-harness.ts` asserts they agree value for value.
-// The guest route passes a validated DTO, but the other create routes read one
-// `@Body('x')` at a time with no ValidationPipe, so anything can arrive here.
+// Clamp the key-shift count. The engine has the same body in a separate package, so the
+// room-rules harness asserts both agree. Input is untrusted: create routes read one body
+// field at a time with no ValidationPipe.
 export function clampClashKeyShift(raw: unknown, clashEnabled: boolean): 0 | 1 | 2 {
   if (!clashEnabled) return 0;
   const n =

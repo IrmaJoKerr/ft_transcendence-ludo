@@ -2,83 +2,44 @@ import type { ThemeType } from './store';
 import cityscapeArt from './styles/themes/retro80/80s-Synthwave-Cityscape.jpg';
 import colonyArt from './styles/themes/retro70/1970s-Orbital-Colony.jpg';
 
-/**
- * A circle on the still: `cx` and `r` as fractions of the art's own width, `cy` as a
- * fraction of its height.
- *
- * The 70s poster has two: the porthole the colony looks through, and the planet hung
- * inside it. Both are measured off the artwork rather than guessed on the card, and
- * `plateCircle` converts them through the same `placePlate` the still is drawn with,
- * so a card that crops the still differently still puts them where the picture has
- * them.
- */
+// A circle on the still: `cx` and `r` as fractions of the art's own width, `cy` as a fraction of
+// its height.
 export type PlateCircle = { cx: number; cy: number; r: number };
 
-/**
- * The still a card is painted on.
- *
- * Both eras wear one, and this is the whole of the artwork either card has: the
- * cityscape and the colony are each a 1264×848 file sitting beside its own theme's
- * table (todo.md 33, decision 19), and `sceneArt` reads this field rather than a
- * per-kind branch.
- *
- * The two numbers are one placement: the art row `horizon` (as a fraction of its
- * height) is put on the card row `at`. The 80s card anchors its skyline on the card's
- * own horizon, so the drawn fallback and the still agree about where the ground
- * starts; the 70s card has no horizon to align to, so it pins the art's top edge to
- * the card's (todo.md 34, decision 7).
- */
+// The still a card is painted on.
 export type HeroPlate = {
   src: string;
-  /** The art row, as a fraction of its height, that is put on the card row `at`. */
+    // The art row, as a fraction of its height, that is put on the card row `at`.
   horizon: number;
-  /** The card row that row lands on. */
+    // The card row that row lands on.
   at: number;
-  /** Two stops over the plate, top first. A plate is dimmed under the chrome that
-   *  reads on it, and this is the era's own ink. */
+    // Two stops over the plate, top first. A plate is dimmed under the chrome that
+  //  reads on it, and this is the era's own ink.
   dim: readonly [string, string];
 };
 
-/**
- * The synthwave attract mode: a sunset, a strafing starfield and a horizon grid.
- *
- * This is the palette that used to be an inline `cfg` inside `Home.tsx`'s effect,
- * moved out unchanged so a second theme can sit beside it. Every value is the one
- * that shipped: the colours here are the only thing a painter reads from a scene —
- * geometry stays in `heroBackdrops.ts`, where the literals are still visible next
- * to the drawing calls that use them.
- *
- * Already renamed for the artwork, not the theme: `kind` names a drawing (its
- * sibling is `'70s-Colony'`), so the name leads with the era while the theme id is
- * `retro80` (todo.md 33, decision 18).
- */
+// The synthwave attract mode: a sunset, a strafing starfield and a horizon grid.
 export type Synthwave80sScene = {
   kind: '80s-Synthwave';
   bgTop: string;
   bgMid: string;
   bgBot: string;
-  /**
-   * The card's own still: the cityscape the shell wears as its ground, which is
-   * the same shot the drawn sunset below approximates. The painter lays it over
-   * the gradient and retires the sun and the grid while it is up, because art
-   * that already carries a sun, a skyline and a grid must not be given a second
-   * of each. The drawn card is what shows until this decodes, and forever if it
-   * never does.
-   */
+        // The card's own still: the cityscape the shell wears as its ground, which is the same shot the
+    // drawn sunset below approximates.
   plate: HeroPlate;
-  /** The disc: its centre is the card's midline (360 of 720) and its rim is `r`. */
+    // The disc: its centre is the card's midline (360 of 720) and its rim is `r`.
   sun: { y: number; r: number; c1: string; c2: string; scanline: string };
-  /** The perspective grid's stroke, drawn below `horizonY`. */
+    // The perspective grid's stroke, drawn below `horizonY`.
   gridColor: string;
-  /** Where the ground starts: the grid's vanishing line and the starfield's floor. */
+    // Where the ground starts: the grid's vanishing line and the starfield's floor.
   horizonY: number;
-  /** How many stars drift across the sky. */
+    // How many stars drift across the sky.
   starCount: number;
   starfield: string;
   marqueeColor: string;
 };
 
-/** The 80s card. Values verbatim from `Home.tsx` before the split. */
+// The 80s card. Values verbatim from `Home.tsx` before the split.
 export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
   kind: '80s-Synthwave',
   bgTop: '#070114',
@@ -107,62 +68,40 @@ export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
   marqueeColor: '#00f0ff',
 };
 
-/**
- * The 70s attract mode: the orbital colony itself, full bleed, with a few rocks
- * tumbling across its sky.
- *
- * The card was a drawn walnut lounge with the colony seen through a porthole until
- * todo.md 34: the still is what the era is about, and showing it through a 572×200
- * window at 0.82 alpha showed a picture of a picture. Now it is the ground, painted
- * by the same `paintPlate` the 80s card uses, and the only things drawn over it are
- * the stones, the streaks and the marquee.
- *
- * The still is 1264×848, the cityscape's size, so on this 720×400 card it covers at
- * 720×483 and 83 of its rows cannot fit: the placement spends them on the tiled
- * floor's front edge rather than on the porthole's crown (todo.md 34, decision 7).
- *
- * Only what varies lives here: the fallback sky, the two counters, the cream the
- * stones are drawn in and the marquee's colour. Geometry is the painter's.
- */
+// The 70s attract mode: the orbital colony itself, full bleed, with a few rocks tumbling across
+// its sky.
 export type Colony70sScene = {
   kind: '70s-Colony';
-  /**
-   * The ground the card shows before its still decodes, and forever if it never
-   * does: the retired room's sky, which is the darkest ground this era has. Three
-   * stops, top first, so a failed still is a night sky rather than a blank card.
-   */
+    // The ground the card shows before its still decodes, and forever if it never
+  // does: the retired room's sky, which is the darkest ground this era has. Three
+  // stops, top first, so a failed still is a night sky rather than a blank card.
   bgTop: string;
   bgMid: string;
   bgBot: string;
-  /** The colony still: its top edge on the card's top edge (decision 7). */
+    // The colony still: its top edge on the card's top edge (decision 7).
   plate: HeroPlate;
-  /**
-   * The porthole the colony looks out through, in the still's own fractions: the
-   * circle the traffic is confined to. Measured off the artwork (centre 633, 453 of
-   * 1264×848, radius 390), where the cream ring's inner edge closes the window.
-   */
+    // The porthole the colony looks out through, in the still's own fractions: the
+  // circle the traffic is confined to. Measured off the artwork (centre 633, 453 of
+  // 1264×848, radius 390), where the cream ring's inner edge closes the window.
   porthole: PlateCircle;
-  /**
-   * The gas giant hung in that porthole, same units (centre 642, 242, radius 141). The
-   * traffic passes in front of it, so the frame mask is cleared over this disc: the
-   * planet is sky, not frame, and rock in front of it is the one place a stone may
-   * cross something bright.
-   */
+        // The gas giant hung in that porthole, same units (centre 642, 242, radius 141). The traffic
+    // passes in front of it, so the frame mask is cleared over this disc: the planet is sky, not
+    // frame, and rock in front of it is the one place a stone may cross something bright.
   planet: PlateCircle;
-  /** How many pinpricks the fallback sky is seeded with. They do not drift: they
-   *  stand in for the still's own stars rather than animate. */
+    // How many pinpricks the fallback sky is seeded with. They do not drift: they
+  //  stand in for the still's own stars rather than animate.
   starCount: number;
   starfield: string;
-  /** How many streaks cross the sky, and how many stones tumble across it. */
+    // How many streaks cross the sky, and how many stones tumble across it.
   meteorCount: number;
   rockCount: number;
-  /** The cream both are drawn in, as the channels an `rgba()` needs. */
+    // The cream both are drawn in, as the channels an `rgba()` needs.
   meteorColor: string;
   marqueeColor: string;
 };
 
-/** The 70s card. Geometry is the painter's; see `seedMeteor` and `seedRock` for the
- *  band both streaks and stones drift in. */
+// The 70s card. Geometry is the painter's; see `seedMeteor` and `seedRock` for the
+//  band both streaks and stones drift in.
 export const RETRO70_CFG: Colony70sScene = {
   kind: '70s-Colony',
   bgTop: '#07060e',
@@ -190,23 +129,16 @@ export const RETRO70_CFG: Colony70sScene = {
   marqueeColor: '#ffb000',
 };
 
-/** Every card: one scene per theme, discriminated on `kind`. */
+// Every card: one scene per theme, discriminated on `kind`.
 export type HeroScene = Synthwave80sScene | Colony70sScene;
 
-/** The scene a theme paints. One map, so a new `ThemeType` cannot ship unpainted. */
+// The scene a theme paints. One map, so a new `ThemeType` cannot ship unpainted.
 export const HERO_SCENES: Record<ThemeType, HeroScene> = {
   retro80: SYNTHWAVE_80S_CFG,
   retro70: RETRO70_CFG,
 };
 
-/**
- * The still a scene is made of: the colony, the city's skyline. Each file sits in its
- * own theme's folder beside that theme's table (todo.md 33, decision 19), and this is
- * the one place that knows which is which — the hook preloads what this names, and
- * each painter places it its own way through `plate`. A painter importing an asset
- * itself would put the path in two modules, and swapping one era's still would then be
- * a two-file edit.
- */
+// The still a scene is made of: the colony, the city's skyline.
 export function sceneArt(scene: HeroScene): string {
   return scene.plate.src;
 }

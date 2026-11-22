@@ -47,10 +47,8 @@ export class AuthProfileService {
     if (!user)
       throw new UnauthorizedException({ code: 'USER_NOT_FOUND', message: 'User not found' });
 
-    // Repair the avatar-meta cache from this row: /me is the payload every session
-    // loads, so the cached flag follows the stored row at no extra query cost.
-    // Await it so the repair has landed before `publicUser` answers, but keep no
-    // stamp: /me reports the stored flag, and the stamp is the profile read's job.
+    // Repair the avatar-meta cache from this row before `publicUser` answers, at no extra
+    // query cost. No stamp: /me reports the stored flag; the profile read owns the stamp.
     await this.avatarMeta.syncFromUser(user);
 
     return { user: await this.access.publicUser(user) };

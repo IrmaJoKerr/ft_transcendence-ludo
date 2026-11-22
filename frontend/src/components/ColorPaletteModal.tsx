@@ -5,8 +5,8 @@ import { BOARD_QUADRANTS, COL, COLOR_KEYS, SEAT_COLORS, type ColorKey } from '..
 import { retroAudio } from '../utils/audio';
 import { RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, RETRO_BTN } from '../styles/tw';
 
-/** Where each corner sits in the picker's 2×2 (viewBox units, row-major): the
- *  board draws red/green on top and blue/yellow below. */
+// Where each corner sits in the picker's 2×2 (viewBox units, row-major): the
+//  board draws red/green on top and blue/yellow below.
 const CORNER_XY: Record<ColorKey, [number, number]> = {
   red: [18, 18],
   green: [82, 18],
@@ -14,15 +14,15 @@ const CORNER_XY: Record<ColorKey, [number, number]> = {
   yellow: [82, 82],
 };
 
-/** The turn-order ring: `SEAT_COLORS` is the rotation, so the numerals and the
- *  arcs are both derived from it and a rule change moves the diagram with it. */
+// The turn-order ring: `SEAT_COLORS` is the rotation, so the numerals and the
+//  arcs are both derived from it and a rule change moves the diagram with it.
 const RING = SEAT_COLORS.map((color) => CORNER_XY[color]);
 const RING_CENTRE = 50;
 const NODE_RADIUS = 9;
 
-/** One arrow of the ring: bowed away from the middle, so the ring reads as a
- *  pillow rather than a pinch, and stopping short of both nodes, so it never
- *  runs under a coloured ring. */
+// One arrow of the ring: bowed away from the middle, so the ring reads as a
+//  pillow rather than a pinch, and stopping short of both nodes, so it never
+//  runs under a coloured ring.
 function ringSegment(from: [number, number], to: [number, number], hue: string, key: string) {
   const midX = (from[0] + to[0]) / 2;
   const midY = (from[1] + to[1]) / 2;
@@ -68,26 +68,15 @@ function ringSegment(from: [number, number], to: [number, number], hue: string, 
 interface ColorPaletteModalProps {
   isOpen: boolean;
   title: string;
-  /** The colours still free, already filtered: a taken colour is never offered. */
+    // The colours still free, already filtered: a taken colour is never offered.
   colors: ColorKey[];
   onPick: (color: ColorKey) => void;
   onCancel: () => void;
 }
 
-/**
- * The colour picker for one seat. It lists the free corners only, so the picker
- * cannot produce a duplicate, and a pick is final: it closes on the first click,
- * with no confirm step and no swap afterwards (`select_color` is gone).
- *
- * The grid is the board's own 2×2 — `BOARD_QUADRANTS`, with a corner that is not
- * on offer drawn as an inert slot so a colour keeps its position. The left column
- * carries the turn-order diagram, ringed and numbered from `SEAT_COLORS`, so the
- * order is visible instead of implied.
- *
- * Layout follows `LegalModal` (portal over the page, `RETRO_WINDOW` shell, Escape
- * and a backdrop click cancel), because this is opened from a screen whose own
- * windows use that chrome.
- */
+// The colour picker for one seat. It lists the free corners only, so the picker cannot produce a
+// duplicate, and a pick is final: it closes on the first click, with no confirm step and no swap
+// afterwards (`select_color` is gone).
 export function ColorPaletteModal({
   isOpen,
   title,

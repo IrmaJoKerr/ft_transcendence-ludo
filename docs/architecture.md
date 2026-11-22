@@ -563,7 +563,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   └── src/
 │       ├── chat.constants.ts     # 300 chars, 2 s cooldown, 500/1000 rows, 400-line fallback, 3 h TTL, chatLength()
 │       ├── timing.constants.ts   # the twenty-six timings: clash windows, the scene's acts, the card lengths (the goal's four among them), step and dice animation, and the room's 3 h idle window
-│       └── wall-breaker.constants.ts # the token every seat is dealt, and the hand's ceiling
+│       └── clash.constants.ts    # tablet tap weight, the token every seat is dealt, and the hand's ceiling
 │
 ├── backend/                      # NestJS REST API (port 3000)
 │   ├── Dockerfile

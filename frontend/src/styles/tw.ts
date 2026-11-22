@@ -57,12 +57,9 @@ export const RETRO_AUTH_MUTED =
 // Shared "page shell"
 export const CRT_SCREEN = 'relative z-10 min-h-screen';
 
-// The era plate is the shell's: `html, body` paints `--shell-image` (dimmed,
-// rearmost, every UI surface in front of it), so no route mounts a backdrop any
-// more and this layer paints no ground at all. What it still is, is the fixed
-// frame the 80s converging grid hangs in: `STATIC_GRID` is absolute and wants a
-// viewport-sized positioned parent. Home is its only reader (todo.md section 33,
-// step 3).
+// The era plate is the shell's: `html, body` paints `--shell-image` (dimmed, rearmost, every UI
+// surface in front of it), so no route mounts a backdrop any more and this layer paints no ground
+// at all.
 export const GRID_BACKGROUND = 'fixed inset-0 z-[0] pointer-events-none';
 
 // The old isometric background, frozen: converging perspective lines that
@@ -132,10 +129,9 @@ export const TICKET_YELLOW =
 export const TICKET_GREEN =
   'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgb(var(--accent-pink-rgb)/.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
-// The right-hand action pill inside a pass. The 1.5 px transparent border is not
-// decoration: all three pills share one width (the widest label, see
-// `PassActionPill`), and a pill without a border would be 3 px narrower than the
-// two with one. Pills that want a coloured edge override only the colour.
+// The right-hand action pill inside a pass. The 1.5 px transparent border is not decoration: all
+// three pills share one width (the widest label, see `PassActionPill`), and a pill without a
+// border would be 3 px narrower than the two with one.
 export const TICKET_ACTION_PILL =
   'inline-flex items-center justify-center py-3 px-6 rounded-md border-[1.5px] border-solid [border-color:var(--pill-border,transparent)] [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
 
@@ -161,13 +157,6 @@ export const ARCADE_START_SUB =
   '[font-family:var(--font-mono)] text-[0.82rem] text-(--accent-cyan) tracking-[0.5px]';
 
 // Column spans inside `DASHBOARD_GRID`.
-//
-// A divided dashboard collapses at 992 px, 288 px below where the dock changes
-// shape (1280). A docked page that divides therefore has to pick its own
-// breakpoint at 1280: below it the dock is a rail and the content jumps 181 px
-// wider, so a span that only collapses at 992 would hold a divided layout in
-// that range. LudoLobby does not divide — it is one stack (passes, then the rooms
-// window) — so it lays out as a flex column instead of a row of spans.
 export const COL_4 = 'col-span-4 max-[992px]:col-span-12';
 
 export const COL_8 = 'col-span-8 max-[992px]:col-span-12';
@@ -313,21 +302,12 @@ export const PAY_NOW_BTN =
   'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgb(var(--accent-pink-rgb)/.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-(--accent-cyan) hover:border-(--accent-cyan) hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_var(--accent-cyan)] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
 
 // OAuthButtons' provider button: the one survivor of `theme.ts`'s twelve `CSSProperties`
-// constants. It was `btnOutline` spread at the call site and then overridden there (font
-// 14, padding 11/10, a flex row), so this string writes the recipe the button actually
-// rendered: section 33's action D, which deleted the other eleven because nothing
-// imported them. The browns are the 70s palette's warm chrome and stay literals until
-// their own family lands.
+// constants.
 export const OAUTH_BTN =
   "flex items-center justify-center gap-2 cursor-pointer rounded-xl px-[10px] py-[11px] [border:1px_solid_#4a3826] text-[#e8dcc6] bg-[linear-gradient(180deg,#2b2118,#20180f)] [font:700_14px_'Atkinson_Hyperlegible_Next',sans-serif]";
 
-// Section 33, action A: the twelve recipes that passes 1 and 2 left in an inline `style`
-// and used in more than one place, as class strings. Each was a fully static object, so
-// nothing computed is being frozen into a class; the constant is the channel rule's
-// second rung, and the 30 sites that carried the recipe now read it instead of restating
-// it. The twelfth recipe - six paint-only `{ color: 'var(--text-main)' }` - needed no
-// constant, because `text-(--text-main)` is one utility. The 71 single-use recipes are
-// style objects by rule and are not here (todo.md section 33, the ruling).
+// Section 33, action A: the twelve recipes that passes 1 and 2 left in an inline `style` and used
+// in more than one place, as class strings.
 export const DISPLAY_TITLE =
   'text-[1.05rem] font-black leading-none text-(--text-main) [font-family:var(--font-display)]';
 

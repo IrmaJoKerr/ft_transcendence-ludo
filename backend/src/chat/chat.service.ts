@@ -121,7 +121,7 @@ export class ChatService implements OnModuleDestroy {
           messages.push(parsed);
         }
       } catch {
-        /* one bad line must not cost the transcript */
+        // one bad line must not cost the transcript
       }
     }
     return messages.reverse();

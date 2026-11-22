@@ -40,11 +40,8 @@ export function Friends() {
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-  // **STATE MANAGEMENT**
-  // One initial read, then `friendship:changed` drives all three lists (socket D2).
-  // There is no interval any more: a mutation refreshes the snapshot (though its
-  // own socket record usually lands first), and a reconnect or window focus is the
-  // repair path for anything a frame missed.
+    // STATE MANAGEMENT: one initial read, then `friendship:changed` drives all three lists
+  // (socket D2).
   const {
     friends: friendRows,
     requests: requestRows,
@@ -64,11 +61,9 @@ export function Friends() {
       }),
     [friendRows],
   );
-  // The bell's destinations name the tab (22.7 item 3): `?tab=friends` is the initial
-  // value, and a later change is adjusted during render because the bell is a portal —
-  // a second click while already here changes only the query, not the page. Clicking
-  // the tab by hand changes the state and not the URL: the param is a destination, not
-  // a mirror of the page.
+    // The bell's destinations name the tab (22.7 item 3): `? tab=friends` is the initial value, and a
+  // later change is adjusted during render because the bell is a portal — a second click while
+  // already here changes only the query, not the page.
   const { query } = useRoute();
   const tabParam = query.get('tab');
   const wantedTab = tabParam === 'friends' || tabParam === 'blocked' ? tabParam : null;
@@ -170,10 +165,8 @@ export function Friends() {
     retroAudio.playUiBeep(780, 0.06);
     const friend = friends.find((row) => row.id === friendId);
     const name = friend?.displayName ?? friend?.username ?? friendId;
-    // A duel, not a room (19.6): the corner is the one this caller will host in once
-    // the friend accepts, and nothing exists until they do. So the press answers with
-    // the challenge being out, and the room arrives later as a `challenge_accepted`
-    // frame — the toast, the bell, and the dock's rejoin banner all lead to it.
+        // A duel, not a room (19.6): the corner is the one this caller will host in once the friend
+    // accepts, and nothing exists until they do.
     const outcome = await challenge({ id: friendId, name }, { hostColor });
     if (!outcome.ok) {
       setMsg({
@@ -530,7 +523,7 @@ export function Friends() {
                         {t('friends.scanningFrequencies')}
                       </div>
                     ) : activeTab === 'friends' ? (
-                      /* **TAB 1: ALLIED FRIENDS STREAM** */
+                                            // TAB 1: ALLIED FRIENDS STREAM
                       filteredFriends.length === 0 ? (
                         <div
                           style={{
@@ -789,7 +782,7 @@ export function Friends() {
                           );
                         })
                       )
-                    ) : /* **TAB 2: BLOCKED LIST** */
+                    ) : // **TAB 2: BLOCKED LIST**
                     blocked.length === 0 ? (
                       <div
                         style={{

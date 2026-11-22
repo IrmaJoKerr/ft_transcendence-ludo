@@ -1,8 +1,10 @@
-// The clash QTE's tablet tap weight, shared by its two readers: the engine's
-// server-side clamp (`clash.ts`) and the client's touch pad (`ClashOverlay.tsx`).
-// One tap on a 3 cm circle is slower and less repeatable than a held key, so a pad
-// press is worth this many engine presses; the per-side press cap still gates the
-// rate, so the weight buys a heavier press, never a faster one. Written once here so
-// the wire and the clamp cannot drift: the tap the client sends is exactly the weight
-// the server accepts.
+// Clash tuning and the Wall Breaker hand, shared by the client and the engine.
+
+// One tablet tap is worth this many key presses; the press cap still gates rate.
 export const CLASH_TAP_COUNT = 2;
+
+// Tokens every seat is dealt at game start; one buys one landing on a wall.
+export const STARTING_WALL_BREAKER_TOKENS = 1;
+
+// Hand ceiling: three tokens; a clash won against one defender pays one back.
+export const WALL_BREAKER_TOKEN_CAP = 3;

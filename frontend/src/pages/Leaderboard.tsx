@@ -24,7 +24,7 @@ import {
 
 type LeaderboardEntry = {
   rank: number;
-  /** Immutable user id : the key avatars are looked up by. */
+    // Immutable user id : the key avatars are looked up by.
   id: string;
   username: string;
   displayName?: string;

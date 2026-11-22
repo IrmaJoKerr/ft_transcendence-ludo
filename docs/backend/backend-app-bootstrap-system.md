@@ -209,6 +209,11 @@ requireSecret(name) → process.env[name]  // throws when unset
 ---
 
 
+## Comment compression notes (2026-11-22)
+
+- `main.ts` installs the raised JSON parser first, for the engine result routes, then the default parser. Each predicate owns its URL half and accepts JSON only, so a multipart body reaches multer unread.
+- `common/redis-client.ts` exposes one `REDIS_CLIENT` token and factory. Modules inject the shared client and `RedisClientLifecycle` quits it on shutdown. Pub/sub needs no dedicated connection: ioredis enters subscriber mode per client, and these publishers only call `publish`.
+
 ## Dependencies
 
 | Dependency | Purpose |

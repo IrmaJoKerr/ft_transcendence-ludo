@@ -27,9 +27,6 @@ import {
 
 
 // The one room the rejoin row speaks for: a PvE or PvP seat the account still holds.
-// A hotseat room writes no match row, seats one device and belongs to no account, so
-// it never reaches the row; picking by mode rather than by `rooms[0]` also means a
-// hotseat row cannot hide a live simulation behind it.
 function rejoinableRoom(rooms: MyRoom[]): MyRoom | null {
   return rooms.find((room) => room.gameType === 'PVE' || room.gameType === 'PVP') ?? null;
 }
@@ -48,10 +45,10 @@ const NAV_LABEL_SAFETY_PX = 2; // kept free so rounding can't trigger ellipsis
 // mount rule is documented there.
 interface RetroNavbarProps {
   activeRoute?: string;
-  /** Under `WIDE_MIN_PX`: icon rail, no labels, and the chat slot as one glyph
-   *  rather than a screen. */
+    // Under `WIDE_MIN_PX`: icon rail, no labels, and the chat slot as one glyph
+  //  rather than a screen.
   isCompact: boolean;
-  /** The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`. */
+    // The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`.
   chatOn: boolean;
   onToggleChat: () => void;
   notifications?: Notification[];

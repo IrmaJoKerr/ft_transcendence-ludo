@@ -72,10 +72,9 @@ export function ResultsModal({
     };
   }, []);
 
-  // Abandoned seats keep their row (their name still reads) but never take a place:
-  // they sort after the seats that finished, and the badge rule below gives them none.
-  // A seat that kept its pieces-home count can otherwise out-rank the real winner of a
-  // room it had already left.
+    // Abandoned seats keep their row (their name still reads) but never take a place: they sort after
+  // the seats that finished, and the badge rule below gives them none. A seat that kept its
+  // pieces-home count can otherwise out-rank the real winner of a room it had already left.
   const ranked = [...result.players].sort((a, b) => {
     if (Boolean(a.abandoned) !== Boolean(b.abandoned)) return a.abandoned ? 1 : -1;
     return (b.piecesInGoal ?? 0) - (a.piecesInGoal ?? 0);

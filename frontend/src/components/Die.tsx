@@ -23,10 +23,6 @@ const PIP_MAP: Partial<Record<number, number[]>> = {
 };
 
 // A reading of the cube, and the spin carrying it: `rotateY(spin) rotateX(x) rotateY(y)`.
-// The spin leads because it is the turn about the vertical, the one axis the other two
-// cannot reach once the cube is standing on a corner — and every pose is written in all
-// three terms, because a transform list interpolates term by term only while both ends
-// are the same list, and the alternative is the browser blending whole matrices.
 type Turn = { x: number; y: number };
 type Pose = Turn & { spin: number };
 
@@ -38,36 +34,27 @@ const FULL = 360;
 const HALF_TURN = 180;
 const QUARTER = 90;
 
-// The stance a top stands in: a body diagonal on the vertical, which is the cube leaned
-// back by atan(√2) about the screen's horizontal axis and then a corner's own 45° across.
-// Both signs of the lean are that same stance — a cube has four corners on a diagonal — so
-// the act below picks whichever end is nearer the face the die already shows, which is what
-// keeps every roll's tip the same size.
+// The stance a top stands in: a body diagonal on the vertical, which is the cube leaned back by
+// atan(√2) about the screen's horizontal axis and then a corner's own 45° across.
 const CORNER_TILT = 54.7356;
 const CORNER_YAW = 45;
 
-// The spin, drawn as beats of its own length rather than one transition, so the lean can
-// breathe between them. A cube that turns without leaning is a cube on a pin; the wobble is
-// what reads as a top, and it decays because a top that keeps its amplitude reads as a
-// machine. The last beat's offset is under a degree, so the act after it starts level.
+// The spin, drawn as beats of its own length rather than one transition, so the lean can breathe
+// between them. A cube that turns without leaning is a cube on a pin; the wobble is what reads as
+// a top, and it decays because a top that keeps its amplitude reads as a machine.
 const SPIN_BEATS = 4;
 const SPIN_TURNS = 4;
 const NUTATION = [2.2, 1.5, 1, 0.5];
 
-// The rattle's tempo, counted in quarter turns rather than in milliseconds (38.13): one tick
-// per quarter, so the spin is `SPIN_BEATS × SPIN_TURNS` of them and their spacing is the spin's
-// own drawn length divided by that count. A tap's acute act turns two more turns, and those
-// eight ticks use their own act's spacing for the same reason. Neither number is a length to
-// tune — the lengths are the acts in `common/src/timing.constants.ts` — which is why neither
-// is a constant anybody has to keep in step.
+// The rattle's tempo, counted in quarter turns rather than in milliseconds (38.13): one tick per
+// quarter, so the spin is `SPIN_BEATS × SPIN_TURNS` of them and their spacing is the spin's own
+// drawn length divided by that count.
 const TICKS_PER_SPIN = SPIN_BEATS * SPIN_TURNS;
 const ACUTE_TURNS = 2;
 const ACUTE_TICKS = ACUTE_TURNS * SPIN_TURNS;
 
-// The tail. The die comes off the balance onto an edge, falls off it onto a face, and then
-// flops over as many edges as its momentum still had: the first fall is the edge pose's own
-// 45°, and each flop after it is a quarter turn about the screen's horizontal axis — `x`
-// moving by a quarter, which is why the whole tail is planned in `x` alone.
+// The tail: the die falls off balance onto an edge (`EDGE_TIP` 45°), then flops up to
+// `FLOPS_MAX` times, each a quarter turn in `x`.
 const EDGE_TIP = 45;
 const FLOPS_MAX = 3;
 
@@ -96,10 +83,9 @@ const FACE_PLACEMENT: Record<number, Turn> = {
 
 const FACES = [1, 2, 3, 4, 5, 6] as const;
 
-// The six faces' art, built once per era and never again: the shapes are static, so a render
-// only maps them to elements. `PIP_MAP` is read HERE and nowhere else, which is what keeps it
-// the one table of which cells a face lights — the era modules place a pip at the index they
-// are handed.
+// The six faces' art, built once per era and never again: the shapes are static, so a render only
+// maps them to elements. `PIP_MAP` is read HERE and nowhere else, which is what keeps it the one
+// table of which cells a face lights — the era modules place a pip at the index they are handed.
 function partsFor(
   art: (value: number, cells: readonly number[]) => DicePart[],
 ): Record<number, DicePart[]> {
@@ -122,34 +108,26 @@ const EASE = {
   flop: 'cubic-bezier(0.34, 1.45, 0.64, 1)',
 } as const;
 
-/** The nearest full turn of the same reading: an angle plus 360k is the same die. */
+// The nearest full turn of the same reading: an angle plus 360k is the same die.
 function nearestTurn(from: number, to: number): number {
   return to + Math.round((from - to) / FULL) * FULL;
 }
 
-/**
- * The same reading, brought back inside one turn. A spin only means anything modulo a
- * whole turn, and unlike the other two axes it is never anchored to a face — so it is this
- * that keeps the leading angle from growing a few thousand degrees over a match, and what
- * makes the next roll begin its own turn from level instead of unwinding the last one.
- */
+// The same reading, brought back inside one turn.
 function normalise(angle: number): number {
   return angle - Math.round(angle / FULL) * FULL;
 }
 
-/** The next whole turn at or after an angle: a spin has to stop on one, or the reading drifts. */
+// The next whole turn at or after an angle: a spin has to stop on one, or the reading drifts.
 function wholeTurnAtOrAfter(from: number): number {
   return Math.ceil(from / FULL) * FULL;
 }
 
-// How a roll ends, drawn by the device that starts it rather than sent: how many times the
-// die flops over an edge on its way to the face, and which way it falls. Both are the
-// tail's decoration — its length is `DICE_FLOP_MS` whatever the draw is — so nothing outside
-// this file reads them, two devices watching the same roll need not agree, and no replay of
-// the acts can move the face, because the face is what the tail is planned from.
+// How a roll ends, drawn by the device that starts it rather than sent: how many times the die
+// flops over an edge on its way to the face, and which way it falls.
 type Flops = { count: number; dir: number };
 
-/** One, two or three flops, weighted towards the middle: one reads as a die barely thrown. */
+// One, two or three flops, weighted towards the middle: one reads as a die barely thrown.
 function drawFlops(): Flops {
   const draw = Math.random();
   return {
@@ -158,16 +136,7 @@ function drawFlops(): Flops {
   };
 }
 
-/**
- * The tail, planned BACKWARDS from the face the engine sent (38.1).
- *
- * A flop is a quarter turn about the screen's horizontal axis, which in the pose's own terms
- * is `x` moving by a quarter, so the face the die has to be falling towards when the tail
- * starts is the sent face undone by as many quarter turns as it still has to flop. The die
- * is then balanced one tip short of that face — on the edge it falls over — and the sequence
- * lands on the sent face exactly, whichever way the draw went and however many flops it
- * bought. The count only ever decides how many faces are seen on the way there.
- */
+// The tail, planned BACKWARDS from the face the engine sent (38.1).
 function tailOf(face: Turn, flops: Flops) {
   const steps = flops.count - 1; // the fall off the edge is the tail's first flop
   const first = face.x - steps * flops.dir * QUARTER;
@@ -189,31 +158,7 @@ function tailOf(face: Turn, flops: Flops) {
   return { edge: first - flops.dir * EDGE_TIP, landings, lengths };
 }
 
-/**
- * The die, as the acts its roll is made of (38.1).
- *
- * One cube, its six faces painted once from `PIP_MAP`, thrown as a top: ACCEL tips it off
- * the face it is resting on and up onto a corner, SPIN turns it about the vertical with a
- * lean that decays beat by beat, and then — untapped — SLOWDOWN finishes the spin on a whole
- * turn and drops it onto an edge, or tapped, ACUTE takes the spin further and its
- * three-quarter slowdown does the same; either way FLOP flops it over one, two or three
- * edges onto the face the engine sent. The tail is planned BACKWARDS from that face, so its
- * last flop is the settle, there is no stop act behind it, and the reading is never left
- * mid-turn. The angles are normalised onto the nearest full turn, which is what keeps a
- * match from growing one continuous angle for its length.
- *
- * Every length comes from `common/src/timing.constants.ts`, because the total they add up
- * to is a number the engine paces a bot with. `spinMs` is the length the roller drew at
- * `beginRoll` (and the ceiling for a roll this device only watches); `tappedAt` is the
- * catch's own timestamp, which branches the acts and cuts the spin where the hand met it.
- * The tail's own draw is not a prop: nothing outside this file reads how many times the die
- * flops, and the face it lands on is the face the tail is planned from either way.
- *
- * The faces are the era's (`diceParts70.ts` / `diceParts80.ts`), and the roll is heard as
- * well as seen: a tick per quarter turn, a flop per landing and a settle on the last (38.Q).
- * Both come off the same plan the cube turns on, so a re-timed act moves the picture and the
- * sound together.
- */
+// The die, as the acts its roll is made of (38.1).
 export function Die({
   value,
   rolling,
@@ -274,10 +219,8 @@ export function Die({
     const flops = flopsRef.current;
     const beganAt = beganRef.current;
 
-    // ACCEL tips the die off the face it is resting on and up onto a corner, half a turn
-    // already on it, so the throw has begun before the spin does. Which end of the diagonal
-    // and which way across are the near ones, so the tip is the same size every roll
-    // whatever face the die was left showing.
+        // ACCEL tips the die off the face it is resting on and up onto a corner, half a turn already on
+    // it, so the throw has begun before the spin does.
     const corner: Pose = {
       spin: rest.spin + HALF_TURN,
       x: rest.x > 0 ? CORNER_TILT : -CORNER_TILT,
@@ -322,11 +265,9 @@ export function Die({
     // Whether an instant in this plan is still ahead of us. A replan turns the cube to the
     // same targets, but it must not re-voice what the room has already heard.
     const ahead = (ms: number) => beganAt + ms > performance.now();
-    // The tail from an instant: one flop per landing, each shorter than the one before it.
-    // The last landing is the settle, so the roll's face is HEARD as well as seen (38.Q); a
-    // tail of one flop is therefore a settle with no flop ahead of it. Each impact falls at the
-    // END of the turn that carries it — the die is arriving, not leaving — which is what puts
-    // the settle exactly on `diceLandAt` and the flops before it on the faces on the way.
+        // The tail from an instant: one flop per landing, each shorter than the one before it. The last
+    // landing is the settle, so the roll's face is HEARD as well as seen (38. Q); a tail of one flop
+    // is therefore a settle with no flop ahead of it.
     const flopFrom = (spin: number, at: number) => {
       const landings = falls(spin);
       landings.forEach((to, i) => {
@@ -346,10 +287,8 @@ export function Die({
       });
     };
 
-    // The rattle (38.13): a tick at each quarter turn's own instant, which is the spin's
-    // plan and never a second schedule beside it. It opens on the FIRST quarter — the throw
-    // itself is ACCEL's sound — and its spacing is the drawn spin divided by the quarters it
-    // turns, so a short draw rattles faster than a long one and neither is a new number.
+        // The rattle (38.13): a tick at each quarter turn's own instant, which is the spin's plan and
+    // never a second schedule beside it.
     const tickEvery = spinMs / TICKS_PER_SPIN;
     const tickAt = (ms: number) => {
       if (!ahead(ms)) return;
@@ -373,13 +312,9 @@ export function Die({
       );
       flopFrom(settleSpin, spinEndsAt + DICE_SLOWDOWN_MS);
     } else {
-      // A catch replans only what is LEFT of the roll (38.2): the spin was cut where the hand
-      // met it, so its acts are not re-run — the cut takes the spin two turns further from
-      // where it had got to, a top knocked into spinning harder rather than a top stopped —
-      // and its slowdown falls from the balance to the same edge, so the tail plays unchanged.
-      // Every target here is a pure function of the rest pose, the catch and the tail's draw,
-      // so a second render (the frame arriving, say) replans the same instants rather than
-      // adding turns.
+      // A catch replans only what is left of the roll: the spin is cut where the hand met it,
+      // the tail keeps its unchanged slowdown, and every target is a pure function of pose,
+      // catch and tail draw.
       const spunFor = catchAt - DICE_ACCEL_MS;
       const cut: Pose = {
         spin: corner.spin + SPIN_TURNS * FULL * (spunFor / spinMs) + ACUTE_TURNS * FULL,
@@ -477,7 +412,7 @@ const PAINT_TOKEN: Record<DicePaint, string> = {
   none: 'none',
 };
 
-/** One shape of a face, in the 100-unit box both era modules draw in. */
+// One shape of a face, in the 100-unit box both era modules draw in.
 function DiceShape({ part }: { part: DicePart }) {
   const paint = (slot?: DicePaint) => (slot === undefined ? undefined : PAINT_TOKEN[slot]);
   if (part.kind === 'rect') {
@@ -509,18 +444,9 @@ function DiceShape({ part }: { part: DicePart }) {
   );
 }
 
-/**
- * One painted face: the body the stylesheet gives it — its gradient, its border, its
- * rounded edge — and the era's own art inside it (`diceParts70.ts` / `diceParts80.ts`), in
- * the 100-unit box the piece sets use. `size` is the only difference between the cube's
- * 80 px faces and the 38 px die in the roster rows, which is why `MiniDie` in
- * `pages/Game.tsx` is this component and nothing else (38.P): one face, one `PIP_MAP`, one
- * set of tokens, at two sizes.
- *
- * The era is read from the store, as `Board.tsx:15` reads it for the piece set, so no call
- * site passes a theme and the two readers cannot disagree. The 80s bloom is the
- * `data-era` rule in `styles/app.css` — a `box-shadow` on this div, never an SVG filter.
- */
+// One die face: the stylesheet body plus the current era's art from `diceParts70/80`.
+// `size` is the only difference between the 80 px cube and the 38 px roster die, so
+// `MiniDie` reuses this component. Era comes from the store; the 80s bloom is CSS.
 export function DiceFace({ value, size = SIZE }: { value: number; size?: number }) {
   const { theme } = useApp();
   const era: DiceEra = theme === 'retro70' ? 'retro70' : 'retro80';

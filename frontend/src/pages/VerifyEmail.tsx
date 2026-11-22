@@ -12,9 +12,9 @@ import {
 } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
-/** Landing route for an emailed link: `/verify-email#token=<token>`. The token
- * is in the URL fragment, which browsers never send to the server, so it cannot
- * reach a log. See the F-04 entry in security-review.md. */
+// Landing route for an emailed link: `/verify-email#token=<token>`. The token
+// is in the URL fragment, which browsers never send to the server, so it cannot
+// reach a log. See the F-04 entry in security-review.md.
 export function VerifyEmail() {
   const { t } = useTranslation();
   const { verifyEmail } = useApp();

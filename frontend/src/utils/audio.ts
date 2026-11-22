@@ -1,34 +1,22 @@
-/* **RETRO WAVE ARCADE - WEB AUDIO CHIPTUNE SYNTHESIZER** */
+// Retro Wave Arcade: the Web Audio chiptune synthesizer.
 
-/** The two eras the die is voiced for: the molded plastic die and the LED one. */
+// The two eras the die is voiced for: the molded plastic die and the LED one.
 export type DiceEra = 'retro70' | 'retro80';
 
-/**
- * Everything the die's three cues are made of, so a walk can re-voice the rattle without
- * reading a method (38).
- *
- * The LENGTHS of the roll are not here: they are the acts in
- * `common/src/timing.constants.ts`, because the ceiling they add up to also paces a bot.
- * These are the sounds those acts are given — how bright a tick is, how heavy a flop lands,
- * and which note the face settles on. Each era has its own eight numbers, so the two dice
- * can be as far apart as a Bakelite cube and a 1980s LED toy without one line of the engine
- * changing: 70s is triangle/sine and low, 80s is square and bright.
- *
- * `settleHz` is the note face 1 lands on; faces 2 to 6 climb a semitone each, so the die's
- * face is HEARD as well as seen (`playDiceSettle`).
- */
+// Everything the die's three cues are made of, so a walk can re-voice the rattle without reading a
+// method (38).
 type DiceVoicing = {
-  /** The rattle's tick: one per quarter turn, so the interval is the plan's, not a number. */
+    // The rattle's tick: one per quarter turn, so the interval is the plan's, not a number.
   tickType: OscillatorType;
   tickHz: number;
   tickSeconds: number;
-  /** A flop: the body thump (falling `flopHz` → `flopDropHz`) and the edge's noise. */
+    // A flop: the body thump (falling `flopHz` → `flopDropHz`) and the edge's noise.
   flopType: OscillatorType;
   flopHz: number;
   flopDropHz: number;
   flopSeconds: number;
   flopNoiseHz: number;
-  /** The settle: the face's own note, held, plus a fifth above it. */
+    // The settle: the face's own note, held, plus a fifth above it.
   settleType: OscillatorType;
   settleHz: number;
   settleSeconds: number;
@@ -244,11 +232,8 @@ export class RetroAudioEngine {
     }
   }
 
-  // One noise recipe for every impact: a white-noise buffer through a filter that
-  // sweeps `fromHz` → `toHz` over `seconds` (a bandpass holds its centre instead, for
-  // rustles). The explosion is the original caller; the clash wall, the shot and the
-  // rope are the same body with their own bands, so there is one place where a hit is
-  // shaped instead of four near-copies.
+    // One noise recipe for every impact: a white-noise buffer through a filter that sweeps `fromHz` →
+  // `toHz` over `seconds` (a bandpass holds its centre instead, for rustles).
   private noiseBurst(
     seconds: number,
     fromHz: number,
@@ -384,12 +369,8 @@ export class RetroAudioEngine {
     }
   }
 
-  // Clash result FX — the jail, and the only recipe in the game built from metal
-  // (25.5): a noise transient around 3 kHz for the contact, four inharmonic partials
-  // (470, 812, 1290, 2075 Hz) each with its own decay, a 90 → 50 Hz body under them for
-  // the weight of the bars, and a quieter lock tick 120 ms later. It replaces
-  // `playCageSnap`, whose two ratchet clicks read as one more effect; layered
-  // inharmonic partials over a noise transient is what makes it read as a jail.
+  // The jail FX: a 3 kHz noise transient, four inharmonic partials (470, 812, 1290, 2075 Hz)
+  // with individual decays, a 90 to 50 Hz body, and a quieter lock tick 120 ms later.
   playCageSlam() {
     if (this.muted) return;
     try {
@@ -466,11 +447,7 @@ export class RetroAudioEngine {
     }
   }
 
-  // Clash result FX — the wall taking a hit, scaled by `weight` (25.5). At full weight
-  // it is the total breach: the wall's fall, but it SWELLS first — the noise ramps in
-  // over 300 ms (the helper's attack) instead of landing at full peak, so the collapse
-  // reads as a bloom rising then bursting rather than a flat bang. At low weight it is
-  // the flare where the beam lands, the same recipe heard through a closed door.
+    // Clash result FX — the wall taking a hit, scaled by `weight` (25.5).
   playBreachBloom(weight = 1) {
     if (this.muted) return;
     try {
@@ -616,15 +593,8 @@ export class RetroAudioEngine {
     }
   }
 
-  // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A
-  // in morse on a 900 Hz sine. It fires per line, so it is the quietest tone the engine
-  // owns: half of `volume`. Every element opens on a 4 ms bandpassed click, because a key
-  // is recognisable by its contact rather than by its carrier: a bare sine has nothing in
-  // front of it, which is why the first cut read as a buzz (revised 2026-11-09). The
-  // carriers ramp in over 8 ms and out over 20 ms from a 0.0001 floor rather than riding
-  // `playUiBeep`'s exponential tail, which clicks when two elements are this close
-  // together. The click is built here rather than through `noiseBurst`, because that
-  // helper always starts at `currentTime` and these start on a scheduled instant.
+    // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A in morse on
+  // a 900 Hz sine. It fires per line, so it is the quietest tone the engine owns: half of `volume`.
   playChatSend() {
     if (this.muted) return;
     try {
@@ -686,12 +656,8 @@ export class RetroAudioEngine {
     }
   }
 
-  // The goal (32.5) — the one cue that plays on EVERY goal, whatever the room's effects
-  // rule says: the rule governs the overlay, never the celebration. A four-note rise in C
-  // (the triad and its octave), each note a triangle body with a quiet square an octave up
-  // for the chiptune edge and the last one held, and a bandpassed sparkle over it — the
-  // confetti's own air, not a second cue. It is short on purpose: the overlay after it is
-  // 900 or 1400 and the cue is done in about a third of that.
+    // The goal (32.5) — the one cue that plays on EVERY goal, whatever the room's effects rule says:
+  // the rule governs the overlay, never the celebration.
   playFanfare() {
     if (this.muted) return;
     try {
@@ -744,14 +710,9 @@ export class RetroAudioEngine {
     }
   }
 
-  // The die's three cues (38), voiced from `DICE_SFX` and scheduled by `Die` at the plan's
-  // own instants: the rattle is the SPIN's tempo, a flop is one landing of the tail, and the
-  // settle is the last of them, which is the landing. The era is an ARGUMENT, not state on
-  // the engine, because the store already owns the theme and a second copy could disagree
-  // with it (`playUiBeep(520, 0.06)` is the same shape).
-  //
-  // A tick is a click, not a note: short, quiet, no tail. Sixteen of them at their own
-  // spacing is a cup being shaken, and anything longer than the spacing smears into a tone.
+    // The die's three cues (38), voiced from `DICE_SFX` and scheduled by `Die` at the plan's own
+  // instants: the rattle is the SPIN's tempo, a flop is one landing of the tail, and the settle is
+  // the last of them, which is the landing.
   playDiceSpinTick(era: DiceEra = 'retro80') {
     if (this.muted) return;
     try {
@@ -813,10 +774,9 @@ export class RetroAudioEngine {
     }
   }
 
-  // The die has stopped, on `value`'s face. The face is a note: `settleHz` is face 1 and
-  // each face above it climbs a semitone, so a 6 rings higher than a 1 and the roll's
-  // outcome is heard before the panel prints it. A fifth above it is the chiptune edge, and
-  // the same short noise burst as a flop is the cube landing on the plate.
+    // The die has stopped, on `value`'s face. The face is a note: `settleHz` is face 1 and each face
+  // above it climbs a semitone, so a 6 rings higher than a 1 and the roll's outcome is heard before
+  // the panel prints it.
   playDiceSettle(value = 1, era: DiceEra = 'retro80') {
     if (this.muted) return;
     try {

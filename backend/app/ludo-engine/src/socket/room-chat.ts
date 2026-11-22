@@ -11,12 +11,9 @@ import {
   type ChatAck,
 } from '../game-chat';
 
-// The room channel's two handlers and its one emission point (M3). The room's own
-// socket set is the audience — no pub/sub for a player's line, because a blocked pair
-// has to be cut before the frame leaves, and one room-wide emit cannot do that.
-// System lines take the other road (`chat_message` on the engine's event bus): they
-// carry no speech, so the room-wide publish is safe and every seat sees them in the
-// same position.
+// Room chat handlers and emission. A player's line goes per socket, because a blocked
+// pair must be cut before the frame leaves; a system line uses `chat_message` on the
+// event bus and can be room-wide, since it holds no speech.
 export class RoomChat {
   // `gameId:userId`, so two tabs of one account share one budget (R6/E10) and the
   // two-second spacing means the same thing however many tabs are open.

@@ -17,10 +17,8 @@ import type { JwtPayload } from './jwt-payload';
 import { SessionService } from './session.service';
 import { TwoFactorService } from './twofactor.service';
 
-// Session and identity plumbing: the signed access token, the refresh rotation,
-// the canonical PublicUser, and the Redis counters that police account cleanup.
-// Registration, profile and OAuth all need one of these, so they live together
-// rather than in whichever service happens to use them most.
+// Session plumbing: access token, refresh rotation, PublicUser and cleanup counters.
+// Registration, profile and OAuth all need these, so they live together.
 @Injectable()
 export class AuthAccessService {
   constructor(

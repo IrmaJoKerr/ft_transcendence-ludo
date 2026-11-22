@@ -42,7 +42,7 @@ import { navigate } from '../router';
 import { connectSocket } from '../socket';
 import type { RoomRules } from '../socket';
 import { postApi, translateErrorCode } from '../api';
-import { WALL_BREAKER_TOKEN_CAP } from '../__shared__/wall-breaker.constants';
+import { WALL_BREAKER_TOKEN_CAP } from '../__shared__/clash.constants';
 import { useApp, isOccupiedSeat, type LastResult, type ResultPlayer, type Seat } from '../store';
 import { SEAT_COLORS } from '../theme';
 import { UserAvatar } from '../components/UserAvatar';
@@ -79,17 +79,13 @@ const SEAT_HUES: Record<PlayerColor, string> = {
   blue: '#00f0ff',
 };
 
-/** Compact die for the "Last Rolled" box in the player rows: the cube's own face at 38 px. */
+// Compact die for the "Last Rolled" box in the player rows: the cube's own face at 38 px.
 function MiniDie({ value }: { value: number }) {
   return <DiceFace value={value} size={38} />;
 }
 
-/**
- * Last-resort roster for a result card, built from the seats this screen created,
- * used when the engine's own player list never arrived. Each row carries the
- * colour its seat owns: the colour is never taken from the seat's index, because a
- * room can skip a corner (the red-first order this replaced relabelled quadrants).
- */
+// Last-resort roster for a result card, built from the seats this screen created, used when the
+// engine's own player list never arrived.
 function seatsAsResultPlayers(seats: Seat[], you: string): ResultPlayer[] {
   return seats.filter(isOccupiedSeat).map((seat) => ({
     color: seat.color,
@@ -125,13 +121,9 @@ type SeatResultAnswer = {
   } | null;
 };
 
-/**
- * The result card, rebuilt from the row the backend keeps. This is the only path that
- * reaches a seat that was away when its room ended: the frame that ends a match is
- * addressed to the sockets still inside the room, so a dropped client's answer has to
- * come from the database. A room that did not finish names no champion, so `winner` is
- * null rather than "whoever held the turn".
- */
+// The result card, rebuilt from the row the backend keeps. This is the only path that reaches a
+// seat that was away when its room ended: the frame that ends a match is addressed to the sockets
+// still inside the room, so a dropped client's answer has to come from the database.
 function rowAsLastResult(row: NonNullable<SeatResultAnswer['row']>): NonNullable<LastResult> {
   const seats = Array.isArray(row.participants) ? row.participants : [];
   const champion = seats.find((seat) => seat.rank === 1 && !seat.abandoned);
@@ -162,11 +154,8 @@ function withLog(prev: LogEntry[], entries?: LogEntry[]): LogEntry[] {
 }
 
 // The Wall Breaker hand cap is a tunable the engine also counts, so it comes from
-// `common/src/wall-breaker.constants.ts`: the wall-break cell draws exactly this many
-// glyph slots, so an empty hand reads as empty rather than as a row that vanished.
-// The wall break tokens panel: its width and the gap in front of it. That span is how
-// much further the roster box overhangs its grid track in clash mode; a smaller
-// CARD_ROOM_OVERHANG is always added, so the cards come out the same width.
+// `common/src/clash.constants.ts`: the wall-break cell draws exactly this many glyph slots, so an
+// empty hand reads as empty rather than as a row that vanished.
 const WALL_BREAKER_PANEL_W = 96;
 const WALL_BREAKER_PANEL_GAP = 10;
 const CARD_ROOM_OVERHANG = 46;
@@ -175,42 +164,22 @@ const CARD_ROOM_OVERHANG = 46;
 // constant, so switching glyphs is one edit.
 const WALL_BREAKER_GLYPH = '🧨';
 
-// The plate the die turns on (38). A cube's silhouette while it tumbles is its own
-// diagonal whichever way it is turned — 80 × √2 ≈ 113 for the die at rest's 80 px — and the
-// perspective magnifies the near corner again: stood on its corner the die measures 121 px
-// wide and 139 px tall, the edge the tail falls off is 114 square, and the lean the spin
-// wobbles on widens the whole roll to 140 × 139. A row sized to the die at rest spilled the
-// tumble over the status line above and the ROLL button below; this is the room the acts
-// actually use, with ~20 px of air around the cube, reserved whether it is turning or still
-// so the column never reflows when a roll starts. The drop shadow's soft tail is deliberately
-// left to fall into the gap below rather than to be contained.
+// The plate the die turns on (38).
 const DIE_STAGE = 180;
 
-// Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the
-// tail, and a few hundred is enough scrollback without growing this page's state on
-// every frame of a long game. The cap itself is `useChatFeed`'s `CHAT_LINES_KEPT`
-// (19.8), applied by the same hook the lobby's channel drives.
+// Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the tail, and a
+// few hundred is enough scrollback without growing this page's state on every frame of a long
+// game.
 
 // How long the composer waits for the engine's ack before it says the line did not go:
 // an ack that never arrives is a dead socket, not a slow one.
 const CHAT_ACK_TIMEOUT_MS = 4000;
 
-// How long the turn-swap notice stays in the banner's band (20.5). 700 ms was long enough
-// to catch the eye and too short to read a 60-character upper-case line, so it flicked
-// away mid-sentence. It stays a notice and not a standing line — the pill already says
-// whose turn it is — so it clears itself once the swap has been read.
+// How long the turn-swap notice stays in the banner's band (20.5). 700 ms was long enough to catch
+// the eye and too short to read a 60-character upper-case line, so it flicked away mid-sentence.
 const TURN_SWAP_NOTICE_MS = 1500;
 
-/**
- * Where a capture's burst belongs on screen: the viewport centre of the cell the mover
- * landed on. Measured from the board at the moment the move lands, because the clash
- * result card is a fixed layer drawn OVER the board — the card's dim copy of the burst
- * has to be placed in the same space as the board's own copy, not guessed at. Null when
- * the step has no cell (a home entry) or the board is not rendered, which skips the FX.
- *
- * The lookup is `data-cell` on the board's squares (`components/Board.tsx`): one board
- * is mounted at a time, so the key is unique.
- */
+// Where a capture's burst belongs on screen: the viewport centre of the cell the mover landed on.
 function captureBurstAnchor(
   color: PlayerColor,
   to: number,
@@ -260,10 +229,7 @@ export function Game() {
   // display name resent on a reconnect (and written back onto the seat).
   const userRef = useRef(user);
   userRef.current = user;
-  // Whether this socket has been accepted by the engine, i.e. whether it holds a seat at
-  // all. The teardown below only tells the room it is leaving once it does, which is what
-  // keeps a StrictMode double-mount (a socket that is disposed before its join lands) from
-  // closing a room nobody had entered yet.
+    // Whether this socket has been accepted by the engine, i.e. whether it holds a seat at all.
   const joinedRef = useRef(false);
 
   // **CRT & AUDIO CONTROLS**
@@ -296,10 +262,9 @@ export function Game() {
     for (const seat of seats) if (seat.type === 'player') names[seat.color] = seat.name;
     return names;
   }, [seats]);
-  // Seat label for the move log / podium rows: a hotseat seat's name first (a typed
-  // one, or the raw `player-<color>` id the lobby wrote, both localized the same way),
-  // then the engine's display label (bots carry "bot-<color> (<assistant>)"), then the
-  // raw id.
+    // Seat label for the move log / podium rows: a hotseat seat's name first (a typed one, or the raw
+  // `player-<color>` id the lobby wrote, both localized the same way), then the engine's display
+  // label (bots carry "bot-<color> (<assistant>)"), then the raw id.
   const seatLabel = (p: {
     color: PlayerColor;
     username: string;
@@ -353,10 +318,8 @@ export function Game() {
   viewRef.current = view;
   const [moveLogs, setMoveLogs] = useState<LogEntry[]>([]);
   const moveLogContainerRef = useRef<HTMLDivElement>(null);
-  // The room's channel (M3): the transcript as this seat sees it, and whether the
-  // engine socket is up. The lines live in `useChatFeed` (19.8), above the card, so a
-  // re-render cannot drop a frame and the room cannot merge or order differently from
-  // the lobby; the card's draft and band stay inside the card for the same reason.
+    // The room's channel (M3): the transcript as this seat sees it, and whether the engine socket is
+  // up.
   const {
     lines: chatLines,
     replace: replaceChatLines,
@@ -378,10 +341,9 @@ export function Game() {
   const [displayedTurn, setDisplayedTurn] = useState<PlayerColor>(activeMatch?.color ?? 'red');
   const [isRolling, setIsRolling] = useState(false);
   const isRollingRef = useRef(false);
-  // One roll's clock, in refs: the tap window opens at the tap that started the roll and
-  // closes when SPIN ends, so a tap is never judged against a stale render.
-  // `rollStartRef` stays null for a roll this device did not start, which is what keeps
-  // an opponent's or a bot's dice un-tap-able and its ROLL button free.
+  // One roll's clock, in refs: the tap window opens at the tap and closes when SPIN ends, so
+  // no tap is judged against a stale render. `rollStartRef` stays null for a roll this device
+  // did not start, keeping opponent and bot dice un-tap-able.
   const rollStartRef = useRef<number | null>(null);
   const rollBrakeAtRef = useRef<number | null>(null);
   const rollLandAtRef = useRef<number | null>(null);
@@ -407,10 +369,9 @@ export function Game() {
   const beginRollRef = useRef<() => void>(() => {});
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
-  // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that
-  // effect also re-runs for a roster or locale update, and a cleanup on the path that
-  // changes no turn would cancel the clear without rescheduling it, leaving the notice up
-  // until the next swap. Same shape as `engineErrorTimerRef` and `captureFxTimerRef`.
+    // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that effect
+  // also re-runs for a roster or locale update, and a cleanup on the path that changes no turn would
+  // cancel the clear without rescheduling it, leaving the notice up until the next swap.
   const turnSwapNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showResultsModal, setShowResultsModal] = useState(false);
   // Reserved engine-error banner: localized text of the last engine socket error
@@ -420,10 +381,9 @@ export function Game() {
   const prevTurnRef = useRef<PlayerColor | null>(null);
   const isGameEnded = lastResult != null || view.status === 'finished';
 
-  // The room's own closing clock (R14/R20): the engine publishes `closesAt` while a
-  // waiting PvP room sits below quorum, and this only counts down to that number. Bots
-  // never get impatient and a started game's clock is the seat's reconnect window, so
-  // no other room has one.
+    // The room's own closing clock (R14/R20): the engine publishes `closesAt` while a waiting PvP room
+  // sits below quorum, and this only counts down to that number. Bots never get impatient and a
+  // started game's clock is the seat's reconnect window, so no other room has one.
   const [roomClock, setRoomClock] = useState(() => Date.now());
   useEffect(() => {
     if (view.closesAt == null) return;
@@ -462,10 +422,8 @@ export function Game() {
     x: number;
     y: number;
   } | null>(null);
-  // The opt-in capture flash card (25.6): a non-clash capture, when the room rule is on,
-  // paints the capture gesture top-centre over the board. It is derived from the move
-  // event, never reducer state, and the next piece_moved/dice_rolled unmounts it. `id`
-  // forces a fresh mount (and its one sound) for a repeat capture of the same colours.
+    // The opt-in capture flash card (25.6): a non-clash capture, when the room rule is on, paints the
+  // capture gesture top-centre over the board.
   const [flashCard, setFlashCard] = useState<{
     id: number;
     attacker: PlayerColor;
@@ -476,13 +434,9 @@ export function Game() {
   // the next event (25.6 item 3), but a roll must reopen once the card has visually gone,
   // or the capturer's own bonus re-roll would deadlock behind a card nothing else clears.
   const flashCardGuardUntilRef = useRef(0);
-  // The goal celebration (32.5): a piece reaching home bursts on the cell its last step left,
-  // and then exactly one overlay — confetti with the room's effects off, the ramp card with
-  // them on — runs for `goalCelebrationMs`. `count` is the seat's pieces home AFTER the move,
-  // which is the station the ramp card's figure climbs to, and `id` forces a fresh mount for
-  // two goals by the same seat. `goalFxEndsAtRef` dates the END of the celebration the moment
-  // the path is queued, because `game_ended` arrives while the walk is still in front of it
-  // and the result modal has to wait for a celebration that has not begun.
+  // The goal celebration: a burst on the last step's cell, then one overlay for
+  // `goalCelebrationMs` - confetti with effects off, the ramp card with them on. `count` is
+  // pieces home after the move, `id` forces a remount, and the end is dated when queued.
   const [goalFx, setGoalFx] = useState<{
     id: number;
     color: PlayerColor;
@@ -510,17 +464,13 @@ export function Game() {
     retroAudio.playUiBeep(breakerArmed ? 420 : 880, 0.06, 'square');
     socketRef.current?.emit('arm_wall_breaker', !breakerArmed);
   };
-  // The Wall Breaker column is an in-game control, so it starts with the opening roll:
-  // in the waiting room there is no turn to take, the engine refuses an arm ("Game not
-  // active"), and every hand still holds only the dealt starting token. Gating it here
-  // also keeps the lobby identical whether the room has clash mode on or not.
+    // The Wall Breaker column is an in-game control, so it starts with the opening roll: in the
+  // waiting room there is no turn to take, the engine refuses an arm ("Game not active"), and every
+  // hand still holds only the dealt starting token.
   const showWallBreakerColumn = view.clashMode === true && view.status !== 'waiting';
-  // The waiting rail draws the room's own seats, in turn order: `view.players` is one
-  // entry per seat (the engine seats exactly the colours the room was created with),
-  // so sorting it by `SEAT_COLORS` shows the rotation and nothing else — no seat index
-  // is involved. Before the first engine frame that list is still empty, so the rail
-  // falls back to the canonical prefix for the room's seat count. Once the match is
-  // live every canonical colour is drawn, so an unseated corner still reads as empty.
+    // The waiting rail draws the room's own seats, in turn order: `view.players` is one entry per seat
+  // (the engine seats exactly the colours the room was created with), so sorting it by `SEAT_COLORS`
+  // shows the rotation and nothing else — no seat index is involved.
   const waitingRailColors: PlayerColor[] =
     view.players.length > 0
       ? [...view.players]
@@ -548,12 +498,9 @@ export function Game() {
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
-  // The banner's corner cluster needs room on *both* sides of the title: each flank has to
-  // hold the 240px-capped cluster beside a ~395px title, which the banner (the viewport
-  // minus the 365px nav gutter) only has from ~1250px up. That is a wider threshold than
-  // the page's own three-column grid, so it gets its own query rather than moving
-  // `desktopLayout`: below it the banner stacks — title, cluster, pill, marquee — while the
-  // page keeps its columns.
+    // The banner's corner cluster needs room on *both* sides of the title: each flank has to hold the
+  // 240px-capped cluster beside a ~395px title, which the banner (the viewport minus the 365px nav
+  // gutter) only has from ~1250px up.
   const [cornerBanner, setCornerBanner] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1250px)').matches,
   );
@@ -672,11 +619,7 @@ export function Game() {
         .catch(() => undefined);
     }
 
-    // The result read (M1): what this seat's match did, from the database. The client
-    // asks it on the three signals that mean "this room will not be joined" and acts on
-    // `finished` only: the match becomes terminal, so no join_game is ever re-emitted,
-    // and the card renders from the record instead of from whatever the board last held.
-    // A `pending` answer leaves the socket alone: the room is still live for the others.
+        // The result read (M1): what this seat's match did, from the database.
     const querySeatResult = async (gameId: string) => {
       if (matchOverRef.current) return;
       try {
@@ -753,11 +696,9 @@ export function Game() {
       setMoveLogs([...((state as { log?: LogEntry[] }).log ?? [])].reverse().slice(0, LOG_CAP));
     });
 
-    // The room's channel (M3). `chat:history` is pushed to this socket right after
-    // `game_joined`, already filtered by the engine for this seat, and replaces the
-    // local copy: it is the authority on what was said before the panel mounted.
-    // `chat:message` is one live line, deduped by id so the history's seam and a frame
-    // that raced it cannot paint the same line twice. Both rules are `useChatFeed`'s.
+    // The room channel: `chat:history` arrives after `game_joined`, already filtered for this
+    // seat, and replaces the local copy. `chat:message` is one live line, deduped by id.
+    // `useChatFeed` owns both rules.
     socket.on('chat:history', (payload: { lines?: ChatCardLine[] } = {}) => {
       replaceChatLines(payload.lines);
     });
@@ -768,16 +709,9 @@ export function Game() {
     const handleEngineEvent = (state: unknown) => {
       const type = (state as { type?: string }).type;
 
-      // A roll is not dispatched where it arrives: the reducer sees it when the die
-      // lands, so the moves do not light up mid-spin. Every other frame is applied on
-      // arrival, which means a frame that follows a roll on the wire but beats its
-      // landing reaches the reducer FIRST. That is not cosmetic: a roll frame names the
-      // seat that rolled, still current when it left the engine, so a Skip that lands
-      // 4 ms after the roll would be applied, then overwritten by the older roll naming
-      // the seat the engine already left. The board parks on a bot that will never be
-      // asked to act again. Land the die first, so the reducer takes the frames in
-      // arrival order. `piece_moved` is exempt: its walk is meant to start on the
-      // landed face, and its own dispatch already waits for the landing below.
+            // A roll is not dispatched where it arrives: the reducer sees it when the die lands, so the moves
+      // do not light up mid-spin. Every other frame is applied on arrival, which means a frame that
+      // follows a roll on the wire but beats its landing reaches the reducer FIRST.
       if (type !== 'piece_moved') {
         const pendingLand = rollLandFnRef.current;
         if (pendingLand) pendingLand();
@@ -866,11 +800,9 @@ export function Game() {
           : rollLandAtRef.current == null
             ? DICE_ROLL_ANIM_MS
             : Math.max(0, rollLandAtRef.current - performance.now());
-        // A path that ends on the goal is the one move whose beat outlives the walk, and the
-        // result modal is dated off it: `game_ended` follows this frame while the walk is
-        // still in front of it, so the end is worked out NOW — the roll's tail, the walk's
-        // own length, then the celebration the room's rule chose. `enterGoal` below does not
-        // touch it: one writer, and it is this one.
+        // A goal path is the one move whose beat outlives the walk, so date the result modal here:
+        // roll tail, walk length, then the chosen celebration. `enterGoal` below must not write
+        // this; there is one writer.
         if (e.reachedGoal) {
           goalFxEndsAtRef.current =
             performance.now() +
@@ -892,21 +824,15 @@ export function Game() {
           if (e.captured) {
             retroAudio.playExplosionSound();
             if (e.clashOutcome) {
-              // The clash result card is taking the screen in this same frame, and the
-              // board's burst would burn down behind its backdrop. So the card gets a dim
-              // copy at the landing cell now, and the real burst is held until the card
-              // goes (the `view.clash` effect below).
+                            // The clash result card is taking the screen in this same frame, and the board's burst would burn
+              // down behind its backdrop. So the card gets a dim copy at the landing cell now, and the real
+              // burst is held until the card goes (the `view.clash` effect below).
               pendingCardBurstRef.current = { color: e.color, to: e.to };
               setCardCaptureFx(captureBurstAnchor(e.color, e.to));
             } else {
               setCaptureFx({ color: e.color, to: e.to });
-              // The opt-in flash card rides above the board's own burst (25.6). Only the
-              // non-clash path paints it, and only when the room turned the rule on. Both
-              // reads go through the ref: this handler is bound once per socket (the effect
-              // is keyed on the match, never on `view`), so its `view` is the mount-time one
-              // and `captureFx` there is `initialView`'s false forever. The ref is also
-              // pre-dispatch at this point, which is what keeps the victim in `pieces` for
-              // the lookup below.
+                            // The opt-in flash card rides above the board's own burst (25.6). Only the non-clash path paints
+              // it, and only when the room turned the rule on.
               const live = viewRef.current;
               if (live.captureFx) {
                 const victim =
@@ -932,11 +858,8 @@ export function Game() {
         };
 
         const enterGoal = () => {
-          // The cell the piece just left: the step before the last one, and for a one-step
-          // path the step it came from. Home has no square (`stepToCell` answers null for 57),
-          // so nothing is looked up BY 57 — the burst lands where the walk's previous tick put
-          // the piece, and mounting it in the same batch as that piece's exit is what keeps a
-          // frame from showing an empty cell.
+                    // The cell the piece just left: the step before the last one, and for a one-step path the step it
+          // came from.
           const leftStep = path.length > 1 ? path[path.length - 2] : e.from;
           const anchor = captureBurstAnchor(e.color, leftStep);
           const animations = viewRef.current.captureFx;
@@ -1042,11 +965,8 @@ export function Game() {
           players: endedPlayers,
           abandoned: false,
         });
-        // A game can end on the goal that ended it, and that celebration is still playing — or,
-        // more often, still ahead of the walk. The card waits for the celebration and then for
-        // its own beat: the sum, never the larger of the two, so a win shows the piece arrive,
-        // then the burst, then the card. `goalFxEndsAtRef` was dated when the path was queued,
-        // because this frame arrives before the walk has finished; reading it here consumes it.
+                // A game can end on the goal that ended it, and that celebration is still playing — or, more
+        // often, still ahead of the walk.
         const goalEndsAt = goalFxEndsAtRef.current;
         goalFxEndsAtRef.current = null;
         const celebrationLeft = goalEndsAt == null ? 0 : Math.max(0, goalEndsAt - performance.now());
@@ -1056,10 +976,7 @@ export function Game() {
       }
     };
 
-    // The roller caught their die (38.7). Cosmetic and seat-free: this device only branches
-    // a roll it is watching (a roll it started already set its own branch when it emitted),
-    // and `Die` ignores a timestamp that lands after its own spin has ended, so a frame that
-    // arrives late degrades to this player not seeing the branch.
+        // The roller caught their die (38.7).
     socket.on('dice_tapped', () => {
       if (!isRollingRef.current || rollStartRef.current != null) return;
       setDieTapAt(performance.now());
@@ -1175,15 +1092,9 @@ export function Game() {
       window.removeEventListener('focus', revive);
       document.removeEventListener('visibilitychange', reviveOnVisible);
       socket.io.off('reconnect_failed', onReconnectFailed);
-      // Hotseat's teardown: one device drives every seat, so leaving this page is the
-      // end of the room rather than a seat going quiet, and it is said out loud instead
-      // of left to the grace window. `leave_game` runs the engine's own departure
-      // funnel, which closes a single-socket room on the spot (and with it the lobby
-      // lock the room was holding); disconnecting instead would only arm a window, so
-      // the seat — and the room — would outlive the page by it. The flag keeps this to a
-      // socket that actually holds the seat, and a finished room is skipped because the
-      // engine has already closed it. PvP and PvE keep their windows: there, leaving is
-      // a disconnect somebody may come back from.
+      // Hotseat's teardown: leaving the page ends the room, so send `leave_game` rather than
+      // disconnect. The engine closes a single-socket room at once, while a disconnect only arms
+      // the grace window. Only the socket holding the seat sends it; PvP/PvE keep their windows.
       const leavingHotseat =
         joinedRef.current &&
         activeMatchRef.current?.mode === 'hotseat' &&
@@ -1364,14 +1275,9 @@ export function Game() {
     );
   };
 
-  // The die's one handler, three states: at rest it starts a roll, a spinning roll THIS
-  // device started catches the die once the acts are armed, anything else is ignored
-  // (another seat's roll, a tap inside the arming window, a roll already caught).
-  //
-  // The catch spends the roll's remaining time and never adds to it, and the window it can
-  // be taken in closes when SPIN ends (38.2): a tap on a die that is already slowing has no
-  // act left to branch into. The face stays the engine's, dispatched as it arrived at the
-  // landing below; the tap only decides WHEN that is.
+    // The die's one handler, three states: at rest it starts a roll, a spinning roll THIS device
+  // started catches the die once the acts are armed, anything else is ignored (another seat's roll,
+  // a tap inside the arming window, a roll already caught).
   const tapDie = () => {
     if (!isRollingRef.current) {
       beginRoll();
@@ -1446,16 +1352,9 @@ export function Game() {
   // deliberately keeps `clash` alive until then.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
-  // The result card appeared: tell the engine when it will be done. The forecast is
-  // in this client's clock and is sent once per card, so a chain reports each round.
-  // It gates nothing locally; the engine's release frame is the authority.
-  //
-  // The number is the card's OWN length plus the margin, never a constant, and the
-  // card's length is per path: 2900 on a pair's two-act card (2700 + 200), 3800 on a
-  // wall's (3600 + 200, the dome's beat included), 4200 on a breach (4000 + 200, the
-  // cloud's act on top of the beat) and 1600 on a text-only one. An over-ask is harmless —
-  // a receipt cannot extend the engine's deadline — and an under-ask truncates, so the
-  // length has to come from the card (25.8, 32.4).
+    // The result card appeared: tell the engine when it will be done. The forecast is in this client's
+  // clock and is sent once per card, so a chain reports each round. It gates nothing locally; the
+  // engine's release frame is the authority.
   const clashCardLength = clashCardMs(
     view.clashResult,
     view.clashResult?.attacker ?? view.clash?.attacker,
@@ -1467,12 +1366,9 @@ export function Game() {
     socketRef.current?.emit('clash_card_hold', cardId, clashCardLength + CARD_HOLD_MARGIN_MS);
   }, [view.clashResult, clashCardLength]);
 
-  // The clash card owns the capture burst. While it is up the card wears a dim copy
-  // (rendered with it, below), and the moment the card goes the board gets the real one:
-  // CAPTURE_FX_AFTER_CARD_MS later, so the two never share a frame. The card can leave
-  // two ways — its own per-card timer and the engine releasing the clash early — and both
-  // narrow to `view.clash` going null, which is what this watches. A chain's intermediate
-  // rounds never set a pending burst, so only the settling move fires.
+    // The clash card owns the capture burst. While it is up the card wears a dim copy (rendered with
+  // it, below), and the moment the card goes the board gets the real one: CAPTURE_FX_AFTER_CARD_MS
+  // later, so the two never share a frame.
   useEffect(() => {
     if (view.clash) return;
     const pending = pendingCardBurstRef.current;
@@ -1548,11 +1444,9 @@ export function Game() {
 
   const endGame = () => {
     retroAudio.playExplosionSound();
-    // Two ways to end a room, and the room decides which (rows 2-4 of the leave/abort
-    // matrix): the host closing a waiting room calls the host-only route, which tears
-    // the room down for everybody, and everyone else leaves their own seat through the
-    // engine. The route also guards both conditions server-side, so a stale client
-    // cannot turn a live game ABORTED from here.
+        // Two ways to end a room, and the room decides which (rows 2-4 of the leave/abort matrix): the
+    // host closing a waiting room calls the host-only route, which tears the room down for everybody,
+    // and everyone else leaves their own seat through the engine.
     const current = activeMatchRef.current;
     const isHostClosingWaitingRoom =
       viewRef.current.status === 'waiting' &&
@@ -1736,10 +1630,9 @@ export function Game() {
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
-  // The roll THIS device started, as against one it is only watching. `isRolling` drives
-  // the die for both, but the ROLL button and the status line belong to the local roll:
-  // a remote die must not hold this page's button down (38.F). Read off the ref rather
-  // than kept in state, because `isRolling` is what re-renders and the ref is set with it.
+    // The roll THIS device started, as against one it is only watching. `isRolling` drives the die for
+  // both, but the ROLL button and the status line belong to the local roll: a remote die must not
+  // hold this page's button down (38. F).
   const isOwnRoll = isRolling && rollStartRef.current != null;
   // The Wall Breaker control: offered only while this device owns the turn and the
   // seat holds a token. Never on a 6, because that roll already leaves prison on the
@@ -1769,23 +1662,15 @@ export function Game() {
           : t('game.botTurn', { name: localizedColor(t, effectiveTurn) }).toUpperCase();
   const turnAccent =
     view.status === 'waiting' ? 'var(--accent-cyan)' : SEAT_HUES[effectiveTurn] || '#00f0ff';
-  // The status marquee only speaks when the pill cannot (20.5 step 1, settling
-  // 20.7 item 2): the pill already names WAITING ROOM, YOUR TURN, a colour's turn and
-  // the paused seat, and the board column prints the phase hint under the die, so those
-  // marquee rows said nothing new. What is left is the turn swap notice and whose turn
-  // the reconnect pause is holding.
+    // The status marquee only speaks when the pill cannot (20.5 step 1, settling 20.7 item 2): the
+  // pill already names WAITING ROOM, YOUR TURN, a colour's turn and the paused seat, and the board
+  // column prints the phase hint under the die, so those marquee rows said nothing new.
   const statusMarquee =
     turnSwapNotice ??
     (isPausedForReconnect && pausedOwnerName
       ? t('game.pausedForReconnectDetail', { name: pausedOwnerName })
       : null);
-  // The notice's one box, placed differently in the two layouts (20.5). In the corner
-  // layout it is absolute inside the band the floor opens *between* the title and the
-  // pill, so a notice can speak for a whole turn without changing the card's height and
-  // without taking the pill's 5px anchor off the bottom border: the band is an empty flex
-  // item, and an absolutely placed box inside it costs the layout nothing. In the stacked
-  // layout there is no band — the cluster sits between those two — and nothing is anchored
-  // to a frame there, so the notice follows the pill in flow.
+    // The notice's one box, placed differently in the two layouts (20.5).
   const statusMarqueeBox =
     statusMarquee == null ? null : (
       <div
@@ -1809,11 +1694,8 @@ export function Game() {
           boxSizing: 'border-box',
           ...(cornerBanner
             ? {
-                // `max-content` up to 640, not `100%`: the band is only as wide as the
-                // title column, and a box that shrank to it would wrap a two-word notice
-                // at the narrowest corner width. The band is centred on the page, so the
-                // box is too, and it may overrun the band into the flanks — the middle of
-                // those is empty, the cluster keeping to the top and bottom of its flank.
+                                // `max-content` up to 640, not `100%`: the band is only as wide as the title column, and a box
+                // that shrank to it would wrap a two-word notice at the narrowest corner width.
                 position: 'absolute',
                 left: '50%',
                 top: '50%',
@@ -1899,25 +1781,14 @@ export function Game() {
                 cornerBanner
                   ? {
                       display: 'flex',
-                      // `1 1 auto` so the row can take what the floor leaves over, and the
-                      // floor itself in the axis the board is already measured on
-                      // (`min(650px, 66vh)`): the row's content is 72px (title, 8, pill) and
-                      // 82 with the frame's 5/5, and the floor opens that to 129..185 — 40%
-                      // over the first pass (92/11vh/132, which measured 99 at 900 and still
-                      // read cramped against the 94 this block was before 20.5). The 10px is
-                      // the header's padding, so the floor is border to border. It sits on
-                      // the row rather than on the card so the slack lands *between* the
-                      // anchors — the title keeps its 5px, the pill its 5px, and the band
-                      // between them takes the rest, which is also the only place a turn
-                      // notice can speak without moving either anchor.
+                      // The grid row takes the floor's leftover height; the floor is `min(650px, 66vh)` in the
+                      // board's axis. The 10 px is the header padding, so the floor is border to border, and
+                      // placing it on the row lets slack land between the title and pill anchors.
                       flex: '1 1 auto',
                       minHeight: 'calc(clamp(129px, 15.4vh, 185px) - 10px)',
-                      // Two empty `1fr` flanks around the title keep it centred on the page
-                      // whatever the cluster weighs on the right, which `justify-content:
-                      // center` cannot promise once one side is wider. `stretch` also makes
-                      // the row as tall as the title column, and that height is what the
-                      // cluster in the right flank takes, so its last line can end on the
-                      // pill's lower border instead of floating above it.
+                      // Two empty `1fr` flanks keep the title centred whatever the right cluster weighs, which
+                      // `justify-content: center` cannot do once one side is wider. `stretch` makes the row as
+                      // tall as the title column, so the cluster can end on the pill's lower border.
                       alignItems: 'stretch',
                     }
                   : {
@@ -2030,11 +1901,8 @@ export function Game() {
                     style={{
                       marginRight: cornerBanner ? 38 : 0,
                       maxWidth: 'min(240px, 100%)',
-                      // (1.5rem × 1.25 − 0.62rem × 1.2) / 2: half the difference between
-                      // the title's line box and the label's, which lands the label's middle
-                      // on the title's. Both are sized in rem, so it holds at any zoom, and
-                      // only the label's first line counts here — wrapping under the 240px
-                      // cap adds lines below it without moving it.
+                                            // (1.5rem × 1.25 − 0.62rem × 1.2) / 2: half the difference between the title's line box and the
+                      // label's, which lands the label's middle on the title's.
                       paddingTop: cornerBanner ? 'calc((1.875rem - 0.744rem) / 2)' : 0,
                       display: 'flex',
                       flexDirection: 'column',
@@ -2055,9 +1923,8 @@ export function Game() {
                         <span
                           style={{
                             fontSize: '0.62rem',
-                            // 1.2, not `normal`: the cluster's padding is arithmetic on this
-                            // label's line box, so it has to be a known multiple of the font
-                            // size. Not 1 — `fr` and `ms` wrap at the 240px cap and would run
+                                                        // 1.2, not `normal`: the cluster's padding is arithmetic on this label's line box, so it has to be
+                            // a known multiple of the font size. Not 1 — `fr` and `ms` wrap at the 240px cap and would run
                             // their two lines together.
                             lineHeight: 1.2,
                             letterSpacing: '0.5px',
@@ -2762,13 +2629,9 @@ export function Game() {
                   CLOSE: off until the switch asks for it, and gone at the start, while
                   the card stays put. */}
               {activeMatch.mode === 'pvp' && (
-                // The feed's right border is the roster's: the window above overhangs its
-                // track by `rosterOverhang` to make room for the display names (and, in a
-                // clash, the Wall Breaker column), so the slot is given the same overhang
-                // instead of the track's own width — two windows stacked in one column have
-                // to end on one edge. The wrapper takes over the slot's job as the column's
-                // last child, so it is the wrapper that absorbs the stretched column's slack
-                // and the plate still grows inside it (20.4).
+                // The feed's right border must match the roster's: give the slot the same
+                // `rosterOverhang` as the window above. The wrapper is the column's last child, so it
+                // absorbs the stretched column's slack.
                 <div
                   style={{
                     width: `calc(100% + ${rosterOverhang}px)`,
@@ -3010,7 +2873,7 @@ export function Game() {
               style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
             >
               {view.status === 'waiting' ? (
-                /* WAITING ROOM SETUP WINDOW */
+                                // WAITING ROOM SETUP WINDOW
                 <section className={RETRO_WINDOW} id="waitingSetupWindow">
                   <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                     <span>{t('game.waitingBayTitle')}</span>
@@ -3198,7 +3061,7 @@ export function Game() {
                   </div>
                 </section>
               ) : (
-                /* IN-GAME DICE CONTROLS WINDOW */
+                                // IN-GAME DICE CONTROLS WINDOW
                 <section className={RETRO_WINDOW} id="diceControlWindow">
                   <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                     <span>{t('game.diceSystemTitle')}</span>
@@ -3527,10 +3390,9 @@ export function Game() {
               {!isGameEnded && (
                 <CyberButton
                   label={
-                    // A hotseat room calls off a match, exactly as a live PvP does: it
-                    // writes no row and has no second player to inform, but what is being
-                    // ended is a match, so the control wears the same word. Only a PvE
-                    // simulation has no match to abort.
+                                        // A hotseat room calls off a match, exactly as a live PvP does: it writes no row and has no second
+                    // player to inform, but what is being ended is a match, so the control wears the same word. Only a
+                    // PvE simulation has no match to abort.
                     activeMatch.mode === 'pve'
                       ? t('gameExtra.abortSimulationBtn')
                       : t('game.abortMatchBtn')
@@ -3591,10 +3453,9 @@ export function Game() {
         onProceed={() => {
           setIsAbortModalOpen(false);
           endGame();
-          // Hotseat: the End Game path ends the room (single-instance rooms are torn
-          // down by the post-game flow, so nothing is left to resume), and the menu is
-          // where the player came from. No result card to read and nobody else to
-          // inform.
+                    // Hotseat: the End Game path ends the room (single-instance rooms are torn down by the post-game
+          // flow, so nothing is left to resume), and the menu is where the player came from. No result card
+          // to read and nobody else to inform.
           if (activeMatch.mode === 'hotseat') {
             setLastResult(null);
             setShowResultsModal(false);

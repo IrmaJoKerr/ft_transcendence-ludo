@@ -11,10 +11,8 @@ import { RegisterDto } from './dto/register.dto';
 // Re-exported for oauth.strategies/oauth.guards, which import it from here.
 export type { OAuthCallbackRequest } from './auth.oauth.service';
 
-// All account logic: register/login with email verification + 2FA, session
-// tokens, OAuth linking, profile/password changes, account deletion. Called
-// by auth.controller.ts, oauth.guards.ts and the OAuth strategies. The work lives
-// in four focused services; this one keeps the name those callers already inject.
+// Account facade: registration and login with verification and 2FA, sessions, OAuth,
+// profile, password and deletion. The work lives in four services; callers keep this name.
 @Injectable()
 export class AuthService {
   constructor(

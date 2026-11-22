@@ -23,10 +23,8 @@ export function isSingleSocketGame(gameType: string | undefined): boolean {
   return gameType === 'PVE' || gameType === 'HOTSEAT';
 }
 
-// The record of a seat leaving a game, captured **before** its pieces are parked:
-// after the parking the board counts zero and the row would claim the seat never
-// moved. `rank` is the room's player count, so a seat that left placed last; a bot
-// seat and a seat with no account write nothing, because neither can hold a row.
+// Capture the seat's record before parking zeroes its tallies. `rank` is the room's
+// player count, so a leaver is last; bot seats and anonymous seats write no row.
 export function captureExitRecord(state: GameState, color: PlayerColor): ExitRecord | undefined {
   const player = state.players.find((p) => p.color === color);
   if (!player || player.isBot || !player.userId) return undefined;
@@ -52,10 +50,9 @@ export function captureExitRecord(state: GameState, color: PlayerColor): ExitRec
   };
 }
 
-// The one way a seat leaves a room. The reason selects the per-reason body, and
-// the funnel owns the terminal decision: a single-socket room always closes, and
-// a PvP room closes when its last second human is confirmed gone. Callers never
-// re-derive that, so there is one answer to "is the room still alive".
+// The one departure path. It owns the terminal decision: a single-socket room always
+// closes, and a PvP room closes when its last second human is gone. Callers do not
+// re-derive whether the room is still alive.
 export async function departSeat(
   store: RedisGameStore,
   emit: (event: GameEvent) => void,
@@ -77,10 +74,8 @@ export async function departSeat(
   const matchData = await store.getMatchData(gameId);
   const singleSocket = isSingleSocketGame(matchData?.gameType);
 
-  // A waiting room has no turn to leave. An Abort frees the corner outright (R18:
-  // the click is also the permission to play elsewhere, so it must leave nothing
-  // behind), the host's own Abort closes the room instead (row 2), and every other
-  // reason there is a reconnect window handled by startReconnectGrace.
+  // A waiting room has no turn. An Abort frees the corner outright, the host's Abort
+  // closes the room, and every other reason starts a reconnect window.
   if (state.status === 'waiting' && !singleSocket) {
     if (reason !== 'end_game') return { closed: false };
     // The hash's seat row is the authority for who sits in the corner: a host seat is

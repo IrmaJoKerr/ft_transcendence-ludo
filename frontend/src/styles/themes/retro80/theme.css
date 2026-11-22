@@ -2,16 +2,8 @@
    THEME 1: 1980s SYNTHWAVE (data-theme='retro80')
    -------------------------------------------------------------------------- */
 
-/* The default theme: `:root` is in the selector, so a document with no
-   `data-theme` yet, or none at all, reads this palette. Its sibling table is
-   `retro70/theme.css`, and `theme-base.css` imports this one first on purpose:
-   both selectors are 0-1-0, so only source order decides which wins for an
-   <html> that matches both.
-
-   The parity contract (decision 2, the `check-theme-literals` gate, kept with the
-   harnesses at `Test-harnesses/style-gates/`): every name this file declares, the
-   sibling declares too, in this order, or the gate fails. A name declared here alone
-   is a token that renders as `unset` under the other era, which no screenshot catches. */
+/* The default theme: `:root` is in the selector, so a document with no `data-theme` yet, or none
+   at all, reads this palette. */
 
 :root,
 [data-theme='retro80'] {
@@ -47,32 +39,17 @@
   --window-header-bg: linear-gradient(90deg, var(--accent-pink), var(--accent-cyan));
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
-  /* The shell's ground. A token rather than a literal on `html, body`: synthwave
-     wears the dimmed cityscape as its rearmost layer, retro70 wears the dimmed
-     orbital colony the same way. The converging grid, where drawn, is static
-     (see `STATIC_GRID` in `tw.ts`) — the lines converge toward the vanishing
-     point and never move.
-
-     Two things about this value are CSS, not Tailwind, and both have bitten:
-     `to bottom` is two words (an `_` is the *class-name* spelling — inside a real
-     declaration the parser reads `to_bottom` as a junk layer and throws the whole
-     `background-image` away, leaving only `--bg-primary`), and the dimming
-     gradient comes **first** because the first layer paints on top — behind the
-     photograph it dims nothing at all, and `cover` hides it completely. */
+    /* The shell's ground. A token rather than a literal on `html, body`: synthwave wears the dimmed
+     cityscape as its rearmost layer, retro70 wears the dimmed orbital colony the same way. */
   --shell-image: linear-gradient(to bottom, rgba(13, 2, 33, 0.30) 0%, rgba(13, 2, 33, 0.62) 100%), url('./80s-Synthwave-Cityscape.jpg');
-  /* The press-start card's own fill. Its border reads `--accent-pink` and so
-     rethemes for free; the fill and the two glows in its shadow do not, and they
-     are the parts that read wrong over walnut. Values are the literals that were
-     in the class before they were tokens, so synthwave renders unchanged. */
+    /* The press-start card's own fill. Its border reads `--accent-pink` and so rethemes for free;
+     the fill and the two glows in its shadow do not, and they are the parts that read wrong over
+     walnut. */
   --start-overlay-bg: rgba(13, 2, 33, 0.45);
   --start-overlay-glow: rgb(var(--accent-pink-rgb) / 0.35);
   --start-overlay-inset: rgb(var(--accent-cyan-rgb) / 0.2);
-  /* The channel form of the four accents and the three neutrals: `r g b`, always
-     read as `rgb(var(--x-rgb) / a)`. A component that tints a theme colour needs
-     an alpha, and `rgba(#ff007f, 0.3)` is not CSS — so without these the
-     components spell the hex out again and the tint stops following the theme.
-     Same numbers as the hexes above by construction, so every site moved to this
-     form renders byte-identically. */
+    /* The channel form of the four accents and the three neutrals: `r g b`, always read as
+     `rgb(var(--x-rgb) / a)`. */
   --accent-pink-rgb: 255 0 127;
   --accent-cyan-rgb: 0 240 255;
   --accent-yellow-rgb: 255 230 0;
@@ -80,49 +57,24 @@
   --ink-rgb: 255 255 255;
   --shade-rgb: 0 0 0;
   --bg-primary-rgb: 13 2 33;
-  /* The navy ramp's channel forms (section 33, family 2). The components had
-     spelled these grounds for themselves - thirty-two shades of the same five
-     roles - so the ramp is five stops and family 2's codemod folded every site
-     onto the nearest one. Each stop is the number the most-used literal of its
-     role already carried, so 38 of the 88 navy sites resolve to the literal they
-     carried and the other 50 move by at most 5/255 per channel - under one per
-     cent of a fill, at an alpha of 0.65 or more, over a dark ground.
-     `--bg-secondary` and `--bg-card` are both #190a38 and only the card takes a
-     channel form: the 70s card is a lighter walnut than its raised ground, and a
-     surface that holds content is what reads a token.
-     The order is depth, not alphabet: void under everything (a scrim, an empty
-     well), panel (a panel's own fill, the bottom of a raised gradient), primary
-     (the shell's ground, above), raise (the top of that gradient: a navbar
-     popover, the bell's dropdown), card (a podium, a room row, a friend's tile). */
+    /* The navy ramp's channel forms (section 33, family 2). The components had spelled these grounds
+     for themselves - thirty-two shades of the same five roles - so the ramp is five stops and
+     family 2's codemod folded every site onto the nearest one. */
   --bg-void-rgb: 5 2 18;
   --bg-panel-rgb: 10 2 28;
   --bg-raise-rgb: 20 6 46;
   --bg-card-rgb: 25 10 56;
-  /* The state pair (26): the two colours that report a condition, as against the
-     accents, which name a thing, and the seat hues, which are identity. On, met,
-     valid, ready, online and sent read `--state-on`; off, muted, refused, missed
-     and out read `--state-off`. Both halves move together, because a row that
-     reads "on" by contrast with nothing has no reading left. Synthwave's columns
-     are the literals the pair replaces, so the 80s theme renders byte-identically
-     and only the 70s theme changes.
-     `--state-on-ink` is the text that sits ON a lit pill (an enabled badge, an
-     accept button): near-black, and a token because a cold near-black reads
-     purple over walnut. The channel pair carries the tints, and it replaces the
-     two orphans this block used to declare: `--success-rgb` (unread, and it is
-     now `--state-on-rgb`) and `--warn-rgb` (unread, and wrong in the 70s block,
-     where a warning is `--accent-yellow` and that channel form already exists). */
+    /* The state pair (26): the two colours that report a condition, as against the accents, which
+     name a thing, and the seat hues, which are identity. On, met, valid, ready, online and sent
+     read `--state-on`; off, muted, refused, missed and out read `--state-off`. */
   --state-on: #00ff88;
   --state-on-rgb: 0 255 136;
   --state-on-ink: #0b021a;
   --state-off: #ff0055;
   --state-off-rgb: 255 0 85;
-  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the LED ring, the two
-     stops of a pip, the alternate pip and the shadow it casts. Same eight names, same order
-     as the sibling table, and the era's face art (`components/diceParts80.ts`) reads them by
-     role. Synthwave's die is the plate's dark cube lit at the edges: `--dice-hi` is the LED
-     ring around each face's core, `--dice-pip-alt` is the pink faces 4 and 6 light instead of
-     cyan, and the glow under the cube is the era's pink instead of a black drop. The face's
-     own bloom is a `box-shadow` in `styles/app.css`, never an SVG filter. */
+    /* The die's eight (38.9, row O): the cube's two body stops, its edge, the LED ring, the two
+     stops of a pip, the alternate pip and the shadow it casts. Same eight names, same order as the
+     sibling table, and the era's face art (`components/diceParts80.ts`) reads them by role. */
   --dice-face: #1a0733;
   --dice-face-shade: #0c0220;
   --dice-edge: var(--accent-cyan);

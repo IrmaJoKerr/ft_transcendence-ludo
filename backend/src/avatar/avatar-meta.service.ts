@@ -9,7 +9,7 @@ import { secret } from '../secrets';
 export interface AvatarMeta {
   has: boolean;
   style?: string;
-  /** Change stamp (epoch ms). Lets a reader ignore out-of-order updates. */
+  // Change stamp (epoch ms). Lets a reader ignore out-of-order updates.
   v?: number;
 }
 

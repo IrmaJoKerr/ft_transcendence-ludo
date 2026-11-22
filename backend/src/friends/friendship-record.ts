@@ -1,20 +1,15 @@
-// Pure helpers for the `friendship:changed` record (socket D2). Like
-// friendship-pair.ts this module imports no NestJS and no Prisma: the publisher
-// builds the record, the broadcaster re-validates it, and neither needs a
-// constructor dependency to share the same rules.
+// Pure helpers for the `friendship:changed` record. Like `friendship-pair.ts`, this
+// module imports no NestJS or Prisma; publisher and broadcaster share the same rules.
 
 import { effectiveStatus, type FriendshipStatus, type PairLike } from './friendship-pair';
 
-// The five states a recipient can hold about one pair. `state` is relative to the
-// recipient, which is why one record can drive all three lists: the same row is
-// `pending-out` for the sender and `pending-in` for the target, `blocked` only for
-// the side that placed the block, and `none` deletes the row everywhere.
+// Five recipient-relative states, so one record drives every list: the same request
+// is pending-out for one side and pending-in for the other; `none` deletes the row.
 export type FriendshipViewState = 'accepted' | 'pending-in' | 'pending-out' | 'blocked' | 'none';
 
-// The whole row a client keeps (D2), as seen from the recipient: `friend` is the
-// other account, `friendsSince` is when the current state began (friends since /
-// blocked since / requested at) and `requestId` is only set while a request is
-// pending, because that is the id accept/decline take.
+// The row a client keeps, from the recipient's side: `friend` is the other account,
+// `friendsSince` is when the current state began, and `requestId` exists only while a
+// request is pending, because accept/decline take it.
 export interface FriendshipFriendView {
   id: string;
   username: string;
@@ -47,12 +42,8 @@ const STATES: readonly FriendshipViewState[] = [
   'none',
 ];
 
-// One viewer's view of the pair. Order matters:
-// 1. the viewer's own block is visible (*their* blocked list),
-// 2. a block the other side holds is not: the pair simply disappears,
-// 3. only mutual acceptance is a friendship,
-// 4. a live request is outbound or inbound relative to this viewer,
-// 5. everything else (none, or a decline inside its cooldown) has no row.
+// Viewer-relative view, in order: own block visible, other side's block hidden,
+// friendship only on mutual accept, live request inbound or outbound, else no row.
 export function viewerState(
   pair: PairLike,
   viewerId: string,

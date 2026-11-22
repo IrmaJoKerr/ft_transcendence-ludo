@@ -1,28 +1,13 @@
-/* The parity contract (decision 2, the `check-theme-literals` gate, kept with the
-   harnesses at `Test-harnesses/style-gates/`): every name this file declares,
-   `retro80/theme.css` declares too, in the same order, and the gate fails on a name
-   that appears in one table and not the other. A token read
-   under the wrong era renders as `unset` rather than as a wrong colour, so nothing
-   but the gate catches it.
-
-   The art this table paints sits beside it: `1970s-Orbital-Colony.jpg`, read by the
-   `--shell-image` below, so a theme is one folder, dropped in or taken out whole. */
+/* Parity contract: every name here is also in `retro80/theme.css`, in the same order; the
+   `check-theme-literals` gate fails on drift. The art beside this file is the `--shell-image`. */
 
 /* --------------------------------------------------------------------------
    THEME 2: 1970s SPACE-AGE (data-theme='retro70')
    -------------------------------------------------------------------------- */
 
-/* Placed after the block above on purpose: `:root` and `[data-theme='retro80']`
-   are both specificity 0-1-0, so only source order decides which of the two wins
-   for an element that matches both selectors — which `<html>` does for a
-   `retro70` reader between the store's first render and its effect. A 70s block
-   above this one would lose silently instead of flashing a palette.
-
-   Values are the approved stills' palette (`/tmp/theme-mockups`, `gen.py`'s
-   `PAL['retro70']`), so the canvas painters and the shell cannot disagree. One
-   deliberate lift: `--accent-cyan` takes the palette's `a1t` (#5FB3B0) rather
-   than its `a1` (#3F8A8C), because the app paints small cyan text in 169 places
-   and `a1` on `--bg-primary` only reaches 4.6:1. */
+/* This block follows `retro80` deliberately: both selectors are specificity 0-1-0, so source
+   order decides which palette wins. Values come from the approved stills; `--accent-cyan` uses
+   `a1t` because `a1` reaches only 4.6:1 on `--bg-primary`. */
 [data-theme='retro70'] {
   --bg-primary: #14100e;
   --bg-secondary: #241a12;
@@ -52,18 +37,8 @@
   --window-header-bg: linear-gradient(90deg, #e5340b, #ffb000);
   --window-header-text: #ffe7bd;
   --card-border-style: 2px solid var(--accent-pink);
-  /* The orbital colony is the 70s shell's ground, painted the same way the
-     synthwave shell wears its cityscape: full-bleed, fixed, dimmed so every UI
-     surface sits in front of it. The dim is the *first* layer because that is the
-     one on top — behind the photograph it dims nothing — and `to bottom` is two
-     words, the way CSS spells it (see the block above).
-
-     Heavier than the 80s pair on purpose: this art is a daylight scene and the
-     cityscape is a night one, so the same opacity leaves the 70s plate twice as
-     bright behind the same panel. These values were picked in the browser against
-     the 80s as the reference (`todo.md` [33], step 3b), by matching the composited
-     plate's luminance envelope: at 1440x900 the 95th percentile is 39 here against
-     38 there, so no label's contrast depends on which era the reader chose. */
+    /* The orbital colony is the 70s shell's ground, painted the same way the synthwave shell wears
+     its cityscape: full-bleed, fixed, dimmed so every UI surface sits in front of it. */
   --shell-image: linear-gradient(to bottom, rgba(20, 16, 14, 0.50) 0%, rgba(20, 16, 14, 0.80) 100%), url('./1970s-Orbital-Colony.jpg');
   /* Black at 55 per cent, the value the stills paint this card at: the navy the
      synthwave card uses reads purple over walnut. The glows move to the palette's
@@ -71,12 +46,8 @@
   --start-overlay-bg: rgba(11, 8, 5, 0.55);
   --start-overlay-glow: rgba(255, 176, 0, 0.35);
   --start-overlay-inset: rgba(229, 52, 11, 0.22);
-  /* The channel form (see the block above): two of these are additions rather
-     than translations, because the 70s palette has no value to translate from.
-     Both were measured against `--bg-primary` rather than picked: `--accent-cyan`
-     is the palette's `a1t` (`#5fb3b0`) rather than its `a1` (`#3f8a8c`), which
-     only reaches 4.6:1 for small text, and warm black `#1a1009` keeps a shadow
-     over walnut from reading blue-grey. */
+    /* The channel form (see the block above): two of these are additions rather than translations,
+     because the 70s palette has no value to translate from. */
   --accent-pink-rgb: 229 52 11;
   --accent-cyan-rgb: 95 179 176;
   --accent-yellow-rgb: 255 176 0;
@@ -84,44 +55,22 @@
   --ink-rgb: 255 231 189;
   --shade-rgb: 26 16 9;
   --bg-primary-rgb: 20 16 14;
-  /* The same five stops, re-pitched onto the walnut ramp rather than translated
-     channel by channel: a cold navy reads purple over walnut, the argument
-     `--start-overlay-bg` above already makes, so each stop keeps its position
-     relative to the era's `--bg-primary` instead of its hue. Card is the
-     approved stills' value and secondary the stills' raised ground, so the two
-     the era already named agree with it by construction; void, panel and raise
-     are that ramp at the same lightness steps as their 80s siblings, which is
-     what keeps a raised popover lifting off its panel by the same amount in both
-     eras. */
+  /* Re-pitched onto the walnut ramp rather than translated channel by channel, so each stop keeps
+   its lightness position relative to `--bg-primary`. The stops match the stills and the 80s
+   siblings' steps, keeping popovers at the same lift in both eras. */
   --bg-void-rgb: 12 9 8;
   --bg-panel-rgb: 17 14 12;
   --bg-raise-rgb: 30 24 21;
   --bg-card-rgb: 43 30 21;
-  /* The state pair (26), measured against the surface the text actually sits on
-     rather than the page ground. Avocado `#82903f` keeps the era's moss and reads
-     4.75:1 on `--bg-card` (5.41:1 on `--bg-primary`); the earlier `#7d8b3e` was
-     measured at 5.08:1 on the ground but reads 4.45:1 on the card, a rounding miss
-     for small text, so it is lifted two steps of lightness and no hue. The refusal
-     is a cranberry rose `#e8697d`, 5.33:1 on the card, 20.7 degrees of hue from
-     the shell's vermilion and 50.9 from the amber warning, so a refusal is read as
-     neither chrome nor caution; it also keeps synthwave's own rose-red family
-     instead of inventing a third red. Warm black `#1a1009` is the ink that sits on
-     the lit pill (5.36:1), and it is `--shade-rgb` itself. */
+    /* The state pair (26), measured against the surface the text actually sits on rather than the
+     page ground. */
   --state-on: #82903f;
   --state-on-rgb: 130 144 63;
   --state-on-ink: #1a1009;
   --state-off: #e8697d;
   --state-off-rgb: 232 105 125;
-  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded
-     highlight, the two stops of a pip, the alternate pip and the shadow it casts. The same
-     eight names sit in the sibling table, in this order, and the era's face art
-     (`components/diceParts70.ts`, `diceParts80.ts`) reads them by role, so no colour literal
-     lives in either face module. This era's die is the cream one the board already painted,
-     sitting on the walnut's own warm black: `--dice-hi` is the sheen its bevel and its
-     molded pips catch, and `--dice-pip-alt` is the teal faces 4 and 6 wear instead of ink.
-     That teal is the accent carried two steps down (`#5fb3b0` is 2.3:1 on this cream, a
-     pip that stops reading as ink), and the ink outline round every pip is
-     `--dice-pip-shade`, so there is no ninth name. */
+    /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded highlight, the
+     two stops of a pip, the alternate pip and the shadow it casts. */
   --dice-face: #fbf5e6;
   --dice-face-shade: #e4d8bf;
   --dice-edge: #cbb99a;

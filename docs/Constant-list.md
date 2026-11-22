@@ -49,8 +49,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 10800 (imported from `timing.constants`), and `chatLength()` |
 | `common/src/timing.constants.ts` | the thirty-two both builds count, plus the room's idle window: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1000, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1700 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2700 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3600 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4000 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2210 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, then the die's acts (38): `DICE_ACCEL_MS` 320, `DICE_SPIN_MIN_MS` 1800, `DICE_SPIN_MAX_MS` 2200, `DICE_ACUTE_MS` 760, `DICE_SLOWDOWN_MS` 560, `DICE_ACUTE_SLOWDOWN_MS` 420, `DICE_FLOP_MS` 620, `DICE_ROLL_ANIM_MS` 3700 (the acts added up at the widest spin: the roll's one ceiling, and the pause a bot's next action waits out), `GAME_STATE_TTL_S` 10800 (the room's own idle window — the one number no animation reads; the engine's `game:<id>` state, the backend's `match:<id>` record and both chat keys all live this long) |
-| `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
-| `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
+| `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp; `STARTING_WALL_BREAKER_TOKENS` 1 and `WALL_BREAKER_TOKEN_CAP` 3 — the Wall Breaker hand |
 
 **The test for the folder** is "would someone tune it, and does a second build read it?" Three answers:
 
@@ -246,7 +245,7 @@ capped path they lose nothing.
 
 The Wall Breaker hand — `STARTING_WALL_BREAKER_TOKENS` 1 and `WALL_BREAKER_TOKEN_CAP` 3 — is a
 balance knob the SPA also draws (one glyph slot per possible token), so it is declared in
-`common/src/wall-breaker.constants.ts` 📦 rather than here. Everything else in this table is topology:
+`common/src/clash.constants.ts` 📦 rather than here. Everything else in this table is topology:
 it changes only with a board redesign, which moves both drawings, so it stays mirrored (§18).
 
 The Wall Breaker token buys one landing on a wall the roll reaches **exactly** — never a
@@ -1156,7 +1155,7 @@ copied at build time, so they have no row here.
    read it.
 3. **A rule the engine enforces → next to the rule** (`clash.ts` for the QTE, `board-mapper.ts` for
    geometry) and, if the client mirrors it, a row in §18. A rule the client also draws (the Wall
-   Breaker hand) belongs in `common/src/wall-breaker.constants.ts` 📦 instead, because tuning it means
+   Breaker hand) belongs in `common/src/clash.constants.ts` 📦 instead, because tuning it means
    tuning both.
 4. **A limit or lifetime the backend enforces → the owning service's knob block** (`AUTH` in
    `auth.constants.ts`, `GUEST_LIMITS` in `guest-limit.service.ts`) or the shared table

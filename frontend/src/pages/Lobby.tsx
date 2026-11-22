@@ -34,10 +34,10 @@ const SEAT_HUES: Record<ColorKey, string> = {
   blue: '#00f0ff',
 };
 
-/** An empty card has no colour yet, so it is drawn neutral rather than coloured. */
+// An empty card has no colour yet, so it is drawn neutral rather than coloured.
 const EMPTY_CARD_HUE = '#b8a6e4';
 
-/** The `✕` on every filled card: one control, one style, whichever seat it empties. */
+// The `✕` on every filled card: one control, one style, whichever seat it empties.
 const REMOVE_SEAT_BTN: React.CSSProperties = {
   cursor: 'pointer',
   background: 'rgb(var(--state-off-rgb) / 0.15)',
@@ -77,10 +77,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   // The card the palette is filling: the host's own card on arrival, then whichever
   // empty card's add action was pressed. Null while the palette is closed.
   const [paletteCard, setPaletteCard] = useState<number | null>(null);
-  // The room rules chosen on this screen travel with the create body as separate
-  // fields of ONE payload. A standard room is false/false/false/0: safe zones are
-  // stored inverted, so `noSafeZones: false` means they protect, and the key-shift
-  // count is 0 (off) unless clash mode is on.
+    // The room rules chosen on this screen travel with the create body as separate fields of ONE
+  // payload.
   const [clashEnabled, setClashEnabled] = useState(false);
   const [noSafeZones, setNoSafeZones] = useState(false);
   const [freeExit, setFreeExit] = useState(false);
@@ -211,12 +209,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
       const botNames = visible
         .map((s) => (s.type === 'bot' ? s.name : null))
         .filter((n): n is string => n !== null);
-      // The seated cards' colours in card order. `seatColors` travels because a
-      // room that skips a corner must not be re-densified: the engine seats exactly
-      // these colours. It does NOT decide who moves first — turn order is colour
-      // order (blue → red → green → yellow). PvP leaves it out, because there every
-      // corner is a seat a joiner may claim (its host's own colour rides
-      // `hostColor`).
+            // The seated cards' colours in card order. `seatColors` travels because a room that skips a corner
+      // must not be re-densified: the engine seats exactly these colours. It does NOT decide who moves
+      // first — turn order is colour order (blue → red → green → yellow).
       const seatColors = visible.filter(isOccupiedSeat).map((s) => s.color);
       const res = await postApi<{
         gameId: string;
@@ -783,10 +778,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                             <div
                               onClick={() => {
                                 retroAudio.playUiBeep(520, 0.05);
-                                // One palette, one target: the card. While the host is
-                                // unseated this fills *this* card with the host, which is
-                                // what "the host picks first" means; afterwards it adds a
-                                // bot (bot room) or a local pilot at the picked colour.
+                                                                // One palette, one target: the card. While the host is unseated this fills *this* card with the
+                                // host, which is what "the host picks first" means; afterwards it adds a bot (bot room) or a local
+                                // pilot at the picked colour.
                                 setPaletteCard(i);
                               }}
                               style={{
@@ -1122,11 +1116,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                         border: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                         borderRadius: 4,
                         textAlign: 'center',
-                        // One line carries four messages, so it is one size: the retro
-                        // mono sub-line of the panel it sits in (the board's corner labels
-                        // and the key-shift blurb are the same 0.62 rem), rather than a
-                        // size per state that would move the launch button by a line
-                        // whenever the panel changed its mind (35, item 6).
+                        // All four messages share one size: the panel's 0.62 rem retro mono sub-line, not a size
+                        // per state that would move the launch button when the text changes.
                         fontSize: '0.62rem',
                         fontFamily: 'var(--font-mono)',
                         color: canLaunch ? 'var(--state-on)' : 'var(--accent-yellow)',

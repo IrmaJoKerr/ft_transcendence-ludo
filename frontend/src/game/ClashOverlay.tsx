@@ -23,11 +23,8 @@ import {
   clashCardMs,
 } from './timing';
 
-// Clash timing lives in ./timing, shared with the engine and pinned by the
-// `timing-contract` harness. Phase transitions come from server deadlines, so these
-// values only drive presentation. The bar is 168px wide; its fill is rounded,
-// because the target is scaled per room (42/55/67) and no longer divides it into
-// whole pixels.
+// Clash timing lives in ./timing, shared with the engine and pinned by the `timing-contract`
+// harness. Phase transitions come from server deadlines, so these values only drive presentation.
 const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
@@ -55,7 +52,7 @@ const COLORS: Record<PlayerColor, string> = {
   blue: 'var(--clash-blue, #4a92e0)',
 };
 
-/** Re-render on a fixed tick so phase transitions + countdown derive from SERVER timestamps. */
+// Re-render on a fixed tick so phase transitions + countdown derive from SERVER timestamps.
 function useNow(ms = CLASH_UI_TICK_MS): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -65,7 +62,7 @@ function useNow(ms = CLASH_UI_TICK_MS): number {
   return now;
 }
 
-/** Portrait only matters where the touch path is active; a desktop window is never gated. */
+// Portrait only matters where the touch path is active; a desktop window is never gated.
 function useIsPortrait(touchMode: boolean): boolean {
   const [portrait, setPortrait] = useState(() => {
     if (!touchMode || typeof window === 'undefined') return false;
@@ -92,22 +89,22 @@ type Props = {
   clash: NonNullable<GameViewState['clash']>;
   result: ClashResult | null;
   myColor: PlayerColor;
-  /** The room's seats: the result card names the winner in the breach sentence, and this
-   *  is the only place the name can come from — `ResultFx` draws a finished string and
-   *  never sees a player (25.4). */
+    // The room's seats: the result card names the winner in the breach sentence, and this
+  //  is the only place the name can come from — `ResultFx` draws a finished string and
+  //  never sees a player (25.4).
   players: GameViewState['players'];
   onKeyPress: (key: string, count?: number) => void;
   onComplete: () => void;
-  /** Hotseat only: one device controls both seats, so BOTH sides' inputs must be
-   *  accepted at once. PvP/PvE leave this false: each player only presses their
-   *  own side's keys. */
+    // Hotseat only: one device controls both seats, so BOTH sides' inputs must be
+  //  accepted at once. PvP/PvE leave this false: each player only presses their
+  //  own side's keys.
   allowBothSides?: boolean;
-  /** The room's `captureFx` rule: the ONE gate on every act of the card (25.7). Off
-   *  means no scene, no scene sound and a text-only card of `CLASH_TEXT_ONLY_MS`. */
+    // The room's `captureFx` rule: the ONE gate on every act of the card (25.7). Off
+  //  means no scene, no scene sound and a text-only card of `CLASH_TEXT_ONLY_MS`.
   animations?: boolean;
 };
 
-/** Chunky bar: black track that fills with the side's color, whole pixels per press. */
+// Chunky bar: black track that fills with the side's color, whole pixels per press.
 function Bar({ color, presses, target }: { color: PlayerColor; presses: number; target: number }) {
   const fullAt = Math.max(1, target);
   const safe = Number.isFinite(presses) ? presses : 0;
@@ -139,7 +136,7 @@ function Bar({ color, presses, target }: { color: PlayerColor; presses: number; 
   );
 }
 
-/** Name-plate — Defender sits LEFT (QWESADZXC), Attacker RIGHT (UIOHJKNBM). */
+// Name-plate — Defender sits LEFT (QWESADZXC), Attacker RIGHT (UIOHJKNBM).
 function Plate({
   role,
   color,
@@ -193,12 +190,9 @@ function Plate({
 const KEY_BADGE_W = 67;
 const KEY_BADGE_H = 61;
 
-/**
- * Round pill for a clash CHAIN: "ROUND 2 / 3". A stacked square costs one round
- * per defender, and each round is a fresh race with fresh keys, so the player
- * must be able to see how far the attack has come. Absent (null) on a
- * single-defender clash, which stays exactly the card it always was.
- */
+// Round pill for a clash CHAIN: "ROUND 2 / 3". A stacked square costs one round per defender, and
+// each round is a fresh race with fresh keys, so the player must be able to see how far the attack
+// has come. Absent (null) on a single-defender clash, which stays exactly the card it always was.
 function RoundBadge({ round, total }: { round: number; total: number }) {
   const { t } = useTranslation();
   if (total <= 1) return null;
@@ -222,15 +216,7 @@ function RoundBadge({ round, total }: { round: number; total: number }) {
   );
 }
 
-/**
- * Large bold key chip — fixed static border, highlighted for the owning player, dimmed
- * otherwise. On a key-shift room the chip FLIPS when the server switches letters: the
- * wrapper carries the perspective and the fixed KEY_BADGE_W x KEY_BADGE_H box (so the
- * layout cannot jump), and the face rotates on Y. `flipping` is set half a flip before
- * the switch instant, so the face is edge-on exactly when the new letter becomes live
- * and turns back into view carrying it. No ancestor here clips: `overflow: hidden`
- * would silently defeat the 3D transform.
- */
+// Large bold key chip — fixed static border, highlighted for the owning player, dimmed otherwise.
 function KeyBadge({
   label,
   emphasized,
@@ -240,7 +226,7 @@ function KeyBadge({
   label: string;
   emphasized: boolean;
   flipping?: boolean;
-  /** One border flash as the new letter lands. */
+    // One border flash as the new letter lands.
   flash?: boolean;
 }) {
   const face: CSSProperties = {
@@ -257,10 +243,8 @@ function KeyBadge({
     border: `2px solid ${emphasized ? 'var(--accent-yellow)' : 'var(--text-muted)'}`,
     color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
     boxShadow: flash || emphasized ? '0 0 14px var(--accent-yellow)' : 'none',
-    // The return leg uses an overshooting curve, so the incoming face lands just past
-    // its resting size and settles: the "1.06 and back" bounce, in one transition. The
-    // badge always flips: reduced motion is not a second gate anywhere in the card's
-    // stack, because the letters are also always readable as text.
+        // The return leg uses an overshooting curve, so the incoming face lands just past its resting size
+    // and settles: the "1.06 and back" bounce, in one transition.
     transition: `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3, 1.5, .5, 1), opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`,
     transform: `rotateY(${flipping ? 90 : 0}deg) scale(${flipping ? 0.96 : 1})`,
     opacity: flipping ? 0.45 : 1,
@@ -280,18 +264,9 @@ function KeyBadge({
   );
 }
 
-/**
- * Draw one side's four circles: the side's own required key plus three decoys
- * from the same nine-key set. Pure module scope, so the draw is not an impure
- * call made during render, and the component memoises it per round and switch.
- *
- * `round` rotates the pool before the shuffle, so a chain's consecutive rounds
- * cannot draw the same layout even if the engine happened to pick the same key.
- * `switchIndex` adds to that rotation for the same reason one level down: the pad
- * MUST re-scramble at every key switch, or a letter the schedule is about to ask for
- * would already be under the thumb and the re-read cost (the whole point of the
- * mutator) would vanish.
- */
+// Draw one side's four circles: the side's own required key plus three decoys from the same
+// nine-key set. Pure module scope, so the draw is not an impure call made during render, and the
+// component memoises it per round and switch.
 function drawPad(
   side: 'defender' | 'attacker',
   acceptKey: string,
@@ -317,13 +292,9 @@ function drawPad(
   return picked;
 }
 
-/**
- * One side's 2x2 pad of 3 cm circles. The side's OWN required key is one of
- * the four; the other three are random decoys from the same nine-key set, so
- * mashing blind lands the right circle about a quarter of the time. Reading
- * stays the skill — and it stays that way on a keyboard too, where mashing all
- * nine keys needs ~378 presses inside the window.
- */
+// One side's 2x2 pad of 3 cm circles. The side's OWN required key is one of the four; the other
+// three are random decoys from the same nine-key set, so mashing blind lands the right circle
+// about a quarter of the time.
 function TouchPad({
   side,
   color,
@@ -338,12 +309,12 @@ function TouchPad({
   color: PlayerColor;
   acceptKey: string;
   round: number;
-  /** Which switch of the schedule this pad is drawn for: a new index re-scrambles. */
+    // Which switch of the schedule this pad is drawn for: a new index re-scrambles.
   switchIndex?: number;
-  /** Edge-on while the key shifts, so the circles land their new letters with it. */
+    // Edge-on while the key shifts, so the circles land their new letters with it.
   flipping?: boolean;
   active: boolean;
-  /** The click handler. `count` is the tap weight (1 = one press). */
+    // The click handler. `count` is the tap weight (1 = one press).
   onPress: (key: string, count: number) => void;
 }) {
   const { t } = useTranslation();
@@ -416,10 +387,9 @@ function TouchPad({
         }}
       >
         {keys.map((k, index) => (
-          // The wrapper owns the switch flip and the button keeps its 90 ms press
-          // flash, so the two transforms never fight over one transition. The
-          // stagger lands the four new letters in a diagonal sweep from the first
-          // circle, each starting CLASH_SWITCH_PAD_STAGGER_MS after the one before.
+                    // The wrapper owns the switch flip and the button keeps its 90 ms press flash, so the two
+          // transforms never fight over one transition. The stagger lands the four new letters in a diagonal
+          // sweep from the first circle, each starting CLASH_SWITCH_PAD_STAGGER_MS after the one before.
           <div
             key={k}
             style={{
@@ -469,13 +439,9 @@ function TouchPad({
   );
 }
 
-/**
- * The clash QTE. One overlay serves keyboard and touch: `isMobileOS()` picks the
- * input mechanism (2x2 circles against keydown) and arms the portrait gate, and
- * everything else — phases, meters, result card — is identical on both. The
- * keydown listener stays live even in touch mode, so a tablet with a keyboard
- * case gets both.
- */
+// The clash QTE. One overlay serves keyboard and touch: `isMobileOS()` picks the input mechanism
+// (2x2 circles against keydown) and arms the portrait gate, and everything else — phases, meters,
+// result card — is identical on both.
 export function ClashOverlay({
   clash,
   result,
@@ -493,10 +459,9 @@ export function ClashOverlay({
   const portrait = useIsPortrait(touchMode);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // The card's own length (25.8), from its parts: the scene's acts plus the read window, the
-  // breach's three acts with no read window, or the text-only length when the room has the
-  // acts switched off. One number and one function, because both readers of it must agree:
-  // this overlay's timer and the receipt `Game.tsx` sends.
+    // The card's own length (25.8), from its parts: the scene's acts plus the read window, the
+  // breach's three acts with no read window, or the text-only length when the room has the acts
+  // switched off.
   const cardMs = clashCardMs(result, result?.attacker ?? clash.attacker, animations);
 
   // Key-shift schedule. `keyIndex` is which letter of each side's schedule the SERVER
@@ -504,10 +469,8 @@ export function ClashOverlay({
   // exactly at the instant), `flash` the beat after it, `warning` the 400 ms lead.
   const offsetMs = clash.serverOffset ?? 0;
   const shiftSchedule = clash.switchAt ?? [];
-  // The switch state that the timers drive, stamped with the clash it belongs to: a
-  // chain's next round is a new clash, so a value left over from the last round must
-  // not apply. Comparing `startedAt` during render is a derive, not a reset effect, so
-  // a new round starts at zero without a second render pass.
+    // The switch state that the timers drive, stamped with the clash it belongs to: a chain's next
+  // round is a new clash, so a value left over from the last round must not apply.
   const [shift, setShift] = useState({
     startedAt: clash.startedAt,
     index: 0,
@@ -516,23 +479,17 @@ export function ClashOverlay({
     warning: false,
   });
   const current = shift.startedAt === clash.startedAt ? shift : { ...shift, startedAt: clash.startedAt, index: 0, flipping: false, flash: false, warning: false };
-  // The letter is ALSO derived from the clock, so a client that (re)joins mid-press
-  // shows the live letter immediately instead of waiting for a timer it never saw
-  // armed. `now` is the 250 ms render tick, so the derived index can lag by up to one
-  // tick; each switch timer sets the exact index at its instant, and the later of the
-  // two wins. The clamp is the schedule length: an index past the last letter is the
-  // last letter.
+  // The letter is derived from the clock too, so a client joining mid-press shows the live
+  // letter immediately. The 250 ms tick may lag by one; each switch timer sets the exact
+  // index, later winning, clamped to the schedule's last letter.
   const scheduleLength = Math.max(1, clash.attackerKeys?.length ?? 1, clash.defenderKeys?.length ?? 1);
   const derivedIndex = shiftSchedule.filter((at) => now + offsetMs >= at).length;
   const keyIndex = Math.min(Math.max(derivedIndex, current.index), scheduleLength - 1);
   const { flipping, flash, warning } = current;
 
-  // Schedule every switch on the SERVER clock. `serverOffset` (derived once by the
-  // reducer from the frame's `serverNow`) turns an absolute engine stamp into a local
-  // delay, so a device whose clock is minutes out still flips when the engine
-  // switches. Timers, not the render tick: a tick could be a quarter second late. A
-  // switch already in the past is left alone, which makes a mid-clash `state_update`
-  // (the effect re-runs) a no-op instead of a replayed blip of every switch.
+    // Schedule every switch on the SERVER clock. `serverOffset` (derived once by the reducer from the
+  // frame's `serverNow`) turns an absolute engine stamp into a local delay, so a device whose clock
+  // is minutes out still flips when the engine switches.
   useEffect(() => {
     const at = clash.switchAt ?? [];
     if (!at.length) return;
@@ -549,12 +506,9 @@ export function ClashOverlay({
     };
     at.forEach((when, i) => {
       if (Date.now() + offsetMs >= when) return;
-      // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on
-      // the flip (the flip already has the banner, the pad re-scramble and the
-      // round's own tone, so a voice landing there would double the cue instead of
-      // warning). It borrows the cyber-reject voice — 180 ms of falling sawtooth, a
-      // warning rather than a sixth thing to mix — and obeys the same mute switch as
-      // every other engine call (decision 4.7).
+            // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on the flip (the flip
+      // already has the banner, the pad re-scramble and the round's own tone, so a voice landing there
+      // would double the cue instead of warning).
       later(when - CLASH_SWITCH_WARN_MS, () => {
         patch({ warning: true });
         retroAudio.playCyberReject();
@@ -598,10 +552,7 @@ export function ClashOverlay({
           ? t('game.clashChainBroken')
           : t('game.clashChainRepulsed');
 
-  // Which gesture the result card plays (game/ResultFx.tsx). Two gestures, read from
-  // fields the frame already carries: `winner === attacker` splits a won round from a
-  // lost one (capture vs repulse), and `n` (remaining defenders + 1) parameterises a
-  // wall — a four-defender wall draws 4, 3, 2 and 1 layer across its rounds (D4).
+    // Which gesture the result card plays (game/ResultFx.tsx).
   const fxAttacker = result?.attacker ?? clash.attacker;
   const fxAttackerWon = result ? result.winner === fxAttacker : false;
   const fxKind: ResultFxKind = fxAttackerWon ? 'capture' : 'repulse';
@@ -612,11 +563,9 @@ export function ClashOverlay({
     : result.winner === fxAttacker
       ? result.loser
       : result.winner;
-  // The sentence the breach card draws (25.4): the winner's name, resolved here because the
-  // scene never sees a player. The colour word is the same fallback the winner line uses, so
-  // an unnamed seat reads the same in the sentence and in the headline instead of one of
-  // them saying nothing. Hotseat and bot seats need no case of their own — both are in
-  // `players` with their own names.
+    // The sentence the breach card draws (25.4): the winner's name, resolved here because the scene
+  // never sees a player. The colour word is the same fallback the winner line uses, so an unnamed
+  // seat reads the same in the sentence and in the headline instead of one of them saying nothing.
   const winnerSeat = result ? players.find((p) => p.color === result.winner) : undefined;
   const winnerName =
     winnerSeat?.displayName ||
@@ -695,11 +644,8 @@ export function ClashOverlay({
   const showDefenderPad = touchMode && iAmInClash && (allowBothSides || defenderIsMe);
   const showAttackerPad = touchMode && iAmInClash && (allowBothSides || attackerIsMe);
 
-  // The stage never outgrows the room the pads leave (25.13): one pad online, two in
-  // hotseat (the branch is `allowBothSides`). The cap is the one the flash card is a
-  // ratio of (`CLASH_STAGE_MAX_PX`, 25.17), so it lives beside the stage rather than here
-  // and the two cards cannot drift apart. The height follows the width through the
-  // viewBox's 4:3, so a wider stage is a taller one.
+    // The stage never outgrows the room the pads leave (25.13): one pad online, two in hotseat (the
+  // branch is `allowBothSides`).
   const padCount = touchMode ? (allowBothSides ? 2 : 1) : 0;
   const padsCss = padCount ? `calc(${padCount} * ${TOUCH_BUTTON})` : '0px';
   const stageWidth = `min(60vw, ${CLASH_STAGE_MAX_PX}px, calc(100vw - ${padsCss} - 2 * ${TOUCH_EDGE_BUFFER}))`;

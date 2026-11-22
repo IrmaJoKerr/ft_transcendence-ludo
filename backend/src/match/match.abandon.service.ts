@@ -21,10 +21,8 @@ import {
 import type { GameChatBlock, GameChatPayload } from './postgame-snapshot';
 import { readRoomRules } from './room-rules';
 
-// Engine → backend payload for POST /api/game/:id/abandon: one seat that left a
-// room before anybody won. The counters are the tallies as they stood when the
-// seat left (the engine captures them before its pieces are parked), and `rank`
-// is the room's player count: an abandoned seat placed last, never first.
+// Payload for one seat that left before a win. Counters are the tallies at departure;
+// `rank` is the room's player count, so an abandoned seat is last.
 export interface SeatAbandonPayload {
   userId: string;
   color: string;
@@ -59,12 +57,9 @@ export class MatchAbandonService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
-  // One seat left a room before anybody won: write that seat's row and nothing else.
-  // Called by the engine at the departure itself (a room above quorum keeps playing
-  // without it) and once per human seat by a room that loses quorum. What separates
-  // this from /end is the guard: a seat that is still playing cannot be recorded, and
-  // a room that never started has nothing to record. The route never deletes
-  // `match:${id}`: the room may still be live for the others.
+  // Write one departed seat's row and nothing else. A still-playing seat and an
+  // unstarted room are refused. The route never deletes `match:${id}`, because the room
+  // may still be live for the others.
   async recordAbandonedSeat(gameId: string, seat: SeatAbandonPayload) {
     if (!gameId) {
       throw new BadRequestException({

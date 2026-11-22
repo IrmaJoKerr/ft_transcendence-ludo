@@ -1,11 +1,8 @@
 import type { FriendshipRecord } from './sessionSocket';
 import type { PresenceStatus } from './theme';
 
-// The three friendship lists, derived from two sources: the first-paint snapshot
-// (`GET /api/friends`, `/requests`, `/blocked`) and the live `friendship:changed`
-// records. A record always wins over the snapshot — it is the later truth — and a
-// record for a row the snapshot never had still appears. That is what makes the
-// feed self-healing instead of a patch stream (socket D2).
+// The three friendship lists, derived from two sources: the first-paint snapshot (`GET
+// /api/friends`, `/requests`, `/blocked`) and the live `friendship:changed` records.
 
 export type FriendRow = {
   id: string;
@@ -15,13 +12,13 @@ export type FriendRow = {
   avatarV?: number;
   hasAvatarPhoto?: boolean;
   rating: number;
-  /** When the friendship began; null on a row that arrived from a block/request. */
+    // When the friendship began; null on a row that arrived from a block/request.
   friendsSince: string | null;
   status: PresenceStatus;
 };
 
 export type FriendRequestRow = {
-  /** The pair row id: what accept/decline take. */
+    // The pair row id: what accept/decline take.
   id: string;
   userId: string;
   username: string;

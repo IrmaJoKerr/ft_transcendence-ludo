@@ -6,7 +6,7 @@ const PROVIDERS = [
   { name: 'Google', icon: '/google.png', path: '/api/auth/google' },
 ] as const;
 
-/** Row of OAuth provider buttons (42 / GitHub / Google) shared by login and signup. */
+// Row of OAuth provider buttons (42 / GitHub / Google) shared by login and signup.
 export function OAuthButtons() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
@@ -26,7 +26,7 @@ export function OAuthButtons() {
   );
 }
 
-/** "OR" hairline divider used around the OAuth row. */
+// "OR" hairline divider used around the OAuth row.
 export function OrDivider({ text = 'OR' }: { text?: string }) {
   return (
     <div

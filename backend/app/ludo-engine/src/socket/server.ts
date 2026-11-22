@@ -57,10 +57,8 @@ const EVENT_LIMIT = 20;
 // 9 presses/s per side, so the shared bucket would close the socket mid-race. 25
 // presses/s sustained keeps the press cap and phase checks as the real bound.
 const CLASH_EVENT_LIMIT = 125;
-// Die taps spend a bucket of their own for the same reason a roll is not a chat line:
-// one roll carries at most one tap, so ten per window is a hotseat device rolling both
-// its seats several times over, and anything past it is a socket relaying frames nobody
-// asked for. Kept separate so a tap never drains the budget the turn's own events need.
+// Die taps use a separate bucket: one roll carries at most one tap, so ten per window
+// covers a hotseat device. Separation keeps taps from draining the turn's budget.
 const DICE_TAP_EVENT_LIMIT = 10;
 
 // The Origin gate, in one testable place. A browser origin must match the allow-list
@@ -119,10 +117,8 @@ export class SocketServer {
       this.lifecycle.cleanupGame(gameId);
     });
     this.blocks = new BlockSubscriber(this.store);
-    // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
-    // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan. The deadline it
-    // holds is also what the waiting room's banner counts down: the room publishes it,
-    // so the client reads the room's number instead of recomputing one (R14/R20).
+    // A WAITING room with fewer than two seats aborts after the idle timeout. The same
+    // deadline drives the room banner, so the client reads one clock.
     this.idleLobby = new IdleLobbyWatcher(
       this.store,
       this.rooms,
@@ -212,10 +208,8 @@ export class SocketServer {
         if (!event.result.clashOutcome) {
           const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
           const baseDelay = animMs + BOT_THINK_MS;
-          // What the clients paint AFTER the walk, if anything. A move onto the goal is
-          // tested first and the three cases are exclusive branches, so a move that lands
-          // home and also captured adds one beat rather than two (32.6). Only the goal
-          // itself counts: the home lane is a corridor and its cells are not arrivals.
+          // What clients paint after the walk. Goal is tested first, and the branches are
+          // exclusive, so a goal capture adds one beat. Only the goal square counts.
           const overlay: 'goal' | 'capture' | null = event.result.reachedGoal
             ? 'goal'
             : event.result.captured
@@ -224,15 +218,9 @@ export class SocketServer {
           if (!overlay) {
             this.botScheduler.schedule(event.gameId, baseDelay);
           } else {
-            // A capture may paint the opt-in flash card on the clients, and a goal always
-            // paints its celebration, so the bot waits the walk out and THEN the overlay, so
-            // it never plays into a caption the human is still reading (25.9, amended in 25.17
-            // item 7): both are mounted in `finishMove()`, after the walk, so the two delays
-            // are added rather than maxed — a max fired the bot by the whole walk before the
-            // overlay even opened. The goal's own length is the room's: confetti with the acts
-            // off, the ramp card and its fade with them on, exactly the clock the client runs
-            // (`goalCelebrationMs`). The read is async and this frame is hot, so a store miss
-            // falls back to the plain delay rather than holding the bot forever.
+            // A capture card or goal celebration mounts after the walk, so the bot waits
+            // the walk and then the overlay: the delays add, not max. The goal uses the
+            // room's effects rule; a store miss falls back to the plain delay.
             void this.store
               .loadGameState(event.gameId)
               .then((state) => {
@@ -265,10 +253,8 @@ export class SocketServer {
         // the countdown and press race unguarded.
         this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
       } else if (event.type === 'clash_result') {
-        // The card is the pause: freeze to its own deadline (a card nobody human
-        // sits on ends at its own kind plus the margin, not at the ceiling the freeze
-        // is sized to) and hand the bot's resume to it. `clash_card_released` re-arms
-        // when a receipt shortens it.
+        // The card is the pause: freeze to its own deadline, not the ceiling, and hand
+        // the bot's resume to it. `clash_card_released` re-arms when a receipt shortens it.
         const cardUntil = event.resultCardUntil ?? Date.now() + CLASH_RESULT_FREEZE_MS;
         this.botScheduler.setClashFreeze(event.gameId, cardUntil);
         if (!event.continues) {

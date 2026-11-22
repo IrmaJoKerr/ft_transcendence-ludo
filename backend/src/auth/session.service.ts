@@ -5,21 +5,15 @@ import { REDIS_CLIENT } from '../common/redis-client';
 import { AUTH_REVOKED_PREFIX } from './auth.constants';
 
 const REFRESH_TTL_S = 7 * 24 * 60 * 60; // refresh tokens live 7 days
-// A consumed token presented again this soon, while its replacement is still
-// live, is the documented two-tab race, not theft: both tabs posted the same
-// cookie before either response landed. Older replays revoke every session.
+// A consumed token replayed this soon, while its replacement is live, is the known
+// two-tab race, not theft. Older replays revoke every session.
 const REUSE_GRACE_MS = 15_000;
 
 export type RotateResult = { userId: string; newToken: string } | { reused: true } | null;
 
-// One live session per account (D8), as one atomic step: drop every sibling
-// refresh key, then write the new one. Read-then-write in JavaScript is not
-// enough, because the two calls that can overlap — a login and a rotation
-// already in flight — would each read the set before the other writes: both
-// hashes survive (two live sessions) or both get deleted (none). Redis runs a
-// script without interleaving, so the later call always sees the earlier
-// session and evicts it, and "the newest login wins" becomes true rather than
-// likely. Returns how many siblings it evicted; zero is the ordinary refresh.
+// One live session per account, atomically: drop every sibling refresh key, then write
+// the new one. A Lua script prevents an overlapping login and rotation from leaving two
+// sessions or none. Returns the sibling count evicted; zero is an ordinary refresh.
 const ISSUE_SESSION = `
 local key = KEYS[1]
 local newHash = ARGV[1]
@@ -44,11 +38,9 @@ return evicted
 // the 7-day refresh tokens that back the 15-min JWT access tokens. Used by the
 // auth services (login, refresh, logout, password reset, account deletion).
 export class SessionService {
-  // Redis client holding refresh:<sha256(token)> -> userId, plus a
-  // sessions:<userId> set indexing the account's live sessions. The set holds at
-  // most one hash (D8), and stays the list `issue`, `revokeAll` and
-  // `revokeAllExcept` walk: deleting a refresh key alone would leave a hash
-  // behind for the next sweep to try.
+  // Redis holds `refresh:<sha256(token)>` to userId plus a `sessions:<userId>` index.
+  // The index has at most one hash and is the list the revoke methods walk; deleting a
+  // refresh key alone would leave a hash for the next sweep.
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private hash(value: string): string {

@@ -21,11 +21,9 @@ import { RealtimeGateway } from './realtime.gateway';
 const ROOMS_DEBOUNCE_MS = 500;
 const ROOMS_REPAIR_TICK_MS = 30_000;
 
-// The realtime module's own Redis subscriber. It carries five families: session
-// revocation (D4), the site-wide online count (Phase 1), rooms changes (Phase 2),
-// friendship records (Phase 3) and the public chat channel (queue item 3).
-// Notifications join it in Phase 4, which is why it is a service of its own rather
-// than a method on the gateway.
+// Realtime's Redis subscriber: session revocation, online count, room changes,
+// friendship records, notifications and public chat. It is separate from the gateway
+// so fan-out stays one service.
 @Injectable()
 export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
   // A subscribed ioredis connection cannot run ordinary commands, so it is never

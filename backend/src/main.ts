@@ -94,10 +94,9 @@ export function engineResultRoute(url: string | undefined): boolean {
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // The raised cap first, for the engine's two result routes only, then the default for
-  // everything else. Each predicate names its own half of the URL space and takes JSON
-  // only, so a multipart body reaches multer with its stream intact. The order is the rest
-  // of the mechanism: a parser that refuses a request leaves the body unread for the next.
+  // Raised cap first, for the engine result routes only, then the default parser. Each
+  // predicate owns its URL half and takes JSON only, so multipart reaches multer intact;
+  // a refusing parser leaves the body unread for the next.
   app.useBodyParser('json', {
     limit: ENGINE_BODY_LIMIT,
     type: (req: BodyParserRequest) => engineResultRoute(req.url) && isJsonRequest(req),

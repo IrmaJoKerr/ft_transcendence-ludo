@@ -3,27 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { retroAudio } from '../utils/audio';
 import { CyberModal } from './CyberModal';
 
-/**
- * The arena's rules: ten pages, one modal, two mount points.
- *
- * It shipped inline in `pages/Game.tsx`, opened by the game's own GAME RULES
- * button. The lobby header now offers the same button (34, item 2), and a second
- * copy of these pages is a second set to keep in step, so the block moved here
- * whole: `isOpen` and `onClose` in, everything else owned — the page the reader is
- * on, the tab strip, the footer's next/finish pair and the beep each turn makes.
- * `Game.tsx` keeps its trigger and passes the same two props, so the lobby's rules
- * and the game's cannot drift.
- *
- * Opening it always starts at the objective, which is what the game's button used
- * to do by hand (`setRulesPage(0)` before opening).
- *
- * The body's own measurements (`minWidth: 380, maxWidth: 520`) are untouched and
- * stay so on purpose (34, decision 20): the box grows once the content has been
- * read at this size, and that is its own step.
- */
+// The arena's rules: ten pages, one modal, two mount points.
 
-/** The last page index: `rulesTab0`..`rulesTab9`, where the footer turns from
- *  "next page" into "start playing". */
+// The last page index: `rulesTab0`..`rulesTab9`, where the footer turns from
+//  "next page" into "start playing".
 const LAST_PAGE = 9;
 
 interface GameRulesModalProps {
@@ -35,10 +18,7 @@ export function GameRulesModal({ isOpen, onClose }: GameRulesModalProps) {
   const { t } = useTranslation();
   const [rulesPage, setRulesPage] = useState(0);
 
-  // A fresh open starts at the objective, whoever pressed the button. The reset
-  // happens on the way *out* rather than on the way in: closing is the modal's own
-  // event, so `0` needs no effect watching `isOpen` and no `setRulesPage(0)` in each
-  // caller — the two rules the extraction was made to remove (34, item 2).
+    // A fresh open starts at the objective, whoever pressed the button.
   const closeModal = () => {
     setRulesPage(0);
     onClose();
@@ -76,13 +56,9 @@ export function GameRulesModal({ isOpen, onClose }: GameRulesModalProps) {
             gap: 16,
             minWidth: 380,
             maxWidth: 520,
-            // The deck outgrows a 900px window from page 7 on (two cards plus the
-            // key-shift table), and the box sits centred in a fixed overlay: with no
-            // cap the box grew to 1020px and pushed the footer — and its NEXT PAGE
-            // button — 86px below the fold, so the last four pages could not be
-            // turned from a 1440x900 screen. Capped here rather than in CyberModal,
-            // whose short confirm dialogs want no scroll area; `stable` reserves the
-            // gutter so a page that does not scroll keeps the strip's line breaks.
+            // From page 7 the deck outgrows a 900 px window. Capping the page column here, not in
+            // `CyberModal`, keeps the NEXT PAGE footer visible; `stable` reserves the scrollbar
+            // gutter so a short page keeps its line breaks.
             maxHeight: 'calc(100vh - 300px)',
             overflowY: 'auto',
             scrollbarGutter: 'stable',

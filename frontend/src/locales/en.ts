@@ -485,11 +485,9 @@ export const en = {
   // The room's channel (M3). The panel copy; the refusals reuse `chat.error.*`, which
   // is the same four codes the lobby answers with.
   gameChat: {
-    // The room's channel is the private one: only the seats in the room read it and the
-    // transcript is stored with the match, so its name says so and the lobby's public
-    // `chat.title` stays the contrast. The plate's header says the same two words as the
-    // card's own title: at `--font-heading`'s 0.75rem they fit the plate's track with room
-    // to spare, and a shut card that names itself is worth more than the four characters.
+        // The room's channel is the private one: only the seats in the room read it and the transcript is
+    // stored with the match, so its name says so and the lobby's public `chat.title` stays the
+    // contrast.
     title: '# ENCRYPTED COMMS',
     scope: 'THIS MATCH ONLY',
     slotTitle: 'ENCRYPTED COMMS',
@@ -650,10 +648,9 @@ export const en = {
     freeExitDesc: 'Any roll leaves prison, not just a 6',
     captureFx: 'Attack Animations',
     captureFxDesc: 'Play an attack animation when you take a piece',
-    // The key-shift mutator. "Letter", not "key": on a tablet there is no key at
-    // all and the pad shows letters. The wording says switch/change/bertukar
-    // throughout and keeps "flip" for the animation, so the copy survives a change
-    // of animation.
+        // The key-shift mutator. "Letter", not "key": on a tablet there is no key at all and the pad shows
+    // letters. The wording says switch/change/bertukar throughout and keeps "flip" for the animation,
+    // so the copy survives a change of animation.
     clashKeyShift: 'Clash Multi-Spectrum Hop',
     clashKeyShiftDesc: 'The required letter switches once or twice mid-clash',
     clashKeyShiftCount: 'Switches',
@@ -881,10 +878,9 @@ export const en = {
     modeBase: 'BASE GAME',
     noOpenRooms: 'NO OPEN PVP ARENAS FOUND. INITIALIZE AN ARENA AT LEVEL 1',
   },
-  // The two squad pages (34, item 2): four squads a decade, each with the nickname
-  // its own drawing gives it (`pieceParts.ts`'s four helmets, `pieceParts80.ts`'s
-  // four characters) and a short bio written in the voice the arena speaks in.
-  // Both decades ship here because the page follows the theme, not a toggle.
+    // The two squad pages (34, item 2): four squads a decade, each with the nickname its own drawing
+  // gives it (`pieceParts.ts`'s four helmets, `pieceParts80.ts`'s four characters) and a short bio
+  // written in the voice the arena speaks in.
   squadsPage: {
     title: 'MEET THE SQUADS',
     subtitle: 'FOUR COLOURS, TWO DECADES: THE CREWS YOU SHARE THE ARENA WITH',
