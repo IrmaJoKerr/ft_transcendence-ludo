@@ -1,4 +1,4 @@
-import type { PiecePart } from '../pieceParts';
+import type { PiecePart } from '../pieceParts70';
 
 // CHROME CYBORG (blue): bulk plate, visor bar, amber grille, chest core.
 export const CYBORG: PiecePart[] = [

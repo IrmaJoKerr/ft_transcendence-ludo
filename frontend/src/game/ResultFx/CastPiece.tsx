@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { PieceFigure } from '../../components/PieceFigure';
-import type { PiecePose } from '../pieceParts';
+import type { PiecePose } from '../pieceParts70';
 import type { PlayerColor } from '../types';
 import { PIECE_W } from './geometry';
 

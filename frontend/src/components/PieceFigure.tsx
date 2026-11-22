@@ -15,10 +15,10 @@ import {
   type PiecePose,
   type PieceRole,
   type PieceSet,
-} from '../game/pieceParts';
+} from '../game/pieceParts70';
 import { PIECE_FACE_80, PIECE_HEAD_80, PIECE_PARTS_80 } from '../game/pieceParts80';
 
-// Draws a seat's SVG figure from `game/pieceParts.ts` (70s) or `pieceParts80/` (80s).
+// Draws a seat's SVG figure from `game/pieceParts70/` (70s) or `pieceParts80/` (80s).
 // It renders bare `<g>` content, so the caller owns the frame and transform. `pose` turns
 // only the face plate; the head and body stay put.
 
@@ -123,7 +123,7 @@ function Part({ part, ck, set }: { part: PiecePart; ck: ColorKey; set: PieceSet 
   }
 }
 
-// Which decade's drawing to lay down: `pieceParts.ts` owns the union, this re-exports it
+// Which decade's drawing to lay down: `pieceParts70/` owns the union, this re-exports it
 //  with the component, which is where callers used to find it.
 export type { PieceSet };
 

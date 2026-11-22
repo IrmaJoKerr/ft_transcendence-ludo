@@ -879,7 +879,7 @@ export const en = {
     noOpenRooms: 'NO OPEN PVP ARENAS FOUND. INITIALIZE AN ARENA AT LEVEL 1',
   },
     // The two squad pages (34, item 2): four squads a decade, each with the nickname its own drawing
-  // gives it (`pieceParts.ts`'s four helmets, `pieceParts80/`'s four characters) and a short bio
+  // gives it (`pieceParts70/`'s four helmets, `pieceParts80/`'s four characters) and a short bio
   // written in the voice the arena speaks in.
   squadsPage: {
     title: 'MEET THE SQUADS',

@@ -1,5 +1,5 @@
 // The 1970s die face: one molded plastic body with a recessed well, drawn in the same 100-unit box
-// the piece sets use (`game/pieceParts.ts`), so a number read off a still ports without
+// the piece sets use (`game/pieceParts70/`), so a number read off a still ports without
 // arithmetic.
 
 // A paint slot: one of the die's tokens by role, or `none` for a stroke-only shape.
