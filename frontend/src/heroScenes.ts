@@ -124,7 +124,8 @@ export const RETRO70_CFG: Colony70sScene = {
   starCount: 68,
   starfield: '255, 255, 255',
   meteorCount: 4,
-  rockCount: 3,
+  // Matched to the 80s starfield's 65, so the two cards carry the same traffic density.
+  rockCount: 65,
   meteorColor: '255, 231, 189',
   marqueeColor: '#ffb000',
 };

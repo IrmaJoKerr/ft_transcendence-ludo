@@ -24,7 +24,7 @@ modal overlay (`ResultsModal`). It shows:
 3. **Exit**: returns to the lobby or the home page after the game.
 4. **Guest exits**: `onPlayAgain`, `returnLabel` and `errorText` are optional props that only the guest path passes, for a fresh mint, the "Back to login" label and the refusal message.
 
-Results render through `src/components/ResultsModal.tsx`, which `Game.tsx` opens when the engine emits `game_ended`.
+Results render through `src/components/ResultsModal.tsx`, which `Game.tsx` opens only after the last move, any goal celebration, and `RESULTS_MODAL_DELAY_MS` (900 ms) have elapsed — never on the raw `game_ended` frame.
 
 
 ---
@@ -36,7 +36,7 @@ Results render through `src/components/ResultsModal.tsx`, which `Game.tsx` opens
 | File | Role |
 |------|------|
 | `src/components/ResultsModal.tsx` | Results overlay: podium, summary, rank badges, outcome title |
-| `src/pages/Game/` | Opens the modal on `game_ended`; holds the socket connection and the `lastResult` state |
+| `src/pages/Game/` | Opens the modal after any goal celebration and `RESULTS_MODAL_DELAY_MS` (900 ms); holds the socket connection and the `lastResult` state |
 | `src/store/` | `setLastResult` / `lastResult` state |
 
 
@@ -96,6 +96,7 @@ sequenceDiagram
     Engine-->>Game: game_ended { winner, resultDetail }
     Game->>Game: Build endedPlayers (from current view, filter inactive)
     Game->>Store: setLastResult({ winner, resultDetail, mode, playerCount, players })
+    Game->>Game: Wait out any goal celebration + RESULTS_MODAL_DELAY_MS
     Game->>Modal: Open results modal (showResultsModal = true)
     Modal->>Modal: Sort players, find my row by userId, compute the outcome title
     alt abandoned or no real winner
@@ -120,7 +121,8 @@ Game.tsx receives 'game_ended'
   ├── Build endedPlayers: view.players (status !== 'inactive')
   │   └── PvP: trim to activeMatch.playerCount if the list is longer
   ├── setLastResult({ winner, resultDetail, mode, playerCount, players })
-  └── setShowResultsModal(true)
+  ├── celebrationLeft = max(0, goalFxEndsAtRef.current - performance.now())
+  └── setTimeout(() => setShowResultsModal(true), celebrationLeft + RESULTS_MODAL_DELAY_MS)
 
 ResultsModal renders
   ├── my row: matched by userId, then by name, then the first human seat
@@ -168,7 +170,7 @@ delete. See [frontend-components-system.md](frontend-components-system.md) → I
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `useApp` → lastResult, setLastResult |
+| `store/store.tsx` | `useApp` → lastResult, setLastResult |
 | `components/UserAvatar.tsx` | Player avatars on the podium |
-| `utils/audio.ts` | `retroAudio` end-of-game chimes |
+| `utils/audio/audio.ts` | `retroAudio` end-of-game chimes |
 

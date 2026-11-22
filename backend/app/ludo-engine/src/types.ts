@@ -431,7 +431,8 @@ export type GameEvent =
       attackerKey: string;
       defenderKey: string;
       // Key-shift schedules for both seats, with absolute switch instants. A hotseat
-      // socket needs both; each client renders its own. Empty arrays when the mutator is off.
+      // socket needs both; each client renders its own. Both arrays always hold
+      // keyShift + 1 letters; switchAt is empty when the mutator is off.
       attackerKeys: string[];
       defenderKeys: string[];
       switchAt: number[];

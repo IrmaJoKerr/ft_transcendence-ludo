@@ -103,8 +103,8 @@ export class EventPublisher {
             attackerKey: event.attackerKey,
             defenderKey: event.defenderKey,
             // Key-shift schedule: the letters each side will be asked for, and the
-            // instants they change. Constant field set: empty arrays and 0 on a room
-            // with the mutator off, so a client never has to guess at the shape.
+            // instants they change. Both arrays always carry the opening letter; a
+            // room with the mutator off sends an empty switchAt and keyShift 0.
             attackerKeys: event.attackerKeys,
             defenderKeys: event.defenderKeys,
             switchAt: event.switchAt,

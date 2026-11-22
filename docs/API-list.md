@@ -2858,7 +2858,7 @@ socket.emit('skip_wall_breaker');
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleClashInput`)
 
-One QTE keypress during the press phase. The key itself picks the side (defender keys are the left block, attacker keys the right); the seat binding then proves the caller owns it. `count` is the tablet tap weight, clamped to `CLASH_TAP_COUNT_MAX` (2).
+One QTE keypress during the press phase. The key itself picks the side (defender keys are the left block, attacker keys the right); in a key-shift room the live letter changes at each `switchAt` instant, so the opening key stops counting there. The seat binding then proves the caller owns it. `count` is the tablet tap weight, clamped to `CLASH_TAP_COUNT_MAX` (2).
 
 ```js
 socket.emit('clash_input', 'f', 1);
@@ -2895,7 +2895,7 @@ socket.emit('clash_card_hold', 'blue-red-41', 2400);
 | `cardId` | string | `"<attacker>-<defender>-<moveCounter>"`, echoed from `clash_result` |
 | `holdMs` | number | Forecast card duration in ms |
 
-**Response:** `clash_card_released` once every participating user has reported its card's length (or the card has no human in it).
+**Response:** `clash_card_released` once the engine has every receipt it will use, or after a card with no registered user is timed to its kind (hotseat and bot-only cards have nobody to report).
 
 **Errors:** `error` only for a caller with no seat in that card; a foreign `cardId` is dropped silently, and a receipt after the release does nothing.
 
@@ -2990,7 +2990,7 @@ socket.emit('end_game');
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleDisconnect`)
 
-Automatically handled when the WebSocket connection drops. Opens a reconnect grace window (45 s in PvP and in hotseat, 1 h in a PvE simulation) for a **live, unfinished** seat and broadcasts `player_disconnected`; no window is opened for an exited/finished seat. `player_reconnected` fires if the player returns inside the window, carrying the name the client reports so a rename survives the reconnect. If the window expires the seat is pruned for good (`player_exited`, pieces parked at `step = -1`), and a later `join_game` for it is answered with `seat_expired` instead of being treated as a reconnect.
+Automatically handled when the WebSocket connection drops. Opens a reconnect grace window (45 s in PvP, 5 s in hotseat, 1 h in a PvE simulation) for a **live, unfinished** seat and broadcasts `player_disconnected`; no window is opened for an exited/finished seat. `player_reconnected` fires if the player returns inside the window, carrying the name the client reports so a rename survives the reconnect. If the window expires the seat is pruned for good (`player_exited`, pieces parked at `step = -1`), and a later `join_game` for it is answered with `seat_expired` instead of being treated as a reconnect.
 
 ```js
 // Socket.IO handles this automatically on connection loss
@@ -3041,11 +3041,11 @@ both result routes store on the row.
 | `dice_rolled` | `{ value, legalMoves, bonusRoll }` | After dice rolled |
 | `piece_moved` | `MoveResult` + `currentTurn` | After piece moved. `currentTurn` names the seat that holds the turn next |
 | `turn_skipped` | `{ gameId, currentTurn }` | `skip_wall_breaker` declined the armed turn; the turn has already advanced in the state |
-| `clash_start` | `{ attacker, defender, attackerKey, defenderKey, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase |
+| `clash_start` | `{ attacker, defender, attackerKey, defenderKey, attackerKeys, defenderKeys, switchAt, keyShift, serverNow, target, duration, phase, startAt, announceDeadline, countdownDeadline, pressDeadline, attackerPresses, defenderPresses, round?, totalRounds?, defenderPieceId?, remainingDefenderIds? }` | A capture is deferred to the QTE, or a clash chain starts its next round. Keys stay hidden until the press phase; `attackerKeys`/`defenderKeys` always hold `keyShift + 1` letters (opening letter first, each later one live from `switchAt[i]`), and `serverNow` is the engine clock for the overlay's offset |
 | `clash_phase` | `{ phase, countdownDeadline, pressDeadline }` | The QTE moves announce → countdown → pressing |
 | `clash_press` | `{ color, presses }` | An accepted `clash_input` press |
-| `clash_result` | `{ cardId, winner, loser, winnerPresses, loserPresses, round, totalRounds, resultCardUntil, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `continues: true` means the square still holds defenders and another round follows; `resultCardUntil` is the card's deadline, which the bots' next turn is timed from |
-| `clash_card_released` | `{ gameId, resultCardUntil }` | Every participating client reported its card's length; the input freeze ends at `resultCardUntil` and the SPA card keeps its own timer |
+| `clash_result` | `{ cardId, attacker, winner, loser, winnerPresses, loserPresses, round, totalRounds, resultCardUntil, continues, defenderPieceId, remainingDefenderIds }` | A round resolved; `attacker` names the seat that began the clash and selects the result FX through `winner === attacker`; `continues: true` means the square still holds defenders and another round follows; `resultCardUntil` is the card's deadline, which the bots' next turn is timed from |
+| `clash_card_released` | `{ gameId, resultCardUntil }` | The engine has every receipt it will use, or has timed a card with no registered user to its kind; the input freeze ends at `resultCardUntil` and the SPA card keeps its own timer |
 | `chat:message` | `{ line: ChatLine }` where `ChatLine` is `{ id, seq, senderId, senderName, text, at, ch, kind?, code? }` | One line entered the room's channel (M3). A player's line is sent **per socket**, with the block ledger applied, so a blocked pair never receives the other side's post-block speech; an engine-written line (`kind: 'system'`, `code: 'left'` or `'started'`, empty `text`) goes room-wide because it holds no speech |
 | `chat:history` | `{ lines: ChatLine[] }`, oldest first, already cut at the block ledger | Right after `game_joined`, on a join and on a rejoin. The transcript is per seat, which is why it cannot ride the room frame |
 | `game_started` | `{ gameId }` | Game transitions from waiting → active. Always followed by `state_update` with the gate's state (`currentTurn` already the opener) |

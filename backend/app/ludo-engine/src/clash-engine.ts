@@ -698,8 +698,9 @@ export class ClashEngine {
   }
 
   // Record the result card a client is about to show. `seats` are the two sides of
-  // the clash; their NON-BOT owners (by user id, so hotseat collapses to one) are the
-  // clients that may report. `cardMs` is the length of the card being drawn (the caller
+  // the clash; their NON-BOT owners, by user id, are the clients that may report.
+  // Hotseat seats have no userId, so the set is empty and the card is timed like a
+  // bot-only one. `cardMs` is the length of the card being drawn (the caller
   // has the ledger and the outcome, so it reads the same branch `clashCardMs` reads
   // client-side). A card a human sits on runs to the ceiling and a receipt shortens it;
   // a card nobody can report (bot against bot, or hotseat) is timed here to its own kind.

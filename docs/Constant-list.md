@@ -95,7 +95,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 12. **[Theme and palette](#12-theme-and-palette)** — seat colours, presence colours, CSS design tokens
 13. **[Client timing](#13-client-timing)** — every presentation delay: clash cards, dice brake, path, capture burst, the goal's celebration, guards
 14. **[Client cadences](#14-client-cadences)** — token refresh, room-push debounce and repair, cross-tab locks, toasts
-15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, touch pad, nav fit, toast stack
+15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, chat card, touch pad, nav fit, toast stack
 16. **[Audio](#16-audio)** — master volume and the blip defaults
 17. **[Browser storage](#17-browser-storage)** — localStorage keys and settings defaults
 
@@ -549,7 +549,7 @@ room is over. Both readers fail open: an unreadable state never hides a seat or 
 rated (`RATED_GAME_TYPES` in `achievements.service.ts`).
 
 **Achievements — `backend/src/achievements/achievements.registry.ts`** 🗄️ — 16 rows, the authoritative
-list; the client dashboard mirrors the same keys and thresholds in `pages/Profile.tsx` 🖥️.
+list; the client dashboard mirrors the same keys and thresholds in `pages/Profile/Profile.tsx` 🖥️.
 
 | Key | Type | Target | Counts |
 |---|---|---|---|
@@ -594,7 +594,7 @@ presence share one definition without circular dependencies.
 **Owners:** `frontend/src/theme.ts` 🖥️ (the seat colours and the data constants - `COL`, `SEAT_COLORS`,
 `BOARD_QUADRANTS`, `COLOR_KEYS`, `BOT_POOL`, `STATUS_STYLE`; its style objects were deleted 2026-11-12,
 `todo.md` [33](todo.md#rv33-ruled)),
-`frontend/src/styles/themes/*/theme.css` 🎨 (the design tokens, one table per era), `frontend/src/game/ClashOverlay.tsx` 🖥️
+`frontend/src/styles/themes/*/theme.css` 🎨 (the design tokens, one table per era), `frontend/src/game/ClashOverlay/ClashOverlay.tsx` 🖥️
 (clash plate colours).
 
 **Player colours — `COL`** — the one place a Ludo colour is defined; `base` fills a piece, `dark` is the
@@ -785,7 +785,7 @@ inventory rows across 9 files**. Two sets are deliberately not swept forms: the 
 only in that table's declaration and prose, the reasoning cyan's `#5fb3b0` and purple's `#0c5679` carry, and the
 tickets' hover shades (`#33ffaa` beside `#ff3399` and `#ffff33`) are distinct hues nothing else spells.
 
-**The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
+**The piece palettes — `game/pieceParts70/palette.ts`** 🎨 — every part is painted from *roles*, and
 `piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
 hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
 with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s
@@ -925,7 +925,7 @@ start, none past the untapped end of its own roll, a later catch never lands ear
 the window lands the untapped roll, and only a slow answer outlasts the ceiling.
 
 **The die's three cues** are the client's alone, voiced from one exported table (`DICE_SFX` in
-`utils/audio.ts`) and scheduled by `Die` at instants the acts already have — no cue adds time:
+`utils/audio/audio.ts`) and scheduled by `Die` at instants the acts already have — no cue adds time:
 
 | Cue | How often | Its spacing |
 |---|---|---|
@@ -940,9 +940,9 @@ by `volume` and wrapped in `try/catch`, like every other cue in the file.
 
 ### **14. Client cadences**
 
-**Owners:** `frontend/src/store.tsx` 🖥️, `frontend/src/api.ts` 🖥️, `frontend/src/authRefreshLock.ts` 🖥️,
-`components/NotificationToast.tsx` 🖥️, `hooks/useNotifications.tsx` 🖥️, `pages/Game.tsx` 🖥️,
-`pages/Profile.tsx` 🖥️, and `backend/src/realtime/realtime-broadcaster.service.ts` 🗄️ for the two
+**Owners:** `frontend/src/store/store.tsx` 🖥️, `frontend/src/api.ts` 🖥️, `frontend/src/authRefreshLock.ts` 🖥️,
+`components/NotificationToast/` 🖥️, `hooks/useNotifications.tsx` 🖥️, `pages/Game/Game.tsx` 🖥️,
+`pages/Profile/Profile.tsx` 🖥️, and `backend/src/realtime/realtime-broadcaster.service.ts` 🗄️ for the two
 `ROOMS_*` values. No screen polls: the lobby, the friend lists, presence and the bell are pushed over
 the session socket, so the only client timers left are the client rows below.
 
@@ -964,10 +964,10 @@ the session socket, so the only client timers left are the client rows below.
 
 ### **15. Layout, size and z-index**
 
-**Owners:** `frontend/src/components/Board.tsx` 🖥️ and `frontend/src/game/boardGeometry.ts` 🖥️ (board),
+**Owners:** `frontend/src/components/Board/Board.tsx` 🖥️ and `frontend/src/game/boardGeometry.ts` 🖥️ (board),
 `components/CaptureBurst.tsx` 🖥️, `components/GoalBurst.tsx` / `GoalConfetti.tsx` / `GoalCard.tsx` 🖥️,
-`game/ClashOverlay.tsx` 🖥️, `pages/Game.tsx` 🖥️,
-`components/RetroNavbar.tsx` 🖥️, `hooks/useFitTextSize.ts` 🖥️, `components/NotificationToast.tsx` 🖥️.
+`game/ClashOverlay/ClashOverlay.tsx` 🖥️, `pages/Game/Game.tsx` 🖥️,
+`components/RetroNavbar/` 🖥️, `hooks/useFitTextSize.ts` 🖥️, `components/NotificationToast/` 🖥️.
 
 **Board geometry** — one mapping shared by the renderer and anything that has to point at a square
 (the capture burst's anchor is measured from the cell's `data-cell` rect).
@@ -1033,6 +1033,19 @@ the session socket, so the only client timers left are the client rows below.
 | Tactical grid | `250px / 1fr / 250px`, then 285, then 310 | side columns at the md/lg/xl/2xl breakpoints |
 | Page width | 1440 px | the game shell's maximum |
 
+**Chat card — `components/ChatCard/chatCardMetrics.ts`** (one card for the room and the dock; the
+height is a viewport function, never the old fixed 560)
+
+| Constant | Value | What it decides |
+|---|---|---|
+| `chatCardHeight(viewportHeight)` | `round(clamp(viewportHeight × 0.6, 420, 720))` | the overlay card's height: 420 at the minimum, 720 at the maximum, 60% of the window between; each host then clamps it to its own floor minus `CHAT_CARD_MARGIN` |
+| `CHAT_CARD_WIDTH` | 480 | the card's width; both hosts shrink it to `min(480, innerWidth - 32)` |
+| `CHAT_CARD_MIN_HEIGHT` / `CHAT_CARD_VH` / `CHAT_CARD_MAX_HEIGHT` | 420 / 0.6 / 720 | the three inputs to `chatCardHeight()` |
+| `CHAT_CARD_MARGIN` | 16 | the viewport margin on every edge, and the 32 px subtracted from the width |
+| `COMPOSER_MAX_HEIGHT` | 140 | the composer's growth ceiling before it scrolls |
+| `PREVIEW_LINES` | 3 | lines the compact slot previews |
+| `PANEL_WIDTH` / `PANEL_GAP` | 240 / 8 | the INVITE COMMS panel's width and the gap beside the card |
+
 **Navbar label fit — `RetroNavbar.tsx`** (each label is measured, never guessed)
 
 | Constant | Value | What it decides |
@@ -1061,7 +1074,7 @@ the session socket, so the only client timers left are the client rows below.
 
 ### **16. Audio**
 
-**Owner:** `frontend/src/utils/audio.ts` 🖥️ — one `RetroAudioEngine` (`retroAudio`), Web Audio, no audio
+**Owner:** `frontend/src/utils/audio/audio.ts` 🖥️ — one `RetroAudioEngine` (`retroAudio`), Web Audio, no audio
 files. Every sound is a small oscillator/noise graph; the master gain multiplies each.
 
 | Constant / method | Value | What it decides |
@@ -1084,7 +1097,7 @@ The results modal drives its own print cadence on top of these: steps at `0, 80,
 
 ### **17. Browser storage**
 
-**Owners:** `frontend/src/store.tsx` 🖥️ (keys and defaults), `frontend/src/i18n.ts` 🖥️ (language boot),
+**Owners:** `frontend/src/store/store.tsx` 🖥️ (keys and defaults), `frontend/src/i18n.ts` 🖥️ (language boot),
 `frontend/src/authRefreshLock.ts` 🖥️ (the cross-tab lock).
 
 | Key | Default / shape | What it holds |
@@ -1139,10 +1152,10 @@ copied at build time, so they have no row here.
 | `ENGINE_TOKEN_AUDIENCE` `ludo-engine` | 🗄️ `match/engine-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatch rejects every engine token |
 | Turn order blue → red → green → yellow | ⚙️ `COLORS` (`player-handler.ts`), `firstActiveColor` for the start gate | 🖥️ `theme.ts` `SEAT_COLORS` | the rotation is colour order; a seat holds whatever colour it claimed, so a seat index never decides who moves first |
 | Presence strings `online` / `playing` / `offline` | 🗄️ `presence.service.ts` | 🖥️ `theme.ts` `PresenceStatus` + `STATUS_KEYS` | the Redis value is the wire value |
-| 16 achievement keys and thresholds | 🗄️ `achievements.registry.ts` | 🖥️ `pages/Profile.tsx` `ACHIEVEMENTS_DEF` | titles, icons and copy are client-side |
+| 16 achievement keys and thresholds | 🗄️ `achievements.registry.ts` | 🖥️ `pages/Profile/Profile.tsx` `ACHIEVEMENTS_DEF` | titles, icons and copy are client-side |
 | CSRF cookie `csrf_token` | 🗄️ `common/csrf.ts` | 🖥️ `api.ts` | a mismatch fails every write with `CSRF_TOKEN_INVALID` |
 | `GUEST_EVENTS` allow-list (10 names) | ⚙️ `socket/auth.ts` | 🖥️ the guest client's emits (`Game.tsx`) | an event on one side only is refused |
-| Seat hues `#ff007f` / `#00ff88` / `#ffe600` / `#00f0ff` | 🖥️ `theme.ts` `COL.base` | 🖥️ `pages/Lobby.tsx` and `pages/Game.tsx` (`SEAT_HUES`), `pages/LudoLobby.tsx` (`ROOM_AVATAR_HUES`) | three copies of the same four hexes |
+| Seat hues `#ff007f` / `#00ff88` / `#ffe600` / `#00f0ff` | 🖥️ `theme.ts` `COL.base` | 🖥️ `pages/Lobby/Lobby.tsx` and `pages/Game/Game.tsx` (`SEAT_HUES`), `pages/LudoLobby/LudoLobby.tsx` (`ROOM_AVATAR_HUES`) | three copies of the same four hexes |
 
 
 ### **19. Where a new constant goes**

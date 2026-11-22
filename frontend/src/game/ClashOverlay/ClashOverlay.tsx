@@ -52,7 +52,8 @@ const COLORS: Record<PlayerColor, string> = {
   blue: 'var(--clash-blue, #4a92e0)',
 };
 
-// Re-render on a fixed tick so phase transitions + countdown derive from SERVER timestamps.
+// Re-render on a fixed tick for the live bars and countdown. This is the device clock:
+// a lane comparing it with an engine deadline must add `serverOffset` first.
 function useNow(ms = CLASH_UI_TICK_MS): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -79,9 +80,9 @@ function useIsPortrait(touchMode: boolean): boolean {
   return portrait;
 }
 
-function phaseAt(clash: NonNullable<GameViewState['clash']>, now: number): ClashPhase {
-  if (now < clash.announceDeadline) return 'announce';
-  if (now < clash.countdownDeadline) return 'countdown';
+function phaseAt(clash: NonNullable<GameViewState['clash']>, clock: number): ClashPhase {
+  if (clock < clash.announceDeadline) return 'announce';
+  if (clock < clash.countdownDeadline) return 'countdown';
   return 'pressing'; // press window is [countdownDeadline, pressDeadline); after that the result prop shows
 }
 
@@ -454,7 +455,10 @@ export function ClashOverlay({
 }: Props) {
   const { t } = useTranslation();
   const now = useNow(CLASH_UI_TICK_MS);
-  const phase = phaseAt(clash, now);
+  // One clock for every engine-deadline comparison: the tick is local, `serverOffset` makes it server time.
+  const offsetMs = clash.serverOffset ?? 0;
+  const clock = now + offsetMs;
+  const phase = phaseAt(clash, clock);
   const touchMode = useMemo(() => isMobileOS(), []);
   const portrait = useIsPortrait(touchMode);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -467,7 +471,6 @@ export function ClashOverlay({
   // Key-shift schedule. `keyIndex` is which letter of each side's schedule the SERVER
   // is accepting; `flipping` is the half-flip before a switch (the badge is edge-on
   // exactly at the instant), `flash` the beat after it, `warning` the 400 ms lead.
-  const offsetMs = clash.serverOffset ?? 0;
   const shiftSchedule = clash.switchAt ?? [];
     // The switch state that the timers drive, stamped with the clash it belongs to: a chain's next
   // round is a new clash, so a value left over from the last round must not apply.
@@ -483,7 +486,7 @@ export function ClashOverlay({
   // letter immediately. The 250 ms tick may lag by one; each switch timer sets the exact
   // index, later winning, clamped to the schedule's last letter.
   const scheduleLength = Math.max(1, clash.attackerKeys?.length ?? 1, clash.defenderKeys?.length ?? 1);
-  const derivedIndex = shiftSchedule.filter((at) => now + offsetMs >= at).length;
+  const derivedIndex = shiftSchedule.filter((at) => clock >= at).length;
   const keyIndex = Math.min(Math.max(derivedIndex, current.index), scheduleLength - 1);
   const { flipping, flash, warning } = current;
 
@@ -635,8 +638,8 @@ export function ClashOverlay({
     }
   }, [touchMode]);
 
-  const countdownSecs = Math.max(0, Math.ceil((clash.countdownDeadline - now) / 1000));
-  const fightFlash = phase === 'pressing' && now - clash.countdownDeadline < CLASH_FIGHT_FLASH_MS;
+  const countdownSecs = Math.max(0, Math.ceil((clash.countdownDeadline - clock) / 1000));
+  const fightFlash = phase === 'pressing' && clock - clash.countdownDeadline < CLASH_FIGHT_FLASH_MS;
   const pressable = !result && phase === 'pressing';
   // Your own device (PvP/PvE): only your group is drawn; the opponent's pad would
   // fail the ownership check. Hotseat: both seats belong to this socket, so both are

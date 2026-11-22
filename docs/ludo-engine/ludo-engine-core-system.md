@@ -164,7 +164,7 @@ not freeze anything — play continues, and the wait only lands when the turn re
 render a "waiting to reconnect" banner immediately. PvE and hotseat never pause: they are
 single-instance games with one human and no remote opponent, so the only two states are *running*
 and *aborted* — their disconnect still arms a single-instance window (an hour for a PvE simulation,
-the live 45 s for hotseat, which writes no match row and holds no seat worth an hour), and expiry
+5 s for hotseat, which writes no match row and holds no seat worth an hour), and expiry
 closes the room. The pause is cleared in three places: `restoreSeatOnReconnect` (seat restored, same turn
 resumes with its pending dice/moves), `departSeat` (seat pruned, turn advances to the next playable
 seat), and the re-arm check in `join-manager` (defensive, owner-only). While paused, `rollDice`,
