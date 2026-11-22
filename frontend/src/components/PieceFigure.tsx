@@ -18,7 +18,7 @@ import {
 } from '../game/pieceParts';
 import { PIECE_FACE_80, PIECE_HEAD_80, PIECE_PARTS_80 } from '../game/pieceParts80';
 
-// Draws a seat's SVG figure from `game/pieceParts.ts` (70s) or `pieceParts80.ts` (80s).
+// Draws a seat's SVG figure from `game/pieceParts.ts` (70s) or `pieceParts80/` (80s).
 // It renders bare `<g>` content, so the caller owns the frame and transform. `pose` turns
 // only the face plate; the head and body stay put.
 

@@ -1,0 +1,2121 @@
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { NavDock } from '../../components/NavDock';
+import { UserAvatar } from '../../components/UserAvatar';
+import { applyAvatarChange } from '../../avatarCache';
+import { fetchWithCsrf, translateErrorCode } from '../../api';
+import { ProfileEditModal } from '../../components/ProfileEditModal';
+import { useRoute, navigate } from '../../router';
+import { useApp } from '../../store';
+import { STATUS_STYLE } from '../../theme';
+import { retroAudio } from '../../utils/audio';
+import {
+  CRT_SCREEN,
+  HERO_SECTION,
+  HERO_TITLE,
+  RETRO_WINDOW,
+  WINDOW_HEADER,
+  WINDOW_CONTROLS,
+  WINDOW_BTN_MIN,
+  WINDOW_BTN_MAX,
+  WINDOW_BODY,
+  RETRO_BTN,
+  DISPLAY_ELLIPSIS,
+  DISPLAY_TITLE,
+} from '../../styles/tw';
+import { ACHIEVEMENTS_DEF } from './achievementDefs';
+import { BlockedProfileCard } from './BlockedProfileCard';
+import { TranscriptRow } from './TranscriptRow';
+import { useUsernameCopy } from './useUsernameCopy';
+import {
+  HISTORY_PAGE_SIZE,
+  SEAT_COLOR,
+  STATUS_KEYS,
+  type Friend,
+  type MatchHistory,
+  type UserProfile,
+} from './profileTypes';
+
+export function Profile() {
+  const { t } = useTranslation();
+  const { query } = useRoute();
+  const { user, setUser } = useApp();
+  const username = query.get('u') ?? user?.username;
+  const isOwnProfile = user?.username === username;
+
+  // **CRT CONTROLS**
+  // Read once at mount: the CRT look is a page-level choice, not a dock control.
+  const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  // The window header line is the handle's copy target (`… [COPY]`), the same
+  // shape the PvP waiting room gives its room code.
+  const { copied: usernameCopied, copyUsername: copyUsernameToClipboard } = useUsernameCopy(
+    profile?.username ?? '',
+  );
+  const [gamesData, setGamesData] = useState<MatchHistory | null>(null);
+  const [gamesLoading, setGamesLoading] = useState(false);
+  const [friendsData, setFriendsData] = useState<Friend[] | null>(null);
+  type AchievementReport = { unlocked: boolean; progress: number; target: number };
+  type AchievementsResponse = Record<string, AchievementReport>;
+  const [achievements, setAchievements] = useState<AchievementsResponse>({});
+  // The backend only returns entries for achievements the user has touched, so
+  // a missing key must read as "no report yet" even though the map type is dense.
+  const getAchievementReport = (key: string): AchievementReport | undefined => achievements[key];
+    // The bell's destinations name the tab (22.7 item 3): `? tab=` is the initial value, and later
+  // changes are followed in an effect because the bell is a portal — a second click while already
+  // here changes only the query, not the page.
+  const [mainTab, setMainTab] = useState<'history' | 'achievements'>(() =>
+    query.get('tab') === 'achievements' ? 'achievements' : 'history',
+  );
+  const tab = query.get('tab');
+  const wantedTab = tab === 'achievements' || tab === 'history' ? tab : null;
+  const [seenTab, setSeenTab] = useState(wantedTab);
+  if (wantedTab !== seenTab) {
+    // Adjusted during render rather than in an effect, so the page never paints the
+    // old tab for a frame on the way to the new destination.
+    setSeenTab(wantedTab);
+    if (wantedTab) setMainTab(wantedTab);
+  }
+  const [loading, setLoading] = useState(true);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [photoWarning, setPhotoWarning] = useState('');
+  const [avatarBuster, setAvatarBuster] = useState(Date.now());
+  const [showEdit, setShowEdit] = useState(false);
+  const [unblocking, setUnblocking] = useState(false);
+  // Bump to refetch the profile after the edit modal saves/closes.
+  const [profileRefresh, setProfileRefresh] = useState(0);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadError(t('profile.fileSizeError'));
+      return;
+    }
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError(t('profile.fileTypeError'));
+      return;
+    }
+
+    setUploading(true);
+    setUploadError('');
+    setPhotoWarning('');
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      const res = await fetchWithCsrf('/api/user/avatar', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err: { code?: string; message?: string } | null = await res.json().catch(() => null);
+        if (err?.message) console.error('[avatar]', err.message);
+        setUploadError(translateErrorCode(err?.code) ?? t('profile.uploadFailed'));
+      } else {
+        retroAudio.playUiBeep(880, 0.06);
+        if (user) setUser({ ...user, hasAvatarPhoto: true });
+        if (profile) setProfile({ ...profile, hasAvatarPhoto: true });
+        // Update the shared avatar store directly rather than waiting for the SSE
+        // echo, so our own upload shows even while the stream is reconnecting.
+        if (user) applyAvatarChange(user.id, { has: true, style: profile?.avatarStyle });
+        setAvatarBuster(Date.now());
+      }
+    } catch {
+      setUploadError(t('profile.uploadErrorGeneric'));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    try {
+      const res = await fetchWithCsrf('/api/user/avatar', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        retroAudio.playUiBeep(440, 0.06);
+        // Fall back to the generated (pre-upload) avatar everywhere
+        if (user) setUser({ ...user, hasAvatarPhoto: false });
+        if (profile) setProfile({ ...profile, hasAvatarPhoto: false });
+        if (user) applyAvatarChange(user.id, { has: false, style: profile?.avatarStyle });
+        setAvatarBuster(Date.now());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Lift our own block from the degraded card, then refetch: the next read
+  // comes back `full` (or `blocked-by-them` when they hold a block too, which
+  // just swaps the copy for the "you have been blocked" line).
+  const handleUnblock = async () => {
+    if (!profile) return;
+    setUnblocking(true);
+    try {
+      const res = await fetchWithCsrf(`/api/friends/unblock/${profile.id}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        retroAudio.playUiBeep(660, 0.05);
+        setProfileRefresh((n) => n + 1);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUnblocking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!username) return;
+    let cancelled = false;
+    setLoading(true);
+
+    // Profile first: `visibility` decides whether the three collateral reads are
+    // allowed at all. They are skipped (not sent and failed) for a blocked pair.
+    const loadProfile = async () => {
+      try {
+        const res = await fetch(`/api/user/${username}`, { credentials: 'include' });
+        const data: UserProfile | null = res.ok ? await res.json() : null;
+        if (cancelled) return;
+        setProfile(data);
+        setLoading(false);
+
+        if (!data || (data.visibility && data.visibility !== 'full')) {
+          setGamesData(null);
+          setAchievements({});
+          setFriendsData(null);
+          return;
+        }
+
+        // The server's stamp is the real `?v=`: applying it here means the first
+        // paint revalidates the photo instead of reusing a cached byte-identical
+        // URL. No stamp from the server = no override, so nothing is minted.
+        if (typeof data.avatarV === 'number') {
+          applyAvatarChange(data.id, {
+            has: data.hasAvatarPhoto,
+            style: data.avatarStyle,
+            v: data.avatarV,
+          });
+        }
+
+        // One page at a time: the backend keeps the newest 50 rows per player and
+        // returns `pagination`, which is what "load more" walks.
+        fetch(`/api/user/${username}/games?page=1&limit=${HISTORY_PAGE_SIZE}`, {
+          credentials: 'include',
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((games) => {
+            if (!cancelled) setGamesData(games);
+          })
+          .catch(() => {
+            if (!cancelled) setGamesData(null);
+          });
+
+        const achUrl = `/api/achievements?username=${encodeURIComponent(username)}`;
+        fetch(achUrl, { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data2) => {
+            if (!cancelled && data2) setAchievements(data2);
+          })
+          .catch(() => {
+            if (!cancelled) setAchievements({});
+          });
+
+        const friendsUrl = `/api/friends?username=${encodeURIComponent(username)}`;
+        fetch(friendsUrl, { credentials: 'include' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data2) => {
+            if (!cancelled && data2) {
+              const list = Array.isArray(data2) ? data2 : (data2?.friends ?? []);
+              const sorted = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+              setFriendsData(sorted);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setFriendsData([]);
+          });
+      } catch {
+        if (!cancelled) {
+          setProfile(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [username, avatarBuster, isOwnProfile, profileRefresh]);
+
+  // A block between the viewer and this player: the payload carries the identity
+  // and avatar only, so nothing below may read a stat or `status`.
+  const isBlockedView =
+    profile?.visibility === 'blocked-by-you' || profile?.visibility === 'blocked-by-them';
+
+  // The career row, or null when the viewer may not see stats (a blocked pair) or
+  // the payload predates the split. Every stat below reads it, never the account.
+  const career = profile && !isBlockedView ? (profile.stats ?? null) : null;
+  const totalGames = career ? career.gamesPlayed : 0;
+  const winRate = career && totalGames > 0 ? Math.round((career.wins / totalGames) * 100) : 0;
+  // The split under `wins` and the last rated match's movement are carried by the payload
+  // and only printed here (19.5): nothing is summed or divided to draw them, and a delta
+  // is signed, so it is formatted with its sign rather than recomputed.
+  const lastDelta = career?.lastRatingDelta ?? 0;
+  const lastDeltaLabel = `${lastDelta > 0 ? '+' : ''}${lastDelta}`;
+  const statusStyle =
+    profile && !isBlockedView ? STATUS_STYLE[profile.status] : STATUS_STYLE.offline;
+  const peakRating = career ? career.highestRating || career.rating : 1200;
+
+  const unlockedCount = ACHIEVEMENTS_DEF.filter(
+    (a) => getAchievementReport(a.key)?.unlocked === true,
+  ).length;
+  const totalAchievements = ACHIEVEMENTS_DEF.length;
+  const achievementPercent = Math.round((unlockedCount / totalAchievements) * 100);
+
+  const hasMoreMatches = gamesData ? gamesData.pagination.page < gamesData.pagination.totalPages : false;
+
+  // Append the next page. The list is the server's order (newest first), so the rows
+  // are concatenated rather than merged, and `pagination` moves to the page just
+  // fetched so a second click continues from there.
+  const loadMoreMatches = () => {
+    if (!username || !gamesData || gamesLoading || !hasMoreMatches) return;
+    const next = gamesData.pagination.page + 1;
+    setGamesLoading(true);
+    fetch(`/api/user/${username}/games?page=${next}&limit=${HISTORY_PAGE_SIZE}`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((page: MatchHistory | null) => {
+        if (!page) return;
+        setGamesData((prev) =>
+          prev
+            ? { games: [...prev.games, ...page.games], pagination: page.pagination }
+            : page,
+        );
+      })
+      .catch(() => {})
+      .finally(() => setGamesLoading(false));
+  };
+
+  // Degraded render: the three collateral reads were skipped, so this branch is
+  // the only one that may paint anything for a blocked pair. `!loading` keeps a
+  // stale card from flashing while a different username is being fetched.
+  if (profile && isBlockedView && !loading) {
+    return (
+      <BlockedProfileCard
+        profile={profile}
+        crtEnabled={crtEnabled}
+        unblocking={unblocking}
+        onUnblock={() => void handleUnblock()}
+      />
+    );
+  }
+
+  return (
+    <>
+      {/* CRT Monitor Overlay FX Container */}
+      <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
+        {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
+        <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
+          {/* Left-Seated Navigation Dock */}
+          <NavDock activeRoute="/profile" />
+
+          {/* Main Content Flow */}
+          <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
+            {/* One-shot notice after an emailed email-change link is redeemed. */}
+            {query.get('emailChanged') === '1' && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--accent-cyan)',
+                  color: 'var(--accent-cyan)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '0.82rem',
+                  textAlign: 'center',
+                }}
+              >
+                {t('profileEdit.emailChangedNotice')}
+              </div>
+            )}
+            {query.get('error') === 'email-taken' && (
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  border: '1px solid var(--state-off)',
+                  color: 'var(--state-off)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '0.82rem',
+                  textAlign: 'center',
+                }}
+              >
+                {t('profileEdit.emailTaken')}
+              </div>
+            )}
+            {/* Top Hero Banner */}
+            <header
+              className={HERO_SECTION}
+              style={{ marginTop: 0, padding: '16px 0 18px', marginBottom: 12, flexShrink: 0 }}
+            >
+              <h1
+                className={HERO_TITLE}
+                style={{ fontSize: '1.45rem', margin: 0, letterSpacing: '1.5px' }}
+              >
+                {t('profile.heroTitle')}
+              </h1>
+            </header>
+
+            {loading ? (
+              <div
+                style={{
+                  flex: 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--accent-yellow)',
+                  fontSize: '1rem',
+                  fontFamily: 'var(--font-display)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {t('profile.initTelemetry')}
+              </div>
+            ) : !profile ? (
+              <div
+                style={{
+                  flex: 1,
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: 'var(--state-off)',
+                  fontSize: '1rem',
+                  fontFamily: 'var(--font-display)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {t('profile.playerNotFoundArchives', { username })}
+              </div>
+            ) : (
+                            // Full-Width Unified Retro Window Container
+              <section
+                className={RETRO_WINDOW}
+                style={{
+                  width: '100%',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  minHeight: 0,
+                }}
+              >
+                {/* Window Header */}
+                <div
+                  className={WINDOW_HEADER}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 18px',
+                    fontSize: 'calc(0.85rem + 2pt)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minWidth: 0,
+                      fontWeight: 'bold',
+                      fontFamily: 'var(--font-display)',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    <span
+                      style={{
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {t('profile.windowHeader', {
+                        name: (profile.displayName ?? profile.username).toUpperCase(),
+                        username: profile.username,
+                      })}
+                    </span>
+                    {/* The handle ends the header line as a `[COPY]` badge — the
+                        shape the PvP badge gives `// ROOM: {{code}} [COPY]`.
+                        Worth a control of its own because the handle is the
+                        immutable identifier while the display name is not. */}
+                    <button
+                      type="button"
+                      onClick={copyUsernameToClipboard}
+                      title={t('profile.copyUsernameTooltip')}
+                      style={{
+                        flexShrink: 0,
+                        margin: 0,
+                        padding: '1px 6px',
+                        background: 'rgb(var(--shade-rgb) / 0.45)',
+                        border: '1px solid rgb(var(--accent-cyan-rgb) / 0.45)',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        color: usernameCopied ? 'var(--state-on)' : 'var(--accent-cyan)',
+                        font: 'inherit',
+                        letterSpacing: 'inherit',
+                      }}
+                    >
+                      [{usernameCopied ? t('profile.usernameCopiedOk') : t('profile.usernameCopy')}]
+                    </button>
+                  </div>
+                  <div
+                    className={WINDOW_CONTROLS}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                  >
+                    <span className={WINDOW_BTN_MIN} />
+                    <span className={WINDOW_BTN_MAX} />
+                  </div>
+                </div>
+
+                {/* Fixed Viewport Window Body (No Page Scroll) */}
+                <div
+                  className={WINDOW_BODY}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    padding: '14px 20px 16px',
+                    flex: 1,
+                    overflow: 'hidden',
+                    minHeight: 0,
+                  }}
+                >
+                  {/* **1. STEAM PROFILE HERO HEADER (Avatar + Identity + ELO Citadel)** */}
+                  <div
+                    style={{
+                      background:
+                        'linear-gradient(180deg, rgb(var(--bg-card-rgb) / 0.95) 0%, rgb(var(--bg-panel-rgb) / 0.98) 100%)',
+                      border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+                      boxShadow: '0 0 24px rgb(var(--accent-cyan-rgb) / 0.15)',
+                      borderRadius: 8,
+                      padding: '18px 24px',
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'minmax(320px, 1.35fr) minmax(200px, 1fr) minmax(200px, 1fr)',
+                      gap: 16,
+                      alignItems: 'center',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* Ambient Glow */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: -60,
+                        right: -60,
+                        width: 260,
+                        height: 260,
+                        borderRadius: '50%',
+                        background:
+                          'radial-gradient(circle, rgb(var(--accent-cyan-rgb) / 0.4) 0%, rgb(var(--shade-rgb) / 0) 70%)',
+                        opacity: 0.25,
+                        pointerEvents: 'none',
+                      }}
+                    />
+
+                    {/* Col 1: Avatar + Callsign + Meta Info */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 18, minWidth: 0 }}>
+                      {/* Large Avatar Capsule */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div
+                          style={{
+                            padding: 4,
+                            borderRadius: 8,
+                            background:
+                              'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
+                            boxShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.4)',
+                          }}
+                        >
+                          <UserAvatar
+                            username={profile.username}
+                            userId={profile.id}
+                            hasAvatarPhoto={profile.hasAvatarPhoto}
+                            avatarStyle={profile.avatarStyle}
+                            onPhotoError={() => {
+                              setPhotoWarning(t('profile.photoLoadError'));
+                            }}
+                            size={95}
+                            fallbackStyle={{
+                              width: 95,
+                              height: 95,
+                              borderRadius: 6,
+                              background: 'rgb(var(--bg-void-rgb) / 0.95)',
+                              color: 'var(--accent-cyan)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: '2.3rem',
+                              fontWeight: 900,
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          />
+                        </div>
+
+                        {/* Live Presence Beacon */}
+                        <span
+                          title={t(STATUS_KEYS[profile.status])}
+                          style={{
+                            position: 'absolute',
+                            right: 3,
+                            bottom: 3,
+                            width: 15,
+                            height: 15,
+                            borderRadius: '50%',
+                            background: statusStyle.color,
+                            border: '2.5px solid rgb(var(--bg-primary-rgb))',
+                            boxShadow: `0 0 8px ${statusStyle.color}`,
+                          }}
+                        />
+
+                        {isOwnProfile && (
+                          <div
+                            onClick={() => {
+                              if (uploading) return;
+                              retroAudio.playUiBeep(640, 0.05);
+                              fileInputRef.current?.click();
+                            }}
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              borderRadius: 8,
+                              background: 'rgba(5, 2, 18, 0.82)',
+                              backdropFilter: 'blur(3px)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'var(--accent-cyan)',
+                              fontSize: '0.72rem',
+                              fontWeight: 900,
+                              fontFamily: 'var(--font-display)',
+                              cursor: uploading ? 'not-allowed' : 'pointer',
+                              opacity: 0,
+                              transition: 'opacity 0.2s ease',
+                              textAlign: 'center',
+                              padding: 4,
+                            }}
+                            onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                            onMouseOut={(e) => (e.currentTarget.style.opacity = '0')}
+                          >
+                            {uploading
+                              ? t('profile.scanningAvatar')
+                              : t('profile.changeAvatarOverlay')}
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/gif, image/webp"
+                          ref={fileInputRef}
+                          onChange={(e) => {
+                            void handleFileChange(e);
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+
+                      {/* Pilot Identity Texts */}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontFamily: 'var(--font-display)',
+                            fontSize: '2.3rem',
+                            fontWeight: 900,
+                            color: 'var(--text-main)',
+                            letterSpacing: '0.04em',
+                            lineHeight: 1.05,
+                            textShadow: '0 0 20px rgb(var(--accent-cyan-rgb) / 0.65)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {profile.displayName ?? profile.username}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            marginTop: 6,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: statusStyle.color,
+                              fontSize: '0.72rem',
+                              fontFamily: 'var(--font-display)',
+                              fontWeight: 900,
+                              background: 'rgb(var(--shade-rgb) / 0.45)',
+                              border: `1px solid ${statusStyle.color}`,
+                              padding: '2px 7px',
+                              borderRadius: 4,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            ● {t(STATUS_KEYS[profile.status]).toUpperCase()}
+                          </span>
+                          <span
+                            style={{
+                              color: 'var(--text-muted)',
+                              fontSize: '0.68rem',
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {t('profile.sinceDate', {
+                              date: new Date(profile.createdAt).toLocaleDateString(),
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ marginTop: 8 }}>
+                          {isOwnProfile ? (
+                            <div
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 8,
+                                width: '100%',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: 6,
+                                  alignItems: 'center',
+                                  flexWrap: 'wrap',
+                                }}
+                              >
+                                <button
+                                  className={RETRO_BTN}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    fileInputRef.current?.click();
+                                  }}
+                                  style={{
+                                    padding: '3px 9px',
+                                    fontSize: '0.68rem',
+                                    color: 'var(--accent-cyan)',
+                                    borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
+                                    fontFamily: 'var(--font-display)',
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {t('profile.editAvatar')}
+                                </button>
+                                <button
+                                  className={RETRO_BTN}
+                                  onClick={() => {
+                                    // warn, 360 on a triangle: entering a destructive
+                                    // flow says so, and the 440 after `res.ok` stays the
+                                    // confirmation, so a failed reset now says something.
+                                    retroAudio.playUiBeep(360, 0.07, 'triangle');
+                                    void handleRemoveAvatar();
+                                  }}
+                                  style={{
+                                    padding: '3px 8px',
+                                    fontSize: '0.68rem',
+                                    color: 'var(--state-off)',
+                                    borderColor: 'rgb(var(--state-off-rgb) / 0.45)',
+                                    fontFamily: 'var(--font-display)',
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {t('profile.resetAvatar')}
+                                </button>
+                                <button
+                                  className={RETRO_BTN}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    setShowEdit(true);
+                                  }}
+                                  style={{
+                                    padding: '3px 9px',
+                                    fontSize: '0.68rem',
+                                    color: 'var(--accent-yellow)',
+                                    borderColor: 'rgb(var(--accent-yellow-rgb) / 0.45)',
+                                    fontFamily: 'var(--font-display)',
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {t('profileExtra.editProfileBtn')}
+                                </button>
+                              </div>
+                              {/* Message area: upload errors red, photo fallback
+                                  amber. minHeight keeps the box steady for
+                                  longer translated strings. */}
+                              <div
+                                style={{
+                                  minHeight: 34,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'flex-end',
+                                }}
+                              >
+                                {(uploadError || photoWarning) && (
+                                  <span
+                                    style={{
+                                      color: uploadError ? 'var(--state-off)' : 'var(--accent-yellow)',
+                                      fontSize: '0.66rem',
+                                      fontFamily: 'var(--font-mono)',
+                                      lineHeight: 1.45,
+                                      whiteSpace: 'normal',
+                                      wordBreak: 'break-word',
+                                    }}
+                                  >
+                                    {uploadError || photoWarning}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              className={RETRO_BTN}
+                              onClick={() => {
+                                retroAudio.playUiBeep(640, 0.04);
+                                navigate('/profile');
+                              }}
+                              style={{
+                                padding: '4px 11px',
+                                fontSize: '0.72rem',
+                                color: 'var(--accent-cyan)',
+                                borderColor: 'rgb(var(--accent-cyan-rgb) / 0.45)',
+                                fontFamily: 'var(--font-display)',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {t('profile.returnToMyProfileBtn')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Col 2: Spacious Dedicated CURRENT ELO Citadel */}
+                    <div
+                      style={{
+                        borderRadius: 10,
+                        background:
+                          'radial-gradient(circle at center, rgb(var(--accent-cyan-rgb) / 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
+                        border: '2px solid var(--accent-cyan)',
+                        boxShadow:
+                          '0 0 24px rgb(var(--accent-cyan-rgb) / 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        position: 'relative',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: 'var(--accent-cyan)',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                          letterSpacing: '1.2px',
+                        }}
+                      >
+                        {t('profile.currentCombatElo')}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '2.2rem',
+                          fontWeight: 900,
+                          color: 'var(--text-main)',
+                          fontFamily: 'var(--font-display)',
+                          margin: '3px 0 6px',
+                          textShadow:
+                            '0 0 18px rgb(var(--accent-cyan-rgb) / 0.6), 0 0 35px rgb(var(--accent-cyan-rgb) / 0.3)',
+                          lineHeight: 1,
+                          letterSpacing: '0.03em',
+                        }}
+                      >
+                        {career?.rating ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          gap: 6,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 900,
+                            color: 'var(--accent-cyan)',
+                            background: 'rgb(var(--accent-cyan-rgb) / 0.12)',
+                            border: '1px solid rgb(var(--accent-cyan-rgb) / 0.5)',
+                            borderRadius: 4,
+                            padding: '3px 12px',
+                            letterSpacing: '1px',
+                            fontFamily: 'var(--font-display)',
+                          }}
+                        >
+                          {t('profile.currentElo')}
+                        </div>
+                        {lastDelta !== 0 && (
+                          <div
+                            title={t('profile.ratingDeltaHint')}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 900,
+                              color: lastDelta > 0 ? 'var(--state-on)' : 'var(--state-off)',
+                              background:
+                                lastDelta > 0
+                                  ? 'rgb(var(--state-on-rgb) / 0.12)'
+                                  : 'rgb(var(--state-off-rgb) / 0.12)',
+                              border: `1px solid ${
+                                lastDelta > 0 ? 'rgb(var(--state-on-rgb) / 0.5)' : 'rgb(var(--state-off-rgb) / 0.5)'
+                              }`,
+                              borderRadius: 4,
+                              padding: '3px 10px',
+                              letterSpacing: '1px',
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {t('profile.ratingDeltaChip', { delta: lastDeltaLabel })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Col 3: Spacious Dedicated ALL-TIME PEAK ELO Citadel */}
+                    <div
+                      style={{
+                        borderRadius: 10,
+                        background:
+                          'radial-gradient(circle at center, rgba(255, 215, 0, 0.15) 0%, rgb(var(--bg-panel-rgb) / 0.95) 85%)',
+                        border: '2px solid #ffd700',
+                        boxShadow:
+                          '0 0 24px rgba(255, 215, 0, 0.35), inset 0 0 16px rgb(var(--shade-rgb) / 0.7)',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        position: 'relative',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '0.72rem',
+                          color: '#ffd700',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                          letterSpacing: '1.2px',
+                        }}
+                      >
+                        {t('profile.allTimePeakRecord')}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '2.2rem',
+                          fontWeight: 900,
+                          color: '#ffd700',
+                          fontFamily: 'var(--font-display)',
+                          margin: '3px 0 6px',
+                          textShadow:
+                            '0 0 18px rgba(255, 215, 0, 0.6), 0 0 35px rgba(255, 215, 0, 0.3)',
+                          lineHeight: 1,
+                          letterSpacing: '0.03em',
+                        }}
+                      >
+                        {peakRating}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 900,
+                            color: '#ffd700',
+                            background: 'rgba(255, 215, 0, 0.12)',
+                            border: '1px solid rgba(255, 215, 0, 0.5)',
+                            borderRadius: 4,
+                            padding: '3px 12px',
+                            letterSpacing: '1px',
+                            fontFamily: 'var(--font-display)',
+                          }}
+                        >
+                          {t('profile.peakRecord')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* **2. HORIZONTAL CAREER STATS SHOWCASE STRIP (as many cards as fit)** */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                      gap: 12,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* Wins */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--state-on-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--state-on-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.victoriesStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--state-on)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.wins ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.ofTotalMatches', { count: totalGames })}
+                      </div>
+                    </div>
+
+                    {/* Defeats */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--state-off-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--state-off-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.defeatsStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--state-off)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.losses ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.ofTotalMatches', { count: totalGames })}
+                      </div>
+                    </div>
+
+                    {/* Win Ratio */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-cyan-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.winRatioStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-cyan)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {winRate}%
+                      </div>
+                      <div
+                        style={{
+                          width: '75%',
+                          height: 3.5,
+                          background: 'rgb(var(--ink-rgb) / 0.1)',
+                          margin: '5px auto 0',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${winRate}%`,
+                            height: '100%',
+                            background: 'var(--accent-cyan)',
+                            boxShadow: '0 0 6px var(--accent-cyan)',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Best Streak */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--accent-yellow-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-yellow-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.bestStreakStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-yellow)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.bestWinStreak ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-yellow)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.currentStreakCount', { count: career?.winStreak ?? 0 })}
+                      </div>
+                    </div>
+
+                    {/* Human Wins: the half of `wins` taken off another pilot */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--accent-purple-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-purple-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.humanWinsStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-purple)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.humanWins ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.humanOpponentNote')}
+                      </div>
+                    </div>
+
+                    {/* Bot Wins: the other half, counted the same way (a rank-1 finish in a PvE room) */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-panel-rgb) / 0.9)',
+                        border: '1.5px solid rgb(var(--accent-pink-rgb) / 0.4)',
+                        boxShadow: '0 0 14px rgb(var(--accent-pink-rgb) / 0.12)',
+                        borderRadius: 7,
+                        padding: '10px 14px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.72rem',
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 900,
+                        }}
+                      >
+                        {t('profile.botWinsStat')}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--accent-pink)',
+                          fontSize: '1.6rem',
+                          fontWeight: 900,
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {career?.botWins ?? 0}
+                      </div>
+                      <div
+                        style={{
+                          color: 'var(--text-muted)',
+                          fontSize: '0.65rem',
+                          fontFamily: 'var(--font-display)',
+                          marginTop: 2,
+                        }}
+                      >
+                        {t('profile.botOpponentNote')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* **3. STEAM 2-COLUMN SHOWCASE (Main Left Tabs + Sidebar Right)** */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 2.2fr) minmax(310px, 1fr)',
+                      gap: 14,
+                      flex: 1,
+                      minHeight: 0,
+                    }}
+                  >
+                    {/* **LEFT MAIN SHOWCASE (Tabbed Match History / Achievements)** */}
+                    <div
+                      style={{
+                        background: 'rgb(var(--bg-primary-rgb) / 0.92)',
+                        border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.28)',
+                        borderRadius: 8,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                        height: '100%',
+                      }}
+                    >
+                      {/* Tab Header Buttons */}
+                      <div
+                        style={{
+                          padding: '8px 14px',
+                          background: 'rgb(var(--bg-card-rgb) / 0.95)',
+                          borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexShrink: 0,
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <button
+                            className={RETRO_BTN}
+                            onClick={() => {
+                              retroAudio.playUiBeep(520, 0.04);
+                              setMainTab('history');
+                            }}
+                            style={{
+                              padding: '5px 14px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'var(--font-display)',
+                              fontWeight: 900,
+                              borderRadius: 4,
+                              color: mainTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
+                              background:
+                                mainTab === 'history' ? 'rgb(var(--accent-cyan-rgb) / 0.25)' : 'transparent',
+                              borderColor:
+                                mainTab === 'history'
+                                  ? 'var(--accent-cyan)'
+                                  : 'rgb(var(--ink-rgb) / 0.15)',
+                              boxShadow:
+                                mainTab === 'history' ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
+                            }}
+                          >
+                            {t('profile.flightLogsTab')}
+                          </button>
+                          <button
+                            className={RETRO_BTN}
+                            onClick={() => {
+                              retroAudio.playUiBeep(520, 0.04);
+                              setMainTab('achievements');
+                            }}
+                            style={{
+                              padding: '5px 14px',
+                              fontSize: '0.76rem',
+                              fontFamily: 'var(--font-display)',
+                              fontWeight: 900,
+                              borderRadius: 4,
+                              color: mainTab === 'achievements' ? 'var(--text-main)' : 'var(--text-muted)',
+                              background:
+                                mainTab === 'achievements'
+                                  ? 'rgb(var(--accent-yellow-rgb) / 0.22)'
+                                  : 'transparent',
+                              borderColor:
+                                mainTab === 'achievements'
+                                  ? 'var(--accent-yellow)'
+                                  : 'rgb(var(--ink-rgb) / 0.15)',
+                              boxShadow:
+                                mainTab === 'achievements'
+                                  ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.35)'
+                                  : 'none',
+                            }}
+                          >
+                            {t('profile.achievementsTab', {
+                              unlocked: unlockedCount,
+                              total: totalAchievements,
+                            })}
+                          </button>
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: '0.72rem',
+                            color: mainTab === 'history' ? 'var(--accent-cyan)' : 'var(--accent-yellow)',
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {mainTab === 'history'
+                            ? t('profile.retroLudoTelemetry')
+                            : t('profile.synchronizedPercent', { percent: achievementPercent })}
+                        </div>
+                      </div>
+
+                      {/* Tab Body (Internally Scrollable) */}
+                      <div
+                        style={{
+                          padding: '14px 16px',
+                          flex: 1,
+                          overflowY: 'auto',
+                          minHeight: 0,
+                        }}
+                      >
+                        {mainTab === 'history' ? (
+                                                    // Match Activity Stream
+                          !gamesData || gamesData.games.length === 0 ? (
+                            <div
+                              style={{
+                                padding: 32,
+                                textAlign: 'center',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.86rem',
+                                fontFamily: 'var(--font-display)',
+                              }}
+                            >
+                              {t('profile.noCombatFlightRecords')}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                              {gamesData.games.map((g) => {
+                                const isWin = g.rank === 1;
+                                // The third state (M5): an abandoned row is neither a win
+                                // nor a loss. It was not completed, so it shows the tallies
+                                // it held and never a rating movement.
+                                const isAbandoned = g.status === 'ABANDONED';
+                                const tone = isAbandoned
+                                  ? {
+                                      bg: 'rgb(var(--accent-yellow-rgb) / 0.06)',
+                                      border: 'rgb(var(--accent-yellow-rgb) / 0.34)',
+                                      fg: 'var(--accent-yellow)',
+                                    }
+                                  : isWin
+                                    ? {
+                                        bg: 'rgb(var(--state-on-rgb) / 0.09)',
+                                        border: 'rgb(var(--state-on-rgb) / 0.42)',
+                                        fg: 'var(--state-on)',
+                                      }
+                                    : {
+                                        bg: 'rgb(var(--state-off-rgb) / 0.07)',
+                                        border: 'rgb(var(--state-off-rgb) / 0.36)',
+                                        fg: 'var(--state-off)',
+                                      };
+                                const playedAt = new Date(g.playedAt);
+                                                                // The chips come from the room the match recorded, not from the lobby: a finished game's rules
+                                // survive only on the row. `{}` draws none (a standard room), and a rule this client does not know
+                                // yet draws none either.
+                                const chips: string[] = [];
+                                if (g.gameModes?.clashEnabled) chips.push(t('game.clashMode'));
+                                if (g.gameModes?.noSafeZones)
+                                  chips.push(t('game.noSafeZones'));
+                                if (g.gameModes?.freeExit) chips.push(t('game.freeExit'));
+                                if (g.gameModes?.captureFx) chips.push(t('game.captureFx'));
+                                const keyShift = g.gameModes?.clashKeyShift ?? 0;
+                                if (keyShift > 0)
+                                  chips.push(t('profile.chipKeyShift', { count: keyShift }));
+                                                                // The counters a row keeps. Rolls and sixes are gone: the engine no longer tallies faces, and
+                                // "lost" (your pieces sent home) was the only number it ever printed that read like a game result.
+                                // "Pieces in goal" is the count the rating is computed from, so it is the one that matters.
+                                const clashOn = Boolean(g.gameModes?.clashEnabled);
+                                const notApplicable = t('profile.statNotApplicable');
+                                const counters: Array<[string, number | string]> = [
+                                  [t('profile.statTurns'), g.totalTurns],
+                                  [t('profile.statCaptures'), g.totalCaptures],
+                                  [t('profile.statPiecesHome'), g.piecesInGoal],
+                                  // A clash round has one winner and one loser, and a seat
+                                  // takes both roles across a game: these two are its own
+                                  // half of every round it stood in.
+                                  [
+                                    t('profile.statClashesWon'),
+                                    clashOn ? g.clashAttacksWon + g.clashDefendsWon : notApplicable,
+                                  ],
+                                  [
+                                    t('profile.statClashesLost'),
+                                    clashOn ? g.clashAttacksLost + g.clashDefendsLost : notApplicable,
+                                  ],
+                                                                    // A clash room's wall numbers. The chips are printed in every row so the layout never shifts
+                                  // between a clash game and a standard one: a room without clash prints N/A rather than a zero that
+                                  // reads as "fought, none won".
+                                  [
+                                    t('profile.statWallsWon'),
+                                    clashOn ? g.clashWallBattlesWon : notApplicable,
+                                  ],
+                                  [
+                                    t('profile.statWallsHeld'),
+                                    clashOn ? g.clashWallsDefended : notApplicable,
+                                  ],
+                                ];
+                                return (
+                                  <div
+                                    key={g.gameId}
+                                    style={{
+                                      padding: '12px 18px',
+                                      borderRadius: 7,
+                                      background: tone.bg,
+                                      border: `1.5px solid ${tone.border}`,
+                                      fontFamily: 'var(--font-display)',
+                                      transition: 'all 0.18s ease',
+                                    }}
+                                  >
+                                    {/* Line 1 : the outcome, the mode, the room, the swing */}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 10,
+                                          flexWrap: 'wrap',
+                                        }}
+                                      >
+                                        <span
+                                          style={{
+                                            fontSize: '0.8rem',
+                                            fontWeight: 900,
+                                            padding: '4px 12px',
+                                            borderRadius: 4,
+                                            background: `color-mix(in srgb, ${tone.fg} 22%, transparent)`,
+                                            color: tone.fg,
+                                            border: `1px solid ${tone.fg}`,
+                                            letterSpacing: '0.5px',
+                                          }}
+                                        >
+                                          {isAbandoned
+                                            ? t('profile.badgeAbandonedText')
+                                            : isWin
+                                              ? t('profile.badgeWinText')
+                                              : t('profile.badgeLossText')}
+                                        </span>
+                                        <span
+                                          style={{
+                                            fontSize: '0.78rem',
+                                            fontWeight: 900,
+                                            color: 'var(--text-main)',
+                                            letterSpacing: '0.04em',
+                                          }}
+                                        >
+                                          {g.gameType === 'PVE'
+                                            ? t('results.modePve')
+                                            : t('results.modePvp')}
+                                        </span>
+                                        {chips.map((chip) => (
+                                          <span
+                                            key={chip}
+                                            style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 700,
+                                              letterSpacing: '0.04em',
+                                              padding: '3px 8px',
+                                              borderRadius: 3,
+                                              color: 'var(--accent-cyan)',
+                                              border: '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+                                              background: 'rgb(var(--accent-cyan-rgb) / 0.08)',
+                                            }}
+                                          >
+                                            {chip}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        {/* An abandoned row moved no rating, so it prints
+                                            the label instead of a swing. */}
+                                        {isAbandoned ? (
+                                          <span
+                                            style={{
+                                              fontSize: '0.8rem',
+                                              fontWeight: 900,
+                                              lineHeight: 1,
+                                              color: 'var(--text-muted)',
+                                              letterSpacing: '0.04em',
+                                            }}
+                                          >
+                                            {t('profile.noRatingChange')}
+                                          </span>
+                                        ) : (
+                                          <span
+                                            style={{
+                                              fontSize: '0.9rem',
+                                              fontWeight: 900,
+                                              lineHeight: 1,
+                                              color:
+                                                g.ratingDelta > 0
+                                                  ? 'var(--state-on)'
+                                                  : g.ratingDelta < 0
+                                                    ? 'var(--state-off)'
+                                                    : 'var(--text-muted)',
+                                              textShadow:
+                                                g.ratingDelta > 0
+                                                  ? '0 0 8px rgb(var(--state-on-rgb) / 0.6)'
+                                                  : 'none',
+                                            }}
+                                          >
+                                            {`${g.ratingDelta > 0 ? '+' : ''}${g.ratingDelta} ELO`}
+                                          </span>
+                                        )}
+                                        <span
+                                          style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                                        >
+                                          {playedAt.toLocaleDateString()}{' '}
+                                          {playedAt.toLocaleTimeString([], {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                          })}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Line 2 : the counters, hidden on a narrow screen */}
+                                    <div
+                                      className="hidden sm:flex"
+                                      style={{
+                                        gap: 14,
+                                        marginTop: 7,
+                                        fontSize: '0.72rem',
+                                        color: 'var(--text-muted)',
+                                        flexWrap: 'wrap',
+                                      }}
+                                    >
+                                      {counters.map(([label, value]) => (
+                                        <span key={label}>
+                                          {label}{' '}
+                                          <b className="text-(--text-main)">{value}</b>
+                                        </span>
+                                      ))}
+                                    </div>
+
+                                    {/* Line 3 : the company, from the row's own snapshot */}
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        gap: 12,
+                                        marginTop: 7,
+                                        flexWrap: 'wrap',
+                                        fontSize: '0.72rem',
+                                      }}
+                                    >
+                                      {g.participants.map((seat) => (
+                                        <span
+                                          key={`${seat.username}-${seat.color}`}
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 5,
+                                            color:
+                                              seat.color === g.color
+                                                ? 'var(--text-main)'
+                                                : 'var(--text-muted)',
+                                            fontWeight: seat.color === g.color ? 900 : 500,
+                                          }}
+                                        >
+                                          <span
+                                            aria-hidden
+                                            style={{
+                                              width: 8,
+                                              height: 8,
+                                              borderRadius: 2,
+                                              display: 'inline-block',
+                                              background:
+                                                SEAT_COLOR[seat.color] ?? 'var(--text-muted)',
+                                            }}
+                                          />
+                                          {seat.isBot ? seat.displayName : seat.username}
+                                          {seat.isBot ? ` ${t('profile.botTag')}` : ''}
+                                          {seat.color === g.color ? ` ${t('profile.youTag')}` : ''}
+                                        </span>
+                                      ))}
+                                    </div>
+
+                                    {/* Line 4 (M3): the transcript, on the row's own
+                                        account only. The API ships `chat` to nobody
+                                        else, so a friend's copy has no field at all and
+                                        this line is not rendered for them; a PvE row was
+                                        never recorded with a channel and says N/A. */}
+                                    <TranscriptRow
+                                      chat={g.chat}
+                                      chatTruncated={g.chatTruncated === true}
+                                      gameType={g.gameType}
+                                      ownerId={user?.id ?? ''}
+                                    />
+                                  </div>
+                                );
+                              })}
+                              {hasMoreMatches && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.05);
+                                    loadMoreMatches();
+                                  }}
+                                  disabled={gamesLoading}
+                                  className={RETRO_BTN}
+                                  style={{ marginTop: 4, alignSelf: 'center', fontSize: '0.8rem' }}
+                                >
+                                  {gamesLoading
+                                    ? t('profile.loadingMoreMatches')
+                                    : t('profile.loadMoreMatches')}
+                                </button>
+                              )}
+                            </div>
+                          )
+                        ) : (
+                                                    // Achievements Grid & Progress
+                          <div>
+                            {/* Progress Bar */}
+                            <div style={{ marginBottom: 14 }}>
+                              <div
+                                style={{
+                                  width: '100%',
+                                  height: 7,
+                                  background: 'rgb(var(--ink-rgb) / 0.08)',
+                                  borderRadius: 4,
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${achievementPercent}%`,
+                                    height: '100%',
+                                    background:
+                                      'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
+                                    boxShadow: '0 0 12px rgb(var(--accent-cyan-rgb) / 0.65)',
+                                    transition: 'width 0.4s ease',
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Grid */}
+                            <div
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                                gap: 10,
+                              }}
+                            >
+                              {ACHIEVEMENTS_DEF.map((ach) => {
+                                const report = getAchievementReport(ach.key);
+                                const isUnlocked = report?.unlocked ?? false;
+                                const progress = Math.min(
+                                  report?.progress ?? 0,
+                                  report?.target ?? 0,
+                                );
+                                const target = report?.target ?? 0;
+                                const pct = target > 0 ? Math.round((progress / target) * 100) : 0;
+                                const title = t(`dashboard.${ach.key}`, ach.fallbackTitle);
+                                return (
+                                  <div
+                                    key={ach.key}
+                                    style={{
+                                      padding: '13px 12px',
+                                      borderRadius: 6,
+                                      background: isUnlocked
+                                        ? 'rgba(38, 16, 72, 0.88)'
+                                        : 'rgb(var(--bg-panel-rgb) / 0.45)',
+                                      border: isUnlocked
+                                        ? '1.5px solid var(--accent-yellow)'
+                                        : '1px dashed rgb(var(--ink-rgb) / 0.12)',
+                                      boxShadow: isUnlocked
+                                        ? '0 0 10px rgb(var(--accent-yellow-rgb) / 0.18)'
+                                        : 'none',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 8,
+                                      opacity: isUnlocked ? 1 : 0.55,
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <div
+                                        style={{
+                                          width: 36,
+                                          height: 36,
+                                          borderRadius: 6,
+                                          background: isUnlocked
+                                            ? 'rgb(var(--accent-yellow-rgb) / 0.18)'
+                                            : 'rgb(var(--ink-rgb) / 0.05)',
+                                          border: `1.5px solid ${isUnlocked ? 'var(--accent-yellow)' : 'rgb(var(--ink-rgb) / 0.1)'}`,
+                                          display: 'grid',
+                                          placeItems: 'center',
+                                          fontSize: '1.2rem',
+                                          color: isUnlocked
+                                            ? 'var(--accent-yellow)'
+                                            : 'rgb(var(--ink-rgb) / 0.4)',
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        {ach.icon}
+                                      </div>
+                                      <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div
+                                          style={{
+                                            fontSize: '0.8rem',
+                                            fontWeight: 900,
+                                            fontFamily: 'var(--font-display)',
+                                            color: isUnlocked ? 'var(--text-main)' : 'var(--text-muted)',
+                                            letterSpacing: '0.03em',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                          }}
+                                        >
+                                          {title}
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontSize: '0.76rem',
+                                            fontFamily: 'var(--font-display)',
+                                            color: isUnlocked
+                                              ? 'rgb(var(--ink-rgb) / 0.8)'
+                                              : 'rgb(var(--ink-rgb) / 0.35)',
+                                            marginTop: 2,
+                                            lineHeight: 1.2,
+                                          }}
+                                        >
+                                          {t(`dashboard.${ach.key}Desc`, ach.desc)}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Per-achievement progress bar (from { unlocked, progress, target }) */}
+                                    {target > 0 && (
+                                      <div
+                                        style={{
+                                          width: '100%',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: 2,
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            height: 4,
+                                            borderRadius: 2,
+                                            background: 'rgb(var(--ink-rgb) / 0.08)',
+                                            overflow: 'hidden',
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              height: '100%',
+                                              borderRadius: 2,
+                                              width: `${pct}%`,
+                                              background: isUnlocked
+                                                ? 'linear-gradient(90deg, var(--accent-yellow), var(--state-on))'
+                                                : 'linear-gradient(90deg, var(--accent-cyan), var(--accent-yellow))',
+                                              boxShadow: isUnlocked
+                                                ? '0 0 6px var(--accent-yellow)'
+                                                : '0 0 6px rgb(var(--accent-cyan-rgb) / 0.5)',
+                                              transition: 'width 0.4s ease',
+                                            }}
+                                          />
+                                        </div>
+                                        <div
+                                          style={{
+                                            fontSize: '0.6rem',
+                                            fontFamily: 'var(--font-mono)',
+                                            color: isUnlocked ? 'var(--accent-yellow)' : 'var(--text-muted)',
+                                          }}
+                                        >
+                                          {isUnlocked
+                                            ? `${target}/${target}`
+                                            : `${progress}/${target}`}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* **RIGHT STEAM SIDEBAR (Allied Operatives + Apex Citadel)** */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        minHeight: 0,
+                        height: '100%',
+                      }}
+                    >
+                      {/* Sidebar Box 1: Allied Operatives Showcase */}
+                      <div
+                        style={{
+                          background: 'rgb(var(--bg-primary-rgb) / 0.92)',
+                          border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.28)',
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                          minHeight: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            padding: '10px 14px',
+                            background: 'rgb(var(--bg-card-rgb) / 0.95)',
+                            borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '0.82rem',
+                              fontWeight: 900,
+                              fontFamily: 'var(--font-display)',
+                              color: 'var(--text-main)',
+                            }}
+                          >
+                            {t('profile.friendsBoxTitle', { count: friendsData?.length ?? 0 })}
+                          </span>
+                          {isOwnProfile && (
+                            <button
+                              className={RETRO_BTN}
+                              onClick={() => {
+                                retroAudio.playUiBeep(640, 0.05);
+                                navigate('/friends');
+                              }}
+                              style={{
+                                padding: '3px 9px',
+                                fontSize: '0.68rem',
+                                fontFamily: 'var(--font-display)',
+                                fontWeight: 900,
+                                color: 'var(--accent-cyan)',
+                                borderColor: 'rgb(var(--accent-cyan-rgb) / 0.4)',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {t('profile.manageBtn')}
+                            </button>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 9,
+                            flex: 1,
+                            overflowY: 'auto',
+                            minHeight: 0,
+                          }}
+                        >
+                          {!friendsData || friendsData.length === 0 ? (
+                            <div
+                              style={{
+                                padding: 28,
+                                textAlign: 'center',
+                                color: 'var(--text-muted)',
+                                fontSize: '0.82rem',
+                                fontFamily: 'var(--font-display)',
+                              }}
+                            >
+                              {t('profile.noFriendsLinkedText')}
+                            </div>
+                          ) : (
+                            friendsData.map((f) => {
+                              const fStatus = STATUS_STYLE[f.status];
+                              return (
+                                <div
+                                  key={f.id}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '10px 14px',
+                                    borderRadius: 6,
+                                    background: 'rgb(var(--bg-panel-rgb) / 0.85)',
+                                    border: '1.5px solid rgb(var(--accent-cyan-rgb) / 0.25)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.18s ease',
+                                    gap: 12,
+                                  }}
+                                  onClick={() => {
+                                    retroAudio.playUiBeep(640, 0.04);
+                                    navigate(`/profile?u=${f.username}`);
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.16)';
+                                    e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                                    e.currentTarget.style.transform = 'translateX(2px)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
+                                    e.currentTarget.style.borderColor = 'rgb(var(--accent-cyan-rgb) / 0.25)';
+                                    e.currentTarget.style.transform = 'translateX(0)';
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 12,
+                                      minWidth: 0,
+                                      flex: 1,
+                                    }}
+                                  >
+                                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                                      <div
+                                        style={{
+                                          padding: 2,
+                                          borderRadius: 5,
+                                          background:
+                                            'linear-gradient(135deg, var(--accent-pink), var(--accent-cyan))',
+                                          boxShadow: '0 0 8px rgb(var(--accent-cyan-rgb) / 0.3)',
+                                        }}
+                                      >
+                                        <UserAvatar
+                                          username={f.username}
+                                          userId={f.id}
+                                          hasAvatarPhoto={f.hasAvatarPhoto}
+                                          avatarStyle={f.avatarStyle}
+                                          size={38}
+                                          fallbackStyle={{
+                                            width: 38,
+                                            height: 38,
+                                            borderRadius: 4,
+                                            background: 'rgb(var(--bg-panel-rgb) / 0.95)',
+                                            color: 'var(--accent-cyan)',
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            fontWeight: 900,
+                                            fontSize: '0.95rem',
+                                          }}
+                                        />
+                                      </div>
+                                      <span
+                                        style={{
+                                          position: 'absolute',
+                                          right: -2,
+                                          bottom: -2,
+                                          width: 9,
+                                          height: 9,
+                                          borderRadius: '50%',
+                                          background: fStatus.color,
+                                          border: '2px solid rgb(var(--bg-primary-rgb))',
+                                          boxShadow: `0 0 6px ${fStatus.color}`,
+                                        }}
+                                      />
+                                    </div>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: 8,
+                                          flexWrap: 'wrap',
+                                        }}
+                                      >
+                                        <span
+                                          className={DISPLAY_ELLIPSIS}
+                                        >
+                                          {f.displayName ?? f.username}
+                                        </span>
+                                      </div>
+                                      <div
+                                        style={{
+                                          fontSize: '0.68rem',
+                                          color: fStatus.color,
+                                          fontFamily: 'var(--font-display)',
+                                          fontWeight: 'bold',
+                                          marginTop: 2,
+                                        }}
+                                      >
+                                        ● {t(STATUS_KEYS[f.status]).toUpperCase()} //{' '}
+                                        {t('profile.alliedPilotTag')}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      textAlign: 'right',
+                                      flexShrink: 0,
+                                      display: 'flex',
+                                      alignItems: 'baseline',
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <span
+                                      className={DISPLAY_TITLE}
+                                    >
+                                      {f.rating}
+                                    </span>
+                                    <span
+                                      style={{
+                                        fontSize: '0.64rem',
+                                        color: 'var(--accent-cyan)',
+                                        fontFamily: 'var(--font-display)',
+                                        fontWeight: 900,
+                                      }}
+                                    >
+                                      ELO
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showEdit && (
+        <ProfileEditModal
+          onClose={() => {
+            setShowEdit(false);
+            // The edit modal updates the store (`setUser`); refetch this page's
+            // public-profile payload so the header/display name reflects the change.
+            setProfileRefresh((n) => n + 1);
+          }}
+        />
+      )}
+    </>
+  );
+}

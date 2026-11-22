@@ -60,7 +60,7 @@ The store is one React Context provider (`AppProvider`) that holds all global UI
 
 | File | Role |
 |------|------|
-| `src/store.tsx` | `AppProvider`, `useApp` hook, all state and actions |
+| `src/store/` | `AppProvider`, `useApp` hook, all state and actions |
 
 
 ---

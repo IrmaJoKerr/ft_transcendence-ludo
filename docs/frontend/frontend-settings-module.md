@@ -33,10 +33,10 @@ Settings live in two places: the account popover in `RetroNavbar` (language, sig
 
 | File | Role |
 |------|------|
-| `src/components/RetroNavbar.tsx` | Account popover — language selector and sign out |
-| `src/components/ProfileEditModal.tsx` | 2FA on/off toggle (saved with the profile update) |
-| `src/pages/Profile.tsx` | Opens the edit modal on the Profile page |
-| `src/store.tsx` | `lang` / `setLang`, `SETTING_DEFAULTS`, `logout` |
+| `src/components/RetroNavbar/` | Account popover — language selector and sign out |
+| `src/components/ProfileEditModal/` | 2FA on/off toggle (saved with the profile update) |
+| `src/pages/Profile/` | Opens the edit modal on the Profile page |
+| `src/store/` | `lang` / `setLang`, `SETTING_DEFAULTS`, `logout` |
 
 
 ---

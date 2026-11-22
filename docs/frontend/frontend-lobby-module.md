@@ -131,8 +131,8 @@ all three locales because the page follows the switcher instead of offering a to
 
 | File | Role |
 |------|------|
-| `src/pages/LudoLobby.tsx` | Main lobby page (`/gamelobby`): mode/seat setup, match creation |
-| `src/pages/Lobby.tsx` | Table view (`/gamelobby/table`): room state, ready, invites |
+| `src/pages/LudoLobby/` | Main lobby page (`/gamelobby`): mode/seat setup, match creation |
+| `src/pages/Lobby/` | Table view (`/gamelobby/table`): room state, ready, invites |
 | `src/pages/Squads.tsx` | The four squads of the era the theme is in (`/squads`, 34 item 2): the lobby shell and dock, one card per `BOARD_QUADRANTS` seat with `PieceFigure` and the era's nickname and bio, and RETURN TO GAME LOBBY |
 
 

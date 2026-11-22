@@ -34,7 +34,7 @@ The Leaderboard page (`/leaderboard`, full-screen) shows players in rank order. 
 
 | File | Role |
 |------|------|
-| `src/pages/Leaderboard.tsx` | Leaderboard page — podium, rankings table, you-badge |
+| `src/pages/Leaderboard/` | Leaderboard page — podium, rankings table, you-badge |
 | `src/components/UserAvatar.tsx` | Player avatars |
 
 

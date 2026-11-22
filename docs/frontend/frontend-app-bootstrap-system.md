@@ -33,7 +33,7 @@ The app bootstrap layer does four things:
 | File | Role |
 |------|------|
 | `src/App.tsx` | Root component — route maps, authentication guard, AppProvider container |
-| `src/store.tsx` | `AppProvider` context — session state, login/register/logout/2FA/password-reset actions, game state |
+| `src/store/` | `AppProvider` context — session state, login/register/logout/2FA/password-reset actions, game state |
 
 
 ---

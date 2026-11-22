@@ -58,7 +58,7 @@ These rules stay in CSS because no utility expresses them:
 | `src/index.css` | Tailwind import, base element styles, Home page layout rules, scrollbar fallback |
 | `src/styles/tw.ts` | Shared Tailwind utility-class constants (documented in [frontend-components-system.md](frontend-components-system.md)) |
 | `src/theme.ts` | Data only: `COL`, `SEAT_COLORS`, `BOARD_QUADRANTS`, `COLOR_KEYS`, `BOT_POOL`, `STATUS_STYLE` and the `PresenceStatus` type |
-| `src/store.tsx` | Owns the `theme` state and applies `data-theme` to `<html>` |
+| `src/store/` | Owns the `theme` state and applies `data-theme` to `<html>` |
 
 
 ---

@@ -76,9 +76,9 @@ A mutual block reports `blocked-by-you` (the viewer's own block is the one they 
 
 | File | Role |
 |------|------|
-| `src/pages/Profile.tsx` | Profile page component |
+| `src/pages/Profile/` | Profile page component |
 | `src/components/NavDock.tsx` | The seated navigation dock (profile page is full-screen) |
-| `src/store.tsx` | `useApp` for authentication state, presence and API (Application Programming Interface) calls |
+| `src/store/` | `useApp` for authentication state, presence and API (Application Programming Interface) calls |
 | `src/theme.ts` | `STATUS_STYLE` (and the `PresenceStatus` type) for the status indicator |
 
 

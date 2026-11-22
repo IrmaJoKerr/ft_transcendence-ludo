@@ -37,7 +37,7 @@ The Friends page (`/friends`, full-screen) manages friendships. It has:
 
 | File | Role |
 |------|------|
-| `src/pages/Friends.tsx` | Friends page — lists, requests, blocked, the challenge row, the live offers strip, the two confirms |
+| `src/pages/Friends/` | Friends page — lists, requests, blocked, the challenge row, the live offers strip, the two confirms |
 | `src/components/PendingOffers.tsx` | The offers strip the page mounts: `GET /api/friends/invites/pending` as rows, ACCEPT/JOIN, the refusal band, and the three recomputes (mount, focus, nearest `expiresAt`) |
 | `src/hooks/useFriendships.ts` | The feed: one snapshot read for first paint, then `friendship:changed` records merged over it |
 | `src/hooks/useChallenges.ts` | The two send routes (challenge and room invite): the server's sent list, the press, and the 409s, with no client window |

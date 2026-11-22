@@ -35,14 +35,20 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 
 | File | Role |
 |------|------|
-| `src/pages/Home.tsx` | Home page — hero header, arcade panel, friends list, footer |
+| `src/pages/Home/` | Home page — hero header, arcade panel, friends list, footer |
 | `src/heroScenes.ts` | One scene per theme (`SYNTHWAVE_80S_CFG`, `RETRO70_CFG`) behind `HERO_SCENES`: the palette, the drift counters, the marquee colour, each still's placement and dim, the 70s card's two measured circles (`porthole`, `planet`), and the artwork both scenes are made of (`sceneArt`) |
-| `src/heroBackdrops.ts` | The attract-mode painters — `paintSynthwave`, `paintColony` — plus the frame clocks, the star seeding, the still's one placement (`paintPlate`) and the `paintHero` dispatch |
+| `src/heroBackdrops/` | The attract-mode painters, split by job: the 80s and 70s cards, their shared scene state, the 70s traffic and the `paintHero` dispatch. The folder keeps the public path stable through its index |
+| `src/heroBackdrops/index.ts` | The public door: explicit re-exports of the scene-state types, `seedStars`, `createSceneState`, both painters and `paintHero` |
+| `src/heroBackdrops/heroBackdrops.ts` | The dispatch: `paintHero` sends one frame to `paintSynthwave` or `paintColony` on the scene's `kind` |
+| `src/heroBackdrops/sceneState.ts` | `SceneState`, `Star`, `Meteor`, `Rock` and `HeroFrame`, `TAU`, the star seeders and `createSceneState` |
+| `src/heroBackdrops/synthwave.ts` | The 80s card: `paintSynthwave`, the still's placement (`paintPlate`, `placePlate`, `plateCircle`), the drawn sunset and grid fallback, and `paintMarquee` |
+| `src/heroBackdrops/traffic.ts` | The 70s card's traffic: the porthole band, the meteor and rock seeders, and their per-frame advance and paint |
+| `src/heroBackdrops/colony.ts` | The 70s card: `paintColony`, the frame mask keyed off the still and the sky layer the traffic is cut from |
 | `src/hooks/useHeroScene.ts` | The cabinet's one canvas, one effect and one rAF loop; it preloads the still its scene names, and the marquee rides a ref so a language switch does not restart it |
 | `src/hooks/useNotifications.tsx` | Notification bell + toasts (session socket, Redis bell) |
 | `src/components/UserAvatar.tsx` | Avatar rendering |
 | `src/components/NavDock.tsx` | The seated navigation dock (bar + chat slot) |
-| `src/components/NotificationToast.tsx` | Toast notifications |
+| `src/components/NotificationToast/` | Toast notifications |
 
 
 ---
@@ -108,7 +114,7 @@ sequenceDiagram
 
 ### Arcade attract-mode canvas
 
-The arcade panel renders its scene on one 720×400 canvas, and the theme decides which scene. Sixty times a second `useHeroScene` (`hooks/useHeroScene.ts`) advances two clocks and hands them, the scene's seeded star field, the still it preloaded and the localized marquee to `paintHero` (`heroBackdrops.ts`), which calls the painter the theme picked: `paintSynthwave` for the 80s card — a sunset, a horizon grid — or `paintColony` for the 1970s one, which is the era's orbital-colony still laid full bleed with stones tumbling across its sky. The painters are plain functions over a 2D context, not components: one canvas, one effect and one rAF loop, so a theme flip tears the loop down and starts the other painter from frame zero instead of putting two animations on one screen.
+The arcade panel renders its scene on one 720×400 canvas, and the theme decides which scene. Sixty times a second `useHeroScene` (`hooks/useHeroScene.ts`) advances two clocks and hands them, the scene's seeded star field, the still it preloaded and the localized marquee to `paintHero` (`heroBackdrops/index.ts`), which calls the painter the theme picked: `paintSynthwave` for the 80s card — a sunset, a horizon grid — or `paintColony` for the 1970s one, which is the era's orbital-colony still laid full bleed with stones tumbling across its sky. The painters are plain functions over a 2D context, not components: one canvas, one effect and one rAF loop, so a theme flip tears the loop down and starts the other painter from frame zero instead of putting two animations on one screen.
 
 The 80s card is made of its era's still: the cityscape the shell wears as its ground, cover-cropped to the card with its own horizon on the card's, dimmed and then given the drifting stars and the marquee. Until that still decodes — or if it never does — the same painter draws the card it used to be, a banded sun over a horizon grid, and the still retires both when it arrives, because art that already carries a sun, a skyline and a grid must not be given a second of each. The two compositions are the same shot, so the swap does not jump. The four hologram nodes that used to stand along the card's bottom edge (RED, GREEN, YELLOW, BLUE at y 350–360) are gone: the row sat on the same line as the cabinet's PRESS TO START banner and read as the legend for the button, and the still says the era without it.
 

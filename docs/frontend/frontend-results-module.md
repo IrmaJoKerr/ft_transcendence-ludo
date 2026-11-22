@@ -36,8 +36,8 @@ Results render through `src/components/ResultsModal.tsx`, which `Game.tsx` opens
 | File | Role |
 |------|------|
 | `src/components/ResultsModal.tsx` | Results overlay: podium, summary, rank badges, outcome title |
-| `src/pages/Game.tsx` | Opens the modal on `game_ended`; holds the socket connection and the `lastResult` state |
-| `src/store.tsx` | `setLastResult` / `lastResult` state |
+| `src/pages/Game/` | Opens the modal on `game_ended`; holds the socket connection and the `lastResult` state |
+| `src/store/` | `setLastResult` / `lastResult` state |
 
 
 ---
