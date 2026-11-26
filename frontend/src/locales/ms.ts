@@ -955,11 +955,9 @@ export const ms = {
     chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
     chainPricedBadgeTitle:
       'Tembok {{rounds}}: serangan ini memecahkannya, menelan satu token dan {{rounds}} pusingan clash',
-    // Tip alat Pemecah Tembok: token yang masih dipegang skuad ini (titik di
-    // sebelah label sel) dan tanda 🔓 pada buah yang satu-satunya langkah sah
-    // ialah keluar berpembayaran token.
-    wallBreakerTokensTitle:
-      'Pemecah Tembok ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
+    // Tip alat Pemecah Tembok: tanda 🔓 pada buah yang satu-satunya langkah sah
+    // ialah keluar berpembayaran token. Lajur token roster ialah satu-satunya
+    // paparan baki token.
     armedBadgeTitle: 'Pemecah Tembok: keluar ini menelan satu token',
   },
   gameExtra: {

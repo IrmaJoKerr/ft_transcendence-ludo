@@ -1,7 +1,7 @@
 import type { RedisGameStore } from './redis';
 import type { EventPublisher } from './socket/event-publisher';
 import type { PlayerColor, ClashState, ChainRound, PieceId } from './types';
-import { createRng, pick, pickDistinct, randInt, seedFrom } from './rng';
+import { createRng, pick, randInt, seedFrom } from './rng';
 import type { Rng } from './rng';
 
 // One key grid per side, split so two players at one keyboard (hotseat) never
@@ -69,19 +69,109 @@ export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
-// Draw `count` distinct letters from one side's key pool. A chain's next round also
-// avoids the letter the seat ended on, so the seam reads as a switch.
-export function drawKeySchedule(
+function shuffleInPlace<T>(rng: Rng, list: T[]): T[] {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = randInt(rng, 0, i);
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
+function combinations<T>(list: readonly T[], take: number): T[][] {
+  if (take === 0) return [[]];
+  if (list.length < take) return [];
+  const [head, ...rest] = list;
+  const withHead = combinations(rest, take - 1).map((row) => [head, ...row]);
+  return [...withHead, ...combinations(rest, take)];
+}
+
+function permutations<T>(list: readonly T[]): T[][] {
+  if (list.length <= 1) return [[...list]];
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i++) {
+    const head = list[i];
+    const rest = [...list.slice(0, i), ...list.slice(i + 1)];
+    for (const tail of permutations(rest)) out.push([head, ...tail]);
+  }
+  return out;
+}
+
+// One side's ordered pads: four distinct pool letters, no letter shared with the
+// preceding pad, at most two of a letter in one position, and the accepted key on
+// its pad. Backtracking has a fixed budget and a shaped fallback.
+export function drawClashPads(
   rng: Rng,
   pool: readonly string[],
   count: number,
+  history: readonly string[][] = [],
   previousLast?: string,
-): string[] {
-  const want = Math.min(Math.max(1, Math.floor(count)), pool.length);
-  const openers =
-    previousLast && pool.length > want ? pool.filter((key) => key !== previousLast) : pool;
-  const first = pick(rng, openers);
-  return [first, ...pickDistinct(rng, pool.filter((key) => key !== first), want - 1)];
+): { pads: string[][]; keys: string[] } {
+  const want = Math.min(Math.max(1, Math.floor(count)), 3);
+  const historyLast = history.length > 0 ? history[history.length - 1] : undefined;
+  const previous = new Set(historyLast ?? (previousLast ? [previousLast] : []));
+
+  const candidatesFor = (
+    previousPad: ReadonlySet<string>,
+    counts: ReadonlyArray<Map<string, number>>,
+  ): string[][] => {
+    const available = pool.filter((key) => !previousPad.has(key));
+    const out: string[][] = [];
+    for (const subset of combinations(available, 4)) {
+      for (const order of permutations(subset)) {
+        if (order.every((key, position) => (counts[position]?.get(key) ?? 0) < 2)) {
+          out.push(order);
+        }
+      }
+    }
+    return out;
+  };
+
+  let visited = 0;
+  const search = (
+    index: number,
+    previousPad: ReadonlySet<string>,
+    counts: ReadonlyArray<Map<string, number>>,
+  ): string[][] | null => {
+    if (index === want) return [];
+    if (visited > 20_000) return null;
+    const candidates = shuffleInPlace(rng, candidatesFor(previousPad, counts));
+    for (const pad of candidates) {
+      visited += 1;
+      const nextCounts = counts.map((byKey) => new Map(byKey));
+      pad.forEach((key, position) => {
+        nextCounts[position].set(key, (nextCounts[position].get(key) ?? 0) + 1);
+      });
+      const rest = search(index + 1, new Set(pad), nextCounts);
+      if (rest) return [pad, ...rest];
+    }
+    return null;
+  };
+
+  let pads: string[][] | null = null;
+  for (let walk = 0; walk < 32 && !pads; walk++) {
+    visited = 0;
+    pads = search(0, previous, Array.from({ length: 4 }, () => new Map<string, number>()));
+  }
+
+  if (!pads) {
+    // A corrupt or over-full injected history can exhaust the capped search. Keep
+    // the two hard shapes (four distinct pool letters, adjacent pads disjoint) and
+    // drop only the per-position cap so the clash still gets a package.
+    pads = [];
+    let previousPad = previous;
+    for (let index = 0; index < want; index++) {
+      const available = pool.filter((key) => !previousPad.has(key));
+      const pad = shuffleInPlace(rng, [...available]).slice(0, 4);
+      for (const key of pool) {
+        if (pad.length === 4) break;
+        if (!pad.includes(key) && !previousPad.has(key)) pad.push(key);
+      }
+      pads.push(pad);
+      previousPad = new Set(pad);
+    }
+  }
+
+  return { pads, keys: pads.map((pad) => pick(rng, pad)) };
 }
 
 // The switch instants, absolute on the engine clock: the first drawn from
@@ -141,8 +231,24 @@ export class ClashManager {
     const state = await this.store.loadGameState(gameId);
     const shift = state?.clashKeyShift === 1 || state?.clashKeyShift === 2 ? state.clashKeyShift : 0;
     const previous = state?.pendingCapture?.lastKeys;
-    const attackerKeys = drawKeySchedule(rng, ATTACKER_KEYS, shift + 1, previous?.[attacker]);
-    const defenderKeys = drawKeySchedule(rng, DEFENDER_KEYS, shift + 1, previous?.[defender]);
+    const attackerDraw = drawClashPads(
+      rng,
+      ATTACKER_KEYS,
+      shift + 1,
+      state?.pendingCapture?.padHistory?.[attacker] ?? [],
+      previous?.[attacker],
+    );
+    const defenderDraw = drawClashPads(
+      rng,
+      DEFENDER_KEYS,
+      shift + 1,
+      state?.pendingCapture?.padHistory?.[defender] ?? [],
+      previous?.[defender],
+    );
+    const attackerKeys = attackerDraw.keys;
+    const defenderKeys = defenderDraw.keys;
+    const attackerPads = attackerDraw.pads;
+    const defenderPads = defenderDraw.pads;
     // The opening letter is also the legacy field, so an older client and the bot
     // pressers keep reading the round the way they always did.
     const attackerKey = attackerKeys[0];
@@ -160,6 +266,14 @@ export class ClashManager {
         [attacker]: attackerKeys[attackerKeys.length - 1],
         [defender]: defenderKeys[defenderKeys.length - 1],
       };
+      // The pad history is the chain's authoritative seam record. The per-position
+      // cap counts only this round's pads, so an earlier round is appended, never
+      // re-counted.
+      state.pendingCapture.padHistory = {
+        ...state.pendingCapture.padHistory,
+        [attacker]: [...(state.pendingCapture.padHistory?.[attacker] ?? []), ...attackerPads],
+        [defender]: [...(state.pendingCapture.padHistory?.[defender] ?? []), ...defenderPads],
+      };
       await this.store.saveGameState(gameId, state);
     }
     const clashState: ClashState = {
@@ -168,8 +282,11 @@ export class ClashManager {
       attackerKey,
       defenderKey,
       // Absent rather than empty when the mutator is off: a room that never turns it
-      // on carries the same record it always did.
+      // on carries the same schedule record it always did. The pads are always
+      // present, one entry per side, because the touch pad paints them at any shift.
       ...(shift > 0 ? { attackerKeys, defenderKeys, switchAt } : {}),
+      attackerPads,
+      defenderPads,
       target,
       duration: pressMs / 1000,
       startedAt,
@@ -191,6 +308,8 @@ export class ClashManager {
       defenderKey,
       attackerKeys,
       defenderKeys,
+      attackerPads,
+      defenderPads,
       switchAt,
       keyShift: shift,
       // Stamped once, so every client derives its offset from the same instant the

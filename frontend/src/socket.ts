@@ -26,9 +26,13 @@ export type ClashStartEvent = {
   attackerKey: string;
   defenderKey: string;
   // Key-shift schedule: one letter per side plus one per switch, and the absolute
-  // instants the letters change. Empty on a room with the mutator off.
+  // instants the letters change. The frame always carries one entry per side per
+  // switch, even on a room with the mutator off (one entry, no switchAt).
   attackerKeys: string[];
   defenderKeys: string[];
+  // The ordered 2x2 pads the touch path paints, one per schedule entry.
+  attackerPads: string[][];
+  defenderPads: string[][];
   switchAt: number[];
   keyShift: 0 | 1 | 2;
   // The engine clock when the frame was built, for the overlay's clock offset. Not

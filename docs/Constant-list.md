@@ -889,7 +889,7 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 | `CLASH_SWITCH_WARN_MS` | 400 | how far ahead the "LETTER SWITCHING!" banner fires (it never names the new letter) |
 | `CLASH_SWITCH_WARN_HOLD_MS` | 300 | how long the banner lingers after the switch |
 | `CLASH_SWITCH_FLIP_MS` | 110 | one half of the 220 ms badge flip: the face is edge-on exactly AT the switch, so the new letter is never late |
-| `CLASH_SWITCH_PAD_STAGGER_MS` | 40 | per-circle landing delay when the touch pad re-scrambles (0/40/80/120 ms) |
+| `CLASH_SWITCH_PAD_STAGGER_MS` | 40 | per-circle landing delay when the touch pad changes to the next server-dealt pad (0/40/80/120 ms) |
 
 **Client-only**
 
@@ -1028,7 +1028,7 @@ the session socket, so the only client timers left are the client rows below.
 | `WALL_BREAKER_PANEL_W` / `WALL_BREAKER_PANEL_GAP` | 96 / 10 | the Wall Breaker token panel's width and the gap in front of it |
 | `CARD_ROOM_OVERHANG` | 46 | extra room for display names in every room; the roster's overhang is 46, or 46 + 96 + 10 = 152 in clash mode, so the cards are equally wide either way |
 | `WALL_BREAKER_GLYPH` | `🧨` | the token's glyph |
-| Board size | `min(650px, 66vh)` | the desktop board's ceiling, and it also yields `rosterOverhang` |
+| Board size | desktop `min(650px, calc(100dvh - header - controls - actions - 76px))`; stacked `min(650px, 66vh)` | the desktop `boardCap` is also the board's width after `rosterOverhang`; header, controls and action stack are the measured row heights (`--game-header-h`, `--game-controls-h`, `--game-actions-h`), and 76 px is the wrapper padding, header margin, controls margin and action padding |
 | Layout breakpoint | `1024px` | below this the game stacks to one column |
 | Tactical grid | `250px / 1fr / 250px`, then 285, then 310 | side columns at the md/lg/xl/2xl breakpoints |
 | Page width | 1440 px | the game shell's maximum |

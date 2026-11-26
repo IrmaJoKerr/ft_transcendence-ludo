@@ -180,10 +180,14 @@ export interface ClashState {
   // carries `attackerKeys` / `defenderKeys`, whose element 0 is these.
   attackerKey: string; // key the attacker must mash
   defenderKey: string; // key the defender must mash
-  // Key-shift schedule: one letter per side per switch. Element i replaces i-1 at
-  // `switchAt[i-1]`; absent means the opening letter alone.
+  // Key-shift schedule: element i replaces i-1 at switchAt[i-1]; absent means the opening
+  // letter alone. Pads are separate and always written, one per schedule entry.
   attackerKeys?: string[];
   defenderKeys?: string[];
+  // The ordered 2x2 pads the client paints, one per schedule entry in read order.
+  // Optional only because a clash persisted before this deploy has none.
+  attackerPads?: string[][];
+  defenderPads?: string[][];
   // The switch instants, absolute on the engine clock, first one at
   // countdownDeadline + 2000..2500 and each next 800..1100 after the one before.
   // Length equals the room's switch count (0, 1 or 2).
@@ -230,8 +234,12 @@ export interface PendingCapture {
   // clashWallBattlesWon. A lone defender pays nothing.
   wallBattles?: number;
   // Letter each seat ended its last chain round on, so the next round opens on a new
-  // letter. Absent on older records or rooms without the mutator.
+  // letter. Absent on older records, not on rooms without the mutator: `startClash`
+  // writes it whenever a pending capture exists.
   lastKeys?: Partial<Record<PlayerColor, string>>;
+  // Pads already dealt in earlier rounds of this chain, per side. This is the only
+  // source of the adjacent-pad seam; the per-position cap is counted inside one round.
+  padHistory?: Partial<Record<PlayerColor, string[][]>>;
 }
 
 // What one round of a chain needs beyond the two colours: which round it is, how
@@ -430,11 +438,13 @@ export type GameEvent =
       gameId: string;
       attackerKey: string;
       defenderKey: string;
-      // Key-shift schedules for both seats, with absolute switch instants. A hotseat
-      // socket needs both; each client renders its own. Both arrays always hold
-      // keyShift + 1 letters; switchAt is empty when the mutator is off.
+      // Key-shift schedules for both seats, with absolute switch instants. Both arrays
+      // hold keyShift + 1 letters and the pads hold one entry each, even at keyShift 0;
+      // switchAt is empty when the mutator is off.
       attackerKeys: string[];
       defenderKeys: string[];
+      attackerPads: string[][];
+      defenderPads: string[][];
       switchAt: number[];
       keyShift: 0 | 1 | 2;
       // Engine clock when the frame was built. The overlay offsets to server time, so a

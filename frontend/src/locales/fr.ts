@@ -963,11 +963,9 @@ export const fr = {
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
     chainPricedBadgeTitle:
       'Mur de {{rounds}} : cette attaque le brise, coûte un jeton et dure {{rounds}} manches de clash',
-    // Infobulles du Brise-Mur : les jetons restants de l'escouade (les pastilles à
-    // côté du label de la cellule) et l'étiquette 🔓 sur une pièce dont la seule
-    // sortie légale est celle payée par un jeton.
-    wallBreakerTokensTitle:
-      'Brise-Mur ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
+    // Infobulle du Brise-Mur : l'étiquette 🔓 sur une pièce dont la seule sortie
+    // légale est celle payée par un jeton. La colonne de jetons du roster est le
+    // seul affichage du stock.
     armedBadgeTitle: 'Brise-Mur : cette sortie coûte un jeton',
   },
   gameExtra: {

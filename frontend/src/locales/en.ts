@@ -975,11 +975,8 @@ export const en = {
     chainBadgeTitle: 'Wall of {{rounds}}: this attack is {{rounds}} clash rounds',
     chainPricedBadgeTitle:
       'Wall of {{rounds}}: this attack breaks it, costs one token, and is {{rounds}} clash rounds',
-    // Wall Breaker tooltips: the squad's remaining tokens (the pips next to the
-    // prison's label) and the 🔓 price tag on a piece whose only legal move
-    // is the token-priced exit.
-    wallBreakerTokensTitle:
-      'Wall Breaker ×{{count}}: spending one buys the prison exit a landing on the wall the roll reaches exactly',
+    // Wall Breaker tooltip: the 🔓 price tag on a piece whose only legal move
+    // is the token-priced exit. The roster token column is the one token display.
     armedBadgeTitle: 'Wall Breaker: this exit costs one token',
   },
   gameExtra: {
@@ -1051,7 +1048,7 @@ export const en = {
       'Landing on a wall — two or more pieces stacked — is not one fight but one clash per defender, each round a fresh letter race: win them back to back and the square is yours, lose one and the wall holds.',
     rulesPage6Touch:
       'On a tablet you tap the circle holding your letter instead of pressing it: the defender uses Q,W,E,A,S,D,Z,X,C and the attacker U,I,O,H,J,K,B,N,M.',
-    // The mutator's page-six paragraph. It names the warning and the re-scramble
+    // The mutator's page-six paragraph. It names the warning and the pad change
     // (the two things the player actually has to react to), and never claims the
     // switch is announced in advance of the warning itself.
     rulesPage6KeyShift:

@@ -37,8 +37,8 @@ const TOUCH_EDGE_BUFFER = '1cm';
 // tapping is slower than holding a key, and the per-side cap still gates the rate.
 
 // The two key sets, mirrored from the engine (clash.ts ATTACKER_KEYS /
-// DEFENDER_KEYS). The touch pad draws its decoys from the side's OWN set, and
-// the sets are disjoint, so a decoy can never be the other side's key.
+// DEFENDER_KEYS). The server now deals the pads; these pools are only the
+// deterministic fallback for a clash persisted before the pad arrays existed.
 const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
 
@@ -265,42 +265,23 @@ function KeyBadge({
   );
 }
 
-// Draw one side's four circles: the side's own required key plus three decoys from the same
-// nine-key set. Pure module scope, so the draw is not an impure call made during render, and the
-// component memoises it per round and switch.
-function drawPad(
-  side: 'defender' | 'attacker',
-  acceptKey: string,
-  round: number,
-  switchIndex = 0,
-): string[] {
+// A pre-deploy clash has no pad arrays. Rebuild a stable four-letter pad from the
+// live required key and the side's own pool: no Math.random, so a reload paints the
+// same cells. Delete this once no stored clash can predate the server-dealt pads.
+function legacyPad(side: 'defender' | 'attacker', acceptKey: string): string[] {
   const pool = [...(side === 'attacker' ? ATTACKER_KEYS : DEFENDER_KEYS)];
-  const turns = round + switchIndex;
-  const shift = ((turns % pool.length) + pool.length) % pool.length;
-  for (let i = 0; i < shift; i++) {
-    const head = pool.shift();
-    if (head != null) pool.push(head);
-  }
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  const picked = [acceptKey, ...pool.filter((k) => k !== acceptKey).slice(0, 3)];
-  for (let i = picked.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [picked[i], picked[j]] = [picked[j], picked[i]];
-  }
-  return picked;
+  const found = pool.indexOf(acceptKey);
+  const start = found >= 0 ? found : 0;
+  return Array.from({ length: 4 }, (_, index) => pool[(start + index) % pool.length]);
 }
 
-// One side's 2x2 pad of 3 cm circles. The side's OWN required key is one of the four; the other
-// three are random decoys from the same nine-key set, so mashing blind lands the right circle
-// about a quarter of the time.
+// One side's 2x2 pad of 3 cm circles, painted in the server's read order:
+// [top-left, top-right, bottom-left, bottom-right]. The required key is always one
+// of the four, so a tap can win or lose exactly as the engine judges it.
 function TouchPad({
   side,
   color,
-  acceptKey,
-  round,
+  pad,
   switchIndex = 0,
   flipping = false,
   active,
@@ -308,33 +289,23 @@ function TouchPad({
 }: {
   side: 'defender' | 'attacker';
   color: PlayerColor;
-  acceptKey: string;
-  round: number;
-    // Which switch of the schedule this pad is drawn for: a new index re-scrambles.
+  pad: string[];
+  // Which switch this pad belongs to: a new index clears the lit circle.
   switchIndex?: number;
-    // Edge-on while the key shifts, so the circles land their new letters with it.
+  // Edge-on while the key shifts, so the circles land their new letters with it.
   flipping?: boolean;
   active: boolean;
-    // The click handler. `count` is the tap weight (1 = one press).
+  // The click handler. `count` is the tap weight (1 = one press).
   onPress: (key: string, count: number) => void;
 }) {
   const { t } = useTranslation();
-  // The lit circle remembers WHICH switch draw it was pressed under, so a scramble
-  // clears the flash by derivation instead of by a reset effect (which would mean a
-  // second render pass for a 120 ms visual).
+  // The lit circle remembers WHICH switch it was pressed under, so a new pad
+  // clears the flash by derivation instead of by a reset effect.
   const [pressed, setPressed] = useState<{ key: string; index: number } | null>(null);
   const flashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Re-drawn every round AND every switch, so muscle memory cannot replace reading
-  // the correct circle. The decoys can never be the other side's key, because the
-  // two key sets are disjoint.
-  const keys = useMemo(
-    () => drawPad(side, acceptKey, round, switchIndex),
-    [acceptKey, side, round, switchIndex],
-  );
-
-  // A scrambled pad must not keep a circle lit: a press from before the switch no
-  // longer matches this draw, so nothing shows.
+  // A new pad must not keep a circle lit: a press from before the switch no longer
+  // matches this draw, so nothing shows.
   const lit = pressed && pressed.index === switchIndex ? pressed.key : null;
 
   useEffect(
@@ -387,7 +358,7 @@ function TouchPad({
           gap: TOUCH_GAP,
         }}
       >
-        {keys.map((k, index) => (
+        {pad.map((k, index) => (
                     // The wrapper owns the switch flip and the button keeps its 90 ms press flash, so the two
           // transforms never fight over one transition. The stagger lands the four new letters in a diagonal
           // sweep from the first circle, each starting CLASH_SWITCH_PAD_STAGGER_MS after the one before.
@@ -510,7 +481,7 @@ export function ClashOverlay({
     at.forEach((when, i) => {
       if (Date.now() + offsetMs >= when) return;
             // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on the flip (the flip
-      // already has the banner, the pad re-scramble and the round's own tone, so a voice landing there
+      // already has the banner, the pad change and the round's own tone, so a voice landing there
       // would double the cue instead of warning).
       later(when - CLASH_SWITCH_WARN_MS, () => {
         patch({ warning: true });
@@ -531,13 +502,22 @@ export function ClashOverlay({
   // letter on a room with the mutator off (and on any frame from an older engine).
   const attackerKey = clash.attackerKeys?.[keyIndex] ?? clash.attackerKey;
   const defenderKey = clash.defenderKeys?.[keyIndex] ?? clash.defenderKey;
+  // The server deals one pad per schedule entry. Clamp each side to its last pad
+  // (a shorter array from an older frame) and fall back to the deterministic legacy
+  // pad only when the arrays are absent entirely.
+  const padAt = (pads: string[][] | undefined, side: 'attacker' | 'defender', key: string) => {
+    if (!pads?.length) return legacyPad(side, key);
+    return pads[Math.min(keyIndex, pads.length - 1)];
+  };
+  const attackerPad = padAt(clash.attackerPads, 'attacker', attackerKey);
+  const defenderPad = padAt(clash.defenderPads, 'defender', defenderKey);
   const myKey = attackerIsMe ? attackerKey : defenderKey;
   // Hotseat: a single device owns BOTH seats, so both sides' keys are accepted.
   const listenerKeys = useMemo(
     () => (allowBothSides ? [attackerKey, defenderKey] : [myKey]),
     [allowBothSides, attackerKey, defenderKey, myKey],
   );
-  // One clash is one round today; a chain re-randomises the pad per round.
+  // One clash is one round today; a chain receives a fresh server-dealt package per round.
   const round = clash.round ?? 1;
   // Clash CHAIN: a stacked square costs one round per defender. The engine stamps
   // the round on every clash_start of a chain, so a single clash reads 1/1 and
@@ -993,8 +973,7 @@ export function ClashOverlay({
               <TouchPad
                 side="defender"
                 color={clash.defender}
-                acceptKey={defenderKey}
-                round={round}
+                pad={defenderPad}
                 switchIndex={keyIndex}
                 flipping={flipping}
                 active={pressable}
@@ -1017,8 +996,7 @@ export function ClashOverlay({
               <TouchPad
                 side="attacker"
                 color={clash.attacker}
-                acceptKey={attackerKey}
-                round={round}
+                pad={attackerPad}
                 switchIndex={keyIndex}
                 flipping={flipping}
                 active={pressable}

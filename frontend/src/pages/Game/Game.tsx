@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Board } from '../../components/Board';
 import { CaptureBurst } from '../../components/CaptureBurst';
@@ -166,6 +168,10 @@ const WALL_BREAKER_GLYPH = '🧨';
 
 // The plate the die turns on (38).
 const DIE_STAGE = 180;
+
+// The recon panel's floor. The panel is the flexible remainder of COLUMN 3 above
+// this height; the literal 180 that used to fix its box is now this one floor.
+const RECON_LOG_MIN_HEIGHT = 180;
 
 // Lines the board keeps in memory (M3). The room stores 1,000; the panel paints the tail, and a
 // few hundred is enough scrollback without growing this page's state on every frame of a long
@@ -363,7 +369,7 @@ export function Game() {
   // reducer takes it: FLOP has to settle on the engine's face, and the reducer still waits
   // for the landing so the movable pieces do not light up mid-spin.
   const [rollFace, setRollFace] = useState<number | null>(null);
-  // The Space listener is bound once per match and would otherwise capture a stale
+  // The Space listener is bound once for the page and would otherwise capture a stale
   // `canRoll`; this ref always points at the newest `beginRoll` closure (assigned
   // next to its definition, the same way `viewRef` is).
   const beginRollRef = useRef<() => void>(() => {});
@@ -381,7 +387,27 @@ export function Game() {
   const prevTurnRef = useRef<PlayerColor | null>(null);
   const isGameEnded = lastResult != null || view.status === 'finished';
 
-    // The room's own closing clock (R14/R20): the engine publishes `closesAt` while a waiting PvP room
+  // The clash result card is an engine-timed freeze: resultCardUntil is on the engine
+  // clock, and the last serverOffset is kept in a ref because the overlay can clear
+  // clash first. The layout effect resyncs before paint and re-enables the tap.
+  const [resultCardOpen, setResultCardOpen] = useState(() => {
+    const until = view.resultCardUntil;
+    return until != null && until > Date.now();
+  });
+  const resultCardOffsetRef = useRef(view.clash?.serverOffset ?? 0);
+  useLayoutEffect(() => {
+    const offset = view.clash?.serverOffset;
+    if (offset != null) resultCardOffsetRef.current = offset;
+    const until = view.resultCardUntil;
+    const remaining =
+      until == null ? 0 : until - (Date.now() + resultCardOffsetRef.current);
+    setResultCardOpen(remaining > 0);
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setResultCardOpen(false), remaining);
+    return () => clearTimeout(timer);
+  }, [view.resultCardUntil, view.clash?.serverOffset]);
+
+  // The room's own closing clock (R14/R20): the engine publishes `closesAt` while a waiting PvP room
   // sits below quorum, and this only counts down to that number. Bots never get impatient and a
   // started game's clock is the seat's reconnect window, so no other room has one.
   const [roomClock, setRoomClock] = useState(() => Date.now());
@@ -478,6 +504,15 @@ export function Game() {
           .map((p) => p.color)
       : SEAT_COLORS.slice(0, activeMatch?.playerCount || SEAT_COLORS.length);
   const railColors: PlayerColor[] = view.status === 'waiting' ? waitingRailColors : SEAT_COLORS;
+  // One list feeds both grid tracks: waiting renders every rail card, an active room
+  // only seats the view lists as non-inactive. Math.max(1, ...) keeps one row.
+  const visibleSeats: PlayerColor[] =
+    view.status === 'waiting'
+      ? railColors
+      : railColors.filter((ck) => {
+          const seat = view.players.find((p) => p.color === ck);
+          return Boolean(seat && seat.status !== 'inactive');
+        });
   // How far the roster box reaches past its grid track: the panel's span in clash mode,
   // plus the same extra room for the display names in every room, so the cards are
   // equally wide either way.
@@ -515,10 +550,107 @@ export function Game() {
   // Desktop board placement: the board yields the roster panel's overhang and takes
   // 20% of the space left as a right margin, so the left gutter holds the panel. The
   // min() clamps the margin to 0 when the track is too narrow.
-  const boardSlack = `100% - min(650px, 66vh, 100% - ${rosterOverhang}px)`;
-  const boardMaxWidth = desktopLayout
-    ? `min(650px, 66vh, 100% - ${rosterOverhang}px)`
+  const fitRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const [fitHeights, setFitHeights] = useState({ header: 0, controls: 0, actions: 0 });
+  const [fitZoom, setFitZoom] = useState(1);
+  const [fitPass, setFitPass] = useState(0);
+
+  // Measure the three rows the board must share the viewport with: the header, the
+  // controls row and the action stack. The observer catches a wrapped name or a
+  // mode change; the dependency list re-attaches it when a row mounts.
+  useLayoutEffect(() => {
+    if (!desktopLayout) {
+      setFitHeights((prev) =>
+        prev.header === 0 && prev.controls === 0 && prev.actions === 0
+          ? prev
+          : { header: 0, controls: 0, actions: 0 },
+      );
+      return;
+    }
+    const measure = () => {
+      const next = {
+        header: headerRef.current?.offsetHeight ?? 0,
+        controls: controlsRef.current?.offsetHeight ?? 0,
+        actions: actionsRef.current?.offsetHeight ?? 0,
+      };
+      setFitHeights((prev) =>
+        prev.header === next.header &&
+        prev.controls === next.controls &&
+        prev.actions === next.actions
+          ? prev
+          : next,
+      );
+    };
+    measure();
+    const observer =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    for (const element of [headerRef.current, controlsRef.current, actionsRef.current]) {
+      if (element) observer?.observe(element);
+    }
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [desktopLayout, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
+
+  // `document.fonts.ready` and a resize are fresh measurement passes, not a second
+  // layout system: they only bump the key the zoom pass reads.
+  useEffect(() => {
+    const bump = () => setFitPass((value) => value + 1);
+    window.addEventListener('resize', bump);
+    let cancelled = false;
+    void document.fonts?.ready.then(() => {
+      if (!cancelled) bump();
+    });
+    return () => {
+      cancelled = true;
+      window.removeEventListener('resize', bump);
+    };
+  }, []);
+
+  // The one measured correction. Each pass clears the inline zoom and divided
+  // height, reads the wrapper's natural overflow, then sets the factor. A one-way
+  // shrink cannot oscillate, and the stacked layout is never zoomed.
+  useLayoutEffect(() => {
+    if (!desktopLayout || !fitRef.current) {
+      setFitZoom((prev) => (prev === 1 ? prev : 1));
+      return;
+    }
+    const element = fitRef.current;
+    const previous = {
+      zoom: element.style.zoom,
+      height: element.style.height,
+      maxHeight: element.style.maxHeight,
+    };
+    element.style.zoom = '1';
+    element.style.height = '100dvh';
+    element.style.maxHeight = '100dvh';
+    const width = Math.max(1, element.scrollWidth);
+    const height = Math.max(1, element.scrollHeight);
+    element.style.zoom = previous.zoom;
+    element.style.height = previous.height;
+    element.style.maxHeight = previous.maxHeight;
+    const factor = Math.min(
+      1,
+      Math.max(0.8, Math.min(window.innerWidth / width, window.innerHeight / height)),
+    );
+    setFitZoom((prev) => (Math.abs(prev - factor) < 0.001 ? prev : factor));
+  }, [desktopLayout, fitHeights, fitPass, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
+
+  // The desktop height cap is the viewport less the wrapper's 14 + 20 px padding,
+  // the header's 18 px margin, the controls row's 12 px margin and the action
+  // stack's 12 px top padding. The board is square, so this cap is also its width.
+  const boardCap = desktopLayout
+    ? `min(650px, calc(100dvh - ${fitHeights.header}px - ${fitHeights.controls}px - ${fitHeights.actions}px - 76px))`
     : 'min(650px, 66vh)';
+  const boardMaxWidth = desktopLayout
+    ? `min(${boardCap}, 100% - ${rosterOverhang}px)`
+    : boardCap;
+  const boardSlack = `100% - ${boardMaxWidth}`;
   const boardMarginRight = desktopLayout
     ? `max(0px, min((${boardSlack}) * 0.2, ${boardSlack} - ${rosterOverhang}px))`
     : undefined;
@@ -1157,36 +1289,18 @@ export function Game() {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable))
         return;
-      const v = viewRef.current;
-      if (v.status !== 'active') return;
-      // Paused for a reconnect: block the dice shortcut so no action can slip
-      // in while the engine holds the turn.
-      if (v.paused) return;
-      // The clash QTE owns the keyboard: Space must not fire a roll while the
-      // clash is up, or during the engine's post-clash freeze.
-      if (v.clash) return;
-      if (v.resultCardUntil != null && Date.now() < v.resultCardUntil) return;
-      const isHotseatMode = activeMatch?.mode === 'hotseat';
-      const activeHumanTurn = v.players.some(
-        (p) => p.color === v.currentTurn && p.status === 'active' && !p.isBot,
-      );
-      const seatNameMatches = v.players.some(
-        (p) => p.color === v.currentTurn && p.username === user?.username,
-      );
-      const myTurnNow = isHotseatMode
-        ? activeHumanTurn
-        : v.currentTurn === v.myColor || (user != null && seatNameMatches);
-      if (!myTurnNow) return;
-      if (v.turnPhase === 'WAITING_FOR_MOVE' || v.legalMoves.length > 0) return;
-      if (isRollingRef.current || isMovingPieceRef.current) return;
+      if (viewRef.current.status !== 'active') return;
+      // Prevent the page scroll and the browser's synthesized Space click on every
+      // handled press, even when `beginRoll`'s own gate refuses it.
       e.preventDefault();
-      // Through the ref: this listener is bound once per match, so it would hold a
+      if (e.repeat) return;
+      // Through the ref: the listener is bound once for the page, so it would hold a
       // stale `canRoll` if it called `beginRoll` directly.
       beginRollRef.current();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeMatch, user]);
+  }, []);
 
   // Clear the timers of the roll in flight. The landing and the "the server never
   // answered" guard never need to run together, so one helper covers both.
@@ -1223,6 +1337,7 @@ export function Game() {
       isRolling ||
       isRollingRef.current ||
       isMovingPieceRef.current ||
+      pendingMoveRef.current ||
       performance.now() < flashCardGuardUntilRef.current
     )
       return;
@@ -1255,7 +1370,7 @@ export function Game() {
       if (isRollingRef.current) resetRoll();
     }, diceRollMs(rollSpinMsRef.current) + DICE_BRAKE_ARM_MS);
   };
-  // Assigned every render, so the Space listener bound once per match always calls
+  // Assigned every render, so the Space listener bound once for the page always calls
   // the newest closure (the same pattern as `viewRef`).
   beginRollRef.current = beginRoll;
 
@@ -1347,9 +1462,8 @@ export function Game() {
   // One press of this player's clash key. The overlay matches the key; the server
   // proves ownership and applies the press cap, which discards a decoy pad press.
   const clashInput = (key: string, count = 1) => socketRef.current?.emit('clash_input', key, count);
-  // The overlay's result-card timer calls this when the card's own length is up (2700 on a
-  // pair, 3600 on a wall and 4000 on a breach). It is what frees canRoll again: the reducer
-  // deliberately keeps `clash` alive until then.
+  // Ends the cosmetic card. resultCardOpen keeps canRoll false until the engine's
+  // resultCardUntil, so the freeze follows the engine clock, not this timer.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
     // The result card appeared: tell the engine when it will be done. The forecast is in this client's
@@ -1615,18 +1729,16 @@ export function Game() {
     (isHotseat
       ? activeHumanTurn
       : effectiveTurn === view.myColor || (user != null && seatNameMatches));
-  // `status === 'active'` closes a game-end race: the winning move can leave
-  // the other canRoll inputs looking rollable for one render, letting a click
-  // slip through as a "Game not active" rejection.
+  // status === 'active' closes a game-end race; the engine also refuses a roll outside
+  // its phase. The client withholds the tap during the clash and its engine-timed card.
   const canRoll =
     view.status === 'active' &&
     !isPausedForReconnect &&
     isMyTurn &&
+    !view.clash &&
+    !resultCardOpen &&
     view.turnPhase !== 'WAITING_FOR_MOVE' &&
     view.legalMoves.length === 0 &&
-    // No timing term here on purpose. The engine refuses a roll outside its phase and
-    // during the result-card freeze, so a missing frame costs one refused click, not
-    // the dead roll button a client-side clock comparison used to cause.
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
@@ -1753,8 +1865,26 @@ export function Game() {
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Main Content Wrapper */}
         <div
-          className={`${APP_WRAPPER} app-wrapper game-page`}
-          style={{ marginLeft: 'auto', marginRight: 'auto', maxWidth: 1440, width: '100%' }}
+          ref={fitRef}
+          className={`${APP_WRAPPER} app-wrapper game-page game-fit`}
+          style={
+            {
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              maxWidth: 1440,
+              width: '100%',
+              '--game-header-h': `${fitHeights.header}px`,
+              '--game-controls-h': `${fitHeights.controls}px`,
+              '--game-actions-h': `${fitHeights.actions}px`,
+              ...(desktopLayout
+                ? {
+                    height: `${100 / fitZoom}dvh`,
+                    maxHeight: `${100 / fitZoom}dvh`,
+                    zoom: fitZoom,
+                  }
+                : {}),
+            } as CSSProperties
+          }
         >
           {/* Hero Telemetry & Badge Bar. One flex row since 20.5: the title centred on the
               page with the room's own clock and code in its right corner, the turn pill
@@ -1765,6 +1895,7 @@ export function Game() {
               carries a floor that scales with the viewport height, and spends what the floor
               leaves over *between* the anchors rather than under them. */}
           <header
+            ref={headerRef}
             className={HERO_SECTION}
             style={{
               // A flex column so the notice can follow the row in the stacked layout, and
@@ -1781,7 +1912,7 @@ export function Game() {
                 cornerBanner
                   ? {
                       display: 'flex',
-                      // The grid row takes the floor's leftover height; the floor is `min(650px, 66vh)` in the
+                      // The grid row takes the floor's leftover height; the floor is the board's capped axis.
                       // board's axis. The 10 px is the header padding, so the floor is border to border, and
                       // placing it on the row lets slack land between the title and pill anchors.
                       flex: '1 1 auto',
@@ -2069,8 +2200,11 @@ export function Game() {
                       below so the divider runs straight down through both rows. */}
                   <div
                     style={{
-                      display: 'flex',
-                      gap: 10,
+                      display: 'grid',
+                      gridTemplateColumns: showWallBreakerColumn
+                        ? `minmax(0, 1fr) ${WALL_BREAKER_PANEL_W}px`
+                        : 'minmax(0, 1fr)',
+                      columnGap: WALL_BREAKER_PANEL_GAP,
                       alignItems: 'stretch',
                       ...(showWallBreakerColumn
                         ? {
@@ -2082,7 +2216,6 @@ export function Game() {
                   >
                     <div
                       style={{
-                        flex: 1,
                         minWidth: 0,
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -2112,8 +2245,6 @@ export function Game() {
                       <div
                         title={t('game.wallBreakerColumnTitle')}
                         style={{
-                          width: WALL_BREAKER_PANEL_W,
-                          flex: 'none',
                           boxSizing: 'border-box',
                           paddingLeft: 10,
                           borderLeft: '1px solid rgb(var(--ink-rgb) / 0.12)',
@@ -2131,17 +2262,19 @@ export function Game() {
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
-                      }}
-                    >
-                      {railColors.map((ck) => {
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: showWallBreakerColumn
+                        ? `minmax(0, 1fr) ${WALL_BREAKER_PANEL_W}px`
+                        : 'minmax(0, 1fr)',
+                      gridTemplateRows: `repeat(${Math.max(1, visibleSeats.length)}, auto)`,
+                      columnGap: WALL_BREAKER_PANEL_GAP,
+                      rowGap: 10,
+                      alignItems: 'stretch',
+                    }}
+                  >
+                    {visibleSeats.map((ck) => {
                         const playerMeta = view.players.find((p) => p.color === ck);
                         const occupied = Boolean(
                           playerMeta &&
@@ -2187,6 +2320,8 @@ export function Game() {
                                 padding: '10px 12px',
                                 borderRadius: 4,
                                 cursor: 'default',
+                                gridColumn: 1,
+                                minWidth: 0,
                                 border: isYou
                                   ? `1.5px solid ${colorAccent}`
                                   : occupied
@@ -2360,6 +2495,8 @@ export function Game() {
                               opacity: isOut ? 0.3 : isDisconnected ? 0.55 : 1,
                               filter: isOut ? 'grayscale(1)' : 'none',
                               position: 'relative',
+                              gridColumn: 1,
+                              minWidth: 0,
                               transition:
                                 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
                               boxSizing: 'border-box',
@@ -2500,8 +2637,7 @@ export function Game() {
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
+                    })}
 
                     {/* Wall Breaker column: clash mode is the OPPORTUNITY to break
                         a wall, and this column is where the player takes it. One
@@ -2513,12 +2649,11 @@ export function Game() {
                     {showWallBreakerColumn && (
                       <div
                         style={{
-                          width: WALL_BREAKER_PANEL_W,
-                          flex: 'none',
+                          gridColumn: 2,
+                          gridRow: `1 / span ${Math.max(1, visibleSeats.length)}`,
+                          display: 'grid',
+                          gridTemplateRows: 'subgrid',
                           boxSizing: 'border-box',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 10,
                           // A panel of its own: the left divider and the padding are what
                           // make the toggle section read as separate from the roster, and
                           // stretching it keeps that divider running the cards' full height.
@@ -2527,14 +2662,12 @@ export function Game() {
                           alignSelf: 'stretch',
                         }}
                       >
-                        {/* The column's description sits above both sub-columns (see
-                            the Wall Breaker hint), so the buttons start level with
-                            the cards. */}
-                        {SEAT_COLORS.map((ck) => {
+                        {/* One button per visible seat, in the same order as the cards. The
+                            panel's subgrid rows are the card rows, so a wrapped name cannot
+                            drift a later button out of line. */}
+                        {visibleSeats.map((ck) => {
                           const seat = view.players.find((p) => p.color === ck);
-                          if (!seat || seat.status === 'inactive') {
-                            return <div key={ck} style={{ flex: 1 }} />;
-                          }
+                          if (!seat) return null;
                           const tokens = seat.wallBreakerTokens ?? 0;
                           const armed = seat.wallBreakerArmed === true;
                           const canArm =
@@ -2557,7 +2690,8 @@ export function Game() {
                                   : t('game.wallBreakerCannotArmTitle')
                               }
                               style={{
-                                flex: 1,
+                                width: '100%',
+                                height: '100%',
                                 minHeight: 44,
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -2762,19 +2896,22 @@ export function Game() {
                   coordinates, measured when the walk landed) and neither takes a click. */}
               {goalFx && (
                 <>
-                  <div
-                    style={{
-                      position: 'fixed',
-                      left: goalFx.x,
-                      top: goalFx.y,
-                      width: 0,
-                      height: 0,
-                      zIndex: 40,
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    <GoalBurst key={`goal-burst-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
-                  </div>
+                  {createPortal(
+                    <div
+                      style={{
+                        position: 'fixed',
+                        left: goalFx.x,
+                        top: goalFx.y,
+                        width: 0,
+                        height: 0,
+                        zIndex: 40,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <GoalBurst key={`goal-burst-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
+                    </div>,
+                    document.body,
+                  )}
                   {view.captureFx ? (
                     <div
                       key={`goal-card-${goalFx.id}`}
@@ -2803,19 +2940,22 @@ export function Game() {
                       <GoalCard color={goalFx.color} count={goalFx.count} />
                     </div>
                   ) : (
-                    <div
-                      style={{
-                        position: 'fixed',
-                        left: goalFx.x,
-                        top: goalFx.y,
-                        width: 0,
-                        height: 0,
-                        zIndex: 35,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      <GoalConfetti key={`goal-confetti-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
-                    </div>
+                    createPortal(
+                      <div
+                        style={{
+                          position: 'fixed',
+                          left: goalFx.x,
+                          top: goalFx.y,
+                          width: 0,
+                          height: 0,
+                          zIndex: 35,
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <GoalConfetti key={`goal-confetti-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
+                      </div>,
+                      document.body,
+                    )
                   )}
                 </>
               )}
@@ -2825,7 +2965,7 @@ export function Game() {
                 const activeLegalMoves = isRolling || isBotTurn ? [] : view.legalMoves;
 
                 return (
-                  <div style={{ width: '100%' }}>
+                  <div style={{ width: '100%' }} id="gameBoardWrap">
                     <Board
                       pieces={view.pieces}
                       players={view.players}
@@ -2845,7 +2985,11 @@ export function Game() {
                   are two controls now, so neither label covers both. This column
                   is `order-1` when the layout stacks, so one placement serves the
                   desktop second column and the tablet/phone stack alike. */}
-              <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 12 }}>
+              <div
+                ref={controlsRef}
+                id="gameControlsRow"
+                style={{ display: 'flex', gap: 10, width: '100%', marginTop: 12 }}
+              >
                 <CyberButton
                   label={t('gameExtra.controlsSettings')}
                   variant="cyan"
@@ -2865,9 +3009,111 @@ export function Game() {
                   style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
                 />
               </div>
+
+              {/* In-game actions: one full-width stack, last in the board column.
+                  RETURN stays the raw square button; ABORT and SKIP stay clipped
+                  CyberButtons. DOM and focus order is Return -> Abort -> Skip. */}
+              <div
+                ref={actionsRef}
+                id="gameActionStack"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  width: '100%',
+                  marginTop: view.status === 'waiting' ? 12 : 'auto',
+                  paddingTop: view.status === 'waiting' ? 0 : 12,
+                }}
+              >
+                {/* RETURN TO LOBBY BUTTON (every ended game, a live online PvP, and a live PvE that
+                    holds an account's seat: the seat and the board stay, so the lobby's rejoin
+                    banner has a door out of the room to answer. A guest PvE has no account to list,
+                    and a live hotseat keeps ABORT MATCH as its only exit.) */}
+                {(isGameEnded ||
+                  activeMatch.mode === 'pvp' ||
+                  (activeMatch.mode === 'pve' && !isGuest)) && (
+                  <button
+                    className={RETRO_BTN}
+                    onClick={() => {
+                      retroAudio.playUiBeep(440, 0.05);
+                      setLastResult(null);
+                      setShowResultsModal(false);
+                      setActiveMatch(null);
+                      navigate(isGuest ? '/login' : '/gamelobby');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: isGameEnded ? '14px 18px' : '12px 14px',
+                      fontSize: isGameEnded ? '0.88rem' : '0.78rem',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 'bold',
+                      letterSpacing: '1px',
+                      lineHeight: '1.4',
+                      background: isGameEnded
+                        ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgb(var(--accent-purple-rgb) / 0.25))'
+                        : 'rgb(var(--accent-cyan-rgb) / 0.12)',
+                      border: '1.5px solid var(--accent-cyan)',
+                      color: 'var(--text-main)',
+                      boxShadow: isGameEnded ? '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)' : 'none',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      justifyContent: 'center',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.2s ease',
+                    }}
+                    title={t('game.returnToLobbyTooltip')}
+                  >
+                    &lt; {isGuest ? t('guest.backToLogin') : t('game.returnToLobbyBtn')}
+                  </button>
+                )}
+
+                {/* ABORT MISSION / END GAME BUTTON */}
+                {!isGameEnded && (
+                  <CyberButton
+                    label={
+                                          // A hotseat room calls off a match, exactly as a live PvP does: it writes no row and has no second
+                      // player to inform, but what is being ended is a match, so the control wears the same word. Only a
+                      // PvE simulation has no match to abort.
+                      activeMatch.mode === 'pve'
+                        ? t('gameExtra.abortSimulationBtn')
+                        : t('game.abortMatchBtn')
+                    }
+                    shortcut="ESC"
+                    variant="danger"
+                    onClick={() => setIsAbortModalOpen(true)}
+                    style={{ width: '100%', justifyContent: 'center' }}
+                  />
+                )}
+
+                {/* Skip: the deliberate way out of a turn a wall attack is holding (it keeps
+                    the token and passes). It sits under the abort control and is always on
+                    screen once a clash room is live, greyed out while nothing is holding
+                    the turn, so the control is discoverable before it is needed. The
+                    waiting room is excluded: there is no turn there to skip, and the
+                    control would only ever be greyed. The wrapper carries the tooltip
+                    because a disabled button fires no pointer events of its own. */}
+                {view.clashMode === true && !isGameEnded && view.status !== 'waiting' && (
+                  <span
+                    style={{ display: 'block', width: '100%' }}
+                    title={
+                      canSkipWallBreak
+                        ? t('game.skipWallBreakTitle')
+                        : t('game.skipWallBreakDisabledTitle')
+                    }
+                  >
+                    <CyberButton
+                      label={t('game.skipWallBreakBtn')}
+                      variant="yellow"
+                      disabled={!canSkipWallBreak}
+                      onClick={skipWallBreak}
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    />
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* COLUMN 3: TACTICAL CONTROLS & LOGS */}
+            {/* COLUMN 3: TACTICAL LOGS */}
             <div
               className="order-3 lg:order-none"
               style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
@@ -3269,9 +3515,8 @@ export function Game() {
                   className={RETRO_WINDOW}
                   id="moveLogWindow"
                   style={{
-                    height: 180,
-                    maxHeight: 180,
-                    flex: 'none',
+                    flex: '1 1 0',
+                    minHeight: RECON_LOG_MIN_HEIGHT,
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
@@ -3289,8 +3534,7 @@ export function Game() {
                     className={WINDOW_BODY}
                     style={{
                       flex: 1,
-                      height: '100%',
-                      maxHeight: '100%',
+                      minHeight: 0,
                       overflowY: 'auto',
                       display: 'flex',
                       flexDirection: 'column',
@@ -3344,91 +3588,7 @@ export function Game() {
                 </section>
               )}
 
-              {/* RETURN TO LOBBY BUTTON (every ended game, a live online PvP, and a live PvE that
-                  holds an account's seat: the seat and the board stay, so the lobby's rejoin
-                  banner has a door out of the room to answer. A guest PvE has no account to list,
-                  and a live hotseat keeps ABORT MATCH as its only exit.) */}
-              {(isGameEnded ||
-                activeMatch.mode === 'pvp' ||
-                (activeMatch.mode === 'pve' && !isGuest)) && (
-                <button
-                  className={RETRO_BTN}
-                  onClick={() => {
-                    retroAudio.playUiBeep(440, 0.05);
-                    setLastResult(null);
-                    setShowResultsModal(false);
-                    setActiveMatch(null);
-                    navigate(isGuest ? '/login' : '/gamelobby');
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: isGameEnded ? '14px 18px' : '12px 14px',
-                    fontSize: isGameEnded ? '0.88rem' : '0.78rem',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 'bold',
-                    letterSpacing: '1px',
-                    lineHeight: '1.4',
-                    background: isGameEnded
-                      ? 'linear-gradient(135deg, rgb(var(--accent-cyan-rgb) / 0.25), rgb(var(--accent-purple-rgb) / 0.25))'
-                      : 'rgb(var(--accent-cyan-rgb) / 0.12)',
-                    border: '1.5px solid var(--accent-cyan)',
-                    color: 'var(--text-main)',
-                    boxShadow: isGameEnded ? '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)' : 'none',
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    justifyContent: 'center',
-                    boxSizing: 'border-box',
-                    transition: 'all 0.2s ease',
-                  }}
-                  title={t('game.returnToLobbyTooltip')}
-                >
-                  &lt; {isGuest ? t('guest.backToLogin') : t('game.returnToLobbyBtn')}
-                </button>
-              )}
 
-              {/* ABORT MISSION / END GAME BUTTON */}
-              {!isGameEnded && (
-                <CyberButton
-                  label={
-                                        // A hotseat room calls off a match, exactly as a live PvP does: it writes no row and has no second
-                    // player to inform, but what is being ended is a match, so the control wears the same word. Only a
-                    // PvE simulation has no match to abort.
-                    activeMatch.mode === 'pve'
-                      ? t('gameExtra.abortSimulationBtn')
-                      : t('game.abortMatchBtn')
-                  }
-                  shortcut="ESC"
-                  variant="danger"
-                  onClick={() => setIsAbortModalOpen(true)}
-                  style={{ width: '100%', justifyContent: 'center' }}
-                />
-              )}
-
-              {/* Skip: the deliberate way out of a turn a wall attack is holding (it keeps
-                  the token and passes). It sits under the abort control and is always on
-                  screen once a clash room is live, greyed out while nothing is holding
-                  the turn, so the control is discoverable before it is needed. The
-                  waiting room is excluded: there is no turn there to skip, and the
-                  control would only ever be greyed. The wrapper carries the tooltip
-                  because a disabled button fires no pointer events of its own. */}
-              {view.clashMode === true && !isGameEnded && view.status !== 'waiting' && (
-                <span
-                  style={{ display: 'block', width: '100%' }}
-                  title={
-                    canSkipWallBreak
-                      ? t('game.skipWallBreakTitle')
-                      : t('game.skipWallBreakDisabledTitle')
-                  }
-                >
-                  <CyberButton
-                    label={t('game.skipWallBreakBtn')}
-                    variant="yellow"
-                    disabled={!canSkipWallBreak}
-                    onClick={skipWallBreak}
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  />
-                </span>
-              )}
             </div>
           </main>
         </div>

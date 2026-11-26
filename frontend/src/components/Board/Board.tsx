@@ -53,7 +53,6 @@ function Yard({
   ck,
   basePieces,
   goalCount,
-  wallBreakerTokens,
   legalPieceIds,
   onPieceClick,
 }: {
@@ -62,8 +61,6 @@ function Yard({
   ck: ColorKey;
   basePieces: Array<{ id: string; armed: boolean }>;
   goalCount: number;
-    // Wall Breaker tokens this seat still holds (0 = none, and no chip shows).
-  wallBreakerTokens: number;
   legalPieceIds: Set<string>;
   onPieceClick?: (pieceId: string) => void;
 }) {
@@ -125,44 +122,6 @@ function Yard({
           {t('board.goalLabel')} {goalCount}/4
         </span>
       </div>
-      {/* Wall Breaker pips: one per token still in hand. Rendered next to the bay
-          label (not on a piece) because a token outlives a single piece and the
-          seat's whole supply is what the player spends. */}
-      {wallBreakerTokens > 0 && (
-        <div
-          title={t('board.wallBreakerTokensTitle', { count: wallBreakerTokens })}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 3,
-            marginTop: 2,
-          }}
-        >
-          {Array.from({ length: wallBreakerTokens }, (_, i) => (
-            <span
-              key={i}
-              style={{
-                width: 10,
-                height: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 2,
-                border: '1px solid var(--accent-yellow)',
-                background: 'rgb(var(--bg-primary-rgb) / 0.92)',
-                color: 'var(--accent-yellow)',
-                fontFamily: 'var(--font-mono)',
-                fontSize: 8,
-                lineHeight: '8px',
-                textShadow: '0 0 4px var(--accent-yellow)',
-              }}
-            >
-              🔓
-            </span>
-          ))}
-        </div>
-      )}
       <div
         style={{
           width: '100%',
@@ -308,7 +267,7 @@ function laneColor(r: number, c: number): string | null {
 
 type BoardProps = {
   pieces?: Array<{ id: string; color: string; step: number; isInGoal: boolean; isInBase: boolean }>;
-  players?: Array<{ color: string; status: string; wallBreakerTokens?: number }>;
+  players?: Array<{ color: string; status: string }>;
   legalMoves?: Array<{
     pieceId: string;
     from: number;
@@ -369,9 +328,6 @@ export function Board({
   const activeColors = new Set(
     players.filter((p) => p.status === 'active' || p.status === 'disconnected').map((p) => p.color),
   );
-  const wallBreakerTokens = (ck: ColorKey) =>
-    players.find((p) => p.color === ck && (p.status === 'active' || p.status === 'disconnected'))
-      ?.wallBreakerTokens ?? 0;
   const basePieces = (ck: ColorKey) =>
     activeColors.has(ck)
       ? pieces
@@ -608,7 +564,6 @@ export function Board({
           ck="red"
           basePieces={basePieces('red')}
           goalCount={goalCount('red')}
-          wallBreakerTokens={wallBreakerTokens('red')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -618,7 +573,6 @@ export function Board({
           ck="green"
           basePieces={basePieces('green')}
           goalCount={goalCount('green')}
-          wallBreakerTokens={wallBreakerTokens('green')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -628,7 +582,6 @@ export function Board({
           ck="yellow"
           basePieces={basePieces('yellow')}
           goalCount={goalCount('yellow')}
-          wallBreakerTokens={wallBreakerTokens('yellow')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />
@@ -638,7 +591,6 @@ export function Board({
           ck="blue"
           basePieces={basePieces('blue')}
           goalCount={goalCount('blue')}
-          wallBreakerTokens={wallBreakerTokens('blue')}
           legalPieceIds={legalPieceIds}
           onPieceClick={onPieceClick}
         />

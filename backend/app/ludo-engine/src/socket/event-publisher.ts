@@ -103,10 +103,12 @@ export class EventPublisher {
             attackerKey: event.attackerKey,
             defenderKey: event.defenderKey,
             // Key-shift schedule: the letters each side will be asked for, and the
-            // instants they change. Both arrays always carry the opening letter; a
-            // room with the mutator off sends an empty switchAt and keyShift 0.
+            // instants they change. Both schedules always carry one entry per switch;
+            // the pads are the ordered 2x2 grids the touch path paints.
             attackerKeys: event.attackerKeys,
             defenderKeys: event.defenderKeys,
+            attackerPads: event.attackerPads,
+            defenderPads: event.defenderPads,
             switchAt: event.switchAt,
             keyShift: event.keyShift,
             serverNow: event.serverNow,
