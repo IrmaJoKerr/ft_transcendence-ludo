@@ -238,7 +238,7 @@ onClick provider button
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `useApp()` for login/register/resendVerification actions; `login` returns `{ error?, pendingToken?, notVerified? }` |
+| `store/store.tsx` | `useApp()` for login/register/resendVerification actions; `login` returns `{ error?, pendingToken?, notVerified? }` |
 | `router.tsx` | `navigate` for post-auth redirect |
 | `styles/tw.ts` | `RETRO_AUTH_*` class constants (title, input, label, button, error, link) |
 | `validatePassword.ts` / `validateEmail.ts` | Client-side mirrors of the backend password policy and `@IsEmail()` rule |

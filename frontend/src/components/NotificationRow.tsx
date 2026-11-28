@@ -95,10 +95,9 @@ function NotificationSentence({ notification }: { notification: Notification }) 
   }
 }
 
-// **One row**
-// The bell's row and the digest's row are this component: the diamond, the tag,
-// the age and the sentence. `onActivate` is what makes it a row you can press;
-// without it the same row is a receipt the report only reads out (22.2 item 5).
+// One row: the bell's row and the digest's row are this component — the diamond, the tag, the age
+// and the sentence. `onActivate` is what makes it a row you can press; without it the same row is
+// a receipt the report only reads out (22.2 item 5).
 export function NotificationRow({
   notification,
   onActivate,

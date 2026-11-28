@@ -3,7 +3,7 @@ import * as http from 'http';
 import { LudoEngine } from '../engine';
 import { ClashManager, CLASH_RESULT_FREEZE_MS } from '../clash';
 import { RedisGameStore } from '../redis';
-import { getOrCreateBot, isBotSeat } from '../bot';
+import { getOrCreateBot } from '../bot';
 import { EventPublisher } from './event-publisher';
 import { RedisBroadcaster } from './redis-broadcaster';
 import { MatchAbandonSubscriber } from './abandon-subscriber';
@@ -14,15 +14,16 @@ import { BlockSubscriber } from './block-subscriber';
 import { BotTurnScheduler } from './bot-scheduler';
 import { PostGameManager } from './post-game';
 import type { GameSocket } from './auth';
-import { GUEST_EVENTS, GUEST_TOKEN_PREFIX, verifyToken } from './auth';
+import { GUEST_EVENTS } from './auth';
+import { createHandshakeAuth, MAX_SOCKETS_PER_USER } from './handshake-auth';
 import { LobbyManager } from '../lobby';
-import { closeRoom } from '../player-handler';
 import type { PlayerColor } from '../types';
 import { parseAllowedOrigins } from './allowed-origins';
 import { EventRateLimiter } from './event-rate-limiter';
 import { IdleLobbyWatcher } from './idle-lobby';
 import { RoomRegistry } from './room-context';
 import { ConnectionCounter } from './connection-counter';
+import { RoomLifecycle } from './room-lifecycle';
 import {
   BOT_MOVE_STEP_MS,
   BOT_THINK_MS,
@@ -45,10 +46,9 @@ import {
 // contract harness. MAX_EVENT_BYTES is the largest inbound event socket.io buffers
 // and parses: 64 KB per OWASP guidance, well above the few-KB join_game payload.
 export const MAX_EVENT_BYTES = 64 * 1024;
-// One account may hold a handful of sockets: one active per device, one stale while a
-// refresh reconnects, one for a clash pipe if that ever ships, and one slack. Four
-// covers a reconnect and stays tight; three would break the day a pipe is added.
-export const MAX_SOCKETS_PER_USER = 4;
+// The handshake module owns the per-account cap; re-exported here because this is
+// the path the socket-side importers and the contract harness already use.
+export { MAX_SOCKETS_PER_USER };
 // Inbound event budget per socket: 20 events, refilled over 5 s. The SPA sends a few
 // events per turn, so only a loop or a flood drains the bucket, and that socket is
 // closed instead of served.
@@ -57,10 +57,8 @@ const EVENT_LIMIT = 20;
 // 9 presses/s per side, so the shared bucket would close the socket mid-race. 25
 // presses/s sustained keeps the press cap and phase checks as the real bound.
 const CLASH_EVENT_LIMIT = 125;
-// Die taps spend a bucket of their own for the same reason a roll is not a chat line:
-// one roll carries at most one tap, so ten per window is a hotseat device rolling both
-// its seats several times over, and anything past it is a socket relaying frames nobody
-// asked for. Kept separate so a tap never drains the budget the turn's own events need.
+// Die taps use a separate bucket: one roll carries at most one tap, so ten per window
+// covers a hotseat device. Separation keeps taps from draining the turn's budget.
 const DICE_TAP_EVENT_LIMIT = 10;
 
 // The Origin gate, in one testable place. A browser origin must match the allow-list
@@ -102,8 +100,8 @@ export class SocketServer {
   // wake() below, which replays it at boot and after a Redis reconnect.
   private rooms = new RoomRegistry();
   private idleLobby: IdleLobbyWatcher;
-  // Guards against overlapping wake passes (a redis reconnect during a boot wake).
-  private wakeInFlight = false;
+  // The room's in-process lifecycle: teardown, wake replay and guest settlement.
+  private lifecycle: RoomLifecycle;
   // Per-user socket cap (see MAX_SOCKETS_PER_USER): counted at the handshake, freed on
   // disconnect. A flood from one account is refused, not served.
   private connections = new ConnectionCounter();
@@ -116,18 +114,16 @@ export class SocketServer {
     this.engine.setLobbyManager(lobbyManager);
     this.broadcaster = new RedisBroadcaster();
     this.abandon = new MatchAbandonSubscriber(this.store, this.engine, (gameId) => {
-      this.cleanupGame(gameId);
+      this.lifecycle.cleanupGame(gameId);
     });
     this.blocks = new BlockSubscriber(this.store);
-    // Idle lobbies: a WAITING room with fewer than 2 seated players is aborted
-    // after IDLE_LOBBY_TIMEOUT_MS. Replaces the old 60 s lobby scan. The deadline it
-    // holds is also what the waiting room's banner counts down: the room publishes it,
-    // so the client reads the room's number instead of recomputing one (R14/R20).
+    // A WAITING room with fewer than two seats aborts after the idle timeout. The same
+    // deadline drives the room banner, so the client reads one clock.
     this.idleLobby = new IdleLobbyWatcher(
       this.store,
       this.rooms,
       IDLE_LOBBY_TIMEOUT_MS,
-      (gameId) => this.expireIdleLobby(gameId),
+      (gameId) => void this.lifecycle.expireIdleLobby(gameId),
       (gameId, closesAt) => {
         void this.store.publish(gameId, JSON.stringify({ type: 'room_closing', gameId, closesAt }));
       },
@@ -153,7 +149,7 @@ export class SocketServer {
       this.rooms,
       POST_GAME_TIMEOUT_MS,
       (gameId) => {
-        this.cleanupGame(gameId);
+        this.lifecycle.cleanupGame(gameId);
       },
     );
     this.handlers = new SocketHandlers(
@@ -167,7 +163,7 @@ export class SocketServer {
       (gameId) => {
         // closeRoom already broadcast game_expired; this clears the engine's
         // in-memory state (room bindings, bots, locks).
-        this.cleanupGame(gameId);
+        this.lifecycle.cleanupGame(gameId);
       },
       (gameId) => {
         // A refill cancels the idle window; a departure re-arms it.
@@ -178,6 +174,18 @@ export class SocketServer {
         void this.roomChat?.history(socket);
       },
     );
+    this.lifecycle = new RoomLifecycle({
+      store: this.store,
+      rooms: this.rooms,
+      idleLobby: this.idleLobby,
+      engine: this.engine,
+      postGame: this.postGame,
+      botScheduler: this.botScheduler,
+      resultSubmitter: this.resultSubmitter,
+      forgetChat: (gameId) => {
+        this.roomChat?.forget(gameId);
+      },
+    });
     // Subscribe to engine events: the engine detects lifecycle changes once, here.
     this.engine.onEvent((event) => {
       this.publisher.publish(event);
@@ -200,10 +208,8 @@ export class SocketServer {
         if (!event.result.clashOutcome) {
           const animMs = event.result.path.length * BOT_MOVE_STEP_MS;
           const baseDelay = animMs + BOT_THINK_MS;
-          // What the clients paint AFTER the walk, if anything. A move onto the goal is
-          // tested first and the three cases are exclusive branches, so a move that lands
-          // home and also captured adds one beat rather than two (32.6). Only the goal
-          // itself counts: the home lane is a corridor and its cells are not arrivals.
+          // What clients paint after the walk. Goal is tested first, and the branches are
+          // exclusive, so a goal capture adds one beat. Only the goal square counts.
           const overlay: 'goal' | 'capture' | null = event.result.reachedGoal
             ? 'goal'
             : event.result.captured
@@ -212,15 +218,9 @@ export class SocketServer {
           if (!overlay) {
             this.botScheduler.schedule(event.gameId, baseDelay);
           } else {
-            // A capture may paint the opt-in flash card on the clients, and a goal always
-            // paints its celebration, so the bot waits the walk out and THEN the overlay, so
-            // it never plays into a caption the human is still reading (25.9, amended in 25.17
-            // item 7): both are mounted in `finishMove()`, after the walk, so the two delays
-            // are added rather than maxed — a max fired the bot by the whole walk before the
-            // overlay even opened. The goal's own length is the room's: confetti with the acts
-            // off, the ramp card and its fade with them on, exactly the clock the client runs
-            // (`goalCelebrationMs`). The read is async and this frame is hot, so a store miss
-            // falls back to the plain delay rather than holding the bot forever.
+            // A capture card or goal celebration mounts after the walk, so the bot waits
+            // the walk and then the overlay: the delays add, not max. The goal uses the
+            // room's effects rule; a store miss falls back to the plain delay.
             void this.store
               .loadGameState(event.gameId)
               .then((state) => {
@@ -253,10 +253,8 @@ export class SocketServer {
         // the countdown and press race unguarded.
         this.botScheduler.setClashFreeze(event.gameId, event.pressDeadline);
       } else if (event.type === 'clash_result') {
-        // The card is the pause: freeze to its own deadline (a card nobody human
-        // sits on ends at its own kind plus the margin, not at the ceiling the freeze
-        // is sized to) and hand the bot's resume to it. `clash_card_released` re-arms
-        // when a receipt shortens it.
+        // The card is the pause: freeze to its own deadline, not the ceiling, and hand
+        // the bot's resume to it. `clash_card_released` re-arms when a receipt shortens it.
         const cardUntil = event.resultCardUntil ?? Date.now() + CLASH_RESULT_FREEZE_MS;
         this.botScheduler.setClashFreeze(event.gameId, cardUntil);
         if (!event.continues) {
@@ -299,7 +297,7 @@ export class SocketServer {
     // rebuild, but its room timers do not, so a bot turn would never resume. The
     // durable deadlines survive, so the wake pass replays them.
     this.store.onReady(() => {
-      void this.wake('redis reconnect');
+      void this.lifecycle.wake('redis reconnect');
     });
 
     this.httpServer = http.createServer((req, res) => {
@@ -345,7 +343,7 @@ export class SocketServer {
     // Wake pass: replay every durable deadline this process (or a Redis outage)
     // left behind, then sleep. Steady state has no periodic scans: each room arms
     // its own timer from the event that created its deadline.
-    await this.wake('boot');
+    await this.lifecycle.wake('boot');
   }
 
   async stop(): Promise<void> {
@@ -355,234 +353,9 @@ export class SocketServer {
     await this.blocks.disconnect();
     this.httpServer.close();
   }
-  // Drop a room's in-memory state: its RoomContext (seat bindings + timers), its pending
-  // bot turn and the clash engine's own entries for it (a card hold nobody may report and
-  // the two chain timers). Called on teardown, and by the wake pass when an entry has no
-  // state behind it.
-  private cleanupGame(gameId: string): void {
-    this.rooms.delete(gameId);
-    this.botScheduler.clear(gameId);
-    this.engine.forgetClash(gameId);
-    this.idleLobby.forget(gameId);
-    this.roomChat?.forget(gameId);
-  }
-
-  // Abort an idle lobby: closeRoom emits game_expired, aborts the match and
-  // deletes the game state; its notify callback drops the in-memory context. A
-  // waiting room writes no match rows, so the record callback is a no-op here.
-  private async expireIdleLobby(gameId: string): Promise<void> {
-    await closeRoom(
-      this.store,
-      (event) => {
-        this.engine.emitEvent(event);
-      },
-      gameId,
-      (id) => {
-        this.cleanupGame(id);
-      },
-      (id, records) => this.resultSubmitter.submitExits(id, records),
-    );
-  }
-
-  // The wake pass: one scan of durable deadlines, then sleep. It runs at boot,
-  // after store.connect(), and on every Redis reconnect, so a lost timer is
-  // replayed instead of leaving its room frozen. Replay re-validates, so it is safe.
-  private async wake(reason: string): Promise<void> {
-    if (this.wakeInFlight) {
-      console.log(`[engine] wake pass (${reason}) skipped: another pass is running`);
-      return;
-    }
-    this.wakeInFlight = true;
-    try {
-      console.log(`[engine] wake pass (${reason}): replaying durable deadlines`);
-      const gameKeys = await this.store.scanGameKeys();
-      let checked = 0;
-      for (const key of gameKeys) {
-        const gameId = key.slice('game:'.length);
-        try {
-          await this.rebuildRoom(gameId);
-          checked++;
-        } catch (err) {
-          // One unreadable room must not abort the pass for the others.
-          console.error(
-            `[engine] wake: failed to rebuild room ${gameId}:`,
-            err instanceof Error ? err.message : err,
-          );
-        }
-      }
-      // Rooms with no game state (created but never joined, or dropped below
-      // quorum by a backend-only departure) still need their idle window settled.
-      await this.idleLobby.sweepAll();
-      console.log(`[engine] wake pass (${reason}) complete: ${checked} game(s) checked`);
-    } catch (err) {
-      // Never reject: the boot pass is awaited by start() and a reconnect pass is
-      // fire-and-forget, and neither may take the process down.
-      console.error(
-        `[engine] wake pass (${reason}) failed:`,
-        err instanceof Error ? err.message : err,
-      );
-    } finally {
-      this.wakeInFlight = false;
-    }
-  }
-
-  // Rebuild one room from Redis and replay what is due: expired grace windows, a
-  // bot seat holding the turn, a finished room whose post-game timer died, and the
-  // idle window of a WAITING room below quorum.
-  private async rebuildRoom(gameId: string): Promise<void> {
-    const state = await this.store.loadGameState(gameId);
-    if (!state) {
-      // Both keys gone: nothing to rebuild, drop the stale entry.
-      this.cleanupGame(gameId);
-      return;
-    }
-
-    // Seat bindings are persisted per player, so they survive a restart too.
-    this.rooms.ensure(gameId).rebuild(state);
-
-    for (const disc of state.disconnectedPlayers) {
-      const remaining = disc.reconnectDeadline - Date.now();
-      if (remaining > 0) {
-        // The deadline is durable, the process timer is not: resume the remainder
-        // instead of leaving the seat away with nothing left to settle it.
-        this.engine.rearmReconnectGrace(gameId, disc.color, remaining, (id) => {
-          this.cleanupGame(id);
-        });
-        continue;
-      }
-      // Re-checks the deadline itself, so racing an in-flight grace timer is safe.
-      // The expiry owns the waiting-room fork too: a released seat, or a closed room
-      // when the absent seat was the host's.
-      await this.engine.expireReconnectGrace(gameId, disc.color, (id) => {
-        this.cleanupGame(id);
-      });
-    }
-
-    // Reload: an expiry above can advance the turn, end the game, or tear the
-    // room down entirely.
-    const current = await this.store.loadGameState(gameId);
-    if (!current) {
-      this.cleanupGame(gameId);
-      return;
-    }
-
-    // Bot detection reads the persisted seat: the in-memory binding map is empty
-    // after a restart, and reading it here is what froze bot games.
-    if (current.status === 'active' && isBotSeat(current, current.currentTurn)) {
-      this.botScheduler.schedule(gameId, BOT_THINK_MS);
-    }
-
-    // The finished room's 60 s expiry timer is in-process only, so re-arm it.
-    if (current.status === 'finished') {
-      this.postGame.onGameEnded(gameId);
-      // A finished room whose report never landed (a crash between the save and the
-      // POST, or a backend that refused it) is the one case nothing else retries: the
-      // event that started the delivery is long gone, and the state is what the retry
-      // validates against. R21's authoritative-state pass.
-      if (!current.resultSubmitted) void this.resultSubmitter.submitGameResult(gameId);
-    }
-
-    // A departure whose row never landed is retried here: the record is still on the
-    // seat, so a restart, a Redis reconnect or the room's next wake finishes the job.
-    const pendingExits = current.players
-      .map((player) => player.exitRecord)
-      .filter((record) => Boolean(record) && !record?.submitted);
-    if (pendingExits.length > 0) {
-      void this.resultSubmitter.submitExits(
-        gameId,
-        pendingExits.filter((record) => record !== undefined),
-      );
-    }
-
-    await this.idleLobby.refresh(gameId);
-  }
-
-  // Guest settlement, once per socket: price the abort against the address, give
-  // the concurrency slots back, then revoke the token. Runs after teardown on
-  // end_game and on leave_game; it never disconnects the socket.
-  private async settleGuestExit(socket: GameSocket): Promise<void> {
-    if (!socket.data.isGuest || socket.data.guestSettled) return;
-    socket.data.guestSettled = true;
-    try {
-      await this.store.settleGuestAbort(socket.data.guestIpHash ?? '');
-      await this.store.revokeGuestToken(socket.data.guestTokenHash ?? '');
-    } catch (error) {
-      console.error('Guest settlement failed:', error instanceof Error ? error.message : error);
-    }
-  }
-
   // Socket wiring (orchestration only)
   private setupSocketHandlers(): void {
-    this.io.use(async (socket: GameSocket, next) => {
-      try {
-        const token = socket.handshake.auth?.token;
-        // A token is mandatory: bots are driven server-side and the SPA always
-        // supplies one.
-        if (!token || typeof token !== 'string') {
-          next(new Error('Authentication required'));
-          return;
-        }
-
-        // Guest branch: an opaque `g_` token resolved from the backend's registry.
-        // That record is the authority for the room, seat and mode; none of it comes
-        // from the client. A forged token is "not found", not a refused signature.
-        if (token.startsWith(GUEST_TOKEN_PREFIX)) {
-          const guest = await this.store.getGuestSession(token);
-          if (!guest) {
-            next(new Error('Invalid token'));
-            return;
-          }
-          socket.data.userId = guest.userId;
-          // Display fallback only: the client may send its own localized name
-          // in join_game, which the join path prefers.
-          socket.data.username = 'Guest';
-          socket.data.displayName = 'Guest';
-          socket.data.gameId = guest.gameId;
-          socket.data.tokenGameId = guest.gameId;
-          socket.data.role = 'player';
-          socket.data.tokenColor = guest.color;
-          socket.data.mode = 'pve';
-          socket.data.isGuest = true;
-          socket.data.guestIpHash = guest.ipHash;
-          socket.data.guestTokenHash = guest.tokenHash;
-          // Same per-account cap as a player: a guest id is unique per mint, so
-          // this bounds one room's sockets, not the whole guest population.
-          if (!this.connections.acquire(guest.userId, MAX_SOCKETS_PER_USER)) {
-            next(new Error('Too many connections'));
-            return;
-          }
-          next();
-          return;
-        }
-
-        const payload = verifyToken(token);
-        if (!payload) {
-          next(new Error('Invalid token'));
-          return;
-        }
-
-        socket.data.userId = payload.userId;
-        socket.data.username = payload.username;
-        socket.data.displayName = payload.displayName;
-        socket.data.gameId = payload.gameId;
-        // Token-pinned match id: unlike gameId this survives detachSocket(), so a
-        // refused socket can never re-join a different game.
-        socket.data.tokenGameId = payload.gameId;
-        socket.data.role = payload.role as 'player';
-        socket.data.tokenColor = payload.color;
-        socket.data.mode = payload.mode as 'pvp' | 'pve' | 'hotseat' | undefined;
-        // Per-user socket cap. Refusing here reaches the client as `connect_error`, so a
-        // flood from one account never becomes dozens of live sockets.
-        if (!this.connections.acquire(payload.userId, MAX_SOCKETS_PER_USER)) {
-          next(new Error('Too many connections'));
-          return;
-        }
-        next();
-      } catch (error) {
-        console.error('Socket handshake failed:', error instanceof Error ? error.message : error);
-        next(new Error('Authentication failed'));
-      }
-    });
+    this.io.use(createHandshakeAuth({ store: this.store, connections: this.connections }));
 
     this.io.on('connection', (socket: GameSocket) => {
       console.log(
@@ -696,7 +469,7 @@ export class SocketServer {
         // A guest leaving an ephemeral room is an abort in every sense: price it
         // and revoke at once. The room teardown cannot refuse this socket's own
         // later events, and a guest has nothing to reconnect to.
-        if (socket.data.isGuest) void this.settleGuestExit(socket);
+        if (socket.data.isGuest) void this.lifecycle.settleGuestExit(socket);
         this.handlers.handleLeaveGame(socket);
       });
 
@@ -709,7 +482,7 @@ export class SocketServer {
           .catch((error) => {
             console.error('end_game failed:', error instanceof Error ? error.message : error);
           })
-          .then(() => this.settleGuestExit(socket));
+          .then(() => this.lifecycle.settleGuestExit(socket));
       });
 
       socket.on('disconnect', () => {

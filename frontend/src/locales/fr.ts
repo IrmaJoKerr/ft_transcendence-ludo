@@ -358,7 +358,7 @@ export const fr = {
     transcriptLabel: 'JOURNAUX DE COMMS :',
     transcriptNa: 'N/A',
     transcriptShow: 'AFFICHER LES JOURNAUX DE COMMS ({{count}})',
-    transcriptHide: 'MASQUER LES JOURNAUX DE COMMS',
+    transcriptTitle: 'JOURNAUX DE COMMS ({{count}})',
     transcriptTruncated: 'JOURNAUX DE COMMS TRONQUÉS',
     friendsBoxTitle: 'AMIS ({{count}})',
     manageBtn: 'GÉRER ↗',
@@ -389,7 +389,6 @@ export const fr = {
     pickColorTitle: '// CHOISISSEZ LA COULEUR DE VOTRE ESCOUADE //',
     noFreeColors: 'Plus aucune couleur disponible dans cette salle',
     turnOrderByColor: 'Ordre de passage par couleur',
-    cancelPick: 'Annuler',
     createFailed: 'Échec de la création du match',
     activeGameLockError: 'Vous avez déjà une partie en cours. Quittez-la avant d\'en lancer une nouvelle',
     activeGameLockLabel: '// TERMINEZ OU QUITTEZ VOTRE PARTIE EN COURS //',
@@ -473,10 +472,9 @@ export const fr = {
       challenge: 'DÉFIER',
       block: 'BLOQUER',
     },
-    // La confirmation de blocage de la carte de nom, dans les deux canaux
-    // (`ChatNameCard`). C’est la seule coquille destructive : la conséquence nomme ce
-    // qu’il y a réellement à perdre, donc une amitié ou une demande en attente est
-    // mentionnée et un inconnu ne l’est pas.
+        // La confirmation de blocage de la carte de nom, dans les deux canaux (`ChatNameCard`). C’est la
+    // seule coquille destructive : la conséquence nomme ce qu’il y a réellement à perdre, donc une
+    // amitié ou une demande en attente est mentionnée et un inconnu ne l’est pas.
     block: {
       title: 'ROMPRE LE LIEN ?',
       confirm: 'Bloquer {{name}} ?',
@@ -628,18 +626,18 @@ export const fr = {
     reconLogsTitle: '// JOURNAUX DE RECO',
     noReconLogged: 'AUCUNE TÉLÉMÉTRIE ENREGISTRÉE',
     // Règles de la salle : les trois options de l'hôte. `noSafeZones` est le
-    // drapeau INVERSÉ, et le libellé nomme la variante hardcore plutôt que la
+    // drapeau INVERSÉ, et le libellé énonce directement la règle plutôt que la
     // négation, donc la polarité n'est jamais montrée au joueur.
     rulesControl: '// RÈGLES DE LA SALLE',
     hostOnlyRules: "Seul l'hôte peut les modifier tant que la salle attend.",
     clashMode: 'Mode Clash',
     clashModeDesc: 'Gagnez la course aux lettres quand on vous attaque pour rester sur la case',
     noSafeZones: 'Sans zones sûres',
-    noSafeZonesDesc: 'Les cases étoilées ne protègent plus (hardcore)',
+    noSafeZonesDesc: "Il n'y a aucune zone sûre.",
     freeExit: 'Sortie libre',
     freeExitDesc: 'Tout lancer libère la prison, pas seulement un 6',
-    captureFx: 'Animations d\'attaque',
-    captureFxDesc: 'Joue une animation d\'attaque quand vous capturez une pièce',
+    captureFx: 'Animations de jeu',
+    captureFxDesc: "Joue les cinématiques d'attaque, de clash et de but",
     // Le mutateur de changement de lettre. « Lettre », pas « touche » : sur
     // tablette il n'y a pas de touche du tout et le pad affiche des lettres.
     clashKeyShift: 'Saut multi-spectre du clash',
@@ -656,10 +654,9 @@ export const fr = {
     clashRoundOver: 'MANCHE TERMINÉE',
     clashRoundWon: 'Encore {{left}} défenseur(s) — préparez la manche suivante…',
     clashChainBroken: 'Mur brisé — la case est à vous !',
-    // La ligne de repoussée nomme la CASE, pas le mur : une chaîne qui s'arrête à
-    // une manche ultérieure a déjà renvoyé des défenseurs chez eux, donc le mur est
-    // plus mince même si l'attaque a échoué. Parler de « la case » reste exact dans
-    // les deux cas.
+        // La ligne de repoussée nomme la CASE, pas le mur : une chaîne qui s'arrête à une manche
+    // ultérieure a déjà renvoyé des défenseurs chez eux, donc le mur est plus mince même si l'attaque
+    // a échoué. Parler de « la case » reste exact dans les deux cas.
     clashChainRepulsed: 'Attaque repoussée — la case reste aux défenseurs.',
     // La phrase de la brèche totale, dessinée DANS l'acte du nuage, au sol là où le mur
     // se dressait (25.4). Elle porte le nom du vainqueur, donc sa taille se calcule sur sa
@@ -965,11 +962,9 @@ export const fr = {
     chainBadgeTitle: 'Mur de {{rounds}} : cette attaque dure {{rounds}} manches de clash',
     chainPricedBadgeTitle:
       'Mur de {{rounds}} : cette attaque le brise, coûte un jeton et dure {{rounds}} manches de clash',
-    // Infobulles du Brise-Mur : les jetons restants de l'escouade (les pastilles à
-    // côté du label de la cellule) et l'étiquette 🔓 sur une pièce dont la seule
-    // sortie légale est celle payée par un jeton.
-    wallBreakerTokensTitle:
-      'Brise-Mur ×{{count}} : en dépenser un achète à la sortie de prison un atterrissage sur le mur que le lancer atteint exactement',
+    // Infobulle du Brise-Mur : l'étiquette 🔓 sur une pièce dont la seule sortie
+    // légale est celle payée par un jeton. La colonne de jetons du roster est le
+    // seul affichage du stock.
     armedBadgeTitle: 'Brise-Mur : cette sortie coûte un jeton',
   },
   gameExtra: {
@@ -993,7 +988,7 @@ export const fr = {
     rulesModalTitle: "PROTOCOLES & RÈGLES DE L'ARÈNE",
     rulesVersionTag: 'RÈGLES.v42.SYS',
     nextPageBtn: 'PAGE SUIVANTE ▶',
-    startPlayingBtn: 'COMMENCER À JOUER',
+    backToFirstPageBtn: 'RETOUR À LA PREMIÈRE PAGE',
     rulesTab0: '1. OBJECTIF',
     rulesTab1: '2. LANCER 6',
     rulesTab2: '3. ENNEMI',
@@ -1023,7 +1018,7 @@ export const fr = {
     rulesPage5Line1: 'Vous êtes en sécurité une fois dans votre couloir de couleur. Les adversaires ne peuvent pas entrer dans votre ligne droite finale !',
     rulesPage5Line2: "Il suffit d'atteindre le centre ! (si vous obtenez le nombre exact de pas !)",
     rulesTab6: '7. CLASH',
-    rulesTab7: '8. HARDCORE',
+    rulesTab7: '8. SANS ZONES SÛRES',
     rulesTab8: '9. SORTIE LIBRE',
     rulesTab9: '10. BRISE-MUR',
     rulesPage6Header: '// MODE CLASH',
@@ -1040,7 +1035,7 @@ export const fr = {
       "Sur tablette, vous touchez le cercle de votre lettre au lieu de l'enfoncer : le défenseur utilise Q,W,E,A,S,D,Z,X,C et l'attaquant U,I,O,H,J,K,B,N,M.",
     rulesPage6KeyShift:
       "L'hôte peut aussi activer un saut multi-spectre du clash : la lettre demandée change une ou deux fois pendant la course. Un avertissement clignote avant chaque changement et le pad redistribue ses lettres, alors continuez à lire — un pouce resté sur l'ancienne lettre ne remplit la barre que jusqu'au changement.",
-    rulesPage7Header: '// SANS ZONES SÛRES (HARDCORE)',
+    rulesPage7Header: '// SANS ZONES SÛRES',
     rulesPage7Title: '💀 Nulle part où se cacher',
     rulesPage7Body:
       "Les huit cases étoilées cessent de protéger : une pièce peut être capturée n'importe où sur le parcours — votre propre case de départ comprise. Seul le couloir final vous protège encore.",

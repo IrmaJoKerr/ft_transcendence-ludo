@@ -103,10 +103,12 @@ export class EventPublisher {
             attackerKey: event.attackerKey,
             defenderKey: event.defenderKey,
             // Key-shift schedule: the letters each side will be asked for, and the
-            // instants they change. Constant field set: empty arrays and 0 on a room
-            // with the mutator off, so a client never has to guess at the shape.
+            // instants they change. Both schedules always carry one entry per switch;
+            // the pads are the ordered 2x2 grids the touch path paints.
             attackerKeys: event.attackerKeys,
             defenderKeys: event.defenderKeys,
+            attackerPads: event.attackerPads,
+            defenderPads: event.defenderPads,
             switchAt: event.switchAt,
             keyShift: event.keyShift,
             serverNow: event.serverNow,
@@ -228,11 +230,8 @@ export class EventPublisher {
         );
         break;
 
-      // A system line the engine wrote (M3): "Game started", "X has left". The wire
-      // frame is `chat:message`, the name the session socket already carries, and the
-      // room-wide emit is safe because a system line contains no speech. A player's
-      // line is NOT published here: it is emitted per socket in the send handler, so a
-      // block can be applied before the frame leaves.
+      // A system line the engine wrote. The wire frame is `chat:message`; room-wide is
+      // safe because it holds no speech. A player's line is emitted per socket instead.
       case 'chat_message':
         void this.store.publish(
           gameId,
@@ -274,10 +273,8 @@ export class EventPublisher {
           JSON.stringify({
             type: 'lobby_update',
             gameId: event.gameId,
-            // The room's own facts, not a seat's: a client that joins or reloads
-            // draws its countdown from `closesAt` and its host-only Abort from
-            // `hostId`, and it reads both off this frame. Dropping them here left
-            // a rejoin with no clock and pointed every abort at the seat route.
+            // Room facts, not seat facts: a join or reload reads its countdown from
+            // `closesAt` and its host-only Abort from `hostId` on this frame.
             hostId: event.hostId,
             closesAt: event.closesAt,
             players: event.players,

@@ -24,7 +24,7 @@ The lobby is at `/gamelobby` (`LudoLobby.tsx`), with a separate table/room scree
 3. **Mode selection**: PvP (player versus player), PvE (player versus environment) or hotseat.
 4. **Match creation**: `LudoLobby.tsx` lists the rooms the caller may enter (`GET /api/games/rooms`; each row carries `mySeat`, where `true` means "you hold a seat here, so this is a REJOIN row": including a room whose game already started, as long as your seat is still inside its 45 s grace window) and the games they are seated in (`GET /api/games/mine`), and joins them (`POST /api/match/join/:code`, `POST /api/game/:id/rejoin`) or creates a PvP (player versus player) invite (`POST /api/match/pvp/invite`); for local PvE/hotseat play it hands off to the table screen (`/gamelobby/table?mode=…`). The table screen (`Lobby.tsx`) is the one that calls `POST /api/match/create` with the exact `seatColors` and `botNames`, stores the returned `activeMatch` (gameId and engine token) in the store, then navigates to `/game`, where the Socket.IO connection starts.
 
-5. **Two reference pages in the rooms header** (34, item 2): GAME RULES opens the ten-page rules deck in the lobby itself — `components/GameRulesModal.tsx`, the same component the game mounts, so there is still one rules UI — and MEET THE SQUADS navigates to `/squads`, which draws the four squads of the era the theme is in (`pages/Squads.tsx`, below).
+5. **Two reference pages in the rooms header** (34, item 2): GAME RULES opens the ten-page rules deck in the lobby itself — `components/GameRulesModal/GameRulesModal.tsx`, the same component the game mounts, so there is still one rules UI — and MEET THE SQUADS navigates to `/squads`, which draws the four squads of the era the theme is in (`pages/Squads.tsx`, below).
 
 > **Note:** The lobby communicates with the real backend. Creating a match returns engine credentials (`gameId`, `token`, `engineUrl`), which the Game page uses to connect through Socket.IO.
 
@@ -48,11 +48,11 @@ shared template pins every track (`minmax(0, …)` for the flexible ones plus a 
 a scrollbar on the rows alone, a long chip, or a wider JOIN/REJOIN button sizing only its own grid
 would otherwise resolve the two grids differently and leave each label a few pixels to the right of
 the value below it, worse from left to right. The scroll box has no height of its own: the window takes
-the height the passes leave behind, so the box fills it and scrolls, and the window's lower edge lands on
-the dock's lower edge from about 900 px of viewport height upward (measured: 1280×900, 1440×1024,
-1920×1080 and 1920×1200 all end flush with the dock and need no page scroll). Below that the window's
-180 px floor wins and the page scrolls, which is the only way a 720p window can keep a usable list
-(measured: 125 px of scroll at 1280×720, 45 px at 1280×800).
+the height the passes leave behind, so the box fills it and scrolls. From 1024 px the lobby uses the
+shared `page-fit-shell` / `page-fit-column` pair, so the shell is `100dvh`, the main column owns the
+remaining height and the room list is the only scroller, with a stable gutter. Below 1024 px the page
+keeps its natural height and the 180 px window floor; the document scrolls there, which is how a short
+window keeps a usable list.
 
 **Empty list.** One centred line of `--text-soft` at `calc(0.78rem + 1pt)` in the list's own box
 (`padding: 28px 0`): `NO OPEN PVP ARENAS FOUND. INITIALIZE AN ARENA AT LEVEL 1`
@@ -131,8 +131,8 @@ all three locales because the page follows the switcher instead of offering a to
 
 | File | Role |
 |------|------|
-| `src/pages/LudoLobby.tsx` | Main lobby page (`/gamelobby`): mode/seat setup, match creation |
-| `src/pages/Lobby.tsx` | Table view (`/gamelobby/table`): room state, ready, invites |
+| `src/pages/LudoLobby/` | Main lobby page (`/gamelobby`): mode/seat setup, match creation |
+| `src/pages/Lobby/` | Table view (`/gamelobby/table`): room state, ready, invites |
 | `src/pages/Squads.tsx` | The four squads of the era the theme is in (`/squads`, 34 item 2): the lobby shell and dock, one card per `BOARD_QUADRANTS` seat with `PieceFigure` and the era's nickname and bio, and RETURN TO GAME LOBBY |
 
 
@@ -349,7 +349,7 @@ For hotseat and PvE, the created game is exactly the occupied seats, each at the
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `useApp` for mode, seats and game actions |
+| `store/store.tsx` | `useApp` for mode, seats and game actions |
 | `router.tsx` | `navigate('/game')` on start |
 | `theme.ts` | `BOT_POOL` constant, inline styles |
 | `components/UserAvatar.tsx` | Seat avatar: the host's uploaded photo when one exists, otherwise the generated DiceBear avatar seeded from the seat name (local hotseat pilots have no account, so they only ever get the generated one) |

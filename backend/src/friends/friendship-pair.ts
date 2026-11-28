@@ -11,18 +11,13 @@ export type FriendshipStatus = 'none' | 'pending' | 'accepted' | 'declined' | 'b
 export const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 export const DECLINE_COOLDOWN_MS = 60 * 60 * 1000;
 
-// How long a challenge (the invite one friend sends another to a room) counts as
-// pending. It matches the staged invite record's own life in
-// MatchPlayerService.assertInvitableRoom: a waiting room that nobody joins is
-// gone in five minutes, so a challenge cannot outlive the thing it points at.
-// The window is what makes a second press a report instead of a second room.
+// How long a challenge stays pending. It matches the staged room invite's life, so a
+// challenge cannot outlive the room it points at; a second press reports, not re-creates.
 export const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
-// The refusal ladder of a challenge (19.6), in order: the first refusal costs the
-// pair two hours, the second four, the third and every later one a day. The streak
-// that indexes it lives on the Friendship row and is reset by an accepted
-// challenge, so the ladder prices a history of refusals rather than a rate over a
-// window; a challenge that simply expires writes nothing and costs nothing.
+// Refusal ladder: two hours, then four, then a day per refusal. The streak lives on
+// the Friendship row and resets on accept, so it prices history, not a rate. An
+// expired challenge writes nothing and costs nothing.
 export const REFUSAL_LADDER_MS = [2 * 60 * 60 * 1000, 4 * 60 * 60 * 1000, 24 * 60 * 60 * 1000];
 
 // How long a refusal buys, given the streak *after* it (1 is the first refusal).

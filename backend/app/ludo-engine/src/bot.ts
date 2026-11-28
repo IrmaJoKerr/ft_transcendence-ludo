@@ -1,7 +1,7 @@
 import type { LudoEngine } from './engine';
 import type { RedisGameStore } from './redis';
 import { BoardMapper } from './board-mapper';
-import { WALL_BREAKER_TOKEN_CAP } from './__shared__/wall-breaker.constants';
+import { WALL_BREAKER_TOKEN_CAP } from './__shared__/clash.constants';
 import type { PlayerColor, GameState, LegalMove } from './types';
 
 const botMap = new Map<string, Map<PlayerColor, LudoBot>>();
@@ -22,31 +22,21 @@ export function getOrCreateBot(
   return gameBots.get(color);
 }
 
-// Bot seat check. Read `isBot` from the persisted state, not the in-memory seat
-// map: the map is empty after a restart. That flag is the only answer: a seat
-// whose id or name starts with `bot-` is still a human seat if it is not
-// flagged, so nothing infers the kind from a string.
-// See docs/ludo-engine/ludo-engine-bot-module.md.
+// Read `isBot` from persisted state, not the in-memory map, which is empty after a
+// restart. The flag is the only answer; a `bot-` prefix never decides the kind.
 export function isBotSeat(state: GameState | null | undefined, color: PlayerColor): boolean {
   const player = state?.players.find((p) => p.color === color);
   return player?.isBot === true;
 }
 
-// Move-selection scale: no positional move scores above 1560 and a free capture
-// is worth CAPTURE_CREDIT. A token-priced wall break pays the seat's appetite
-// instead: `BOT_WALL_BREAK_VALUE x pct / 100`, an exact integer because the base
-// is a multiple of 100. The bot doc and the Constant list carry the worked values.
+// One scale for every move: positional moves top out at 1560, a free capture pays
+// `CAPTURE_CREDIT`, and a priced wall break pays `BOT_WALL_BREAK_VALUE x appetite / 100`.
 const CAPTURE_CREDIT = 7000;
-// What one Wall Breaker token is worth to the decision, before the seat's
-// appetite is applied. 2000 keeps the one-token credit (600) just above the 570
-// a plain advance tops out at, so a seat with its last token still breaks a wall
-// rather than shuffling forward.
+// Base value of one Wall Breaker token before appetite. It keeps the last-token
+// credit above a plain advance, so a seat with one token still breaks a wall.
 export const BOT_WALL_BREAK_VALUE = 2000;
-// Baseline appetite per token band, before the seat's signed 0-5 modifier: the
-// last token, the reserve, and the surplus. Only the last band is a tilt: at the
-// cap a fourth token has no future value, so the top band is the reserve plus a
-// flat uplift (78 = 60 + 18, which is 1560 at a 2000 base: home entry, exactly,
-// so the tie rule keeps the token in hand).
+// Baseline appetite per token band: last token, reserve, and surplus. The cap band adds
+// a flat uplift so a fourth token is valued as a home entry and the tie rule keeps it.
 export const BOT_RISK_LAST_TOKEN = 30;
 export const BOT_RISK_RESERVE = 60;
 export const BOT_SURPLUS_UPLIFT = 18;
@@ -70,12 +60,8 @@ export class LudoBot {
     this.store = store;
   }
 
-  // Rank every legal move on the one scale. Never null while a move exists: a
-  // seat that has something legal to play always plays the best of it, even when
-  // that move spends its last token. That guarantee is what removes the old
-  // `null` plus `skipArmedWallBreak` path, which passed turns the bot was allowed
-  // to take. Ties resolve in a total order: no token spent, then further along,
-  // then the lower piece index.
+  // Rank every legal move on the one scale and never return null while a move exists.
+  // Ties resolve by no token spent, then further along, then lower piece index.
   selectBestMove(legalMoves: LegalMove[], state: GameState, diceValue: number): LegalMove | null {
     if (legalMoves.length === 0) return null;
 
@@ -86,10 +72,7 @@ export class LudoBot {
 
     scored.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      // An exact tie keeps the token: it is the scarce resource this pricing
-      // exists to protect, and the conservative arm cannot read as a bug. The
-      // 78% cap lands exactly on a home entry (1560), so this is the rule that
-      // resolves the one deliberate tie in the ladder.
+      // An exact tie keeps the token, the scarce resource this pricing protects.
       const spendA = a.move.spendsWallBreakerToken ? 1 : 0;
       const spendB = b.move.spendsWallBreakerToken ? 1 : 0;
       if (spendA !== spendB) return spendA - spendB;
@@ -104,12 +87,8 @@ export class LudoBot {
 
   // Score a move on one scale. Higher score = better move.
   private scoreMove(move: LegalMove, state: GameState, diceValue: number): number {
-    // A capture takes its square, so it pays no positional bonus. What it pays
-    // depends on what it costs: a landing that spends a Wall Breaker token is
-    // worth the seat's appetite, and a free capture (a lone defender, a mixed
-    // pair, or any capture in a room without clash mode) keeps the flat credit.
-    // Free captures outbid every wall break at every appetite, which is the
-    // reading that a bot never spends a token when the capture costs nothing.
+    // A capture pays no positional bonus. A token-priced landing pays the seat's
+    // appetite; a free capture keeps the flat credit, which always outbids a wall break.
     if (move.isCapture) {
       return move.spendsWallBreakerToken ? this.wallBreakCredit(state) : CAPTURE_CREDIT;
     }
@@ -142,14 +121,8 @@ export class LudoBot {
     return score;
   }
 
-  // The seat's appetite for the hand it is holding: 30% at the last token, the
-  // reserve below the cap, and the reserve plus the surplus uplift at the cap. The
-  // cap is `WALL_BREAKER_TOKEN_CAP` from the shared constants, so the band cannot
-  // drift from the token economy the client draws. The four seat fields are rolled
-  // once when the bot seat is created, so the same game behaves the same way twice
-  // and no RNG runs in the decision path. An absent profile falls back to the
-  // baselines, which is why no state written before the fields existed needs a
-  // migration.
+  // Appetite by token band: last token, reserve, or cap. The fields are rolled once
+  // at seat creation, so decisions are deterministic; absent values use the baselines.
   private appetite(state: GameState): number {
     const seat = state.players.find((p) => p.color === this.color);
     const tokens = seat?.wallBreakerTokens ?? 0;
@@ -159,10 +132,8 @@ export class LudoBot {
     return seat?.botRiskLastToken ?? BOT_RISK_LAST_TOKEN;
   }
 
-  // What a wall break is worth to this seat, on the same scale as every
-  // positional move: the base times its stored percentage, divided by 100. Both
-  // factors are integers and the base is a multiple of 100, so the comparison
-  // never involves a float and a tie is a tie.
+  // Wall-break value on the same scale as a positional move. Integer factors keep the
+  // comparison exact, so an equal score is a true tie.
   private wallBreakCredit(state: GameState): number {
     return (BOT_WALL_BREAK_VALUE * this.appetite(state)) / 100;
   }

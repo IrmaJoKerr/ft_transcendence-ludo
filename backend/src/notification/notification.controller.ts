@@ -22,10 +22,8 @@ export class NotificationController {
     return this.notifications.markRead(notificationId, req.user.id);
   }
 
-  // Mark many as read in one round trip: a row click that prunes the rows it
-  // speaks for (22.3). It shares the read-all bucket, because both are one-shot
-  // clears, and it needs no cap of its own: the store holds at most 60 entries
-  // (22.8), which is the most ids this client can hand it.
+  // Mark many read in one round trip. It shares the read-all bucket because both are
+  // one-shot clears, and needs no cap: the store holds at most 60 entries.
   @UseGuards(JwtAuthGuard)
   @Throttle(NOTIFICATION_THROTTLE.markAllRead)
   @Post('api/notifications/read')

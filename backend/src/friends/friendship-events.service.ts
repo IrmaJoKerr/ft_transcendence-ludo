@@ -1,10 +1,14 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import Redis from 'ioredis';
+import { Inject, Injectable } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { AvatarMetaService } from '../avatar/avatar-meta.service';
-import { friendshipChannel } from '../common/channels';
+import {
+  friendshipChannel,
+  publishBlocksChanged as publishRoomBlocks,
+  publishRoomsChanged as publishRoomList,
+} from '../common/channels';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { PresenceService } from '../presence/presence.service';
 import { PrismaService } from '../prisma.service';
-import { secret } from '../secrets';
 import { pairKey } from './friendship-pair';
 import {
   stateSince,
@@ -36,35 +40,29 @@ type ProfileRow = {
   stats: { rating: number } | null;
 };
 
-// The publisher for `friendship:changed` (socket D2). A leaf module on purpose:
-// the trigger sites span friends, auth, user and match, and MatchModule already
-// imports AuthModule, so a publisher inside FriendsModule would close that cycle.
-//
-// `publishPair` emits both directions of a changed row; `publishSubject` emits an
-// `accepted` record to every accepted friend when the account's own row changes
-// (display name, avatar, postgame rating). Both are best effort: a live-update
-// failure is logged and never fails the write that caused it. Nothing is built
-// when no recipient has a live presence row (D2's zero-watcher rule).
+// Publisher for `friendship:changed`. A leaf module avoids a FriendsModule cycle
+// across friends, auth, user and match. `publishPair` sends both directions;
+// `publishSubject` sends accepted rows to friends. Delivery is best effort.
 @Injectable()
-export class FriendshipEventsService implements OnModuleDestroy {
-  private redis: Redis;
-
+export class FriendshipEventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly presence: PresenceService,
     private readonly avatars: AvatarMetaService,
-  ) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Friendship events Redis error:', error.message);
-    });
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
+
+  // The lobby is one list per viewer, so a block or an unblock has to redraw it for
+  // both sides. Kept here beside `publishPair` so the block path never touches a
+  // Redis client of its own.
+  async publishRoomsChanged(): Promise<void> {
+    await publishRoomList(this.redis);
   }
 
-  onModuleDestroy(): void {
-    void this.redis.quit().catch(() => undefined);
+  // Cut (or lift) the pair's speech in a live room. Same ownership as above: one
+  // publisher owns the channel, and the writer only says what changed.
+  async publishBlocksChanged(aId: string, bId: string, blocked: boolean): Promise<void> {
+    await publishRoomBlocks(this.redis, aId, bId, blocked);
   }
 
   // A membership mutation committed: publish one record per direction, each with

@@ -23,10 +23,8 @@ function ensureKeyframes() {
   document.head.appendChild(style);
 }
 
-// Twenty pieces: a hand-laid spread rather than a random one, so two goals in one game
-// throw the same shape and the overlay never depends on `Math.random` at paint time. The
-// `dy` values all clear +40 so no piece lands back on the square it came from — the piece
-// has left it, and a square still wearing confetti reads as a piece still there.
+// Twenty pieces: a hand-laid spread rather than a random one, so two goals in one game throw the
+// same shape and the overlay never depends on `Math.random` at paint time.
 const PIECES = [
   { dx: -66, dy: 96, rot: -320, delay: 40, size: 7, white: false },
   { dx: -54, dy: 128, rot: 250, delay: 0, size: 6, white: true },
@@ -50,17 +48,8 @@ const PIECES = [
   { dx: 46, dy: 44, rot: 240, delay: 55, size: 5, white: false },
 ];
 
-/**
- * The goal's confetti — twenty pieces thrown from a 0×0 anchor at its parent's origin,
- * for `GOAL_FX_MS` (32.5).
- *
- * This is the overlay a room with its effects rule **off** gets, and it is the whole of
- * that celebration: the starburst before it and the fanfare with it are not the rule's
- * business. With the rule on the ramp card takes its place — the two are never mounted
- * together, and `Game.tsx` picks between them from `view.captureFx` alone.
- *
- * Pure cosmetic: no input, no layout.
- */
+// The goal's confetti — twenty pieces thrown from a 0×0 anchor at its parent's origin, for
+// `GOAL_FX_MS` (32.5).
 export function GoalConfetti({ color }: { color: string }) {
   useEffect(ensureKeyframes, []);
   return (

@@ -33,7 +33,7 @@ The app bootstrap layer does four things:
 | File | Role |
 |------|------|
 | `src/App.tsx` | Root component — route maps, authentication guard, AppProvider container |
-| `src/store.tsx` | `AppProvider` context — session state, login/register/logout/2FA/password-reset actions, game state |
+| `src/store/` | `AppProvider` context — session state, login/register/logout/2FA/password-reset actions, game state |
 
 
 ---
@@ -131,7 +131,7 @@ type AppState = {
   lastResult: LastResult | null     // finished-match data for the ResultsModal overlay
   setLastResult: (r: LastResult | null) => void  // Saves finished match results
   // Theme
-  theme: ThemeType  // Current theme ('synthwave' | 'retro70', persisted as retro_theme)
+  theme: ThemeType  // Current theme ('retro80' | 'retro70', persisted as retro_theme)
   setTheme: (t: ThemeType) => void  // Changes the theme
   // Language
   lang: Lang  // Selected language
@@ -234,6 +234,6 @@ Account-action arrivals (`?verified=...`, `?reset=...`, `?error=...`, `?token=..
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `AppProvider`, `useApp`, `AuthUser`, all auth and game actions |
+| `store/store.tsx` | `AppProvider`, `useApp`, `AuthUser`, all auth and game actions |
 | `router.tsx` | `useRoute`, `navigate` |
 | full-screen pages | `Home`, `Leaderboard`, `Friends`, `Profile`, `Login`, `Signup`, `TwoFactor`, `ForgotPassword`, `ResetPassword`, `LudoLobby`, `Lobby`, `Game` (results render inside `Game` as `ResultsModal`, not as a route) |

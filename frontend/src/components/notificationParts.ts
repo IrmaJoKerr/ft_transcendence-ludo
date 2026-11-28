@@ -1,22 +1,10 @@
-// The data half of a notification row: the tag table, the payload guard and the
-// age. It lives outside NotificationBell.tsx so the bell and the digest report
-// draw a row with one renderer (22.2 item 5): the surface that speaks for a burst
-// and the panel that holds the detail cannot drift apart. Same reason
-// `chatSurface.ts` sits beside `ChatCard.tsx`, one file over.
+// The data half of a notification row: the tag table, the payload guard and the age.
 
-// **How a game reached this account** (22.9). Two mechanisms put an offer in
-// front of a player, and the mechanism is the only part of an offer that stays
-// true for the row's whole life: a challenge makes its room at the accept, and
-// either duelist may hand the spare corners to friends afterwards, so "how many
-// players" is a guess about a future the row cannot see — while "you were asked
-// to duel" or "you were given a seat" is a fact about the ask itself.
+// How a game reached this account (22.9).
 export type OfferMechanism = 'challenge' | 'room';
 
-// Read, not inferred: both senders have written `kind` into the payload since
-// 19.6, and the pending record carries the same field. Anything else that reached
-// here as a `game_invite` came from the challenge path, which is the older of the
-// two, so the fallback is total rather than `null`: an offer is always one of the
-// two mechanisms, or it is not an offer.
+// Read, not inferred: both senders have written `kind` into the payload since 19.6, and the
+// pending record carries the same field.
 export function offerMechanism(payload: Record<string, unknown>): OfferMechanism {
   return payload.kind === 'room' ? 'room' : 'challenge';
 }
@@ -28,10 +16,8 @@ export function offerMechanismLabel(mechanism: OfferMechanism): 'DUEL' | 'INVITE
   return mechanism === 'room' ? 'INVITE' : 'DUEL';
 }
 
-// A stored type's bracketed tag. `transient` types (presence, a display-name or
-// avatar change) never reach the bell, but the default arm keeps an unknown type
-// printable instead of blank. A `game_invite` carries two tags, because the type
-// covers two mechanisms: the payload decides which one the row is announcing.
+// A stored type's bracketed tag. `transient` types (presence, a display-name or avatar change)
+// never reach the bell, but the default arm keeps an unknown type printable instead of blank.
 export function getNotificationTypeBadge(
   type: string,
   payload: Record<string, unknown> = {},
@@ -174,10 +160,9 @@ export function isOfferExpired(notification: { payload: Record<string, unknown> 
   return typeof expiresAt === 'number' && Date.now() > expiresAt;
 }
 
-// A pending offer is lapsed for either of two reasons (22.9): its own stamp has
-// gone by, or the room it points at started or ended under it — which the server
-// already judged when it answered `expired`, because only the match hash knows.
-// Same clock as the bell row above, so the two surfaces end an offer together.
+// A pending offer is lapsed for either of two reasons (22.9): its own stamp has gone by, or the
+// room it points at started or ended under it — which the server already judged when it answered
+// `expired`, because only the match hash knows.
 export function isPendingOfferLapsed(offer: { expiresAt?: number; expired?: boolean }): boolean {
   if (offer.expired === true) return true;
   return typeof offer.expiresAt === 'number' && Date.now() > offer.expiresAt;

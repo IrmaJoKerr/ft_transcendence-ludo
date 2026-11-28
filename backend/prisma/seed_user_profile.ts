@@ -27,10 +27,9 @@ interface SeedMatch {
 // A seat's printable identity, for the row's participant snapshot.
 type SeatName = { username: string; displayName: string; avatarStyle: string };
 
-// Write one MatchHistory row per seat, the way postgame writes them: the counters
-// the room tallied, the delta the scoring formula applies, and a snapshot of every
-// seat so the row renders with no join. Game ids are derived from the account, so a
-// reseed replaces its own window instead of piling a second one on top.
+// One MatchHistory row per seat, shaped like postgame: tallies, rating delta and a
+// seat snapshot so the row needs no join. Derived game ids let a reseed replace its
+// own window instead of duplicating it.
 async function writeMatches(
   matches: SeedMatch[],
   durationMs: number,

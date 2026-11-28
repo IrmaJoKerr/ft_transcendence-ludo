@@ -1,7 +1,12 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { createRedisClient, REDIS_CLIENT, RedisClientLifecycle } from '../common/redis-client';
 import { AuthController } from './auth.controller';
+import { AuthAccessService } from './auth.access.service';
+import { AuthOAuthService } from './auth.oauth.service';
+import { AuthProfileService } from './auth.profile.service';
+import { AuthRegistrationService } from './auth.registration.service';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
@@ -36,6 +41,12 @@ import { FriendshipEventsModule } from '../friends/friendship-events.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthAccessService,
+    AuthRegistrationService,
+    AuthProfileService,
+    AuthOAuthService,
+    { provide: REDIS_CLIENT, useFactory: () => createRedisClient('Auth Redis') },
+    RedisClientLifecycle,
     MailService,
     TwoFactorService,
     SessionService,

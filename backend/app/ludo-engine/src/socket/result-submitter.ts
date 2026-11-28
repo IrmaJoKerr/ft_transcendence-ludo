@@ -16,11 +16,8 @@ function getEngineApiKey(): string {
   return key;
 }
 
-// How long a delivery waits between attempts. A finished room lives
-// POST_GAME_TIMEOUT_MS (60 s), so the completion report fits five attempts inside
-// it. A departure record has the whole life of the room that kept playing, and the
-// wake pass tries again on the next restart or reconnect, so three attempts are
-// enough for the live path.
+// Retry spacing. A finished room lives 60 s, so the completion report gets five tries;
+// a departure record gets three, with the wake pass as the later fallback.
 const END_RETRY_MS = [2000, 4000, 8000, 16000, 24000];
 const EXIT_RETRY_MS = [1000, 4000, 10000];
 
@@ -55,10 +52,8 @@ export class ResultSubmitter {
     private rooms: RoomRegistry,
   ) {}
 
-  // POST the finished game's results to the backend /api/game/end, once per game
-  // (idempotent via resultSubmitted) and retrying inside the room's post-game window.
-  // Skips hotseat and guest entirely. Called when a game_ended event arrives, and
-  // again by the wake pass for a finished room whose delivery never landed.
+  // POST finished results once per game, retrying inside the post-game window. Skips
+  // hotseat and guest. Called on `game_ended` and by the wake pass after a missed delivery.
   async submitGameResult(gameId: string): Promise<void> {
     try {
       const state = await this.engine.getGameState(gameId);

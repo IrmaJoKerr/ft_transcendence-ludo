@@ -18,7 +18,6 @@ import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { LoginDto } from './dto/login.dto';
 import { TwoFactorDto } from './dto/twofactor.dto';
-import { TwoFactorSettingDto } from './dto/two-factor-setting.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { DeleteAccountDto } from './dto/delete-account.dto';
@@ -244,19 +243,6 @@ export class AuthController {
     res.clearCookie(ACCESS_COOKIE, { path: '/' });
     res.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
     return result;
-  }
-
-  // 2FA preference (logged-in user toggles their own). The read has no route:
-  // `GET /api/auth/me` and `GET /api/auth/profile` already return `twoFactorEnabled`.
-  @UseGuards(JwtAuthGuard)
-  @Throttle(AUTH_THROTTLE.setTwoFactor)
-  @Patch('2fa')
-  setTwoFactor(@Req() req: Request, @Body() dto: TwoFactorSettingDto) {
-    return this.authService.setTwoFactorSetting(
-      (req.user as { id: string }).id,
-      dto.enabled,
-      dto.currentPassword,
-    );
   }
 
   // **Google OAuth**

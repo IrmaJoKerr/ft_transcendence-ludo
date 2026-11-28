@@ -49,8 +49,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 |---|---|
 | `common/src/chat.constants.ts` | `CHAT_MAX_CHARS` 300, `CHAT_COOLDOWN_MS` 2000, `CHAT_HISTORY` 500, `GAME_CHAT_MAX_LINES` 1000, `GAME_CHAT_FALLBACK_LINES` 400, `GAME_CHAT_TTL_S` 10800 (imported from `timing.constants`), and `chatLength()` |
 | `common/src/timing.constants.ts` | the thirty-two both builds count, plus the room's idle window: `CLASH_ANNOUNCE_MS` 1500, `CLASH_COUNTDOWN_MS` 3000, `CLASH_PRESS_MS` 5000, `SCENE_ATTACK_MS` 700, `SCENE_WALL_BEAT_MS` 900 (a wall's own beat, after the impact), `SCENE_WALL_ATTACK_MS` 1600 (a wall's attack act), `SCENE_JAIL_MS` 1000, `SCENE_CLOUD_MS` 1400 (the breach's own act), `RESULT_FX_MS` 1700 (the sum of the two acts every card has), `RESULT_HEADLINE_READ_MS` 1000, `CLASH_RESULT_MS` 2700 (the scene + the read window), `CLASH_WALL_RESULT_MS` 3600 (that card + the beat), `CLASH_BREACH_RESULT_MS` 4000 (a wall's attack + cloud + jail, no read window), `CLASH_TEXT_ONLY_MS` 1400 (the card with the acts switched off), `CARD_HOLD_MARGIN_MS` 200 (the receipt's one-way trip, and the slack on a card nobody sits on), `CAPTURE_CARD_HOLD_MS` 210, `CAPTURE_CARD_FADE_MS` 300, `CAPTURE_CARD_MS` 2210 (the gesture + the hold + the fade), `CAPTURE_CARD_GRACE_MS` 150, `GOAL_FX_MS` 900 (the goal's confetti), `GOAL_CARD_MS` 1100 (the ramp card's hold), `GOAL_CARD_FADE_MS` 300, `GOAL_CARD_TOTAL_MS` 1400 (that card all told), `MOVE_STEP_ANIM_MS` 180, then the die's acts (38): `DICE_ACCEL_MS` 320, `DICE_SPIN_MIN_MS` 1800, `DICE_SPIN_MAX_MS` 2200, `DICE_ACUTE_MS` 760, `DICE_SLOWDOWN_MS` 560, `DICE_ACUTE_SLOWDOWN_MS` 420, `DICE_FLOP_MS` 620, `DICE_ROLL_ANIM_MS` 3700 (the acts added up at the widest spin: the roll's one ceiling, and the pause a bot's next action waits out), `GAME_STATE_TTL_S` 10800 (the room's own idle window — the one number no animation reads; the engine's `game:<id>` state, the backend's `match:<id>` record and both chat keys all live this long) |
-| `common/src/wall-breaker.constants.ts` | `STARTING_WALL_BREAKER_TOKENS` 1, `WALL_BREAKER_TOKEN_CAP` 3 |
-| `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 2 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp |
+| `common/src/clash.constants.ts` | `CLASH_TAP_COUNT` 1.5 — one tablet tap is worth this many engine presses, shared by the touch pad and the server-side press clamp; `STARTING_WALL_BREAKER_TOKENS` 1 and `WALL_BREAKER_TOKEN_CAP` 3 — the Wall Breaker hand |
 
 **The test for the folder** is "would someone tune it, and does a second build read it?" Three answers:
 
@@ -96,7 +95,7 @@ and are never edited; `node scripts/sync-shared.mjs --check` fails on drift.
 12. **[Theme and palette](#12-theme-and-palette)** — seat colours, presence colours, CSS design tokens
 13. **[Client timing](#13-client-timing)** — every presentation delay: clash cards, dice brake, path, capture burst, the goal's celebration, guards
 14. **[Client cadences](#14-client-cadences)** — token refresh, room-push debounce and repair, cross-tab locks, toasts
-15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, touch pad, nav fit, toast stack
+15. **[Layout, size and z-index](#15-layout-size-and-z-index)** — board geometry, clash card, chat card, touch pad, nav fit, toast stack
 16. **[Audio](#16-audio)** — master volume and the blip defaults
 17. **[Browser storage](#17-browser-storage)** — localStorage keys and settings defaults
 
@@ -132,14 +131,14 @@ from this table.
 | `CLASH_SWITCH_GAP_MAX_MS` | 1100 | longest gap; the worst case (2500 + 1100) still leaves 1.4 s of the press window after the last switch |
 | `CLASH_RESULT_FREEZE_MS` | 4200 | input-freeze **ceiling**: the longest card (`CLASH_BREACH_RESULT_MS` 4000) plus `CARD_HOLD_MARGIN_MS`, and a client card hold can only shorten it |
 | `CARD_HOLD_MIN_MS` | 250 | floor for a reported card hold: a client that asks for less is raised to this |
-| `CLASH_SWEEP_GRACE_MS` | 15000 | outer cleanup bound measured from the clash start |
+| `CLASH_SWEEP_GRACE_MS` | 18000 | outer cleanup bound measured from the clash start |
 | `CLASH_SWEEP_INTERVAL_MS` | 5000 | cadence of the orphaned-clash sweep |
 | `CLASH_PRESS_CAP_MS` | 110 | minimum gap between accepted presses per side (≈9/s) |
-| `CLASH_BOT_FAST_MS_BASE` | 111 | fast profile's interval base: deliberately just above `CLASH_PRESS_CAP_MS` |
-| `CLASH_BOT_CASUAL_MS_BASE` | 129 | casual profile's interval base |
+| `CLASH_BOT_FAST_MS_BASE` | 128 | fast profile's interval base: deliberately just above `CLASH_PRESS_CAP_MS` |
+| `CLASH_BOT_CASUAL_MS_BASE` | 135 | casual profile's interval base |
 | `CLASH_BOT_JITTER_MS` | 30 | random spread added to each bot gap |
-| `CLASH_BOT_FAST_REACTION_MS` | 200 | fast pause before the first press: recognition plus muscle memory, just above the 100–150 band (the letters change mid-round since 4.7) |
-| `CLASH_BOT_CASUAL_REACTION_MS` | 600 | casual pause before the first press: choice reaction at the top of its 400–600 band |
+| `CLASH_BOT_FAST_REACTION_MS` | 400 | fast pause before the first press: recognition plus muscle memory |
+| `CLASH_BOT_CASUAL_REACTION_MS` | 700 | casual pause before the first press: choice reaction plus the margin a mid-round re-read needs |
 | `CLASH_BOT_REREAD_MS` | 150 | what a bot pays per letter switch, on top of the profile pause, out of `CLASH_KEYSHIFT_EXTRA_MS`'s slack |
 | `CLASH_KEYSHIFT_EXTRA_MS` | 1500 | press-window extension the key-shift mutator grants per switch (added to the deadline and to `CLASH_TARGET`'s budget) |
 
@@ -201,13 +200,13 @@ there.
 | Constant | Value | What it decides |
 |---|---|---|
 | `CLASH_TARGET` | 42 | presses that end a round immediately; if neither side reaches it, the press deadline compares the counts. The client's bar is 4 px per press (168 px) |
-| `CLASH_TAP_COUNT_MAX` | 2 | most one accepted press may be worth; a touch tap sends 2 |
+| `CLASH_TAP_COUNT` | 1.5 | most one accepted press may be worth; the touch pad sends this same shared value |
 | `ATTACKER_KEYS` | `u i o h j k b n m` | the attacker's 3×3 grid (right-hand block) |
 | `DEFENDER_KEYS` | `q w e a s d z x c` | the defender's 3×3 grid (left-hand block); disjoint from the attacker's |
 | `CLASH_BOT_FAST_VS_HUMAN` | 0.25 | odds a bot side draws the fast profile against a human seat |
 | `CLASH_BOT_FAST_VS_BOT` | 0.5 | odds against another bot (coin flip decides who is fast) |
 | `CLASH_BOT_PRESS_TARGETS` | fast 38, casual 33 | presses a bot side makes, counted **including** its reaction pause |
-| `CLASH_BOT_REACTION_MS` | fast 120, casual 500 | the pause, one constant per profile (re-exported from §1) |
+| `CLASH_BOT_REACTION_MS` | fast 400, casual 700 | the pause, one constant per profile (re-exported from §1) |
 | `CLASH_BOT_RAMP` | 1.25, 1.15, 1.07 | the first three mash gaps are stretched so a bot does not open like a metronome |
 | `CLASH_BOT_TAIL_GUARD_MS` | 100 | the last press lands this far inside the window, before the deadline resolver reads the meters |
 | `CLASH_BOT_STUMBLE_CHANCE` | 0.03 | casual-only chance of one long gap |
@@ -219,7 +218,7 @@ The scheduling shape is fixed: reaction pause (constant) → `presses - 1` gaps 
 `CLASH_PRESS_MS`.
 
 **Bot ownership:** a bot side handles its own presses directly against the store, so it bypasses
-`CLASH_PRESS_CAP_MS`. The 111 ms base sits above that cap so the day bots are routed through the
+`CLASH_PRESS_CAP_MS`. The 128 ms base sits above that cap so the day bots are routed through the
 capped path they lose nothing.
 
 
@@ -246,7 +245,7 @@ capped path they lose nothing.
 
 The Wall Breaker hand — `STARTING_WALL_BREAKER_TOKENS` 1 and `WALL_BREAKER_TOKEN_CAP` 3 — is a
 balance knob the SPA also draws (one glyph slot per possible token), so it is declared in
-`common/src/wall-breaker.constants.ts` 📦 rather than here. Everything else in this table is topology:
+`common/src/clash.constants.ts` 📦 rather than here. Everything else in this table is topology:
 it changes only with a board redesign, which moves both drawings, so it stays mirrored (§18).
 
 The Wall Breaker token buys one landing on a wall the roll reaches **exactly** — never a
@@ -406,7 +405,6 @@ overrides it with a row below; reads fall back to it.
 | `resendEmailChange` | 5 | 1 h |
 | `changePassword` | 5 | 1 h |
 | `deleteAccount` | 5 | 1 h |
-| `setTwoFactor` | 10 | 1 h |
 
 **Friends — `friends.controller.ts`**
 
@@ -550,7 +548,7 @@ room is over. Both readers fail open: an unreadable state never hides a seat or 
 rated (`RATED_GAME_TYPES` in `achievements.service.ts`).
 
 **Achievements — `backend/src/achievements/achievements.registry.ts`** 🗄️ — 16 rows, the authoritative
-list; the client dashboard mirrors the same keys and thresholds in `pages/Profile.tsx` 🖥️.
+list; the client dashboard mirrors the same keys and thresholds in `pages/Profile/Profile.tsx` 🖥️.
 
 | Key | Type | Target | Counts |
 |---|---|---|---|
@@ -595,7 +593,7 @@ presence share one definition without circular dependencies.
 **Owners:** `frontend/src/theme.ts` 🖥️ (the seat colours and the data constants - `COL`, `SEAT_COLORS`,
 `BOARD_QUADRANTS`, `COLOR_KEYS`, `BOT_POOL`, `STATUS_STYLE`; its style objects were deleted 2026-11-12,
 `todo.md` [33](todo.md#rv33-ruled)),
-`frontend/src/styles/themes/*/theme.css` 🎨 (the design tokens, one table per era), `frontend/src/game/ClashOverlay.tsx` 🖥️
+`frontend/src/styles/themes/*/theme.css` 🎨 (the design tokens, one table per era), `frontend/src/game/ClashOverlay/ClashOverlay.tsx` 🖥️
 (clash plate colours).
 
 **Player colours — `COL`** — the one place a Ludo colour is defined; `base` fills a piece, `dark` is the
@@ -616,7 +614,7 @@ shade used for piece depth, `yard` is the dim home-quadrant fill.
 | `BOT_POOL` | `Siri, Alexa, Cortana` | the three assistant names a bot seat can draw (the host is never a bot, so 3 is enough) |
 | `BASE_MODE_HUE` | `#b8a6e4` | the lobby's "base game" room chip: a room with no mutator is a category, not an empty cell |
 | `STATUS_STYLE` (theme) | online `#4bbf7b`, playing `#f0c24e`, offline `#6b6255` | presence dot colour, mirroring the backend's `PresenceStatus` |
-| `THEMES` | `synthwave` (`SYNTHWAVE '84`, `#ff007f`/`#00f0ff`), `retro70` (`RETRO 70'S`, `#e5340b`/`#ffb000`) | the account menu's theme rows. One list, three readers: the switcher renders it, `storedTheme()` validates `retro_theme` against it, and the CSS token blocks are keyed by the same ids. The labels are not translated: a decade is spelled the same way in all three locales |
+| `THEMES` | `retro80` (`RETRO 80'S`, `#ff007f`/`#00f0ff`), `retro70` (`RETRO 70'S`, `#e5340b`/`#ffb000`) | the theme registry's ordered rows (`styles/themes/index.ts`). The switcher renders them, `storedTheme()` validates `retro_theme` against `THEME_BY_ID`, and each row also carries its piece set, hero scene, dice era, theme colour and switcher cue. The labels are not translated: a decade is spelled the same way in all three locales |
 | Clash plate colours | red `#e05050`, green `#5fd08a`, yellow `#f0d18a`, blue `#4a92e0` | the clash overlay's plates and bars, read as `var(--clash-<colour>, <fallback>)`. The vars are **not** defined in the theme tables, so the fallback is the effective value |
 
 **Design tokens — `styles/themes/retro80/theme.css`** 🎨 — `:root, [data-theme='retro80']` is the default block and
@@ -709,8 +707,8 @@ keeps every colour it had except in the nine accent-pink halves of pairs that th
 profile's blocked card, its defeats card, a lost match's chip and the down rating delta); the 70s columns are the two
 measured above. The pair also retires the two orphan channel tokens this section never listed, `--success-rgb` and
 `--warn-rgb`: neither had a single reader, and `--warn-rgb` was terracotta in the 70s block while that theme's warning
-colour is the amber `--accent-yellow`, so it could not be right in both themes. Seat hues (`COL`, the two `SEAT_HUES`,
-`SEAT_COLOR`), the hero art and the mode chrome (the three lobby tickets, the rule chips, the tier badges, the rules
+colour is the amber `--accent-yellow`, so it could not be right in both themes. Seat hues (`COL`, the two `SEAT_HUES`),
+the hero art and the mode chrome (the three lobby tickets, the rule chips, the tier badges, the rules
 pages) stay literal: colour is the seat, and a mode's colour is its name.
 
 **The third state (`--accent-yellow`)** 🎨 — added 2026-11-09 (`todo.md` [27](todo.md#warn-colour)). Three conditions,
@@ -779,25 +777,23 @@ readings, so both fold onto the pair — the auth error's 13 px sentence measure
 `--state-off` measures 4.53:1, still AA at that size (barely), and the success line 12.37 against 12.36, so the
 readability the drift bought is three quarters of a ratio point while the leak it kept (Material pink and mint on
 walnut) is the whole family's subject.
-What stays literal is the identity list 26.6 drew: `COL`, the two `SEAT_HUES`, `SEAT_COLOR`, `theme.ts`'s green, the
+What stays literal is the identity list 26.6 drew: `COL`, the two `SEAT_HUES`, `theme.ts`'s green, the
 hero's RED and two GREENs, `ROOM_MODES` and the room badge arms, the third lobby ticket (`TICKET_GREEN`, kept whole
 with its amber and pink siblings), `CYBER_BTN_DANGER`, and the logout button's era-branched red — **22 literals on 17
 inventory rows across 9 files**. Two sets are deliberately not swept forms: the 70s pair (`#82903f`, `#e8697d`) exists
 only in that table's declaration and prose, the reasoning cyan's `#5fb3b0` and purple's `#0c5679` carry, and the
 tickets' hover shades (`#33ffaa` beside `#ff3399` and `#ffff33`) are distinct hues nothing else spells.
 
-**The piece palettes — `game/pieceParts.ts`** 🎨 — every part is painted from *roles*, and
-`piecePalette(color)` resolves them from that seat's own value ladder, so one drawing serves all four
-hues and parts are separated by lightness, never by hue. `piecePalette80(color)` is the same ladder
-with one key changed — the garment rung `lo`, lifted from 52% to 30% (`LO_80`) — because the 1980s
-set is black leather and a long black coat, which at `.52` on the synthwave cell is a silhouette
-(`todo.md` [28.3](todo.md#rv80-lift)); the 70s set keeps `.52`. `--` means "not a
-colour role".
+**The piece palettes — `game/piecePaint.ts` plus each theme's `pieces/palette.ts`** 🎨 — every part is painted from
+*roles*, and `paletteLadder(color, lo)` resolves them from that seat's own value ladder, so one drawing serves all four
+hues and parts are separated by lightness, never by hue. The 70s set's `piecePalette` passes `.52`; the 80s set's
+`piecePalette80` passes `.30`, because black leather and a long black coat at `.52` on the synthwave cell are a
+silhouette (`todo.md` [28.3](todo.md#rv80-lift)). `--` means "not a colour role".
 
 | Constant | Value | Role |
 |---|---|---|
 | `hi` / `lit` | seat hue mixed 62% / 34% towards `#ffffff` | the lifted values, and the globe's gradient start |
-| `shd` / `lo` / `deep` | seat hue mixed 22% / 52% / 74% towards `#000000` | the sunken values: straps, arms, boots. The 80s set takes `lo` at **30%** (`LO_80`, `piecePalette80`), so every garment volume and both gradients' dark stop lift together |
+| `shd` / `lo` / `deep` | seat hue mixed 22% / 52% / 74% towards `#000000` | the sunken values: straps, arms, boots. The 80s set takes `lo` at **30%** (`paletteLadder(color, 0.3)`), so every garment volume and both gradients' dark stop lift together |
 | `deepink` | seat hue mixed 86% towards `#0a0716` | a hue-tinted near-black, so an outline still belongs to its piece |
 | `pop` | blue `#ffb000`, red `#f6e7c6`, green `#5fb3b0`, yellow `#7b4dff` | the one accent, per hue: cream works for three seats and is invisible on yellow, so yellow takes the violet complement |
 | `ink` / `cream` / `white` | `#0a0716` / `#ffe7bd` / `#ffffff` | the fixed values: every outline, the H2 faceplate, the specular literals |
@@ -806,8 +802,8 @@ colour role".
 | `PIECE_GRADIENT.lidCrew` | `lit → base (0.55) → lo` | the hero's torso, lit flatter for a figure 47 px tall |
 | `PIECE_GRADIENT.gid` | `hi → base (0.5) → lo`, radial at `0.33/0.28` r `0.9` | the helmet globe |
 | `CREW_TURN` | squash `0.8` (cos 37°), slide `6` | a turned head's squash and slide: the whole of `poseTurn`'s one matrix — both numbers, both sets, no per-set table left |
-| `PIECE_FACE_80` | red `[4,12)`, blue `[2,5)`, green `[4,6)`, yellow `[1,4)` | the slice of each 80s head a pose may move — the face plate `cutAtNeck` turns. `parts80.py`'s `FACE80`, asserted against each head on import and emitted into `pieceParts80.ts`; everything outside it (crest, pods, jaw, chin bar) is outline and does not move (`todo.md` [30](todo.md#rv30-set)) |
-| `PIECE_HEAD_80` | red `12`, green `11`, yellow `6`, blue `13` | how many parts of each 80s figure sit above the neck — `parts80.py`'s `HEAD_END` seam, emitted into `pieceParts80.ts` so `cutAtNeck` can find the head a pose turns |
+| `PIECE_FACE_80` | red `[4,12)`, blue `[2,5)`, green `[4,6)`, yellow `[1,4)` | the slice of each 80s head a pose may move — the face plate `cutAtNeck` turns. `parts80.py`'s `FACE80`, asserted against each head on import and emitted into `styles/themes/retro80/pieces/pieceParts80.ts`; everything outside it (crest, pods, jaw, chin bar) is outline and does not move (`todo.md` [30](todo.md#rv30-set)) |
+| `PIECE_HEAD_80` | red `12`, green `11`, yellow `6`, blue `13` | how many parts of each 80s figure sit above the neck — `parts80.py`'s `HEAD_END` seam, emitted into `styles/themes/retro80/pieces/pieceParts80.ts` so `cutAtNeck` can find the head a pose turns |
 
 
 ### **13. Client timing**
@@ -890,7 +886,7 @@ ahead of the flip rather than on it, so the flip keeps its own three cues.
 | `CLASH_SWITCH_WARN_MS` | 400 | how far ahead the "LETTER SWITCHING!" banner fires (it never names the new letter) |
 | `CLASH_SWITCH_WARN_HOLD_MS` | 300 | how long the banner lingers after the switch |
 | `CLASH_SWITCH_FLIP_MS` | 110 | one half of the 220 ms badge flip: the face is edge-on exactly AT the switch, so the new letter is never late |
-| `CLASH_SWITCH_PAD_STAGGER_MS` | 40 | per-circle landing delay when the touch pad re-scrambles (0/40/80/120 ms) |
+| `CLASH_SWITCH_PAD_STAGGER_MS` | 40 | per-circle landing delay when the touch pad changes to the next server-dealt pad (0/40/80/120 ms) |
 
 **Client-only**
 
@@ -926,7 +922,7 @@ start, none past the untapped end of its own roll, a later catch never lands ear
 the window lands the untapped roll, and only a slow answer outlasts the ceiling.
 
 **The die's three cues** are the client's alone, voiced from one exported table (`DICE_SFX` in
-`utils/audio.ts`) and scheduled by `Die` at instants the acts already have — no cue adds time:
+`utils/audio/audio.ts`) and scheduled by `Die` at instants the acts already have — no cue adds time:
 
 | Cue | How often | Its spacing |
 |---|---|---|
@@ -941,9 +937,9 @@ by `volume` and wrapped in `try/catch`, like every other cue in the file.
 
 ### **14. Client cadences**
 
-**Owners:** `frontend/src/store.tsx` 🖥️, `frontend/src/api.ts` 🖥️, `frontend/src/authRefreshLock.ts` 🖥️,
-`components/NotificationToast.tsx` 🖥️, `hooks/useNotifications.tsx` 🖥️, `pages/Game.tsx` 🖥️,
-`pages/Profile.tsx` 🖥️, and `backend/src/realtime/realtime-broadcaster.service.ts` 🗄️ for the two
+**Owners:** `frontend/src/store/store.tsx` 🖥️, `frontend/src/api.ts` 🖥️, `frontend/src/authRefreshLock.ts` 🖥️,
+`components/NotificationToast/` 🖥️, `hooks/useNotifications.tsx` 🖥️, `pages/Game/Game.tsx` 🖥️,
+`pages/Profile/Profile.tsx` 🖥️, and `backend/src/realtime/realtime-broadcaster.service.ts` 🗄️ for the two
 `ROOMS_*` values. No screen polls: the lobby, the friend lists, presence and the bell are pushed over
 the session socket, so the only client timers left are the client rows below.
 
@@ -965,10 +961,10 @@ the session socket, so the only client timers left are the client rows below.
 
 ### **15. Layout, size and z-index**
 
-**Owners:** `frontend/src/components/Board.tsx` 🖥️ and `frontend/src/game/boardGeometry.ts` 🖥️ (board),
+**Owners:** `frontend/src/components/Board/Board.tsx` 🖥️ and `frontend/src/game/boardGeometry.ts` 🖥️ (board),
 `components/CaptureBurst.tsx` 🖥️, `components/GoalBurst.tsx` / `GoalConfetti.tsx` / `GoalCard.tsx` 🖥️,
-`game/ClashOverlay.tsx` 🖥️, `pages/Game.tsx` 🖥️,
-`components/RetroNavbar.tsx` 🖥️, `hooks/useFitTextSize.ts` 🖥️, `components/NotificationToast.tsx` 🖥️.
+`game/ClashOverlay/ClashOverlay.tsx` 🖥️, `pages/Game/Game.tsx` 🖥️,
+`components/RetroNavbar/` 🖥️, `hooks/useFitTextSize.ts` 🖥️, `components/NotificationToast/` 🖥️.
 
 **Board geometry** — one mapping shared by the renderer and anything that has to point at a square
 (the capture burst's anchor is measured from the cell's `data-cell` rect).
@@ -980,7 +976,9 @@ the session socket, so the only client timers left are the client rows below.
 | `HOME_LANES` | 5 cells × 4 colours | red lane authored once, the rest rotated by their quarter |
 | `TRACK_OFFSET` | red 0, green 13, yellow 26, blue 39 | same arithmetic as the engine 🔗 (§3) |
 | Board cells | 15 × 15 | the cross; `stepToCell` returns `null` for base and goal, which have no square |
-| `CELL_BG` / `LINE` | `#050515` / `#00f0ff` | empty cell fill and track stroke |
+| `--board-cell` / `--board-line` | 80s `#050515` / `#00f0ff`; 70s `#1b120b` / `#ffb000` | empty cell fill and track stroke, from each theme table |
+| `--board-yard` / `--board-yard-border` | 80s `rgba(10, 2, 28, 0.95)` / `#2121ff`; 70s `rgba(43, 30, 21, 0.95)` / `#e5340b` | the four bases and the central yard |
+| `--board-frame` / `--board-frame-shadow` | 80s `rgba(15, 6, 38, 0.95)` / neon frame shadow; 70s `rgba(36, 26, 18, 0.95)` / amber-and-red shadow | the 15 × 15 frame behind the cells |
 | `SAFE_STAR_CELLS` | derived from `1, 9, 14, 22, 27, 35, 40, 48` | the eight stars 🔗 (engine `SAFE_TRACK_POSITIONS`, §3) |
 | `SAFE_STAR_COLOR` / `SAFE_STAR_OUTLINE` | `#ffffff` / `#000000` | the two-layer star: white core plus black ring, so it clears all five cell fills |
 | `SAFE_STAR_POINTS` | 10-point star, 21.16 × 20.13 inside a 24 box | the star's SVG path (2.2 stroke fits) |
@@ -1018,7 +1016,7 @@ the session socket, so the only client timers left are the client rows below.
 | `TOUCH_BUTTON` | `3cm` | touch pad circle diameter (a CSS length, so it scales with the device) |
 | `TOUCH_GAP` | `1cm` | inert space between circles |
 | `TOUCH_EDGE_BUFFER` | `1cm` | added to the safe-area inset |
-| `TOUCH_TAP_COUNT` | 2 | presses one tap sends (the engine clamps to `CLASH_TAP_COUNT_MAX`) 🔗 |
+| `CLASH_TAP_COUNT` | 1.5 | presses one tap sends; the shared constant is also the engine's clamp 🔗 |
 | `KEY_BADGE_W` / `KEY_BADGE_H` | 67 / 61 | the static key box: 54 px glyph plus 2 mm clearance to the 2 px border |
 | Overlay backdrop | `rgba(0,0,0,.72)` + `blur(4px)` | what dims the board behind the card |
 
@@ -1029,10 +1027,26 @@ the session socket, so the only client timers left are the client rows below.
 | `WALL_BREAKER_PANEL_W` / `WALL_BREAKER_PANEL_GAP` | 96 / 10 | the Wall Breaker token panel's width and the gap in front of it |
 | `CARD_ROOM_OVERHANG` | 46 | extra room for display names in every room; the roster's overhang is 46, or 46 + 96 + 10 = 152 in clash mode, so the cards are equally wide either way |
 | `WALL_BREAKER_GLYPH` | `🧨` | the token's glyph |
-| Board size | `min(650px, 66vh)` | the desktop board's ceiling, and it also yields `rosterOverhang` |
-| Layout breakpoint | `1024px` | below this the game stacks to one column |
-| Tactical grid | `250px / 1fr / 250px`, then 285, then 310 | side columns at the md/lg/xl/2xl breakpoints |
+| `MIN_FIT_BOARD_PX` | 480 | the fitted board's floor; the fitted rows give up spacing first, and below the floor the existing whole-layout zoom keeps the room on one viewport |
+| Board size | fitted `max(480px, min(650px, calc(100dvh - header - controls - actions - 38px)))`; stacked `min(650px, 66vh)` | the fitted `boardCap` is also the board's width after `rosterOverhang`; header, controls and action stack are the measured row heights (`--game-header-h`, `--game-controls-h`, `--game-actions-h`), and 38 px is `8 + 8` wrapper padding, the 6 px header margin, two 6 px row margins and a 4 px subpixel guard |
+| Fitted rhythm | 8 px shell padding, 6 px header/row margins, 4 px action gap, 8 px button padding | every fitted room uses this compact rhythm; the 10 px rhythm and full-height buttons remain in the stacked layout, so there is no height breakpoint that makes the board shrink as the viewport grows |
+| Layout breakpoint | desktop `1280px`; landscape tablet `1024–1279px` | the desktop and landscape-tablet layouts are both fitted three-column rooms; below 1024, or in portrait, the game stacks to one column and keeps ordinary page scroll |
+| Tactical grid | desktop 285 px, then 310 px; landscape tablet `clamp(210px, 19.5vw, 250px)` | side columns at the `xl` and `2xl` breakpoints; the tablet variant narrows the two side tracks so the board keeps its square |
+| Game grid gap | `clamp(28px, 2vw, 40px)`; landscape tablet `clamp(16px, 1.5vw, 20px)` | the `xl` and tablet grid gaps, also read by the board's centring margin |
 | Page width | 1440 px | the game shell's maximum |
+
+**Chat card — `components/ChatCard/chatCardMetrics.ts`** (one card for the room and the dock; the
+height is a viewport function, never the old fixed 560)
+
+| Constant | Value | What it decides |
+|---|---|---|
+| `chatCardHeight(viewportHeight)` | `round(clamp(viewportHeight × 0.6, 420, 720))` | the overlay card's height: 420 at the minimum, 720 at the maximum, 60% of the window between; each host then clamps it to its own floor minus `CHAT_CARD_MARGIN` |
+| `CHAT_CARD_WIDTH` | 480 | the card's width; both hosts shrink it to `min(480, innerWidth - 32)` |
+| `CHAT_CARD_MIN_HEIGHT` / `CHAT_CARD_VH` / `CHAT_CARD_MAX_HEIGHT` | 420 / 0.6 / 720 | the three inputs to `chatCardHeight()` |
+| `CHAT_CARD_MARGIN` | 16 | the viewport margin on every edge, and the 32 px subtracted from the width |
+| `COMPOSER_MAX_HEIGHT` | 140 | the composer's growth ceiling before it scrolls |
+| `PREVIEW_LINES` | 3 | lines the compact slot previews |
+| `PANEL_WIDTH` / `PANEL_GAP` | 240 / 8 | the INVITE COMMS panel's width and the gap beside the card |
 
 **Navbar label fit — `RetroNavbar.tsx`** (each label is measured, never guessed)
 
@@ -1062,7 +1076,7 @@ the session socket, so the only client timers left are the client rows below.
 
 ### **16. Audio**
 
-**Owner:** `frontend/src/utils/audio.ts` 🖥️ — one `RetroAudioEngine` (`retroAudio`), Web Audio, no audio
+**Owner:** `frontend/src/utils/audio/audio.ts` 🖥️ — one `RetroAudioEngine` (`retroAudio`), Web Audio, no audio
 files. Every sound is a small oscillator/noise graph; the master gain multiplies each.
 
 | Constant / method | Value | What it decides |
@@ -1085,13 +1099,14 @@ The results modal drives its own print cadence on top of these: steps at `0, 80,
 
 ### **17. Browser storage**
 
-**Owners:** `frontend/src/store.tsx` 🖥️ (keys and defaults), `frontend/src/i18n.ts` 🖥️ (language boot),
-`frontend/src/authRefreshLock.ts` 🖥️ (the cross-tab lock).
+**Owners:** `frontend/src/store/storage.ts` 🖥️ (keys and readers), `frontend/src/store/types.ts` 🖥️
+(`SETTING_DEFAULTS`), `frontend/src/i18n.ts` 🖥️ (language boot), `frontend/src/authRefreshLock.ts` 🖥️ (the
+cross-tab lock).
 
 | Key | Default / shape | What it holds |
 |---|---|---|
 | `lr.lang` | `'en'` (one of `en`, `ms`, `fr`) | chosen language; read at boot so the first paint is already localized |
-| `retro_theme` | `'synthwave'` (one of `synthwave`, `retro70`; anything else falls back) | theme name, written to `data-theme` on `<html>` and `<body>` |
+| `retro_theme` | `'retro80'` (one of `retro80`, `retro70`; anything else falls back to `DEFAULT_THEME`) | theme id, written to `data-theme` on `<html>` and `<body>` and read through `THEME_BY_ID` |
 | `lr.activeMatch` | JSON `ActiveMatch` (`gameId`, `token`, `color`, `inviteCode`) | the navbar's rejoin banner |
 | `lr.seats` | JSON seat map | lobby → game handoff of seat colours/names |
 | `rulesShowOnStart` | `true` (absent means on) | show the rules popup when a match starts |
@@ -1128,7 +1143,6 @@ copied at build time, so they have no row here.
 | Value | Owner | Mirror | Note |
 |---|---|---|---|
 | Key grids `u i o h j k b n m` / `q w e a s d z x c` | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` (touch decoys) | the sets are disjoint so a decoy cannot be the other side's key |
-| Tap weight 2 (`CLASH_TAP_COUNT_MAX`) | ⚙️ `clash.ts` | 🖥️ `ClashOverlay.tsx` `TOUCH_TAP_COUNT` | the engine clamps: a heavier tap is cut to 2 |
 | `CLASH_TARGET` 42 → bar 168 px | ⚙️ `clash.ts` | 🖥️ `CLASH_BAR_WIDTH_PX` | 4 px per press |
 | Safe squares `1, 9, 14, 22, 27, 35, 40, 48` | ⚙️ `board-mapper.ts` | 🖥️ `Board.tsx` `SAFE_STAR_CELLS` | the eight stars |
 | Colour offsets 0 / 13 / 26 / 39 | ⚙️ `board-mapper.ts` | 🖥️ `boardGeometry.ts` `TRACK_OFFSET` | same modulo arithmetic |
@@ -1140,10 +1154,10 @@ copied at build time, so they have no row here.
 | `ENGINE_TOKEN_AUDIENCE` `ludo-engine` | 🗄️ `match/engine-token.util.ts` | ⚙️ `socket/auth.ts` | a mismatch rejects every engine token |
 | Turn order blue → red → green → yellow | ⚙️ `COLORS` (`player-handler.ts`), `firstActiveColor` for the start gate | 🖥️ `theme.ts` `SEAT_COLORS` | the rotation is colour order; a seat holds whatever colour it claimed, so a seat index never decides who moves first |
 | Presence strings `online` / `playing` / `offline` | 🗄️ `presence.service.ts` | 🖥️ `theme.ts` `PresenceStatus` + `STATUS_KEYS` | the Redis value is the wire value |
-| 16 achievement keys and thresholds | 🗄️ `achievements.registry.ts` | 🖥️ `pages/Profile.tsx` `ACHIEVEMENTS_DEF` | titles, icons and copy are client-side |
+| 16 achievement keys and thresholds | 🗄️ `achievements.registry.ts` | 🖥️ `pages/Profile/Profile.tsx` `ACHIEVEMENTS_DEF` | titles, icons and copy are client-side |
 | CSRF cookie `csrf_token` | 🗄️ `common/csrf.ts` | 🖥️ `api.ts` | a mismatch fails every write with `CSRF_TOKEN_INVALID` |
 | `GUEST_EVENTS` allow-list (10 names) | ⚙️ `socket/auth.ts` | 🖥️ the guest client's emits (`Game.tsx`) | an event on one side only is refused |
-| Seat hues `#ff007f` / `#00ff88` / `#ffe600` / `#00f0ff` | 🖥️ `theme.ts` `COL.base` | 🖥️ `pages/Lobby.tsx` and `pages/Game.tsx` (`SEAT_HUES`), `pages/LudoLobby.tsx` (`ROOM_AVATAR_HUES`) | three copies of the same four hexes |
+| Seat hues `#ff007f` / `#00ff88` / `#ffe600` / `#00f0ff` | 🖥️ `theme.ts` `COL.base` | 🖥️ `pages/Lobby/Lobby.tsx` and `pages/Game/Game.tsx` (`SEAT_HUES`), `pages/LudoLobby/LudoLobby.tsx` (`ROOM_AVATAR_HUES`) | three copies of the same four hexes |
 
 
 ### **19. Where a new constant goes**
@@ -1156,7 +1170,7 @@ copied at build time, so they have no row here.
    read it.
 3. **A rule the engine enforces → next to the rule** (`clash.ts` for the QTE, `board-mapper.ts` for
    geometry) and, if the client mirrors it, a row in §18. A rule the client also draws (the Wall
-   Breaker hand) belongs in `common/src/wall-breaker.constants.ts` 📦 instead, because tuning it means
+   Breaker hand) belongs in `common/src/clash.constants.ts` 📦 instead, because tuning it means
    tuning both.
 4. **A limit or lifetime the backend enforces → the owning service's knob block** (`AUTH` in
    `auth.constants.ts`, `GUEST_LIMITS` in `guest-limit.service.ts`) or the shared table

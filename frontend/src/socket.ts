@@ -26,9 +26,13 @@ export type ClashStartEvent = {
   attackerKey: string;
   defenderKey: string;
   // Key-shift schedule: one letter per side plus one per switch, and the absolute
-  // instants the letters change. Empty on a room with the mutator off.
+  // instants the letters change. The frame always carries one entry per side per
+  // switch, even on a room with the mutator off (one entry, no switchAt).
   attackerKeys: string[];
   defenderKeys: string[];
+  // The ordered 2x2 pads the touch path paints, one per schedule entry.
+  attackerPads: string[][];
+  defenderPads: string[][];
   switchAt: number[];
   keyShift: 0 | 1 | 2;
   // The engine clock when the frame was built, for the overlay's clock offset. Not
@@ -60,11 +64,9 @@ export type ServerEvents = {
     currentTurn: PlayerColor;
     forfeited?: boolean;
   }) => void;
-  // The settled move. `currentTurn` is the seat the engine left holding the turn (it
-  // has already advanced it, kept it on a bonus roll, or left it on the winner), so
-  // the reducer takes that seat instead of predicting one. Optional only because a
-  // frame from an engine built before it existed still has to read: the reducer then
-  // falls back to its own rotation walk.
+    // The settled move. `currentTurn` is the seat the engine left holding the turn (it has already
+  // advanced it, kept it on a bonus roll, or left it on the winner), so the reducer takes that seat
+  // instead of predicting one.
   piece_moved: (e: MoveResult & { currentTurn?: PlayerColor }) => void;
   // A held turn passed by Skip: no piece moved, the turn advanced, and the engine
   // names the seat that takes over.
@@ -116,10 +118,8 @@ export type ServerEvents = {
   // Host flipped the room rules while the room is still waiting. Carries what
   // the engine actually persisted, not what the caller asked for.
   modifiers_updated: (e: RoomRules) => void;
-  // The room's channel (M3). `chat:message` is one live line, `chat:history` the
-  // transcript pushed to this socket right after `game_joined`, already filtered by
-  // the engine for this seat. The names are the colon form the session socket already
-  // carries, so the SPA has one convention for both channels.
+    // The room's channel (M3). `chat:message` is one live line, `chat:history` the transcript pushed
+  // to this socket right after `game_joined`, already filtered by the engine for this seat.
   'chat:message': (e: { line: ChatCardLine }) => void;
   'chat:history': (e: { lines: ChatCardLine[] }) => void;
   error: (msg: string) => void;
@@ -158,11 +158,7 @@ export type ClientEvents = {
   end_game: () => void;
 };
 
-// The reconnect budget, sized against the seat, not the transport (R22). A live PvP
-// seat keeps a 45 s reconnect window, so the socket has to still be trying when it
-// closes: capping the backoff at 3 s gives 2, 5, 8 ... 44, 47 s across 16 attempts,
-// so the last one is live when `seat_expired` lands. Finite on purpose, since there
-// is nothing left to reconnect to once the seat is decided.
+// The reconnect budget, sized against the seat, not the transport (R22).
 export const RECONNECTION_ATTEMPTS = 16;
 export const RECONNECTION_DELAY_MS = 2000;
 export const RECONNECTION_DELAY_MAX_MS = 3000;

@@ -1,14 +1,25 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { secret } from '../secrets';
-import Redis from 'ioredis';
+import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { AchievementsService } from '../achievements/achievements.service';
-import { NotificationService } from '../notification/notification.service';
 import { publishRoomsChanged } from '../common/channels';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { ratingDeltaFor } from '../common/scoring';
-import { readRoomRules } from './room-rules';
 import { FriendshipEventsService } from '../friends/friendship-events.service';
+import { NotificationService } from '../notification/notification.service';
+import { PrismaService } from '../prisma.service';
 import { ENDED_MATCH_STATUSES } from './active-game';
+import {
+  HISTORY_TRIM,
+  SLOT_COLORS,
+  botSeatColors,
+  chatColumns,
+  isUniqueViolation,
+  readEngineState,
+  seatColorsByUserId,
+  seatSnapshot,
+} from './postgame-snapshot';
+import type { GameChatBlock, GameChatPayload } from './postgame-snapshot';
+import { readRoomRules } from './room-rules';
 
 // Engine → backend payload for POST /api/game/end. Colors arrive uppercase
 // (matching the PlayerColor enum, e.g. 'RED'). Every counter is optional: a room
@@ -16,10 +27,8 @@ import { ENDED_MATCH_STATUSES } from './active-game';
 export interface GameEndParticipant {
   userId: string;
   color: string;
-  // 1 for the seat that brought its fourth piece home, 2 for every other seat. The
-  // engine reports no finer order, and none is needed: a completed match has one
-  // winner and the rest are losses (`rank === 1` is the whole test, as in the career
-  // update below). A `won` boolean on `MatchHistory` would only restate this.
+  // Rank 1 for the seat with four pieces home, 2 for every other seat. The engine gives
+  // no finer order; `rank === 1` is the whole win test.
   rank: number;
   totalTurns?: number;
   piecesCaptured?: number;
@@ -40,10 +49,8 @@ export interface GameEndParticipant {
 export interface GameEndPayload {
   gameId: string;
   participants: GameEndParticipant[];
-  // The kind of rows this report writes. `completed` is a game that ended with a
-  // winner and is the default; `abandoned` is a room torn down without one, where
-  // every seat keeps a row but nobody scores (R19: the no-stats rule is one
-  // condition, in one place).
+  // `completed` is a game with a winner, the default. `abandoned` is a room torn down
+  // without one: every seat keeps a row, but nobody scores.
   status?: 'completed' | 'abandoned';
   // The room's channel (M3): every line and the ledger that says which pair fell out
   // when. One payload serves the whole room — the write below cuts it per seat, so a
@@ -52,265 +59,21 @@ export interface GameEndPayload {
   blocks?: GameChatBlock[];
 }
 
-// One line of the room's channel, as the engine stores it. The backend never mints an
-// id, a sequence or a timestamp: it projects what the room said. A type alias, not an
-// interface, so an array of them is assignable to Prisma's `Json` input without a cast.
-export type GameChatLine = {
-  id: string;
-  seq: number;
-  senderId: string; // '' on a system line
-  senderName: string;
-  text: string;
-  at: number;
-  ch: string;
-  kind?: 'system';
-  code?: 'left' | 'started';
-};
-
-// One block, stamped with the room's chat sequence at the moment the engine applied
-// it. A line is hidden from a pair when its own sequence is at or after the cut.
-export interface GameChatBlock {
-  a: string;
-  b: string;
-  atSeq: number;
-}
-
-export interface GameChatPayload {
-  // True when the engine had to re-post the newest lines only: a cut transcript must
-  // never render as a complete one.
-  truncated?: boolean;
-  lines?: GameChatLine[];
-}
-
-// Engine → backend payload for POST /api/game/:id/abandon: one seat that left a
-// room before anybody won. The counters are the tallies as they stood when the
-// seat left (the engine captures them before its pieces are parked), and `rank`
-// is the room's player count: an abandoned seat placed last, never first.
-export interface SeatAbandonPayload {
-  userId: string;
-  color: string;
-  rank: number;
-  // Epoch ms of the departure: the row's "end" for `durationMs`. Absent means now.
-  capturedAt?: number;
-  totalTurns?: number;
-  piecesCaptured?: number;
-  piecesInGoal?: number;
-  piecesLost?: number;
-  threeSixes?: number;
-  clashAttacksWon?: number;
-  clashDefendsWon?: number;
-  clashAttacksLost?: number;
-  clashDefendsLost?: number;
-  clashWallBattlesWon?: number;
-  clashWallsAttacked?: number;
-  clashWallsDefended?: number;
-  // The room's channel, the same two fields `/end` carries: this seat's row keeps what
-  // it was shown up to the moment it left.
-  chat?: GameChatPayload;
-  blocks?: GameChatBlock[];
-}
-
-// One seat of the finished room, as a match row keeps it. A type alias, not an
-// interface, so it is assignable to Prisma's `Json` input without a cast.
-export type MatchParticipantSnapshot = {
-  username: string;
-  displayName: string;
-  avatarStyle: string | null;
-  hasAvatarPhoto: boolean;
-  color: string; // uppercase, matching PlayerColor
-  rank: number | null; // null for a seat the engine never ranked (a bot)
-  isBot: boolean;
-  // Set on a seat whose own row is abandoned (or that left a room which still
-  // finished). The card renders such a seat with no rank badge: it did not place.
-  // Absent on a row written before this flag existed, which reads as not abandoned.
-  abandoned?: boolean;
-  // The seat's pieces home, when the report carried it. A bot seat and a seat
-  // recorded at its departure have no count, and its card then prints the name only.
-  piecesInGoal?: number;
-};
-
-// Rows kept per user. The history is a scrollable window, not an archive: past
-// the newest 50 nothing reads it, and lifetime numbers live in PlayerStats, so the
-// trim can never lose a total.
-const HISTORY_TRIM = 50;
-
-
-// Seat order the room hash is written in: slot N is `player<N>_*`, and its
-// colour is `player<N>_color` (a hotseat room may skip a colour, so the default
-// is only a fallback).
-const SLOT_COLORS = ['blue', 'red', 'green', 'yellow'];
-
-// The colours whose seat the room hash flags as a bot. `player<N>_isBot` is the
-// only answer this service accepts: it is written by MatchCreatorService beside
-// the seat, the engine reads the same field, and nothing here looks at the shape
-// of an id, so a seat without the flag counts as a human seat whatever its id
-// reads like. A room whose hash is gone (a Redis restart mid-game) flags nobody:
-// the engine reports human seats only, and the account check in processGameEnd
-// still keeps a seat with no User row out of the transaction.
-// See docs/ludo-engine/ludo-engine-bot-module.md and backend-match-module.md.
-function botSeatColors(matchData: Record<string, string>): Set<string> {
-  const bots = new Set<string>();
-  SLOT_COLORS.forEach((fallback, index) => {
-    const slot = index + 1;
-    if (matchData[`player${slot}_isBot`] !== 'true') return;
-    bots.add((matchData[`player${slot}_color`] || fallback).toLowerCase());
-  });
-  return bots;
-}
-
-// Prisma raises P2002 for a unique index. Checked structurally so this file needs
-// no import of the generated runtime just to name one error.
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002';
-}
-
-// The room's seats as the match row keeps them. The `match:*` hash is the only
-// place a bot seat still exists by the time a match ends (the engine reports human
-// seats only), so the snapshot is built from the hash and the reported ranks. A
-// seat whose account cannot be loaded writes no row, so it is not in the snapshot
-// either; an empty slot is skipped. `abandonedColors` names the seats whose own
-// row says ABANDONED: the completing report carries the seats still playing, and
-// the rows already written carry the ones that left, so the card can tell a seat
-// that dropped from a seat that lost.
-function seatSnapshot(
-  matchData: Record<string, string>,
-  ranksByColor: Map<string, number>,
-  accounts: Map<
-    string,
-    { username: string; displayName: string; avatarStyle: string; hasAvatarPhoto: boolean }
-  >,
-  abandonedColors: Set<string> = new Set(),
-  piecesByColor: Map<string, number> = new Map(),
-): MatchParticipantSnapshot[] {
-  const seats: MatchParticipantSnapshot[] = [];
-  SLOT_COLORS.forEach((fallback, index) => {
-    const slot = index + 1;
-    const color = (matchData[`player${slot}_color`] || fallback).toUpperCase();
-    if (matchData[`player${slot}_isBot`] === 'true') {
-      // A bot's identity is its id: `bot-<color>`, and the lobby's label beside it.
-      const botId = `bot-${color.toLowerCase()}`;
-      seats.push({
-        username: botId,
-        displayName: matchData[`player${slot}_displayName`] || botId,
-        avatarStyle: null,
-        hasAvatarPhoto: false,
-        color,
-        rank: ranksByColor.get(color) ?? null,
-        isBot: true,
-        abandoned: false,
-      });
-      return;
-    }
-    const account = accounts.get(matchData[`player${slot}_id`] ?? '');
-    if (!account) return;
-    seats.push({
-      username: account.username,
-      displayName: account.displayName,
-      avatarStyle: account.avatarStyle,
-      hasAvatarPhoto: account.hasAvatarPhoto,
-      color,
-      rank: ranksByColor.get(color) ?? null,
-      isBot: false,
-      abandoned: abandonedColors.has(color),
-      // Absent, not 0: a seat recorded at its departure has no count, and a card
-      // that printed "0/4" for it would read as a seat that never moved.
-      ...(piecesByColor.has(color) ? { piecesInGoal: piecesByColor.get(color) } : {}),
-    });
-  });
-  // Winners first, then the unranked (a bot the engine never ranked) in seat order.
-  return seats.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
-}
-
-// The transcript ONE seat's row keeps (M3): the room's lines in the order they were
-// spoken, cut at the ledger so a row never carries a line that seat was not shown.
-// A seat's own lines and every system line survive whatever the pairs say, and
-// `null` means the room had no channel or never spoke, which leaves the column null.
-export function chatForSeat(
-  chat: GameChatPayload | undefined,
-  blocks: GameChatBlock[] | undefined,
-  seatUserId: string,
-): { lines: GameChatLine[]; truncated: boolean } | null {
-  const lines = Array.isArray(chat?.lines) ? chat.lines : [];
-  if (lines.length === 0) return null;
-
-  // Only a pair that includes this seat cuts anything; a block between two other
-  // players is not this reader's business and changes nothing here.
-  const cuts = (Array.isArray(blocks) ? blocks : [])
-    .filter((block) => block && (block.a === seatUserId || block.b === seatUserId))
-    .map((block) => ({
-      other: block.a === seatUserId ? block.b : block.a,
-      atSeq: block.atSeq,
-    }));
-
-  const kept = lines.filter((line) => {
-    if (!line || typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
-    if (!line.senderId || line.senderId === seatUserId) return true;
-    return !cuts.some((cut) => cut.other === line.senderId && line.seq >= cut.atSeq);
-  });
-  return { lines: kept, truncated: chat?.truncated === true };
-}
-
-// The two columns a row takes from the room's channel, in one place so both writers
-// spell them the same way: `chat` stays absent when the room had no channel or never
-// spoke, and `chatTruncated` is only ever true when the engine had to cut the payload.
-function chatColumns(
-  chat: GameChatPayload | undefined,
-  blocks: GameChatBlock[] | undefined,
-  seatUserId: string,
-): { chat?: GameChatLine[]; chatTruncated: boolean } {
-  const projected = chatForSeat(chat, blocks, seatUserId);
-  if (!projected) return { chatTruncated: false };
-  return { chat: projected.lines, chatTruncated: projected.truncated };
-}
-
-// The engine's own view of a room, read straight from `game:<id>` (`state` holds
-// the JSON). `null` means the key is genuinely gone or unreadable, which is the
-// one case the R21 guard falls through instead of refusing. The reader is the
-// third of its kind beside seat-finalization.ts, in the same shape and for the
-// same reason: the hash and the state disagree, and the state is the authority
-// for what the engine did.
-interface EngineRoomState {
-  status?: string;
-  players?: Array<{ color?: string; status?: string }>;
-}
-
-async function readEngineState(redis: Redis, gameId: string): Promise<EngineRoomState | null> {
-  const raw = await redis.hget(`game:${gameId}`, 'state');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as EngineRoomState;
-  } catch {
-    return null;
-  }
-}
-
 // POST-GAME POINTS (piece-based): each piece home = 2 pts (PvP) or 1 pt (PvE),
 // winner gets +1 bonus piece. Losers still earn points; bot seats are dropped
 // before any row is written, so they earn nothing.
 
 @Injectable()
-// Post-game processing: writes one MatchHistory row per seat and updates the
-// PlayerStats row each one holds, awards piece-based rating, refreshes the Redis
-// leaderboard, triggers achievement evaluation, and notifies players. Used by
-// POST /api/game/end.
+// Post-game processing for POST /api/game/end: one MatchHistory row per seat, stats and
+// piece-based rating, leaderboard refresh, achievement evaluation, and notifications.
 export class MatchPostgameService {
-  // Redis client for reading match metadata and updating the leaderboard.
-  private redis: Redis;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly achievements: AchievementsService,
     private readonly notifications: NotificationService,
     private readonly friendshipEvents: FriendshipEventsService,
-  ) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   // Write one match row per seat, update the career row each one holds, award the
   // piece-based rating, refresh the Redis leaderboard, and notify players. Called
@@ -330,13 +93,9 @@ export class MatchPostgameService {
       });
     }
 
-    // Idempotency guard: an engine retry after a network blip hits this read and
-    // returns early : points are never double-awarded. The guard is a *completed*
-    // row, not any row: an abandoned seat's row exists while the room is still being
-    // played, and answering "already processed" on it would throw away the real
-    // result for the seats that stayed (the case this pass exists to fix).
-    // `@@unique([user_id, game_id])` is the half that cannot race : see the P2002
-    // catch around the transaction below.
+    // Idempotency guard for an engine retry: only a COMPLETED row counts, because an
+    // abandoned row may exist while the room is still live. The unique pair catches the
+    // race; see the P2002 handling around the transaction.
     const completed = await this.prisma.db.matchHistory.findFirst({
       where: { game_id: gameId, status: 'COMPLETED' },
       select: { id: true },
@@ -344,6 +103,9 @@ export class MatchPostgameService {
     if (completed) return { message: 'Game already processed', gameId };
 
     const matchData = await this.redis.hgetall(`match:${gameId}`);
+    // The hash outlives this method, so read the seat colours once and let every row's
+    // transcript projection stamp from the same map.
+    const seatColors = seatColorsByUserId(matchData);
 
     // R21: /end is a completion pass, never an early close. A room is over when the
     // engine declared a winner (`state.status === 'finished'`) or when it closed the
@@ -616,7 +378,7 @@ export class MatchPostgameService {
               participants: snapshot,
               // The seat's own transcript (M3): the room's lines cut at the ledger, so a
               // row never carries a line this player was not shown.
-              ...chatColumns(chat, blocks, p.userId),
+              ...chatColumns(chat, blocks, p.userId, seatColors),
             },
           });
 
@@ -676,198 +438,6 @@ export class MatchPostgameService {
     // The room is gone from both lists.
     await publishRoomsChanged(this.redis);
     return { message: 'Game processed', gameId };
-  }
-
-  // One seat left a room before anybody won: write that seat's row and nothing else.
-  // Called by the engine at the departure itself (a room above quorum keeps playing
-  // without it) and once per human seat by a room that loses quorum. What separates
-  // this from /end is the guard: a seat that is still playing cannot be recorded, and
-  // a room that never started has nothing to record. The route never deletes
-  // `match:${id}`: the room may still be live for the others.
-  async recordAbandonedSeat(gameId: string, seat: SeatAbandonPayload) {
-    if (!gameId) {
-      throw new BadRequestException({
-        code: 'MATCH_ABANDON_GAME_ID_REQUIRED',
-        message: 'gameId is required',
-      });
-    }
-    const userId = typeof seat?.userId === 'string' ? seat.userId : '';
-    const color = typeof seat?.color === 'string' ? seat.color.toUpperCase() : '';
-    if (!userId || !color) {
-      throw new BadRequestException({
-        code: 'MATCH_ABANDON_SEAT_REQUIRED',
-        message: 'a seat needs a user and a colour',
-      });
-    }
-
-    // The hash is the room: it carries the start stamp, the rules and the seats, so a
-    // hash that is gone leaves nothing to describe. A departure only reaches the
-    // backend while its room still has one (a teardown marks the hash before it posts).
-    const matchData = await this.redis.hgetall(`match:${gameId}`);
-    if (!matchData.id) {
-      throw new NotFoundException({
-        code: 'MATCH_GAME_NOT_FOUND',
-        message: 'Game not found',
-      });
-    }
-
-    // The guard, in one read of the engine's own state: the seat must be terminal
-    // (`exited`/`inactive`), or the engine must have closed the room. A seat that is
-    // still playing is refused on purpose: a 3-of-4 abort must not write a row for the
-    // players still on the board, whose rows arrive with the report that ends the room.
-    const engineState = await readEngineState(this.redis, gameId);
-    const seatStatus = engineState?.players?.find(
-      (p) => (p.color ?? '').toUpperCase() === color,
-    )?.status;
-    const roomOver = ENDED_MATCH_STATUSES.includes(matchData.status ?? '');
-    if (seatStatus !== 'exited' && seatStatus !== 'inactive' && !roomOver) {
-      throw new ConflictException({
-        code: 'MATCH_ABANDON_SEAT_ACTIVE',
-        message: 'that seat is still playing',
-      });
-    }
-    // A waiting room is a room, not a match: a participant who aborts one frees a
-    // corner and leaves no record behind. The start stamp is what says so.
-    if (!matchData.startedAt) {
-      throw new BadRequestException({
-        code: 'MATCH_ABANDON_NEVER_STARTED',
-        message: 'the game never started',
-      });
-    }
-
-    // Idempotency: a seat holds at most one row per game (`@@unique([user_id, game_id])`),
-    // so a redelivered departure answers with the row it already wrote.
-    const existing = await this.prisma.db.matchHistory.findFirst({
-      where: { user_id: userId, game_id: gameId },
-      select: { status: true },
-    });
-    if (existing) return { message: 'Seat already recorded', gameId };
-
-    const startMs = parseInt(matchData.startedAt, 10);
-    const playedAt = new Date(Number.isFinite(startMs) ? startMs : Date.now());
-    // The row ends where the seat did: the engine stamps the departure, so a row
-    // written at minute five says five minutes rather than the length of the game.
-    const capturedMs =
-      typeof seat.capturedAt === 'number' && Number.isFinite(seat.capturedAt)
-        ? seat.capturedAt
-        : Date.now();
-    const durationMs = Math.max(0, capturedMs - playedAt.getTime());
-    const gameType = (matchData.gameType || 'PVP') as 'PVP' | 'PVE';
-    const playerCount =
-      SLOT_COLORS.filter((_, index) => Boolean(matchData[`player${index + 1}_color`])).length || 1;
-    const gameModes = { ...readRoomRules(matchData), playerCount };
-
-    // The row's company line, built from the hash: every seat of the room, with the
-    // abandoning seat placed last (its `rank` is the player count, never a podium) and
-    // flagged abandoned. The others are unranked here, because they have not placed.
-    const seatUserIds = SLOT_COLORS.map(
-      (_, index) => matchData[`player${index + 1}_id`] ?? '',
-    ).filter((id) => id !== '');
-    const accounts = await this.prisma.db.user.findMany({
-      where: { id: { in: seatUserIds } },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        avatarStyle: true,
-        avatarPhotoContentType: true,
-      },
-    });
-    const accountById = new Map(
-      accounts.map((user) => [
-        user.id,
-        {
-          username: user.username,
-          displayName: user.displayName,
-          avatarStyle: user.avatarStyle,
-          hasAvatarPhoto: user.avatarPhotoContentType !== null,
-        },
-      ]),
-    );
-    if (!accountById.has(userId)) {
-      throw new BadRequestException({
-        code: 'MATCH_ABANDON_NO_ACCOUNT',
-        message: 'no account holds that seat',
-      });
-    }
-    const rank = Number.isFinite(seat.rank) && seat.rank > 0 ? seat.rank : playerCount;
-    const snapshot = seatSnapshot(
-      matchData,
-      new Map([[color, rank]]),
-      accountById,
-      new Set([color]),
-    );
-
-    try {
-      await this.prisma.db.$transaction(async (tx) => {
-        await tx.matchHistory.create({
-          data: {
-            user_id: userId,
-            game_id: gameId,
-            playedAt,
-            durationMs,
-            gameType,
-            gameModes,
-            color: color as 'RED' | 'GREEN' | 'YELLOW' | 'BLUE',
-            rank,
-            status: 'ABANDONED',
-            // No rating, no counter, no leaderboard: the row is the record, and the
-            // career row is a completed match's alone.
-            ratingDelta: 0,
-            totalTurns: seat.totalTurns ?? 0,
-            totalCaptures: seat.piecesCaptured ?? 0,
-            piecesInGoal: seat.piecesInGoal ?? 0,
-            piecesLost: seat.piecesLost ?? 0,
-            threeSixes: seat.threeSixes ?? 0,
-            clashAttacksWon: seat.clashAttacksWon ?? 0,
-            clashDefendsWon: seat.clashDefendsWon ?? 0,
-            clashAttacksLost: seat.clashAttacksLost ?? 0,
-            clashDefendsLost: seat.clashDefendsLost ?? 0,
-            clashWallBattlesWon: seat.clashWallBattlesWon ?? 0,
-            clashWallsAttacked: seat.clashWallsAttacked ?? 0,
-            clashWallsDefended: seat.clashWallsDefended ?? 0,
-            participants: snapshot,
-            // What this seat was shown of the room, up to the moment it left (M3).
-            ...chatColumns(seat.chat, seat.blocks, userId),
-          },
-        });
-
-        // The same 50-row window as a completed match, in the same transaction: the
-        // trim cannot tell the two apart, and it must not.
-        const cutoff = await tx.matchHistory.findMany({
-          where: { user_id: userId },
-          orderBy: { playedAt: 'desc' },
-          skip: HISTORY_TRIM - 1,
-          take: 1,
-          select: { playedAt: true },
-        });
-        if (cutoff.length > 0) {
-          await tx.matchHistory.deleteMany({
-            where: { user_id: userId, playedAt: { lt: cutoff[0].playedAt } },
-          });
-        }
-      });
-    } catch (err) {
-      // A concurrent delivery of the same departure: the unique index is the guard,
-      // and the loser answers like it always did.
-      if (isUniqueViolation(err)) return { message: 'Seat already recorded', gameId };
-      throw err;
-    }
-
-    // The bell for the seat that left says it left, never that it finished what it
-    // did not. Best effort: a bell must not fail a row that is already written.
-    await this.notifications
-      .notify(userId, 'match_abandoned', {
-        gameId,
-        mode: gameType.toLowerCase(),
-        playerCount,
-        color,
-      })
-      .catch((err) => {
-        console.warn(`Abandoned-match notification failed for ${userId} in ${gameId}:`, err);
-      });
-
-    return { message: 'Seat recorded', gameId };
   }
 
   // Notify each human participant that the match concluded, with their own rank.

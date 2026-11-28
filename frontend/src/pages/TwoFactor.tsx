@@ -16,9 +16,7 @@ import {
 } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
-/**
- * Second login factor: ?token=<pendingToken> from password login or OAuth callback.
- */
+// Second login factor: ?token=<pendingToken> from password login or OAuth callback.
 export function TwoFactor() {
   const { t } = useTranslation();
   const { verify2fa, resend2fa } = useApp();

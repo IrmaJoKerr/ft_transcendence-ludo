@@ -30,7 +30,7 @@ export function NotificationBell({
   onMarkAllRead: () => void;
   placement?: 'bottom-right' | 'right';
   fullWidth?: boolean;
-  /** Icon-only trigger (no text pill): used by RetroNavbar's collapsed sidebar rail. */
+    // Icon-only trigger (no text pill): used by RetroNavbar's collapsed sidebar rail.
   compact?: boolean;
   containerStyle?: CSSProperties;
   buttonStyle?: CSSProperties;

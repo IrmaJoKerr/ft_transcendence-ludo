@@ -1,14 +1,6 @@
-// A bot seat's personality: four numbers rolled once when the room is created and
-// written into the match hash beside `player<N>_isBot`. The engine reads them back
-// verbatim, the decision (`bot.ts`) from the seat for its wall-break appetite and the
-// clash engine (`clash-engine.ts`) from the seat for its pace, so nothing recomputes
-// them in play and the same room behaves the same way twice.
-//
-// The generator is mulberry32, the same arithmetic as the engine's `rng.ts`. It is
-// repeated here rather than shared because the two trees have separate build roots
-// and no import path between them, which is the same reason `room-rules.ts` carries
-// its own copy of the rule clamp; unlike that clamp, nothing has to agree value for
-// value across the two copies, because only this one ever rolls.
+// A bot seat's four numbers, rolled once at room creation and stored in the match hash.
+// The engine reads them verbatim for decisions and clash pace, so play is deterministic.
+// The local mulberry32 copy is needed because the backend and engine cannot share imports.
 const BOT_FAST_RATE_BASE = 25;
 const BOT_RISK_LAST_TOKEN_BASE = 30;
 const BOT_RISK_RESERVE_BASE = 60;

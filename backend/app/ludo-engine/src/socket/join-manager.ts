@@ -13,10 +13,8 @@ import type { PlayerColor, PlayerMeta } from '../types';
 // auto-fill bot seats (the seat order must match the original match).
 export const SLOT_COLORS: PlayerColor[] = ['blue', 'red', 'green', 'yellow'];
 
-// Whether a seat in the match hash is a bot. The hash says what the seat is
-// (`player<N>_isBot`, written by the backend beside the seat id), and that field
-// is the only answer: no reader infers the kind from the id's shape, so a seat
-// without the flag is a human seat even if its id looks like a bot.
+// Whether a match-hash seat is a bot. Read `player<N>_isBot`, written by the backend;
+// never infer the kind from the id, so a seat without the flag is human.
 function isBotMatchSeat(matchData: Record<string, string>, color: PlayerColor): boolean {
   const slot = SLOT_COLORS.indexOf(color) + 1;
   return matchData[`player${slot}_isBot`] === 'true';
@@ -99,8 +97,11 @@ export class JoinManager {
     // argument is only a fallback and cannot send the socket to another game.
     const effectiveGameId = socket.data.tokenGameId || socket.data.gameId || gameId;
     const effectiveUserId = socket.data.userId || userId;
-    const effectiveUsername = displayName || socket.data.username;
     const isHotseat = socket.data.mode === 'hotseat';
+    // An account seat's username is the immutable login name, never the editable
+    // display name. Hotseat drives several local seats from one socket and has no
+    // account per seat, so there the lobby label is the seat's identity.
+    const effectiveUsername = isHotseat ? displayName || socket.data.username : socket.data.username;
     const effectiveColor = (!isHotseat && socket.data.tokenColor) || playerColor;
 
     void this.withGameLock(effectiveGameId, async () => {

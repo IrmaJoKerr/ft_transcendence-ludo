@@ -1,7 +1,7 @@
 import type { RedisGameStore } from './redis';
 import type { EventPublisher } from './socket/event-publisher';
 import type { PlayerColor, ClashState, ChainRound, PieceId } from './types';
-import { createRng, pick, pickDistinct, randInt, seedFrom } from './rng';
+import { createRng, pick, randInt, seedFrom } from './rng';
 import type { Rng } from './rng';
 
 // One key grid per side, split so two players at one keyboard (hotseat) never
@@ -9,10 +9,8 @@ import type { Rng } from './rng';
 // the right-hand one.
 export const ATTACKER_KEYS = ['u', 'i', 'o', 'h', 'j', 'k', 'b', 'n', 'm'];
 export const DEFENDER_KEYS = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
-// The clash WINDOWS and the result card's four lengths live in `common/src/timing.constants.ts`
-// (`./__shared__/timing.constants` here) because the client counts the same ones; the rest of
-// the clash delays are the engine's. Both are re-exported from this module so the existing
-// imports (clash-engine, the socket layer, harnesses) keep their path.
+// Shared clash windows and card lengths are re-exported here so existing imports keep
+// their path. Engine-only clash delays stay in `timing.ts`.
 export {
   CLASH_ANNOUNCE_MS,
   CLASH_COUNTDOWN_MS,
@@ -55,14 +53,8 @@ import {
   CLASH_SWITCH_GAP_MAX_MS,
 } from './timing';
 export const CLASH_TARGET = 42; // the base presses to win the race (a key-shift room scales it)
-// The most one accepted press may be worth is `CLASH_TAP_COUNT`, shared with the
-// client so a pad tap and the clamp are the same number; the clamp in `recordPress`
-// keeps the wire from asking for more, so the ceiling stays 2x and no further.
-// Bot pacing draws: which profile a bot side runs at. The profile decides the
-// press count (38 fast, 33 casual, see clash-pace.ts), so these are the odds of
-// DRAWING the fast profile, not a handicap multiplier. Against a passive human
-// that is also the odds of winning the clash, which is what the bot's move
-// valuation (captureOdds in bot.ts) discounts by.
+// One press is capped by shared `CLASH_TAP_COUNT`; bot odds choose the pace profile,
+// not a handicap. Against a passive human, the same odds are the win chance.
 export const CLASH_BOT_FAST_VS_HUMAN = 0.25; // vs a human seat: 1 in 4 draws fast
 export const CLASH_BOT_FAST_VS_BOT = 0.5; // bot vs bot: coin flip decides who is fast
 
@@ -77,23 +69,109 @@ export function orderDefenderIds(pieceIds: PieceId[]): PieceId[] {
   return [...pieceIds].sort((a, b) => indexOf(a) - indexOf(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
-// Draw one side's schedule for a round: `count` DISTINCT letters from that side's
-// own nine-key pool, so a switch can never land on the letter already on screen.
-// `previousLast` is the letter the seat ended the previous round of a CHAIN on:
-// round n+1 must not open there, or the seam between two rounds would read as no
-// switch at all. The exclusion only applies when a spare letter remains, which the
-// nine-key pool always has at the three-letter ceiling.
-export function drawKeySchedule(
+function shuffleInPlace<T>(rng: Rng, list: T[]): T[] {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = randInt(rng, 0, i);
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
+function combinations<T>(list: readonly T[], take: number): T[][] {
+  if (take === 0) return [[]];
+  if (list.length < take) return [];
+  const [head, ...rest] = list;
+  const withHead = combinations(rest, take - 1).map((row) => [head, ...row]);
+  return [...withHead, ...combinations(rest, take)];
+}
+
+function permutations<T>(list: readonly T[]): T[][] {
+  if (list.length <= 1) return [[...list]];
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i++) {
+    const head = list[i];
+    const rest = [...list.slice(0, i), ...list.slice(i + 1)];
+    for (const tail of permutations(rest)) out.push([head, ...tail]);
+  }
+  return out;
+}
+
+// One side's ordered pads: four distinct pool letters, no letter shared with the
+// preceding pad, at most two of a letter in one position, and the accepted key on
+// its pad. Backtracking has a fixed budget and a shaped fallback.
+export function drawClashPads(
   rng: Rng,
   pool: readonly string[],
   count: number,
+  history: readonly string[][] = [],
   previousLast?: string,
-): string[] {
-  const want = Math.min(Math.max(1, Math.floor(count)), pool.length);
-  const openers =
-    previousLast && pool.length > want ? pool.filter((key) => key !== previousLast) : pool;
-  const first = pick(rng, openers);
-  return [first, ...pickDistinct(rng, pool.filter((key) => key !== first), want - 1)];
+): { pads: string[][]; keys: string[] } {
+  const want = Math.min(Math.max(1, Math.floor(count)), 3);
+  const historyLast = history.length > 0 ? history[history.length - 1] : undefined;
+  const previous = new Set(historyLast ?? (previousLast ? [previousLast] : []));
+
+  const candidatesFor = (
+    previousPad: ReadonlySet<string>,
+    counts: ReadonlyArray<Map<string, number>>,
+  ): string[][] => {
+    const available = pool.filter((key) => !previousPad.has(key));
+    const out: string[][] = [];
+    for (const subset of combinations(available, 4)) {
+      for (const order of permutations(subset)) {
+        if (order.every((key, position) => (counts[position]?.get(key) ?? 0) < 2)) {
+          out.push(order);
+        }
+      }
+    }
+    return out;
+  };
+
+  let visited = 0;
+  const search = (
+    index: number,
+    previousPad: ReadonlySet<string>,
+    counts: ReadonlyArray<Map<string, number>>,
+  ): string[][] | null => {
+    if (index === want) return [];
+    if (visited > 20_000) return null;
+    const candidates = shuffleInPlace(rng, candidatesFor(previousPad, counts));
+    for (const pad of candidates) {
+      visited += 1;
+      const nextCounts = counts.map((byKey) => new Map(byKey));
+      pad.forEach((key, position) => {
+        nextCounts[position].set(key, (nextCounts[position].get(key) ?? 0) + 1);
+      });
+      const rest = search(index + 1, new Set(pad), nextCounts);
+      if (rest) return [pad, ...rest];
+    }
+    return null;
+  };
+
+  let pads: string[][] | null = null;
+  for (let walk = 0; walk < 32 && !pads; walk++) {
+    visited = 0;
+    pads = search(0, previous, Array.from({ length: 4 }, () => new Map<string, number>()));
+  }
+
+  if (!pads) {
+    // A corrupt or over-full injected history can exhaust the capped search. Keep
+    // the two hard shapes (four distinct pool letters, adjacent pads disjoint) and
+    // drop only the per-position cap so the clash still gets a package.
+    pads = [];
+    let previousPad = previous;
+    for (let index = 0; index < want; index++) {
+      const available = pool.filter((key) => !previousPad.has(key));
+      const pad = shuffleInPlace(rng, [...available]).slice(0, 4);
+      for (const key of pool) {
+        if (pad.length === 4) break;
+        if (!pad.includes(key) && !previousPad.has(key)) pad.push(key);
+      }
+      pads.push(pad);
+      previousPad = new Set(pad);
+    }
+  }
+
+  return { pads, keys: pads.map((pad) => pick(rng, pad)) };
 }
 
 // The switch instants, absolute on the engine clock: the first drawn from
@@ -139,11 +217,8 @@ export class ClashManager {
     private random: Rng = Math.random,
   ) {}
 
-  // Start a clash: draw one letter schedule per side, stamp absolute phase deadlines,
-  // persist them, then announce. `info` carries the chain counters and this round's
-  // defender; absent means one defender, the R = 1 case of the same shape.
-  // `rng` is the clash's generator when the caller owns one (ClashEngine does);
-  // on its own the manager seeds a fresh one from its entropy source.
+  // Draw schedules, stamp absolute deadlines, persist, then announce. `info` carries
+  // chain counters; absent means the single-defender case.
   async startClash(
     gameId: string,
     attacker: PlayerColor,
@@ -151,15 +226,29 @@ export class ClashManager {
     info?: ChainRound,
     rng: Rng = createRng(seedFrom(this.random)),
   ): Promise<void> {
-    // The room's mutator and the chain's seam both live in the game state, so they
-    // are read here rather than threaded through two more positional arguments from
-    // every caller. The engine's per-game lock covers this call, so the load cannot
-    // race a write, and a state that predates the mutator simply reads as 0.
+    // Mutator and chain seam come from state. The per-game lock makes the load safe;
+    // older state reads as no mutator.
     const state = await this.store.loadGameState(gameId);
     const shift = state?.clashKeyShift === 1 || state?.clashKeyShift === 2 ? state.clashKeyShift : 0;
     const previous = state?.pendingCapture?.lastKeys;
-    const attackerKeys = drawKeySchedule(rng, ATTACKER_KEYS, shift + 1, previous?.[attacker]);
-    const defenderKeys = drawKeySchedule(rng, DEFENDER_KEYS, shift + 1, previous?.[defender]);
+    const attackerDraw = drawClashPads(
+      rng,
+      ATTACKER_KEYS,
+      shift + 1,
+      state?.pendingCapture?.padHistory?.[attacker] ?? [],
+      previous?.[attacker],
+    );
+    const defenderDraw = drawClashPads(
+      rng,
+      DEFENDER_KEYS,
+      shift + 1,
+      state?.pendingCapture?.padHistory?.[defender] ?? [],
+      previous?.[defender],
+    );
+    const attackerKeys = attackerDraw.keys;
+    const defenderKeys = defenderDraw.keys;
+    const attackerPads = attackerDraw.pads;
+    const defenderPads = defenderDraw.pads;
     // The opening letter is also the legacy field, so an older client and the bot
     // pressers keep reading the round the way they always did.
     const attackerKey = attackerKeys[0];
@@ -167,10 +256,8 @@ export class ClashManager {
     const startedAt = Date.now();
     const countdownDeadline = startedAt + CLASH_ANNOUNCE_MS + CLASH_COUNTDOWN_MS;
     const switchAt = switchInstants(rng, countdownDeadline, shift);
-    // The key-shift mutator widens the race so presses-per-second holds at every
-    // shift, and the target scales with the window for the same reason: widening it
-    // under a fixed 42 would hand a shifted round to whoever presses fastest and make
-    // a two-shift room easier than a plain one. 42 / 5000, 55 / 6500, 67 / 8000.
+    // Each shift widens the window, so the target scales with it. A fixed target would
+    // make a shifted room easier: 42 / 5000, 55 / 6500, 67 / 8000.
     const pressMs = CLASH_PRESS_MS + CLASH_KEYSHIFT_EXTRA_MS * shift;
     const target = Math.round((CLASH_TARGET * pressMs) / CLASH_PRESS_MS);
     // The chain's seam for the next round: what this one ends on, per seat.
@@ -178,6 +265,14 @@ export class ClashManager {
       state.pendingCapture.lastKeys = {
         [attacker]: attackerKeys[attackerKeys.length - 1],
         [defender]: defenderKeys[defenderKeys.length - 1],
+      };
+      // The pad history is the chain's authoritative seam record. The per-position
+      // cap counts only this round's pads, so an earlier round is appended, never
+      // re-counted.
+      state.pendingCapture.padHistory = {
+        ...state.pendingCapture.padHistory,
+        [attacker]: [...(state.pendingCapture.padHistory?.[attacker] ?? []), ...attackerPads],
+        [defender]: [...(state.pendingCapture.padHistory?.[defender] ?? []), ...defenderPads],
       };
       await this.store.saveGameState(gameId, state);
     }
@@ -187,8 +282,11 @@ export class ClashManager {
       attackerKey,
       defenderKey,
       // Absent rather than empty when the mutator is off: a room that never turns it
-      // on carries the same record it always did.
+      // on carries the same schedule record it always did. The pads are always
+      // present, one entry per side, because the touch pad paints them at any shift.
       ...(shift > 0 ? { attackerKeys, defenderKeys, switchAt } : {}),
+      attackerPads,
+      defenderPads,
       target,
       duration: pressMs / 1000,
       startedAt,
@@ -210,6 +308,8 @@ export class ClashManager {
       defenderKey,
       attackerKeys,
       defenderKeys,
+      attackerPads,
+      defenderPads,
       switchAt,
       keyShift: shift,
       // Stamped once, so every client derives its offset from the same instant the
@@ -237,11 +337,8 @@ export class ClashManager {
     });
   }
 
-  // Record one press. Return meter 0 and store nothing when the press phase has not
-  // started, the deadline has passed, the key is not this player's or the press falls
-  // inside the per-side cap. Bots skip the key check. On success it also returns the
-  // round's `target`, so the caller can fire the instant win against the scaled
-  // threshold (42/55/67) instead of the base constant.
+  // Record one press. Invalid phase, expired deadline, wrong key or cap returns meter 0
+  // and stores nothing; bots skip the key check. Success also returns the scaled target.
   async recordPress(
     gameId: string,
     color: PlayerColor,
@@ -270,11 +367,8 @@ export class ClashManager {
       return { meter: 0, target: 0 };
     }
 
-    // Tablet tap weight: one tap counts as several presses because tapping is slower
-    // than holding a key. Clamp it here, on the server, to the shared `CLASH_TAP_COUNT`
-    // so the wire cannot ask for more than the pad sends. The clamp is finite-guarded
-    // and ROUNDS, so a NaN reads as 1 by intent (not an accident of `||`) and a
-    // fractional weight never truncates to 0.
+    // Tablet tap weight: clamp on the server to shared `CLASH_TAP_COUNT`. The finite
+    // guard and rounding make NaN read as 1 and keep a fraction from truncating to 0.
     const weight = Math.min(
       CLASH_TAP_COUNT,
       Math.max(1, Math.round(Number.isFinite(count) ? count : 1)),

@@ -2,22 +2,9 @@ import { useTranslation } from 'react-i18next';
 import { THEMES, useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 
-/**
- * The theme picker in the dock's account popover: one row per entry in `THEMES`,
- * painted as a two-tone chip of that theme's own token pair, with the active row
- * ringed in `--accent-cyan`, marked with a checked tick and carrying a 4 px inset
- * edge down its left side.
- *
- * It is a list of both themes rather than a "switch to the other one" button on
- * purpose: the row has to say what is on *and* what else exists, and a third theme
- * would arrive as a third row and no code. The chip's colours come from `THEMES`,
- * not from the live tokens, so the inactive row still shows the theme it offers
- * instead of repainting itself in the theme you are currently in.
- *
- * Writes through `setTheme`, which persists `retro_theme` and stamps both
- * `data-theme` attributes; every palette in the app reads those, so nothing here
- * sets a colour on a container.
- */
+// The theme picker in the dock's account popover: one row per `THEMES` entry, with a
+// two-tone chip from that theme's own swatch and a cyan inset edge when active. Writing
+// through `setTheme` persists `retro_theme` and updates both `data-theme` attributes.
 export function ThemeSwitcher() {
   const { t } = useTranslation();
   const { theme, setTheme } = useApp();
@@ -49,7 +36,7 @@ export function ThemeSwitcher() {
               aria-pressed={isActive}
               title={item.label}
               onClick={() => {
-                retroAudio.playUiBeep(item.id === 'retro70' ? 660 : 880, 0.05);
+                retroAudio.playUiBeep(item.beepHz, 0.05);
                 setTheme(item.id);
               }}
               style={{

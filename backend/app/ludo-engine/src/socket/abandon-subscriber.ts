@@ -4,15 +4,9 @@ import type { RedisGameStore } from '../redis';
 import type { PlayerColor } from '../types';
 import { SLOT_COLORS } from './join-manager';
 
-// The backend publishes `match:abandon { gameId, userId }` when an account signs
-// out while seated in a live game (D7). The backend cannot perform the departure
-// itself: parking the seat, advancing the turn and emitting `player_exited` is
-// departSeat, and in a 3-4 player room the seat must go while the room lives on. So
-// this subscriber hands the room to the engine, which departs the seat under the
-// game lock its grace replay already takes.
-//
-// The channel name is duplicated from backend/src/common/channels.ts: the engine is
-// a separate build with no import path into the backend.
+// Backend publishes `match:abandon` when a signed-in seat leaves a live game. The
+// engine owns departure, so it calls `departSeat` under the game lock. The channel
+// name is duplicated because the engine cannot import from the backend.
 export const MATCH_ABANDON_CHANNEL = 'match:abandon';
 
 interface AbandonMessage {

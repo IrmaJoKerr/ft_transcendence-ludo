@@ -43,13 +43,9 @@ export class BlockStateService {
     return targetBlocked ? 'target-blocked-viewer' : 'none';
   }
 
-  // Defence in depth for the collateral reads (games, achievements, friends):
-  // 403 USER_BLOCKED, so a deep link or curl cannot render what the UI hides.
-  //
-  // Its own code, not FRIEND_BLOCKED: that one is the request path's refusal and
-  // reads "cannot send request", which is the wrong sentence on a profile. This one
-  // says only what the caller can see for themselves — a block exists between the
-  // two accounts — and never which side placed it.
+  // Defence in depth for reads: 403 USER_BLOCKED stops a deep link or curl from
+  // rendering what the UI hides. It is separate from FRIEND_BLOCKED, which belongs to
+  // the request path, and never reveals which side placed the block.
   async assertUnblocked(viewerId: string, targetId: string): Promise<void> {
     if ((await this.between(viewerId, targetId)) !== 'none') {
       throw new ForbiddenException({

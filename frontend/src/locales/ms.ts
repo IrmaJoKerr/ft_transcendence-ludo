@@ -355,7 +355,7 @@ export const ms = {
     transcriptLabel: 'LOG KOM:',
     transcriptNa: 'N/A',
     transcriptShow: 'TUNJUK LOG KOM ({{count}})',
-    transcriptHide: 'SEMBUNYI LOG KOM',
+    transcriptTitle: 'LOG KOM ({{count}})',
     transcriptTruncated: 'LOG KOM DIPOTONG',
     friendsBoxTitle: 'KAWAN ({{count}})',
     manageBtn: 'URUS ↗',
@@ -386,7 +386,6 @@ export const ms = {
     pickColorTitle: '// PILIH WARNA SKUAD ANDA //',
     noFreeColors: 'Tiada lagi warna tersedia dalam bilik ini',
     turnOrderByColor: 'Susunan giliran mengikut warna',
-    cancelPick: 'Batal',
     createFailed: 'Gagal mencipta perlawanan',
     activeGameLockError: 'Anda sudah mempunyai permainan aktif. Keluar dahulu sebelum memulakan yang baharu',
     activeGameLockLabel: '// HABISKAN ATAU KELUAR PERMAINAN AKTIF //',
@@ -622,18 +621,18 @@ export const ms = {
     reconLogsTitle: '// LOG PENINJAUAN',
     noReconLogged: 'TIADA TELEMETRI DIREKODKAN',
     // Peraturan bilik: tiga suis hos. `noSafeZones` ialah bendera TERBALIK, dan
-    // label menamakan varian hardcore, bukan penafiannya, jadi polariti itu
-    // tidak pernah ditunjukkan kepada pemain.
+    // label menyatakan peraturannya secara langsung, bukan penafiannya, jadi
+    // polariti itu tidak pernah ditunjukkan kepada pemain.
     rulesControl: '// PERATURAN BILIK',
     hostOnlyRules: 'Hanya hos boleh menukarnya semasa bilik masih menunggu.',
     clashMode: 'Mod Clash',
     clashModeDesc: 'Menangi perlumbaan huruf apabila diserang untuk kekal di petak',
     noSafeZones: 'Tanpa Zon Selamat',
-    noSafeZonesDesc: 'Petak bintang tidak lagi melindungi (hardcore)',
+    noSafeZonesDesc: 'Tiada zon selamat.',
     freeExit: 'Keluar Bebas',
     freeExitDesc: 'Sebarang guling membebaskan penjara, bukan hanya 6',
-    captureFx: 'Animasi Serangan',
-    captureFxDesc: 'Mainkan animasi serangan apabila anda menangkap buah',
+    captureFx: 'Animasi Permainan',
+    captureFxDesc: 'Mainkan sinematik serangan, pertarungan dan gol',
     // Mutator pertukaran huruf. "Huruf", bukan "kekunci": pada tablet memang tiada
     // kekunci dan pad memaparkan huruf.
     clashKeyShift: 'Lompatan Multi-Spektrum Clash',
@@ -955,11 +954,9 @@ export const ms = {
     chainBadgeTitle: 'Tembok {{rounds}}: serangan ini {{rounds}} pusingan clash',
     chainPricedBadgeTitle:
       'Tembok {{rounds}}: serangan ini memecahkannya, menelan satu token dan {{rounds}} pusingan clash',
-    // Tip alat Pemecah Tembok: token yang masih dipegang skuad ini (titik di
-    // sebelah label sel) dan tanda 🔓 pada buah yang satu-satunya langkah sah
-    // ialah keluar berpembayaran token.
-    wallBreakerTokensTitle:
-      'Pemecah Tembok ×{{count}}: menggunakannya membeli pendaratan keluar penjara pada tembok yang dicapai tepat oleh gulingan',
+    // Tip alat Pemecah Tembok: tanda 🔓 pada buah yang satu-satunya langkah sah
+    // ialah keluar berpembayaran token. Lajur token roster ialah satu-satunya
+    // paparan baki token.
     armedBadgeTitle: 'Pemecah Tembok: keluar ini menelan satu token',
   },
   gameExtra: {
@@ -983,7 +980,7 @@ export const ms = {
     rulesModalTitle: 'PROTOKOL & PERATURAN ARENA',
     rulesVersionTag: 'PERATURAN.v42.SYS',
     nextPageBtn: 'HALAMAN SETERUSNYA ▶',
-    startPlayingBtn: 'MULA BERMAIN',
+    backToFirstPageBtn: 'KEMBALI KE HALAMAN PERTAMA',
     rulesTab0: '1. MATLAMAT',
     rulesTab1: '2. GULING 6',
     rulesTab2: '3. MUSUH',
@@ -1013,7 +1010,7 @@ export const ms = {
     rulesPage5Line1: 'Anda selamat sebaik sahaja tiba di lorong warna anda. Lawan tidak boleh memasuki lorong rumah anda!',
     rulesPage5Line2: 'Cuma sampai ke tengah! (jika anda dapat langkah yang tepat!)',
     rulesTab6: '7. CLASH',
-    rulesTab7: '8. HARDCORE',
+    rulesTab7: '8. TANPA ZON SELAMAT',
     rulesTab8: '9. KELUAR BEBAS',
     rulesTab9: '10. PEMECAH TEMBOK',
     rulesPage6Header: '// MOD CLASH',
@@ -1030,7 +1027,7 @@ export const ms = {
       'Pada tablet anda mengetik bulatan yang memegang huruf anda, bukan menekannya: pertahanan guna Q,W,E,A,S,D,Z,X,C dan penyerang guna U,I,O,H,J,K,B,N,M.',
     rulesPage6KeyShift:
       'Hos juga boleh menghidupkan Lompatan Multi-Spektrum Clash: huruf yang perlu ditekan bertukar sekali atau dua kali semasa perlumbaan. Amaran berkelip sebelum setiap pertukaran dan pad mengocok semula hurufnya, jadi terus membaca — ibu jari yang kekal pada huruf lama hanya mengisi bar sehingga pertukaran itu.',
-    rulesPage7Header: '// TANPA ZON SELAMAT (HARDCORE)',
+    rulesPage7Header: '// TANPA ZON SELAMAT',
     rulesPage7Title: '💀 Tiada tempat bersembunyi',
     rulesPage7Body:
       'Lapan petak bintang tidak lagi melindungi, jadi buah boleh ditangkap di mana-mana di laluan — termasuk petak permulaan anda sendiri. Hanya lorong rumah masih melindungi anda.',

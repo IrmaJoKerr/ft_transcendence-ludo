@@ -15,9 +15,7 @@ const SR_ONLY = {
   border: 0,
 } as const;
 
-/**
- * "i" badge that reveals the localised password policy on password-create fields.
- */
+// "i" badge that reveals the localised password policy on password-create fields.
 export function PasswordInfo() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -46,7 +44,6 @@ export function PasswordInfo() {
           border: '1px solid rgb(var(--accent-cyan-rgb) / 0.55)',
           color: 'rgb(var(--accent-cyan-rgb) / 0.85)',
           cursor: 'help',
-          outline: 'none',
         }}
       >
         <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true" focusable="false">

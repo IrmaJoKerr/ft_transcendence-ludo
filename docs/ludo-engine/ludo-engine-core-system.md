@@ -164,7 +164,7 @@ not freeze anything — play continues, and the wait only lands when the turn re
 render a "waiting to reconnect" banner immediately. PvE and hotseat never pause: they are
 single-instance games with one human and no remote opponent, so the only two states are *running*
 and *aborted* — their disconnect still arms a single-instance window (an hour for a PvE simulation,
-the live 45 s for hotseat, which writes no match row and holds no seat worth an hour), and expiry
+5 s for hotseat, which writes no match row and holds no seat worth an hour), and expiry
 closes the room. The pause is cleared in three places: `restoreSeatOnReconnect` (seat restored, same turn
 resumes with its pending dice/moves), `departSeat` (seat pruned, turn advances to the next playable
 seat), and the re-arm check in `join-manager` (defensive, owner-only). While paused, `rollDice`,
@@ -486,12 +486,12 @@ keeps a state written before the field existed reading as 0.
 
 **Bot pressers.** A bot side is given a PACE PROFILE, and the profile is the contract: it fixes the press
 count (the fast profile presses 38 times, the casual one 33) AND the reaction pause in front of them, both
-counted from the press window's opening. The pause is a CONSTANT per profile, never drawn: 200 ms for the
-fast profile, which is recognition plus muscle memory (just above the 100–150 ms touch-typist band in the
-studies), and 600 ms for the casual one, which pays choice reaction time, decoding the symbol and picking the
-finger (400–600 ms). Both sit at or above the top of their band since 2026-11-09 (`todo.md` 4.7) because the
-QTE's letters now change mid-round: nobody in the room reads a key they already know, so the recognition half
-of the touch-typist band is no longer free. A bot that eats such a switch also pays the re-read a human pays,
+counted from the press window's opening. The pause is a CONSTANT per profile, never drawn: 400 ms for the
+fast profile, which is recognition plus muscle memory, and 700 ms for the casual one, which pays choice reaction
+time, decoding the symbol and picking the finger, plus the margin a mid-round re-read needs. Both are deliberately
+slower than the raw 100–150 ms and 400–600 ms bands in the studies because the QTE's letters now change mid-round
+(`todo.md` 4.7): nobody in the room reads a key they already know, so the recognition half of the touch-typist
+band is no longer free. A bot that eats such a switch also pays the re-read a human pays,
 `CLASH_BOT_REREAD_MS` (150 ms) per switch, carried where the switch lands rather than in front of the whole
 schedule, and paid out of the extension the key-shift mutator already granted the window
 (`CLASH_KEYSHIFT_EXTRA_MS` 1500 per switch), which the fit never spent. The hesitation IS the profile, so a
@@ -500,11 +500,10 @@ owns the rest of the shape — the opening mash ramp (×1.25, ×1.15, ×1.07 on 
 `0..CLASH_BOT_JITTER_MS` on every gap, one casual-only stumble (p = 0.03, +150..250 ms), with the jitter
 being the ONLY draw left: it is the mash tempo, not the reaction — and then FITS the whole schedule into the
 5 s window: if the drawn jitter would run past `CLASH_PRESS_MS`, the jitter is scaled down, never the base
-(`CLASH_BOT_FAST_MS_BASE` 111, `CLASH_BOT_CASUAL_MS_BASE` 129) and never the count, so the last press is
+(`CLASH_BOT_FAST_MS_BASE` 128, `CLASH_BOT_CASUAL_MS_BASE` 135) and never the count, so the last press is
 always the nth one and lands ~100 ms before the deadline. The casual pause is the expensive half of that
-budget (600 ms of the window is hesitation, leaving ~110 ms of jitter room for its 32 gaps), so the fit
-compresses casual jitter almost to a metronome — and clips the stumble with it — while the fast profile keeps
-nearly all of its ~540 ms of room against ~555 ms drawn. The fast base sits
+budget (700 ms of the window is hesitation), so the fit compresses casual jitter almost to a metronome — and
+clips the stumble with it — while the fast profile keeps most of its own room. The fast base sits
 just above `CLASH_PRESS_CAP_MS` because bots reach the store directly; a base under the cap would silently
 lose presses the day they are routed through the capped path. 38 is still below `CLASH_TARGET` (42), so a
 fast bot cannot knock a side out early: it can only win the comparison at the deadline. Which side runs fast

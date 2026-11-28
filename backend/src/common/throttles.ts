@@ -27,7 +27,6 @@ export const AUTH_THROTTLE = {
   resendEmailChange: { default: { limit: 5, ttl: HOUR } },
   changePassword: { default: { limit: 5, ttl: HOUR } },
   deleteAccount: { default: { limit: 5, ttl: HOUR } },
-  setTwoFactor: { default: { limit: 10, ttl: HOUR } },
 } satisfies RouteLimits;
 
 // friends.controller.ts : requests, blocks and game invitations.

@@ -1,11 +1,6 @@
-// Bot pacing for the clash QTE: the PRESS TARGET is the contract, the interval
-// is derived. A bot side is asked for 38 presses (fast) or 33 (casual) and the
-// schedule is fitted into the press window, so the count holds for every draw
-// instead of falling out of a chosen millisecond base. What is fixed and what is
-// drawn is deliberate: the reaction pause and the base interval are CONSTANTS per
-// profile, so the profile is the hesitation, while the jitter on the gaps is the
-// only randomness left — the tempo of the mashing. Everything here is pure: the
-// engine schedules what this returns, the harness asserts it directly.
+// Bot pacing for the clash QTE: the press target is fixed and the interval is fitted to
+// the window. Reaction and base are per-profile constants; only gap jitter is drawn.
+// The function is pure, so the engine schedules its output and the harness asserts it.
 import {
   CLASH_BOT_CASUAL_MS_BASE,
   CLASH_BOT_CASUAL_REACTION_MS,
@@ -28,10 +23,8 @@ export interface BotPace {
   reactionMs: number;
 }
 
-// The user-facing contract (2026-10-29): 38 and 33 presses, counted INCLUDING
-// the reaction pause. A 38-press bot cannot reach CLASH_TARGET (42), so the fast
-// profile can only win the comparison at the deadline, never knock the other
-// side out early.
+// Press targets include the reaction pause. Fast (38) cannot reach the 42-press target,
+// so it can only win at the deadline, never end the round early.
 export const CLASH_BOT_PRESS_TARGETS: Record<BotPaceKind, number> = {
   fast: 38,
   casual: 33,
@@ -46,25 +39,17 @@ const CLASH_BOT_RAMP = [1.25, 1.15, 1.07] as const;
 // deadline) reads the meters.
 const CLASH_BOT_TAIL_GUARD_MS = 100;
 
-// The reaction pause, one constant per profile: how long a side needs to see its
-// letter and get a finger onto it. Fast is recognition plus muscle memory (200 ms,
-// just above the touch-typist band); casual pays choice reaction time, decoding the
-// letter and picking the finger (600 ms, the top of the 400..600 band). Deliberately
-// NOT jittered, and the same for every round: the hesitation is the profile, so a
-// fast bot always opens at the same moment and the only variation left in a schedule
-// is the mash tempo. Both numbers widened on 2026-11-09 (4.7) because the letters
-// change mid-round: see `CLASH_BOT_REREAD_MS` for the switch's own charge.
+// Fixed reaction pause per profile, never jittered: 400 ms for fast recognition and
+// muscle memory, 700 ms for casual choice reaction. Mid-round switches add
+// `CLASH_BOT_REREAD_MS`.
 export const CLASH_BOT_REACTION_MS: Record<BotPaceKind, number> = {
   fast: CLASH_BOT_FAST_REACTION_MS,
   casual: CLASH_BOT_CASUAL_REACTION_MS,
 };
 
-// What a mid-clash letter switch costs a bot, and what the window already pays for
-// it: the absolute instants the letters change, and the extension the key-shift
-// mutator granted the press window (`CLASH_KEYSHIFT_EXTRA_MS` per switch, already
-// added to the deadline and to the target). The schedule spends one
-// `CLASH_BOT_REREAD_MS` per switch out of that extension, so a bot pays the re-read
-// a human pays without a press ever leaving the window.
+// Mid-clash switch cost: the absolute switch instants plus the window extension the
+// key-shift mutator grants. Each switch spends one `CLASH_BOT_REREAD_MS` from that
+// extension, so the re-read never pushes a press outside the window.
 export interface BotSwitchCost {
   at: number[];
   extraMs: number;
@@ -80,26 +65,17 @@ export function botPace(kind: BotPaceKind): BotPace {
   return { kind, presses: CLASH_BOT_PRESS_TARGETS[kind], reactionMs: CLASH_BOT_REACTION_MS[kind] };
 }
 
-// Absolute press times for one bot side, `pace.presses` of them, all inside the
-// press window and all at least one base interval apart.
-//
-// The gap shape is the MASH TEMPO: `base x ramp` for the opening three gaps, then
-// `base`, with a uniform `0..CLASH_BOT_JITTER_MS` on every gap. The reaction pause
-// is a constant in front of it, not part of the draw. If the drawn gaps would run
-// past the window, the JITTER is scaled down (never the base and never the count),
-// so the last press is always the nth one, inside the window. `base` sits just
-// above CLASH_PRESS_CAP_MS, which is why the floor holds even though bots
-// currently reach the store directly.
+// Absolute press times for one bot side: ramp the first three gaps, then base plus
+// uniform jitter. If the draw overruns, only jitter is scaled down, so the count and
+// the minimum interval hold and the last press stays inside the window.
 export function botPressTimes(
   pace: BotPace,
   startAt: number,
   rng: Rng,
   switches?: BotSwitchCost,
 ): number[] {
-  // The window this schedule has to fit in: the plain press window plus whatever the
-  // key-shift mutator already paid for it. Absent `switches` — a plain room, or a bot
-  // schedule replayed from an older state — leaves it at exactly `CLASH_PRESS_MS`,
-  // which is today's behaviour to the millisecond.
+  // Fit window: the plain press window plus any key-shift extension. No switches keeps
+  // the exact `CLASH_PRESS_MS` behaviour.
   const windowMs = CLASH_PRESS_MS + Math.max(0, switches?.extraMs ?? 0);
   // Only the switches inside this window cost this side anything, and each one is a
   // re-read: the letter it was aiming at is gone.
@@ -127,13 +103,8 @@ export function botPressTimes(
   for (let i = 0; i < gaps; i++) jitter.push(randFloat(rng, 0, CLASH_BOT_JITTER_MS));
   if (stumbleAt >= 0) jitter[stumbleAt] += stumble;
 
-  // The fit: whatever the window has left after the base and the pauses is the
-  // jitter budget. The pauses are the bigger half of it — 200 ms fast, 600 ms casual,
-  // plus one 150 ms re-read per switch — so the room is ~540 ms for 37 gaps on fast
-  // and ~110 ms for 32 on casual, against ~555 and ~480 ms of drawn jitter: the fast
-  // schedule keeps almost all its spread and the casual one is compressed to about a
-  // quarter, which reads as a metronome. The gaps keep their variation; the mean
-  // lands on the interval the target needs, and neither the base nor the count moves.
+  // Jitter budget: whatever the window leaves after base and pauses. Only the draw is
+  // scaled; the mean interval, base and press count stay fixed.
   const pause = pace.reactionMs + CLASH_BOT_REREAD_MS * switchAt.length;
   const budget = windowMs - pause - CLASH_BOT_TAIL_GUARD_MS - baseTotal;
   const drawn = jitter.reduce((sum, j) => sum + j, 0);
@@ -145,11 +116,8 @@ export function botPressTimes(
     elapsed += base * (CLASH_BOT_RAMP[i] ?? 1) + jitter[i] * scale;
     times.push(startAt + elapsed);
   }
-  // Each press carries the re-reads paid before it, so the pause lands where the
-  // letters changed rather than in front of the whole schedule: the first press at or
-  // after a switch is 150 ms late, and nothing before it moves. The budget above
-  // already gave those milliseconds up, so the last press still lands one tail guard
-  // inside the window.
+  // Charge each re-read where the letter changed, not at the front of the schedule.
+  // The budget already reserved those milliseconds, so the last press still fits.
   if (switchAt.length === 0) return times;
   return times.map((t) => t + CLASH_BOT_REREAD_MS * switchAt.filter((at) => at <= t).length);
 }

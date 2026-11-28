@@ -1,18 +1,7 @@
 import type { Notification } from '../hooks/useNotifications';
 import { isOfferExpired, parseNotificationPayload } from './notificationParts';
 
-/**
- * Where a stored row sends the reader, or `null` when the row is a stamp (22.7).
- *
- * A router takes you where the state lives and clears whatever that page can
- * re-derive; a stamp is a receipt, it clears itself and goes nowhere. The string is
- * also the prune key: rows that share it are one family, so reading an achievement no
- * longer burns a match result, and a lobby offer stays one room because the code is in
- * the query.
- *
- * `display_name_changed` is absent on purpose: it is transient and never stored, so it
- * never becomes a row.
- */
+// Where a stored row sends the reader, or `null` when the row is a stamp (22.7).
 export function destinationFor(n: Notification): string | null {
   switch (n.type) {
     case 'friend_request':

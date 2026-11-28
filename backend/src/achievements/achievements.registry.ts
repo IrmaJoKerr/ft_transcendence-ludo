@@ -185,10 +185,8 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     perGameTarget: 2,
     perGameSource: (row) => row.clashAttacksWon,
   },
-  // The Wall Breaker: two clash chains won on a wall in one game
-  // (achTearDownThisWall). A wall stood 2 or more defenders, banked by an armed exit
-  // that crossed it and won, or a later landing on a 2-stack that did. Two are
-  // reachable in one clash-mode game.
+  // Wall Breaker: two clash chains won on a wall in one game. A wall is two or more
+  // defenders, won by an armed exit or a later landing on a 2-stack.
   {
     key: 'achTearDownThisWall',
     nameKey: 'dashboard.achTearDownThisWall',

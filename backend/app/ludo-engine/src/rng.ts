@@ -1,13 +1,5 @@
-// The engine's one randomness seam. Six call sites used to reach for
-// Math.random() directly: the die seed, the two clash keys, the two bot
-// pre-rolls and the bot press jitter. That made every one of them untestable
-// without pinning Math.random process-wide, which perturbs all six at once, and
-// it left the key schedule and the jitter with no way to be replayed.
-//
-// So randomness is drawn from a generator that is passed in, never from the
-// global: a test owns the stream, the die keeps its seed-then-one-draw shape,
-// and a clash carries one generator through its keys, its switch schedule and
-// its bot presses.
+// The engine's one randomness seam. Every draw takes a generator, so a test owns the
+// stream and a clash replays its keys, switches and bot presses from one seed.
 
 export type Rng = () => number;
 
@@ -48,10 +40,8 @@ export function pick<T>(rng: Rng, list: readonly T[]): T {
   return list[randInt(rng, 0, list.length - 1)];
 }
 
-// Picks without replacement (a Fisher-Yates prefix), for the one caller that
-// needs it: a key shift must not land on the letter already on screen. The
-// take is clamped, so asking for more than the list holds returns the list
-// rather than looping.
+// Pick without replacement (Fisher-Yates prefix), so a key shift never repeats the
+// letter on screen. The take is clamped to the list length.
 export function pickDistinct<T>(rng: Rng, list: readonly T[], n: number): T[] {
   const pool = [...list];
   const take = Math.min(Math.max(0, Math.floor(n)), pool.length);

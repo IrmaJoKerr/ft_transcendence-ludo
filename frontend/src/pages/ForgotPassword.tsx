@@ -16,9 +16,7 @@ import {
 } from '../styles/tw';
 import { retroAudio } from '../utils/audio';
 
-/**
- * Reset step 1: request a link; the confirmation is unconditional (no enumeration).
- */
+// Reset step 1: request a link; the confirmation is unconditional (no enumeration).
 export function ForgotPassword() {
   const { t } = useTranslation();
   const { forgotPassword } = useApp();

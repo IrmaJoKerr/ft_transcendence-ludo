@@ -78,7 +78,7 @@ validation and uploads.
 | `frontend/src/components/UserAvatar.tsx` | The render decision: photo vs generated avatar, the bot guard, the `?v=` stamp, the `onError` fallback, and the optional `onPhotoError` callback. |
 | `frontend/src/avatarCache.ts` | Client avatar state: live overrides (`{ has, style, v }`), a per-user attempt stamp, and the `broken` set. |
 | `frontend/src/hooks/useNotifications.tsx` | Applies the `avatar_changed` event to the store. |
-| `frontend/src/pages/Profile.tsx` | Sets the change locally on upload/delete, so the uploader's own view needs no socket frame; shows upload/reset errors and the `photoLoadError` warning in a message area with a fixed height. |
+| `frontend/src/pages/Profile/Profile.tsx` | Sets the change locally on upload/delete, so the uploader's own view needs no socket frame; shows upload/reset errors and the `photoLoadError` warning in a message area with a fixed height. |
 | every `<UserAvatar>` call site | Passes `userId` (and `isBot` where the seat can be a bot). |
 
 
@@ -476,8 +476,10 @@ Then in the browser, with DevTools open:
 - **The crop is a plain centre crop.** A subject off to one side can be cropped out of the square.
   Saliency-based cropping (`sharp`'s `attention`) was left out on purpose: on an animation it can pick
   a different region per frame and make the thumbnail jitter.
-- **`PlayerMeta.username` lags a rename.** Avatars use `userId` and do not depend on it, but other
-  checks that compare `playerMeta.username` with `user?.username` break after a rename. `displayName`
-  is the name the UI shows: the client prefers it over `username`, and a bot seat takes it from the
-  match (`bot-<color> (<assistant>)`). The results invoice resolves the viewer's own row by `userId`
-  first and falls back to the name only when a row carries no id, so it survives a rename.
+- **Seat identity is `userId`-first, and `PlayerMeta.username` is the account name.** The engine token carries the
+  immutable account `username` and the editable `displayName` separately, and `join-manager.ts` keeps the display name
+  out of `effectiveUsername` for account seats, so a rename cannot change who owns a seat. `displayName` remains the
+  shown label, and a hotseat local seat has no `userId` and keeps its local lobby label as its username. `Game.tsx`
+  resolves "is this me?" through one `isMySeat()` helper that compares `userId` first and falls back to the username
+  only for a legacy seat with no id ([todo.md 49.1](todo.md#rv49-identity)). The label is still a join-time snapshot
+  until a live rename path exists; identity is restored, not live propagation.

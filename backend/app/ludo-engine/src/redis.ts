@@ -2,7 +2,7 @@ import Redis from 'ioredis';
 import { createHash } from 'node:crypto';
 import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState, ChatLine } from './types';
 import { PIECES_PER_PLAYER } from './types';
-import { STARTING_WALL_BREAKER_TOKENS } from './__shared__/wall-breaker.constants';
+import { STARTING_WALL_BREAKER_TOKENS } from './__shared__/clash.constants';
 import {
   GAME_CHAT_MAX_LINES,
   GAME_CHAT_TTL_S,
@@ -56,6 +56,8 @@ function withWallBreakerDefaults(state: GameState): GameState {
     if (player.wallBreakerTokens === undefined) player.wallBreakerTokens = 0;
     const stats = player.stats;
     // Counters that arrived with the match-history row.
+    if (stats.clashDefendsWon === undefined) stats.clashDefendsWon = 0;
+    if (stats.clashAttacksWon === undefined) stats.clashAttacksWon = 0;
     if (stats.clashWallBattlesWon === undefined) stats.clashWallBattlesWon = 0;
     if (stats.threeSixes === undefined) stats.threeSixes = 0;
     if (stats.clashAttacksLost === undefined) stats.clashAttacksLost = 0;

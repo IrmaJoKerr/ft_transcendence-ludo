@@ -4,6 +4,7 @@ import { NavDock } from '../components/NavDock';
 import { PieceFigure } from '../components/PieceFigure';
 import { navigate } from '../router';
 import { useApp } from '../store';
+import { THEME_BY_ID } from '../styles/themes';
 import { BOARD_QUADRANTS, COL, COLOR_KEYS, type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
 import {
@@ -23,35 +24,14 @@ import {
   WINDOW_HEADER,
 } from '../styles/tw';
 
-/**
- * MEET THE SQUADS: four squads a decade, drawn in the colours they play.
- *
- * **One page per era, not one page with a toggle** (34, decision 21). The era is the
- * theme, so the page reads the store's `theme` and renders that decade's four squads:
- * a toggle here would be a second theme switcher in the app, and §33 spent a pass
- * removing the first one's duplicates.
- *
- * **The art is the live figure, not a still** (decision 23). `PieceFigure` renders
- * the same `<g>` content the board does, in the 100-unit box both sets are authored
- * in, at whatever size the card gives it — so the page costs no new asset, cannot
- * drift from the board's drawing, and needs no fetch. Only the front pose is shown.
- *
- * **The nicknames come from the art, not from a list** (decision 22): the 80s rows
- * are the four characters in `pieceParts80.ts` (`PUNK`, `NETRUNNER`, `BIKER`,
- * `CYBORG`), the 70s rows the four helmets in `pieceParts.ts` (`H2`, `H3`, `H4`,
- * `H1`). A page whose red squad were drawn in another colour's helmet would be a lie
- * about the board, so the mapping is the table's own.
- *
- * The colours run in `BOARD_QUADRANTS` order — red and green on the top row, blue and
- * yellow below — which is the corner picker's 2×2 and the board's own geometry.
- */
+// MEET THE SQUADS: four squads a decade, drawn in the colours they play.
 
-/** The colour word, then the colour's own separator, then the nickname
- *  (`RED — CREAM PLATE CREW`), the rule the board's prison labels already follow. The
- *  separator lives here rather than in the locale: it is punctuation, not a word. */
+// The colour word, then the colour's own separator, then the nickname
+//  (`RED — CREAM PLATE CREW`), the rule the board's prison labels already follow. The
+//  separator lives here rather than in the locale: it is punctuation, not a word.
 const NICK_SEPARATOR = ' — ';
 
-/** `red` -> `Red`: the locale keys are `nickRed70`/`bioRed80`, one per seat. */
+// `red` -> `Red`: the locale keys are `nickRed70`/`bioRed80`, one per seat.
 function seatKey(ck: ColorKey): string {
   return ck.charAt(0).toUpperCase() + ck.slice(1);
 }
@@ -59,9 +39,10 @@ function seatKey(ck: ColorKey): string {
 export function Squads() {
   const { t } = useTranslation();
   const { theme } = useApp();
+  const themeDef = THEME_BY_ID[theme];
   // The locale keys carry the decade as a suffix, because both decades' words ship
   // in every locale: `nickRed70` and `nickRed80` are two different crews.
-  const era = theme === 'retro70' ? '70' : '80';
+  const era = themeDef.era;
 
   // Read once at mount, like every other page: the CRT look is a page-level choice.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
@@ -113,7 +94,7 @@ export function Squads() {
                   fontWeight: 'bold',
                 }}
               >
-                {t(theme === 'retro70' ? 'squadsPage.era70' : 'squadsPage.era80')}
+                {t(`squadsPage.era${era}`)}
               </span>
             </div>
           </header>
@@ -155,14 +136,9 @@ export function Squads() {
               className={WINDOW_BODY}
               style={{
                 display: 'grid',
-                // Two columns, not "as many as fit" (34, item 2): the four squads sit in
-                // `BOARD_QUADRANTS` order, so a third column would put blue on the top row
-                // and leave yellow under red — the board's 2x2, read wrong. The floor is
-                // `max(320px, 45%)`: 320 is what a card's figure + nickname pair needs, and
-                // 45% is what keeps a third track from ever fitting (three of 45% plus two
-                // gaps is over 100%), so the deck is 2×2 from 660 px up and one column
-                // below, at 1440 and at 1920 alike. `min(100%, …)` is the phone guard: a
-                // container narrower than 320px must not push its card off the edge.
+                                // Two columns, not "as many as fit" (34, item 2): the four squads sit in `BOARD_QUADRANTS` order,
+                // so a third column would put blue on the top row and leave yellow under red — the board's 2x2,
+                // read wrong.
                 gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, max(320px, 45%)), 1fr))',
                 gap: 16,
                 padding: '16px 18px',
@@ -213,7 +189,7 @@ export function Squads() {
                           role="img"
                           aria-label={`${colour}${NICK_SEPARATOR}${nick}`}
                         >
-                          <PieceFigure ck={ck} set={theme} />
+                          <PieceFigure ck={ck} pieces={themeDef.pieces} />
                         </svg>
                       </span>
                       <h2

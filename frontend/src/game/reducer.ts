@@ -47,32 +47,30 @@ export type GameViewState = {
   status: GameState['status'];
   myColor: PlayerColor;
   readyPlayers: PlayerColor[];
-  /** True when the game is paused waiting for a disconnected player. */
+    // True when the game is paused waiting for a disconnected player.
   paused: boolean;
-  /** Whose turn the paused game is waiting on. Undefined when not paused. */
+    // Whose turn the paused game is waiting on. Undefined when not paused.
   pauseTurnOwner?: PlayerColor;
-  /** Live clash QTE. The overlay renders (and its keys listen) only while set. */
+    // Live clash QTE. The overlay renders (and its keys listen) only while set.
   clash: ClashState | null;
-  /** Set for the CLASH_RESULT card window; cleared by the overlay's onComplete. */
+    // Set for the CLASH_RESULT card window; cleared by the overlay's onComplete.
   clashResult: ClashResult | null;
-  /** Room rule: clash minigame on. */
+    // Room rule: clash minigame on.
   clashMode: boolean;
-  /** Room rule: how many times the required letter changes mid-clash (0, 1 or 2). */
+    // Room rule: how many times the required letter changes mid-clash (0, 1 or 2).
   clashKeyShift: 0 | 1 | 2;
-  /** Room rule, inverted: true is hardcore, i.e. star squares no longer protect. */
+    // Room rule, inverted: true is hardcore, i.e. star squares no longer protect.
   noSafeZones: boolean;
-  /** Any roll leaves prison instead of only a 6; false until the engine sends it. */
+    // Any roll leaves prison instead of only a 6; false until the engine sends it.
   freeExit: boolean;
-  /** Room rule: the attack animations (positive flag, independent of clash). */
+    // Room rule: the attack animations (positive flag, independent of clash).
   captureFx: boolean;
-  /** Engine timestamp until which the clash result card freezes input. */
+    // Engine timestamp until which the clash result card freezes input.
   resultCardUntil?: number;
-  /**
-   * When the room closes itself (engine ms), published by the room while a waiting
-   * room is below quorum. Undefined means no clock is running.
-   */
+    // When the room closes itself (engine ms), published by the room while a waiting
+  // room is below quorum. Undefined means no clock is running.
   closesAt?: number;
-  /** The account that hosts the room (from the roster frame), not a seat colour. */
+    // The account that hosts the room (from the roster frame), not a seat colour.
   hostId?: string;
 };
 
@@ -144,10 +142,9 @@ export function applyEvent(
         clash: s.clash
           ? {
               ...s.clash,
-              // The key-shift schedule rides the state, but its clock offset does not:
-              // only a `clash_start` frame carries `serverNow`. A rebuild of the SAME
-              // clash keeps the offset the frame gave it; a different clash starts at 0
-              // (the device clock), which is how every other deadline already reads.
+                            // The key-shift schedule rides the state, but its clock offset does not: only a `clash_start`
+              // frame carries `serverNow`. A rebuild of the SAME clash keeps the offset the frame gave it; a
+              // different clash starts at 0 (the device clock), which is how every other deadline already reads.
               serverOffset:
                 state.clash && state.clash.startedAt === s.clash.startedAt
                   ? (state.clash.serverOffset ?? 0)
@@ -236,10 +233,9 @@ export function applyEvent(
       return { ...state, status: 'active' };
     case 'dice_rolled': {
       const legalMoves = (event.legalMoves as LegalMove[] | undefined) ?? [];
-      // The frame names the seat that rolled. The engine advances the turn before
-      // emitting on a no-move roll or the third-six forfeit, so `event.currentTurn` is
-      // the NEXT seat; the roller has to come from the frame, never from a guess. The
-      // face lands on that seat so the roster's MiniDie matches the die on the table.
+            // The frame names the seat that rolled. The engine advances the turn before emitting on a no-move
+      // roll or the third-six forfeit, so `event.currentTurn` is the NEXT seat; the roller has to come
+      // from the frame, never from a guess.
       const roller = event.color as PlayerColor | undefined;
       return {
         ...state,
@@ -267,12 +263,9 @@ export function applyEvent(
       return { ...state, status: 'finished', winner: event.winner as PlayerColor };
     case 'clash_start': {
       const c = event as unknown as ClashPayload;
-      // Payloads may omit the press counts (bars start empty) and the target
-      // (the overlay then falls back to its own CLASH_TARGET constant). The
-      // chain's round fields pass straight through when the engine sends them, and so
-      // does the key-shift schedule. The clock offset is derived HERE, at receipt,
-      // because that is the only moment the frame's server stamp can be compared with
-      // this device's clock; every switch is then scheduled on the server clock.
+            // Payloads may omit the press counts (bars start empty) and the target (the overlay then falls
+      // back to its own CLASH_TARGET constant). The chain's round fields pass straight through when the
+      // engine sends them, and so does the key-shift schedule.
       return {
         ...state,
         clash: {
@@ -313,11 +306,8 @@ export function applyEvent(
           (event.resultCardUntil as number | null | undefined) ?? state.resultCardUntil,
       };
     case 'clash_card_released':
-      // The card keeps its own clock: the overlay's timer ends it at the card's own length
-      // (2700 on a pair, 3600 on a wall and 4000 on a breach — `clashCardMs` in
-      // game/timing.ts).
-      // The engine emits this a round trip into the card, so it only carries the
-      // shortened freeze; clearing here would hide the result before it is read.
+            // The card keeps its own clock: the overlay's timer ends it at the card's own length (2700 on a
+      // pair, 3600 on a wall and 4000 on a breach — `clashCardMs` in game/timing.ts).
       return {
         ...state,
         resultCardUntil: (event.resultCardUntil as number | undefined) ?? state.resultCardUntil,
@@ -381,10 +371,9 @@ export function applyEvent(
   }
 }
 
-// `held` is the seat the engine named as next on the frame. When it is there the
-// reducer takes it, because the engine has already applied the whole turn rule (the
-// rotation, the bonus roll, a forfeit, the win). The rotation walk below is only the
-// fallback for a frame from an engine built before the field existed.
+// `held` is the seat the engine named as next on the frame. When it is there the reducer takes it,
+// because the engine has already applied the whole turn rule (the rotation, the bonus roll, a
+// forfeit, the win).
 function applyMove(state: GameViewState, move: MoveResult, held?: PlayerColor): GameViewState {
   const pieces = state.pieces.map((p) => {
     // Captured-first precedence: a repelled clash sends the mover to prison instead of
@@ -416,13 +405,9 @@ function applyMove(state: GameViewState, move: MoveResult, held?: PlayerColor): 
   };
 }
 
-// Fallback only: taken when a `piece_moved` frame arrives without `currentTurn` (an
-// engine built before the field existed). Mirror of the engine's turn advance
-// (`player-handler.ts`): the next seat in COLOUR order takes the turn unless it has
-// left. Colour order, never players[] order: that array is seat order (the host's
-// corner first, then the free corners), so walking it names the wrong seat in any room
-// whose host is not blue. A disconnected seat with an open grace window holds the
-// turn, so the walk must not skip past it.
+// Fallback only: taken when a `piece_moved` frame arrives without `currentTurn` (an engine built
+// before the field existed). Mirror of the engine's turn advance (`player-handler.ts`): the next
+// seat in COLOUR order takes the turn unless it has left.
 function nextTurn(players: GameState['players'], from: PlayerColor): PlayerColor {
   const idx = SEAT_COLORS.indexOf(from);
   if (idx === -1) return from;

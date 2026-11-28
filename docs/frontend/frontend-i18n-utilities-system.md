@@ -39,7 +39,7 @@ The brand name is translated instead of hardcoded: `homeExtended.brandTitle` (th
 | `src/locales/en.ts` | English translation namespace |
 | `src/locales/fr.ts` | French translation namespace |
 | `src/locales/ms.ts` | Malay translation namespace |
-| `src/utils/audio.ts` | `RetroAudioEngine`: Web Audio UI beeps and game sounds, volume + mute |
+| `src/utils/audio/` | `RetroAudioEngine`: Web Audio UI beeps and game sounds, volume + mute |
 | `src/utils/botName.ts` | `localizedPilotName()`: a `bot-<color>` / `player-<color>` seat id (with an optional "(assistant)" suffix) to a translated "<role>-<colour>"; `localizedBotName()`: the same resolver under the name the game and results screens call; `localizedColor()`: a `PlayerColor` to its translated colour word; `avatarSeed()`: a seat name to a locale-independent generated-avatar seed |
 | `src/pages/LegalPage.tsx` | Privacy / Terms pages (`/privacy`, `/terms`): markdown viewer per language |
 | `src/components/LanguageSwitcher.tsx` | Segmented EN/MS/FR switch used by `LegalPage`, the login card and the `RetroNavbar` account popover (`tabs` rendering); the caller owns the active language (`value` + `onChange`) |
@@ -94,7 +94,7 @@ flowchart LR
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `lang` / `setLang` state shared by the language selectors |
+| `store/store.tsx` | `lang` / `setLang` state shared by the language selectors |
 | `router.tsx` | `useRoute()` so `/terms` opens the Terms doc |
 | `components/MarkdownViewer.tsx` | Renders the legal markdown |
 | `styles/tw.ts` | Retrowave style constants used by `LegalPage` |

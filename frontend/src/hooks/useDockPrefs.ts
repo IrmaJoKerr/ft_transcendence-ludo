@@ -4,15 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 // preference. `NavDock` reads all of them from here, so the spacer and the bar
 // cannot disagree about how wide they are.
 
-/** Below this viewport width the dock is the 88 px icon rail: no labels, no
- *  chat panel, no toggle. */
+// Below this viewport width the dock is the 88 px icon rail: no labels, no
+//  chat panel, no toggle.
 export const WIDE_MIN_PX = 1280;
 
-/** The two dock widths, in px: the icon rail, and the full dock. */
+// The two dock widths, in px: the icon rail, and the full dock.
 export const DOCK_RAIL_PX = 88;
 export const DOCK_CHAT_PX = 360;
 
-/** One localStorage key per preference, in the same `retro_` family as `retro_crt`. */
+// One localStorage key per preference, in the same `retro_` family as `retro_crt`.
 const CHAT_KEY = 'retro_chat';
 
 // Read synchronously on first render so a page never paints one chat state and
@@ -31,13 +31,13 @@ function readCompact(): boolean {
 }
 
 export interface DockPrefs {
-  /** The chat screen is powered on. It does not change the dock's width: the
-   *  screen lights up inside the slot it already occupies. */
+    // The chat screen is powered on. It does not change the dock's width: the
+  //  screen lights up inside the slot it already occupies.
   chatOn: boolean;
   toggleChat: () => void;
-  /** The viewport is under WIDE_MIN_PX: the dock is the icon rail. */
+    // The viewport is under WIDE_MIN_PX: the dock is the icon rail.
   isCompact: boolean;
-  /** The dock's width in px: the one number the spacer and the bar both use. */
+    // The dock's width in px: the one number the spacer and the bar both use.
   width: number;
 }
 
@@ -65,10 +65,9 @@ export function useDockPrefs(): DockPrefs {
     });
   }, []);
 
-  // One width per breakpoint, never one per chat state. A dock that resizes when
-  // a decoration toggles drags the whole page sideways, and re-wraps every column
-  // of the dashboard under whoever is reading it; the chat lights up inside the
-  // slot it already occupies instead (`LobbyChat`).
+    // One width per breakpoint, never one per chat state. A dock that resizes when a decoration
+  // toggles drags the whole page sideways, and re-wraps every column of the dashboard under whoever
+  // is reading it; the chat lights up inside the slot it already occupies instead (`LobbyChat`).
   const width = isCompact ? DOCK_RAIL_PX : DOCK_CHAT_PX;
   return { chatOn, toggleChat, isCompact, width };
 }

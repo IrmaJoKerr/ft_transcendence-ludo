@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { PieceFigure } from './PieceFigure';
 import { useApp } from '../store';
+import { THEME_BY_ID } from '../styles/themes';
 import { COL } from '../theme';
 import type { PlayerColor } from '../game/types';
 import { GOAL_CARD_MS } from '../__shared__/timing.constants';
@@ -13,17 +14,15 @@ export const GOAL_CARD_MAX_PX = 336;
 export const GOAL_CARD_VIEWBOX = '0 0 200 130';
 export const GOAL_CARD_ASPECT = 200 / 130;
 
-// The card's beats, all fractions of its hold so a re-timed `GOAL_CARD_MS` carries them
-// with it: the piece climbs for the first half, compresses its feet on arrival, the slot's
-// flash fires with the landing, and what is left is the hold — the stillness a result needs
-// before its panel fades (`GOAL_CARD_FADE_MS`, in the wrapper).
+// The card's beats are fractions of its hold, so a retimed `GOAL_CARD_MS` carries them:
+// climb, foot compression and slot flash on landing, then stillness before the wrapper
+// fades (`GOAL_CARD_FADE_MS`).
 const ARRIVE_AT = Math.round(GOAL_CARD_MS * 0.49); // 540: the feet reach the slot
 const LAND_MS = Math.round(GOAL_CARD_MS * 0.24); // 264: the compress, then the settle
 const BURST_MS = Math.round(GOAL_CARD_MS * 0.35); // 385: the slot's flash
-// The rest of the climb. The station is where the piece is *counted*; the lane goes on
-// past it to the goal mouth, and a piece that stopped at its own station read as parked
-// on a step rather than home. So it carries on up the ramp and is gone at the lip, which
-// is the arrival: the station keeps the tally, the traveller leaves.
+// The rest of the climb. The station is where the piece is *counted*; the lane goes on past it to
+// the goal mouth, and a piece that stopped at its own station read as parked on a step rather than
+// home.
 const ASCEND_AT = ARRIVE_AT; // the touchdown is the push-off, not a stop
 const ASCEND_MS = Math.round(GOAL_CARD_MS * 0.22); // 242: ends at 71% of the hold
 
@@ -59,10 +58,8 @@ function ensureKeyframes() {
   document.head.appendChild(style);
 }
 
-// The ramp: one parallelogram rising left to right — the home stretch, drawn as the lane it
-// is — with four stations on its centre line, filled bottom to top as pieces arrive. The
-// stations sit at 0.16, 0.40, 0.64 and 0.88 of the band, so the last one is not at the lip:
-// the lane goes on past it to the goal mouth, which is the chevron at the top.
+// The ramp: one parallelogram rising left to right — the home stretch, drawn as the lane it is —
+// with four stations on its centre line, filled bottom to top as pieces arrive.
 const RAMP = '10,118 58,118 160,44 112,44';
 const SLOTS = [
   { x: 50.3, y: 106.2 },
@@ -77,25 +74,11 @@ const MOUTH = { x: 136, y: 36 };
 const SLOT_R = 8.5;
 const PIECE_SCALE = 0.42; // 42 units of figure against a 48-unit band
 
-/**
- * The goal's ramp card — the overlay a room with its effects rule **on** gets instead of
- * `GoalConfetti`, and the whole of that celebration (32.5).
- *
- * It is the goal counter made spatial: the home stretch as a ramp with four stations, one
- * per piece a seat can bring home, filled bottom to top. The piece climbs from the ramp's
- * foot to the station it just filled — the higher the count, the longer the climb — lands
- * with its feet compressing, and the station's flash fires on the landing. It does not stop
- * there: the lane goes on past the last station to the goal mouth, so the piece takes the
- * rest of the climb and fades out at the lip, leaving the filled station behind as the
- * tally. What is left of `GOAL_CARD_MS` is the hold, and the panel's own
- * `GOAL_CARD_FADE_MS` fade is the wrapper's (`Game.tsx`), exactly as the flash card's is.
- *
- * `count` is the seat's pieces home **after** this move, so the arriving piece is station
- * `count - 1`. The figure is `PieceFigure`, the same one the board and the clash cast draw:
- * a card that drew its own token would be a second, subtly different piece on screen.
- */
+// The goal's ramp card — the overlay a room with its effects rule on gets instead of
+// `GoalConfetti`, and the whole of that celebration (32.5).
 export function GoalCard({ color, count }: { color: PlayerColor; count: number }) {
   const { theme } = useApp();
+  const pieces = THEME_BY_ID[theme].pieces;
   useEffect(ensureKeyframes, []);
   const hue = COL[color].base;
   const filled = Math.min(SLOTS.length, Math.max(1, count));
@@ -214,7 +197,7 @@ export function GoalCard({ color, count }: { color: PlayerColor; count: number }
             <g
               transform={`translate(${arrived.x} ${arrived.y}) scale(${PIECE_SCALE}) translate(-50 -95.5)`}
             >
-              <PieceFigure ck={color} set={theme === 'retro70' ? 'retro70' : 'retro80'} pose="front" />
+              <PieceFigure ck={color} pieces={pieces} pose="front" />
             </g>
           </g>
         </g>

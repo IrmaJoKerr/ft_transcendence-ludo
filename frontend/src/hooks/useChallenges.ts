@@ -1,37 +1,12 @@
-// **The two acts, one module** — the friends page's button, the lobby's name card and
-// the waiting room's INVITE COMMS panel all call this, and 19.6 split what they post
-// in two. A *challenge* (POST /api/friends/:friendId/challenge) is a duel: nothing is
-// created at the press, the room exists only once the friend accepts, so the press
-// answers with no room at all and the challenger waits for the `challenge_accepted`
-// frame. A *room invite* (POST /api/friends/:friendId/invite, sent with the room the
-// caller already sits in) offers a seat in that room. The friendship gate, the pending
-// record and the notification behind them are the same writes; a room's name card
-// passes neither, because inviting from a room belongs to the occupancy panel and not
-// to a name (19.7).
-//
-// **Where "already sent" comes from.** Only the server decides. This module keeps no
-// TTL and no copy of the backend's window: the grey state is the server's own list
-// (`GET /api/friends/challenges/sent`) plus the echo of the last press, and every
-// press still asks the server. A stale grey therefore cannot invent a refusal — it
-// either lapses into a real send or is answered by the server's 409, which is the
-// same sentence the button would have printed anyway.
-//
-// The button stays pressable while greyed, because a disabled button cannot say why.
-// The press asks, the server answers 409 `CHALLENGE_ALREADY_SENT` (or
-// `CHALLENGE_COOLDOWN` while a refusal still runs), and the screen's band prints that
-// through the ordinary error path. The list is re-read on window focus, which is the
-// only repair a hidden tab needs.
+// The two acts, one module — the friends page's button, the lobby's name card and the waiting
+// room's INVITE COMMS panel all call this, and 19.6 split what they post in two.
 
 import { useCallback, useEffect, useState } from 'react';
 import { getApi, postApi } from '../api';
 import type { PlayerColor } from '../game/types';
 
-/** One offer this account has out. Two kinds travel this list (19.6): a `challenge` is
- *  a duel and names no room until it is accepted, a `room` invite names the waiting room
- *  it offers a seat in. The server names the room whenever there is one; the echo of a
- *  refused press names the friend alone, because a 409 says the challenge is out and not
- *  where it points. `sentAt` is the server's stamp, or this tab's clock on an echo, and
- *  nothing here expires on it: that is the point of the module. */
+// One offer this account has out. Two kinds travel this list (19.6): a `challenge` is a duel and
+// names no room until it is accepted, a `room` invite names the waiting room it offers a seat in.
 export type SentChallenge = {
   userId: string;
   kind: 'challenge' | 'room';
@@ -40,8 +15,8 @@ export type SentChallenge = {
   sentAt: number;
 };
 
-/** The room a room invite points at. The route answers with the room alone, because the
- *  caller is already in it. A duel answers with no room at all: the accept makes it. */
+// The room a room invite points at. The route answers with the room alone, because the
+//  caller is already in it. A duel answers with no room at all: the accept makes it.
 export type ChallengeRoom = {
   gameId: string;
   inviteCode?: string;
@@ -52,8 +27,8 @@ export type ChallengeRoom = {
   mode?: 'pvp' | 'pve' | 'hotseat';
 };
 
-/** A room's answer, narrowed to what a seat needs. Only a room invite produces one;
- *  a duel's handoff arrives with the accept, from the server's own frame. */
+// A room's answer, narrowed to what a seat needs. Only a room invite produces one;
+//  a duel's handoff arrives with the accept, from the server's own frame.
 export type ChallengeCredentials = ChallengeRoom & {
   token: string;
   engineUrl: string;
@@ -62,7 +37,7 @@ export type ChallengeCredentials = ChallengeRoom & {
   playerCount: number;
 };
 
-/** Narrow a room an answer named to the credentials a caller enters it with. */
+// Narrow a room an answer named to the credentials a caller enters it with.
 export function challengeCredentials(room: ChallengeRoom): ChallengeCredentials | null {
   if (!room.token || !room.engineUrl || !room.color || !room.mode) return null;
   if (room.playerCount === undefined) return null;
@@ -76,31 +51,31 @@ export function challengeCredentials(room: ChallengeRoom): ChallengeCredentials 
   };
 }
 
-/** The duel route's answer: no room, because a duel has none until it is accepted. */
+// The duel route's answer: no room, because a duel has none until it is accepted.
 export type ChallengeAck = { ok: true; kind: 'challenge' };
 
 export type ChallengeTarget = { id: string; name: string };
 
 export type ChallengeOptions = {
-  /** The waiting room the caller sits in. A room invite, and the only shape that
-   *  answers with a room. */
+    // The waiting room the caller sits in. A room invite, and the only shape that
+  //  answers with a room.
   gameId?: string;
-  /** The caller's corner for a duel, seated when the friend accepts and the room is
-   *  made. The only shape that can create anything. */
+    // The caller's corner for a duel, seated when the friend accepts and the room is
+  //  made. The only shape that can create anything.
   hostColor?: string;
 };
 
-/** What one press answered: the room, no room at all, or the sentence for the band. */
+// What one press answered: the room, no room at all, or the sentence for the band.
 export type ChallengeOutcome =
   | { ok: true; room?: ChallengeRoom }
   | { ok: false; code?: string; message: string };
 
 export type ChallengesFeed = {
-  /** Is this friend's offer out, as far as the server last said? */
+    // Is this friend's offer out, as far as the server last said?
   isSent: (friendId: string) => boolean;
-  /** The friend whose offer is in flight, or null. */
+    // The friend whose offer is in flight, or null.
   busy: string | null;
-  /** Send it. Never refuses locally: the answer says whether it is out. */
+    // Send it. Never refuses locally: the answer says whether it is out.
   challenge: (friend: ChallengeTarget, options?: ChallengeOptions) => Promise<ChallengeOutcome>;
 };
 
@@ -149,10 +124,9 @@ export function useChallenges(): ChallengesFeed {
     async (friend: ChallengeTarget, options?: ChallengeOptions): Promise<ChallengeOutcome> => {
       setBusy(friend.id);
       try {
-        // Two routes, one per act (19.6): a room id means the caller already sits in the
-        // room being offered, so the press offers a seat in it; a corner means a duel,
-        // whose room is made by the friend's accept. The body names only what was asked
-        // for, so a stray press can never send the other act.
+                // Two routes, one per act (19.6): a room id means the caller already sits in the room being
+        // offered, so the press offers a seat in it; a corner means a duel, whose room is made by the
+        // friend's accept.
         const roomInvite = Boolean(options?.gameId);
         const path = roomInvite
           ? `/api/friends/${friend.id}/invite`
@@ -170,10 +144,9 @@ export function useChallenges(): ChallengesFeed {
         return { ok: true, room };
       } catch (error) {
         const code = (error as { code?: string } | null)?.code;
-        // A 409 is the server saying the offer is already out: this tab's list was behind
-        // (another tab, or a press it never saw). Recording it from the answer is what
-        // keeps the next press from reading as a fresh one. The other 409 on this path,
-        // CHALLENGE_COOLDOWN, is not recorded: no offer is out, the pair is closed.
+                // A 409 is the server saying the offer is already out: this tab's list was behind (another tab, or
+        // a press it never saw). Recording it from the answer is what keeps the next press from reading as
+        // a fresh one.
         if (code === 'CHALLENGE_ALREADY_SENT')
           remember({
             userId: friend.id,

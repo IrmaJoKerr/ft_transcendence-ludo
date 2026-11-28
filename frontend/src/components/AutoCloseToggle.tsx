@@ -3,16 +3,9 @@ import { useApp } from '../store';
 import { retroAudio } from '../utils/audio';
 import { DISPLAY_LABEL } from '../styles/tw';
 
-/**
- * The auto-close switch, one row, two homes (22.5): the dock's account popover and
- * the game's controls modal. It reads and writes `notifAutoClose` in the store, so
- * the two panels cannot disagree — no prop drilling and no second copy.
- *
- * Its anatomy is the master-audio block's: label left, the badge pair right,
- * `10px 12px` padding, radius 8, green when on and white on `0.04` when off. It is
- * a `<button>` rather than that block's `div` with an onClick, because a control
- * that can be reached by keyboard is the point of adding one.
- */
+// One auto-close switch used by the dock's account popover and the game's controls
+// modal. It reads and writes `notifAutoClose` in the store. It is a full-width button
+// so keyboard focus and the on/off badge stay consistent in both homes.
 export function AutoCloseToggle() {
   const { t } = useTranslation();
   const { notifAutoClose, setNotifAutoClose } = useApp();

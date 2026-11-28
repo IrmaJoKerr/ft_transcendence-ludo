@@ -1,13 +1,15 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
-import { requireSecret, secret } from '../secrets';
-import Redis from 'ioredis';
+import { requireSecret } from '../secrets';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
 import { BOT_PREFIX } from '../common/botname-enforce';
 import { publishRoomsChanged } from '../common/channels';
 import { signEngineToken } from './engine-token.util';
@@ -72,9 +74,6 @@ function botLabel(color: string, name?: unknown): string | null {
 // random-match matching. Writes match:* hashes to Redis. Used by
 // MatchService (called from match.controller.ts and friends.service.ts).
 export class MatchCreatorService {
-  // Redis client for match:* game hashes and per-user create locks.
-  private redis: Redis;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -82,15 +81,8 @@ export class MatchCreatorService {
     // single job is to allocate a room, and a failed allocation must give the
     // reserved slots back in the same call.
     private readonly guests: GuestLimitService,
-  ) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   // Create a new match room (PvP, PvE, or hotseat). PvP rooms start in WAITING;
   // PvE/hotseat start immediately in ACTIVE with bot slots filled.
@@ -229,20 +221,8 @@ export class MatchCreatorService {
     const totalBots = botCount;
     const isPvP = mode === 'pvp';
 
-    // Slot→color mapping is fixed by index (0=blue,1=red,2=green,3=yellow): the
-    // slot is the colour's own address in the hash, and a participant is written at
-    // the slot of the colour they hold. It is never used to derive a colour back.
-    const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
-    // The host picks first, so their seat is their colour's seat: slot 1 is no longer
-    // "the host slot", it is blue's slot, and the host lands wherever their pick is.
-    // No fallback: a create without a colour is refused here, before anything is written.
-    if (!hostColor || !colorSlot.has(hostColor)) {
-      throw new BadRequestException({
-        code: 'MATCH_INVALID_COLOR',
-        message: `hostColor is required and must be one of ${SLOT_COLORS.join(', ')}`,
-      });
-    }
-    const hostSlot = colorSlot.get(hostColor)!;
+    const { hostColor: seatedHostColor, hostSlot, colorSlot, resolvedSeatColors } =
+      this.resolveSeatColors(playerCount, seatColors, hostColor, isPvP);
 
     const updates: Record<string, string> = {
       id: gameId,
@@ -253,9 +233,77 @@ export class MatchCreatorService {
       // `player1_id` can no longer stand in for "who created this room".
       hostId: userId,
       [`player${hostSlot}_id`]: userId,
-      [`player${hostSlot}_color`]: hostColor,
+      [`player${hostSlot}_color`]: seatedHostColor,
       createdAt: Date.now().toString(),
+      seatColors: resolvedSeatColors.join(','),
     };
+
+    if (isPvP) {
+      updates.inviteCode = generateInviteCode();
+    } else {
+      updates.startedAt = Date.now().toString();
+      this.assignBots(updates, colorSlot, seatedHostColor, totalBots, botColors, botNames);
+    }
+
+    // The room rules, written by the same hset as the seats, so a room never
+    // exists without them. Keys and defaults live in room-rules.ts; the engine
+    // freezes them at join, and the lobby may change them only while WAITING.
+    Object.assign(updates, roomRuleHashFields(rules));
+
+    if (opts.guestToken) {
+      // Read by the engine's ResultSubmitter and notifyGameStarted: a guest
+      // room never reaches /api/game/*. The address is stored hashed, like the
+      // counters, so a Redis dump holds no addresses.
+      updates.isGuest = 'true';
+      if (opts.guestIpHash) updates.guestIpHash = opts.guestIpHash;
+    }
+
+    await this.writeRoomAndPublish(gameId, updates);
+    const token = await this.mintToken(userId, gameId, mode, seatedHostColor, opts);
+
+    // mode + playerCount are required: the frontend persists activeMatch for
+    // refresh/reconnect and branches on mode. Without them a refresh makes
+    // hotseat/PvE rejoin as a generic PvP seat.
+    const result: MatchRoomHandoff = {
+      gameId,
+      token,
+      engineUrl: ENGINE_WS_URL,
+      color: seatedHostColor,
+      mode,
+      playerCount,
+      rules,
+    };
+    if (isPvP) {
+      result.inviteCode = updates.inviteCode;
+    }
+    return result;
+  }
+
+  // Slot→color mapping is fixed by index (0=blue,1=red,2=green,3=yellow): the
+  // slot is the colour's own address in the hash, and a participant is written at
+  // the slot of the colour they hold. It is never used to derive a colour back.
+  // The host picks first, so their seat is their colour's seat: slot 1 is no longer
+  // "the host slot", it is blue's slot, and the host lands wherever their pick is.
+  // No fallback: a create without a colour is refused here, before anything is written.
+  private resolveSeatColors(
+    playerCount: number,
+    seatColors: string[] | undefined,
+    hostColor: string | undefined,
+    isPvP: boolean,
+  ): {
+    hostColor: string;
+    hostSlot: number;
+    colorSlot: Map<string, number>;
+    resolvedSeatColors: string[];
+  } {
+    const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
+    if (!hostColor || !colorSlot.has(hostColor)) {
+      throw new BadRequestException({
+        code: 'MATCH_INVALID_COLOR',
+        message: `hostColor is required and must be one of ${SLOT_COLORS.join(', ')}`,
+      });
+    }
+    const hostSlot = colorSlot.get(hostColor)!;
 
     // Persist the exact seat list so the engine seats matching colors: hotseat can
     // skip seats (e.g. blue + green + yellow, no red), and this order is what keeps
@@ -294,113 +342,101 @@ export class MatchCreatorService {
         message: 'seatColors must include the host color',
       });
     }
-    updates.seatColors = resolvedSeatColors.join(',');
+    return { hostColor, hostSlot, colorSlot, resolvedSeatColors };
+  }
 
-    if (isPvP) {
-      updates.inviteCode = generateInviteCode();
-    } else {
-      updates.startedAt = Date.now().toString();
-      const assignedBotColors =
-        Array.isArray(botColors) && botColors.length > 0
-          ? botColors
-          : SLOT_COLORS.slice(1, 1 + totalBots);
-      if (assignedBotColors.length !== totalBots) {
-        throw new BadRequestException({
-          code: 'MATCH_BOT_COLORS',
-          message: 'botColors must match botCount',
-        });
-      }
-      for (const [index, color] of assignedBotColors.entries()) {
-        const slot = colorSlot.get(color);
-        // A bot may hold any corner, blue included: the host no longer owns it by
-        // construction. What a bot may not do is share one.
-        if (!slot) {
-          throw new BadRequestException(`Invalid bot color: ${color}`);
-        }
-        if (color === hostColor || assignedBotColors.indexOf(color) !== index) {
-          throw new BadRequestException({
-            code: 'MATCH_DUPLICATE_COLOR',
-            message: 'Each seat must have its own color',
-          });
-        }
-        updates[`player${slot}_id`] = BOT_PREFIX + color;
-        updates[`player${slot}_color`] = color;
-        // The seat says what it is. The `bot-` id stays the seat's identity (a bot
-        // has no User row, so nothing reads it back through the database), but
-        // every reader of a *seat* answers from this flag: the engine's join path,
-        // the bot scheduler, the rejoin path and the post-game report. Nothing
-        // tests the id's shape, so a room without the flag seats no bot.
-        updates[`player${slot}_isBot`] = 'true';
-        // The seat's personality: four numbers rolled once here, on the same hset
-        // as the seat itself, so a room never exists with a bot and no profile.
-        // The engine copies them onto the seat at PvE auto-start and reads them
-        // verbatim for its pricing and its clash pace, which is why nothing is
-        // recomputed in play and no client ever sees them.
-        Object.assign(updates, botProfileHashFields(slot));
-        // Display label only: the bot's identity stays `bot-<color>`. `botNames`
-        // is index-aligned with `botColors`, so it carries the name the lobby
-        // assigned each seat. A blank or missing name leaves the key out.
-        const botName = botLabel(color, botNames?.[index]);
-        if (botName) updates[`player${slot}_displayName`] = botName;
-      }
-    }
 
-    // The room rules, written by the same hset as the seats, so a room never
-    // exists without them. Keys and defaults live in room-rules.ts; the engine
-    // freezes them at join, and the lobby may change them only while WAITING.
-    Object.assign(updates, roomRuleHashFields(rules));
-
-    if (opts.guestToken) {
-      // Read by the engine's ResultSubmitter and notifyGameStarted: a guest
-      // room never reaches /api/game/*. The address is stored hashed, like the
-      // counters, so a Redis dump holds no addresses.
-      updates.isGuest = 'true';
-      if (opts.guestIpHash) updates.guestIpHash = opts.guestIpHash;
-    }
-
-    await this.redis.hset(`match:${gameId}`, updates);
-    await this.redis.expire(`match:${gameId}`, GAME_STATE_TTL_S);
-    // A new room is a lobby change; best effort, the broadcaster's tick repairs a
-    // missed publish.
-    await publishRoomsChanged(this.redis);
-
-    // A guest gets the opaque token minted for it: no JWT, no account lookups
-    // (a `guest-` id has no user row), and the engine resolves it from the
-    // registry in Redis instead of verifying a signature.
-    let token: string;
-    if (opts.guestToken) {
-      token = opts.guestToken;
-    } else {
-      const username = await this.resolveUsername(userId);
-      const displayName = await this.resolveDisplayName(userId);
-      token = signEngineToken(this.jwt, {
-        gameId,
-        playerId: userId,
-        username: username ?? undefined,
-        displayName,
-        role: 'player1',
-        mode,
-        color: hostColor,
+  // Write the bot seats into the room hash: the colour's own slot, the `bot-` id,
+  // the isBot flag, the rolled personality and the display label. A bot may hold
+  // any corner, blue included: the host no longer owns it by construction. What a
+  // bot may not do is share one.
+  private assignBots(
+    updates: Record<string, string>,
+    colorSlot: Map<string, number>,
+    hostColor: string,
+    botCount: number,
+    botColors?: string[],
+    botNames?: string[],
+  ): void {
+    const assignedBotColors =
+      Array.isArray(botColors) && botColors.length > 0
+        ? botColors
+        : SLOT_COLORS.slice(1, 1 + botCount);
+    if (assignedBotColors.length !== botCount) {
+      throw new BadRequestException({
+        code: 'MATCH_BOT_COLORS',
+        message: 'botColors must match botCount',
       });
     }
-
-    // mode + playerCount are required: the frontend persists activeMatch for
-    // refresh/reconnect and branches on mode. Without them a refresh makes
-    // hotseat/PvE rejoin as a generic PvP seat.
-    const result: MatchRoomHandoff = {
-      gameId,
-      token,
-      engineUrl: ENGINE_WS_URL,
-      color: hostColor,
-      mode,
-      playerCount,
-      rules,
-    };
-    if (isPvP) {
-      result.inviteCode = updates.inviteCode;
+    for (const [index, color] of assignedBotColors.entries()) {
+      const slot = colorSlot.get(color);
+      if (!slot) {
+        throw new BadRequestException(`Invalid bot color: ${color}`);
+      }
+      if (color === hostColor || assignedBotColors.indexOf(color) !== index) {
+        throw new BadRequestException({
+          code: 'MATCH_DUPLICATE_COLOR',
+          message: 'Each seat must have its own color',
+        });
+      }
+      updates[`player${slot}_id`] = BOT_PREFIX + color;
+      updates[`player${slot}_color`] = color;
+      // The seat says what it is. The `bot-` id stays the seat's identity (a bot
+      // has no User row, so nothing reads it back through the database), but
+      // every reader of a *seat* answers from this flag: the engine's join path,
+      // the bot scheduler, the rejoin path and the post-game report. Nothing
+      // tests the id's shape, so a room without the flag seats no bot.
+      updates[`player${slot}_isBot`] = 'true';
+      // The seat's personality: four numbers rolled once here, on the same hset
+      // as the seat itself, so a room never exists with a bot and no profile.
+      // The engine copies them onto the seat at PvE auto-start and reads them
+      // verbatim for its pricing and its clash pace, which is why nothing is
+      // recomputed in play and no client ever sees them.
+      Object.assign(updates, botProfileHashFields(slot));
+      // Display label only: the bot's identity stays `bot-<color>`. `botNames`
+      // is index-aligned with `botColors`, so it carries the name the lobby
+      // assigned each seat. A blank or missing name leaves the key out.
+      const botName = botLabel(color, botNames?.[index]);
+      if (botName) updates[`player${slot}_displayName`] = botName;
     }
-    return result;
   }
+
+
+  // The room hash and its lobby publish travel together: a new room is a lobby
+  // change; best effort, the broadcaster's tick repairs a missed publish.
+  private async writeRoomAndPublish(
+    gameId: string,
+    updates: Record<string, string>,
+  ): Promise<void> {
+    await this.redis.hset(`match:${gameId}`, updates);
+    await this.redis.expire(`match:${gameId}`, GAME_STATE_TTL_S);
+    await publishRoomsChanged(this.redis);
+  }
+
+  // A guest gets the opaque token minted for it: no JWT, no account lookups
+  // (a `guest-` id has no user row), and the engine resolves it from the
+  // registry in Redis instead of verifying a signature.
+  private async mintToken(
+    userId: string,
+    gameId: string,
+    mode: 'pvp' | 'pve' | 'hotseat',
+    hostColor: string,
+    opts: { guestToken?: string; guestIpHash?: string },
+  ): Promise<string> {
+    if (opts.guestToken) return opts.guestToken;
+    const username = await this.resolveUsername(userId);
+    const displayName = await this.resolveDisplayName(userId);
+    return signEngineToken(this.jwt, {
+      gameId,
+      playerId: userId,
+      username: username ?? undefined,
+      displayName,
+      role: 'player1',
+      mode,
+      color: hostColor,
+    });
+  }
+
 
   // The caller's own PvP lobby room, if they still have one: seated, hash still
   // WAITING, engine game not started, and the caller's seat not finalized. Left

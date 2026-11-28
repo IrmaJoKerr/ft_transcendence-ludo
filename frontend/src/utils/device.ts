@@ -1,4 +1,4 @@
-/** Device predicates shared by the game UI, kept out of the component files. */
+// Device predicates shared by the game UI, kept out of the component files.
 
 // The one predicate that decides the touch path: circles instead of a keyboard plus
 // the portrait gate. `MacIntel` is required because iPadOS 13+ reports a desktop

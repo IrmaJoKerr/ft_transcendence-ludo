@@ -1,11 +1,6 @@
-// Redis pub/sub channels that cross a process boundary. The ludo-engine keeps its
-// own copy of ROOMS_CHANGED_CHANNEL: it is a separate build (backend/app/
-// ludo-engine) with no import path into the backend, so this value is the
-// contract between them.
-//
-// `rooms:changed` carries no payload. The backend's broadcaster answers it by
-// reading one snapshot and diffing it per viewer, so the publisher cannot get an
-// "affected users" hint wrong — and a missed publish is repaired by its 30 s tick.
+// Pub/sub channels that cross a process boundary. The engine keeps its own copy,
+// because it cannot import from the backend. `rooms:changed` carries no payload: the
+// broadcaster diffs one snapshot per viewer, and a 30 s tick repairs a missed publish.
 export const ROOMS_CHANGED_CHANNEL = 'rooms:changed';
 
 // Publish a rooms change from a service that already holds a Redis client. Best
@@ -21,12 +16,9 @@ export async function publishRoomsChanged(redis: {
   }
 }
 
-// `friendship:<recipientId>` carries one `friendship:changed` record: `{ state,
-// friend }`, with `state` relative to the recipient (socket D2). Per-user, not a
-// broadcast: the publisher resolves the audience (both sides of the pair, or every
-// accepted friend of a changed profile) and the broadcaster emits it to that
-// account's `friends:of:` room. Best effort like `rooms:changed`: the screens'
-// repair fetch (mount, reconnect, window focus) is what bounds a lost message.
+// `friendship:<recipientId>` carries one `friendship:changed` record, with state
+// relative to the recipient. The publisher resolves the audience and the broadcaster
+// emits to that account's room. Best effort; screens repair on mount, reconnect and focus.
 export const FRIENDSHIP_CHANNEL_PREFIX = 'friendship:';
 
 export function friendshipChannel(userId: string): string {

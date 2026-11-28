@@ -132,11 +132,12 @@ export interface ClashState {
   // key-shift mutator off).
   attackerKey: string; // the key the attacker must mash
   defenderKey: string; // the key the defender must mash
-  // Key-shift mutator: one schedule per side, plus the absolute instants the letters
-  // change. Absent on a room with the mutator off; the overlay then reads the
-  // opening letters above and renders no switch at all.
+  // Key-shift schedule: one per side plus absolute switch instants; absent on a
+  // mutator-off room. Pads are separate and optional only for a pre-deploy snapshot.
   attackerKeys?: string[];
   defenderKeys?: string[];
+  attackerPads?: string[][];
+  defenderPads?: string[][];
   switchAt?: number[];
   // `serverNow - Date.now()` as the frame landed, derived once by the reducer. The
   // overlay schedules the switches on the server clock, so a skewed device flips when

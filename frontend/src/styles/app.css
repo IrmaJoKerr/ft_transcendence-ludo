@@ -2,17 +2,36 @@
    APP - the shell rule, keyframes, fieldsets and components
    ========================================================================== */
 
-/* Everything here is app, not era: no palette lives in this file. The two theme
-   tables and the tokens derived from them are `theme-base.css`, loaded before this
-   sheet by `main.tsx`, and `--fs-*` arrives from there too. A colour spelled in this
-   file is a literal the sweep reports unless it is on its inventory, so read a token
-   instead (`Test-harnesses/style-gates/check-theme-literals.mjs`, run by hand). */
+/* Everything here is app, not era: no palette lives in this file. The two theme tables and the
+   tokens derived from them are `theme-base.css`, loaded before this sheet by `main.tsx`, and
+   `--fs-*` arrives from there too. */
 /* --------------------------------------------------------------------------
    GLOBAL & RESET STYLES
    -------------------------------------------------------------------------- */
 
 /* No CSS reset here; Tailwind's preflight (imported by `index.css`) supplies it.
    This file is unlayered, so a rule added here beats every utility class. */
+
+/* Native controls and scrollbars follow the era palette. The focus ring is global;
+   an inline `outline: none` still wins, which is why the audit removed it from
+   interactive controls. */
+:root {
+  color-scheme: dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: rgb(var(--accent-pink-rgb) / 0.35);
+  color: var(--text-main);
+}
 
 html,
 body {
@@ -46,6 +65,22 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--accent-pink);
   border: 1px solid var(--accent-cyan);
+}
+
+/* One bounded scroll surface per panel: reserve the bar's width before the list
+   overflows, so revealing it never shifts a row sideways. Chromium keeps the
+   global pink-and-cyan bar; the guarded block gives Firefox a thin themed bar. */
+.scroll-surface {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scroll-surface {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-pink) var(--bg-secondary);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -87,11 +122,7 @@ body {
    HYPERSPACE COMMS SCREEN (components/LobbyChat.tsx)
    -------------------------------------------------------------------------- */
 
-/* The dock's chat screen is one plate in both states: black glass with a hairline
-   edge. Throwing the switch does not resize it — a dock that reflows when a
-   decoration toggles drags the page sideways and re-wraps every column under the
-   reader — so the plate stays where it is and the picture lights up inside it,
-   the way a CRT raster opens from a line to a frame. */
+/* The dock's chat screen is one plate in both states: black glass with a hairline edge. */
 .chat-screen {
   position: relative;
   background: rgb(var(--shade-rgb));
@@ -136,15 +167,15 @@ body {
    appears and disappears, at the same size, in place. */
 @media (prefers-reduced-motion: no-preference) {
   .chat-screen--on .chat-raster {
-    animation: chatRasterOn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: chatRasterOn 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .chat-screen--on .chat-picture {
-    animation: chatPictureIn 420ms ease-out both;
+    animation: chatPictureIn 340ms ease-out both;
   }
 
   .chat-screen--off .chat-raster {
-    animation: chatRasterOff 260ms cubic-bezier(0.42, 0, 1, 1) both;
+    animation: chatRasterOff 220ms cubic-bezier(0.42, 0, 1, 1) both;
   }
 
   /* The expanded card rises out of the plate: 10 px of travel and a hair of
@@ -244,12 +275,8 @@ body {
   }
 }
 
-/* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath
-   of the keyframe above, no second keyframe to tune and keep distinct. The gate is
-   the stylesheet's own `prefers-reduced-motion` query rather than a third hook in
-   the overlay (the room keeps ONE gate, and it is CSS): with reduced motion the
-   line simply stays lit for the 700 ms it is visible, which is what it did before
-   the pulse existed. The sting beside it is audio, so it follows the mute switch. */
+/* The warning leads its switch by 400 ms, so 400 is the whole budget: one breath of the keyframe
+   above, no second keyframe to tune and keep distinct. */
 .clash-switch-warn {
   animation: none;
 }
@@ -264,22 +291,17 @@ body {
    THE DIE (components/Die.tsx)
    -------------------------------------------------------------------------- */
 
-/* The 80s face's bloom (38): a `box-shadow` on the face itself, never an SVG filter. The
-   app carries no `<filter>` anywhere, six blurred faces inside a tumbling `preserve-3d`
-   transform is a per-frame cost, and a filter would want an id namespace the six faces
-   would share. One rule for the cube's faces and the roster's 38 px one, because both are
-   the same component. */
+/* The 80s face's bloom (38): a `box-shadow` on the face itself, never an SVG filter. The app
+   carries no `<filter>` anywhere, six blurred faces inside a tumbling `preserve-3d` transform is
+   a per-frame cost, and a filter would want an id namespace the six faces would share. */
 .die-face[data-era='retro80'] {
   box-shadow:
     0 0 9px rgb(var(--accent-cyan-rgb) / 0.45),
     inset 0 0 10px rgb(var(--accent-pink-rgb) / 0.22);
 }
 
-/* The cube's turn is an inline `transition`, because each act carries its own duration
-   and easing (38.1). The gate is still this stylesheet's: with reduced motion the cube
-   steps to each act's end instead of tumbling between them — the spin is four beats, so it
-   steps four times inside the one act — and the face the engine sent still lands on time,
-   with no fourth hook to keep in step with the other three. */
+/* The cube's turn is an inline `transition`, because each act carries its own duration and
+   easing (38.1). */
 @media (prefers-reduced-motion: reduce) {
   .die-cube {
     transition: none !important;
@@ -296,6 +318,93 @@ body {
   width: 100% !important;
   max-width: 1440px !important;
   box-sizing: border-box !important;
+}
+
+/* The bounded panel pages: at desktop widths the shell is the viewport and the
+   main column owns the remaining height, so a list scrolls inside its border.
+   Below 1024 px every page keeps its natural height and ordinary page scroll. */
+@media (min-width: 1024px) {
+  .page-fit-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .page-fit-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+/* The desktop `/game` fit: the wrapper is the viewport's one flex column, and the
+   board's measured budget gives it its square; 1280 px starts the grid. The stacked
+   layout keeps its natural height and ordinary page scroll. */
+@media (min-width: 1280px) {
+  .app-wrapper.game-page.game-fit {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-fit > header {
+    flex: 0 0 auto;
+  }
+
+  .game-fit > main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .game-fit > main > * {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+/* The landscape-tablet `/game` fit: the same one-viewport three-column room as
+   desktop, but with narrow side tracks so the board keeps its square. This is the
+   100%-zoom answer to the old stacked tablet page, which ran to ~1.8k px tall. */
+@media (orientation: landscape) and (min-width: 1024px) and (max-width: 1279px) {
+  .app-wrapper.game-page.game-fit {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-fit > header {
+    flex: 0 0 auto;
+  }
+
+  .game-fit > main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .game-fit > main > * {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .game-tactical-grid {
+    grid-template-columns:
+      clamp(210px, 19.5vw, 250px)
+      minmax(0, 1fr)
+      clamp(210px, 19.5vw, 250px);
+    gap: var(--game-gap);
+  }
+
+  .game-tactical-grid > .order-1,
+  .game-tactical-grid > .order-2,
+  .game-tactical-grid > .order-3 {
+    order: 0;
+  }
 }
 
 body:has(.game-page) .crt-screen {

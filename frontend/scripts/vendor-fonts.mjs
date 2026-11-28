@@ -1,23 +1,7 @@
 #!/usr/bin/env node
-/**
- * Bake the UI's Atkinson Hyperlegible faces into the build.
- *
- * Google's CSS2 API is asked for exactly the weights the app uses, then every
- * `@font-face` it answers with (latin and latin-ext subsets) is downloaded into
- * `public/fonts/` and rewritten as a local stylesheet at `src/styles/fonts.css`.
- * Vite copies `public/` verbatim into `dist/`, so the shipped bundle has no
- * runtime dependency on fonts.googleapis.com or fonts.gstatic.com and the nginx
- * CSP can stay `font-src 'self'`.
- *
- * Run from `frontend/`:
- *   node scripts/vendor-fonts.mjs
- *
- * Idempotent: it re-downloads and rewrites everything, so a rerun after a
- * Google Fonts family update is the whole upgrade path. Only the weights listed
- * in FAMILIES are vendored on purpose (see todo.md T5): 900 is not a real
- * Atkinson weight, so `font-black`/`font-weight: 900` keeps synthesising from
- * 800 exactly as it does today.
- */
+// Vendors the app's Atkinson Hyperlegible and Comfortaa faces: fetches the exact weights
+// from Google Fonts, writes woff2 files under `public/fonts/`, and regenerates
+// `src/styles/fonts.css`. Rerunning is the upgrade path; the build keeps `font-src 'self'`.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,13 +13,9 @@ const CSS_FILE = join(ROOT, 'src', 'styles', 'fonts.css');
 const FAMILIES = [
   { name: 'Atkinson Hyperlegible Next', slug: 'atkinson-next', weights: [400, 700, 800] },
   { name: 'Atkinson Hyperlegible Mono', slug: 'atkinson-mono', weights: [400, 500, 700] },
-  // Theme 2 (`retro70`) display face: the rounded geometric the 1970s stills in
-  // `/tmp/theme-mockups` are set in. Only the two weights the theme's headings ask
-  // for, and only the heading/display tokens point at it — the UI face stays
-  // Atkinson in both themes, so a theme switch never costs the low-vision reading
-  // face and never reflows a form. 900 synthesises from 700, as it does today.
-  // Comfortaa also ships cyrillic, greek and vietnamese subsets; none of the three
-  // shipped locales can render them, so only the two latin subsets are written.
+  // Comfortaa is the `retro70` heading/display face, limited to 400 and 700. The UI face
+  // stays Atkinson in both themes, so a theme switch does not reflow. Only latin and
+  // latin-ext subsets are written because the shipped locales cannot use the others.
   {
     name: 'Comfortaa',
     slug: 'comfortaa',

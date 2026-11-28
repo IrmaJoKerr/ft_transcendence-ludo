@@ -30,10 +30,9 @@ function ensureKeyframes() {
   document.head.appendChild(style);
 }
 
-// Twelve rays on a 30° pitch, long and short alternating so the silhouette is a star and
-// not a wheel: the four axes and the four diagonals carry the length, the four in between
-// are half of it. The seat colour alternates with white, so three rays out of four still
-// read on a neon start square and on a dark track cell alike.
+// Twelve rays on a 30° pitch, long and short alternating so the silhouette is a star and not a
+// wheel: the four axes and the four diagonals carry the length, the four in between are half of
+// it.
 const RAYS = [
   { angle: 0, len: 40 },
   { angle: 30, len: 22 },
@@ -49,17 +48,8 @@ const RAYS = [
   { angle: 330, len: 32 },
 ];
 
-/**
- * The goal's starburst — twelve rays, a hot core and one shock ring — drawn around a 0×0
- * anchor at its parent's origin, so the caller decides where on screen it goes (32.5).
- *
- * It is the arrival, not the celebration: it fires on the piece's last tick, in the same
- * frame the piece leaves its cell, and it plays on EVERY goal whatever the room's effects
- * rule says. The rule picks the overlay that follows it (`GoalConfetti` with the acts off,
- * the ramp card with them on), never whether the piece is seen to arrive.
- *
- * Pure cosmetic: no input, no layout, and its length is its keyframes' length.
- */
+// The goal's starburst — twelve rays, a hot core and one shock ring — drawn around a 0×0 anchor at
+// its parent's origin, so the caller decides where on screen it goes (32.5).
 export function GoalBurst({ color }: { color: string }) {
   useEffect(ensureKeyframes, []);
   return (

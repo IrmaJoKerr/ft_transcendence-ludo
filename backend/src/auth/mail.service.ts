@@ -29,7 +29,8 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   // "From" address, taken from the SMTP credentials.
   private from = '';
   // Subscriber-mode connection for expiry events. A subscribed client cannot run
-  // ordinary commands, so this connection is not used for anything else.
+  // ordinary commands, so this connection is not used for anything else: it is
+  // intentionally separate from the module's shared REDIS_CLIENT.
   private readonly redis: Redis;
 
   constructor(private readonly prisma: PrismaService) {

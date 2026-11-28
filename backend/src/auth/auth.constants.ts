@@ -35,8 +35,6 @@ export const OAUTH_LINK_TTL = '10m';
 // cookie in auth.controller.ts (scoped to /api/auth).
 export const ACCESS_COOKIE = 'token';
 
-// Published when a user's sessions are revoked: the session socket subscribes to
-// `auth:revoked:*` and disconnects that account's sockets by push, so a socket
-// cannot outlive the session that opened it. One message per account, no
-// session id, so every tab of that account is covered.
+// Published on session revocation. The session socket disconnects every socket for the
+// account, so none outlives its session; one message covers every tab.
 export const AUTH_REVOKED_PREFIX = 'auth:revoked:';

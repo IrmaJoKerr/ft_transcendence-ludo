@@ -19,7 +19,7 @@ The Profile page (`/profile`) shows a user's profile with statistics, recent mat
 
 1. **Profile header** — the player's display name plus their username (shown so others can add them by username), a status indicator, avatar initials, rating and the date the account was created. The window title bar (`// SQUAD LEADER PROFILE • NAME ( USERNAME: handle )`) ends with a click-to-copy button that puts the handle on the clipboard (`profile.usernameCopy` → `profile.usernameCopiedOk` for 1.5 s, `profile.copyUsernameTooltip` on hover, UI beep) — closing the line the way `// ROOM: {{code}} [COPY]` closes the PvP badge, because the handle is the immutable identifier while the display name can be renamed.
 2. **Stats grid** — six cards: wins, losses, win rate, best streak, wins against humans and wins against bots (see *The career strip* below).
-3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. A game against bots lists only you. An `ABANDONED` row is a third state rather than a result: it shows the tallies it held, no rating movement, and the amber `--accent-yellow` instead of the state pair's green or red (`todo.md` [27](todo.md#warn-colour)). Since M3 an own row also carries a **comms-logs expander** (`SHOW COMMS LOGS (n)` → the stored lines, oldest first, a system line rendered from its code); it is the same stored match channel the room's plate names, so the label borrows its vocabulary (`COMMS`, as in `# ENCRYPTED COMMS` and `INVITE COMMS`) rather than calling it a transcript. A PvE row and an old row that predates the channel say `N/A`, and a friend's view has no expander at all because the API ships `chat` to the row's own account only.
+3. **Recent matches** — each game with the other human players' names, the result (victory, defeat or draw), pieces in goal and the date. From 1024 px the profile shell is `100dvh` (`page-fit-shell` / `page-fit-column`), so the match-history tab body and the friends sidebar are the only scrollers and each carries `.scroll-surface`'s stable gutter; below 1024 px the document scrolls. A game against bots lists only you. An `ABANDONED` row is a third state rather than a result: it shows the tallies it held, no rating movement, and the amber `--accent-yellow` instead of the state pair's green or red (`todo.md` [27](todo.md#warn-colour)). Since M3 an own row also carries a **comms-logs modal trigger** (`SHOW COMMS LOGS (n)`) that opens the stored lines, oldest first, in a centred retro window: the header stays fixed while the feed scrolls inside a panel capped at `min(680px, 100vw - 2rem)` wide and `min(80vh, 720px)` tall; the X, Escape and a backdrop press close it, and focus returns to the trigger. The sender's name takes that seat's live `COL` hue, while the body keeps the live card's own-line cyan and other-line text colour, and a system line stays centred and muted. It is the same stored match channel the room's plate names, so the label borrows its vocabulary (`COMMS`, as in `# ENCRYPTED COMMS` and `INVITE COMMS`) rather than calling it a transcript. A PvE row and an old row that predates the channel say `N/A`, and a friend's view has no trigger at all because the API ships `chat` to the row's own account only.
 4. **Friends panel** — friends with their online status and their rating; shown only on your own profile.
 5. **Avatar actions (own profile)** — the `EDIT AVATAR`, `RESET` and `EDIT PROFILE` buttons, and below them a **message area with a fixed height**. The area shows upload and reset errors in red, and the photo-load warning (`profile.photoLoadError`) in the amber `--accent-yellow`. Because the height is fixed, a longer translation in Malay or French wraps onto more lines without moving the content below it.
 6. **Blocked card** — a block between the viewer and this player degrades the whole page (see *Blocked profile* below).
@@ -76,9 +76,9 @@ A mutual block reports `blocked-by-you` (the viewer's own block is the one they 
 
 | File | Role |
 |------|------|
-| `src/pages/Profile.tsx` | Profile page component |
+| `src/pages/Profile/` | Profile page component |
 | `src/components/NavDock.tsx` | The seated navigation dock (profile page is full-screen) |
-| `src/store.tsx` | `useApp` for authentication state, presence and API (Application Programming Interface) calls |
+| `src/store/` | `useApp` for authentication state, presence and API (Application Programming Interface) calls |
 | `src/theme.ts` | `STATUS_STYLE` (and the `PresenceStatus` type) for the status indicator |
 
 
@@ -164,14 +164,15 @@ page branches on `visibility` before reading any of them.
       piecesInGoal?: number;  // Pieces home, when the report carried it
     }>;
     // The room's channel (M3), owner-only: the API ships both fields to the row's own
-    // account and omits them entirely for a friend, so the expander is never rendered
-    // for anyone else. Absent on a PvE row (no channel was ever recorded).
+    // account and omits them entirely for a friend, so the modal trigger is never
+    // rendered for anyone else. Absent on a PvE row (no channel was ever recorded).
     chat?: Array<{
       id: string;  // `game:<gameId>:<seq>`, the React key
       senderId: string;  // '' on a system line
       senderName: string;
       text: string;  // '' on a system line
       at: number;  // engine clock (ms)
+      senderColor?: string;  // Semantic seat name (RED/GREEN/YELLOW/BLUE), resolved through COL
       kind?: 'system';
       code?: 'left' | 'started';  // a system line's locale key, never prose
     }>;
@@ -292,7 +293,7 @@ Hotseat games never count towards any achievement. The badge/tab counter shows `
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `useApp()` for `user` and navigation |
+| `store/store.tsx` | `useApp()` for `user` and navigation |
 | `router.tsx` | `useRoute()` to read the `?u=` query parameter |
 | `theme.ts` | `STATUS_STYLE` and the `PresenceStatus` type for the profile/friends status dots |
 | `api.ts` | `translateErrorCode()`, which turns an error code from a `fetch` response into text in the user's language |

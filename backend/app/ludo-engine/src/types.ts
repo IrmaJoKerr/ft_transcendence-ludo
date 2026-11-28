@@ -50,10 +50,8 @@ export interface LogEntry {
 // rest, so a long game cannot grow the state snapshot without bound.
 export const LOG_CAP = 30;
 
-// One line of the room's chat channel (M3). A player's line carries the text it was
-// sent with; a system line carries a `code` instead and no text at all, so a stored
-// transcript re-renders in whatever locale the reader holds. `seq` is the room's own
-// chat sequence, which is also the cut a block is stamped with.
+// One room chat line. A system line carries a locale `code` and no text; `seq` is the
+// room chat sequence, which is also the cut a block is stamped with.
 export interface ChatLine {
   id: string; // `game:<gameId>:<seq>`, the React key and the dedupe
   seq: number;
@@ -95,16 +93,13 @@ export interface PlayerMeta {
   hasRolled: boolean; // rolled in the current turn phase
   consecutiveSixes: number; // 6-streak for the forfeit rule
   bonusRoll: boolean; // extra roll granted (6/capture)
-  // The face this seat's die last landed on, stamped by the true roller in rollDice.
-  // A rejoining client renders the seat's MiniDie from it instead of guessing the
-  // roller from currentTurn. Absent on a state written before the field existed.
+  // Last face this seat rolled. A rejoin renders MiniDie from it instead of guessing
+  // from currentTurn. Absent on older state.
   lastRoll?: number | null;
   isFinished: boolean; // all four pieces home
   finishedAt?: string; // ISO time of finishing
-  // Why this seat left, written by departSeat on the live-game paths. The
-  // client labels the seat from it ("Aborted" for a leave); a reloaded client reads
-  // it back from the state. Absent while the seat is still in the game, and on a
-  // waiting-room leave, which is a reconnect window and never a departure.
+  // Why this seat left, written by departSeat on live-game paths. Absent while seated
+  // and on a waiting-room leave, which is a reconnect window.
   departedReason?: DepartureReason;
   stats: {
     // per-game tallies for postgame scoring
@@ -141,23 +136,15 @@ export interface PlayerMeta {
   // per token-bought exit, one earned per clash won against exactly one defender
   // (see WALL_BREAKER_TOKEN_CAP). Absent reads as 0.
   wallBreakerTokens?: number;
-  // The bot's personality, rolled once when the seat is created (the backend writes
-  // the same four numbers into the room hash) and read verbatim by both the decision
-  // and the clash. `fastRate` is its speed in a clash against a human, `slowRate` is
-  // `100 - fastRate` recorded so the profile reads at a glance, and the two appetites
-  // are the percentage of BOT_WALL_BREAK_VALUE a wall break is worth at the last token
-  // and at the reserve (the cap tier adds the surplus uplift on top). All four are
-  // absent on a human seat, and an absent field falls back to the baseline, so a state,
-  // replay or harness written before they existed behaves exactly as it did.
+  // Bot profile, rolled once at seat creation and read by decisions and clashes.
+  // `fastRate` and `slowRate` are clash speeds; the appetites price a wall break.
+  // All fields are absent on a human seat.
   botFastRate?: number;
   botSlowRate?: number;
   botRiskLastToken?: number;
   botRiskReserve?: number;
-  // The seat's departure, captured while the room's tallies still exist (parking its
-  // pieces zeroes them) and posted to the backend as this seat's own row. It stays on
-  // the seat so a delivery that failed is retried by the wake pass and by a reconnect;
-  // `submitted` is only ever set after a 2xx, because the record is a fact and the
-  // delivery is not.
+  // Departure captured before parking zeroes the tallies and posted as this seat's row.
+  // Kept for retry; `submitted` is set only after a 2xx.
   exitRecord?: ExitRecord;
 }
 
@@ -193,12 +180,14 @@ export interface ClashState {
   // carries `attackerKeys` / `defenderKeys`, whose element 0 is these.
   attackerKey: string; // key the attacker must mash
   defenderKey: string; // key the defender must mash
-  // Key-shift mutator: one schedule per side, drawn at clash start (one letter, plus
-  // one per switch). Element i replaces element i-1 at `switchAt[i-1]`; the letters
-  // are distinct, so a switch never re-shows the letter already on screen. Absent on
-  // a room with the mutator off, which reads as the opening letter alone.
+  // Key-shift schedule: element i replaces i-1 at switchAt[i-1]; absent means the opening
+  // letter alone. Pads are separate and always written, one per schedule entry.
   attackerKeys?: string[];
   defenderKeys?: string[];
+  // The ordered 2x2 pads the client paints, one per schedule entry in read order.
+  // Optional only because a clash persisted before this deploy has none.
+  attackerPads?: string[][];
+  defenderPads?: string[][];
   // The switch instants, absolute on the engine clock, first one at
   // countdownDeadline + 2000..2500 and each next 800..1100 after the one before.
   // Length equals the room's switch count (0, 1 or 2).
@@ -213,21 +202,13 @@ export interface ClashState {
   attackerPresses: number;
   defenderPresses: number;
   lastPressAt?: Partial<Record<PlayerColor, number>>; // press-cap per side
-  // Clash chains: a wall of N defenders costs N rounds, one per defender. `round` is
-  // the round in progress and `totalRounds` the wall size when the attack began. A
-  // single defender is the R = 1 case, not a second path.
+  // Clash chain: a wall of N defenders costs N rounds. A single defender is R = 1.
   round?: number;
   totalRounds?: number;
 }
 
-// The Wall Breaker hand's two numbers (the deal and the cap) are tunables the SPA also
-// draws from, so they live in `common/src/wall-breaker.constants.ts`. Every other board
-// number (the 52-step loop, the safe squares, the 15 x 15 grid) is topology and stays
-// mirrored in each tree.
-//
-// This many pieces, per seat, in the base at game start. Topology rather than a knob:
-// the piece ids the state carries are `${color}-0` to `${color}-3`, and the board draws
-// one bay per id.
+// Wall Breaker deal and cap are shared tunables; other board numbers are topology.
+// Four pieces per seat, matching the `${color}-0` to `${color}-3` ids and four bays.
 export const PIECES_PER_PLAYER = 4;
 
 // A capture deferred until the clash resolves: the move is held here instead of
@@ -252,12 +233,13 @@ export interface PendingCapture {
   // because the wall is gone once the chain resolves; a won chain credits that many
   // clashWallBattlesWon. A lone defender pays nothing.
   wallBattles?: number;
-  // The key-shift seam: the letter each seat ended its last round on. Round n+1 of a
-  // chain opens on a different letter per seat, so the seam between two rounds is
-  // visibly a new letter rather than looking like no switch at all. Optional because
-  // a record written before the mutator existed (or by a room with it off) has none;
-  // the draw then falls back to an unconstrained pick.
+  // Letter each seat ended its last chain round on, so the next round opens on a new
+  // letter. Absent on older records, not on rooms without the mutator: `startClash`
+  // writes it whenever a pending capture exists.
   lastKeys?: Partial<Record<PlayerColor, string>>;
+  // Pads already dealt in earlier rounds of this chain, per side. This is the only
+  // source of the adjacent-pad seam; the per-position cap is counted inside one round.
+  padHistory?: Partial<Record<PlayerColor, string[][]>>;
 }
 
 // What one round of a chain needs beyond the two colours: which round it is, how
@@ -317,9 +299,8 @@ export interface GameState {
   pauseTurnOwner?: PlayerColor; // whose turn it was when paused
   pausedReason?: string; // rationale for the pause (e.g. 'disconnect_grace')
   clash?: ClashState; // live clash QTE, absent when none is running
-  // The five room rules, frozen when the room is created (lobby.ts can still
-  // change them while it is WAITING), all phrased so that false is the standard
-  // game: clash in the QTE, star squares protecting, prison exits needing a 6.
+  // Five room rules frozen at creation; lobby.ts may change them while WAITING.
+  // False is the standard game: clash off, stars safe, prison exits need a 6.
   clashMode: boolean; // clash minigame on (false: capture applies immediately)
   noSafeZones: boolean; // true: hardcore mod, star squares capture-immune no more
   freeExit: boolean; // true: any roll leaves prison, and the first step out counts as part of the roll (exit lands on the roll)
@@ -331,16 +312,11 @@ export interface GameState {
   captureFx: boolean;
   pendingCapture?: PendingCapture; // capture held until the clash resolves
   resultCardUntil?: number; // input freeze while the clash result card shows
-  // The narrative the recon panel renders: the newest LOG_CAP lines, written by the
-  // engine at the same sites that emit the frames, so a reload, a rejoin, a second tab
-  // or an engine restart rebuilds the panel from the snapshot. Absent on a state
-  // written before the log existed.
+  // Newest `LOG_CAP` narrative lines, written where frames are emitted so any reload,
+  // rejoin or restart rebuilds the panel from the snapshot.
   log?: LogEntry[];
-  // The room's live block ledger (M3): one entry per pair that fell out mid-game,
-  // stamped with the chat sequence it was applied at. Read at every emit, at every
-  // history replay and at report time, so a blocked pair never sees the other side's
-  // post-block speech. Persisted with the rest of the state, so a redeploy mid-game
-  // does not lose it. Absent reads as no blocks.
+  // Live block ledger, one entry per pair, stamped with the chat sequence it applied at.
+  // Read on every emit, replay and report; persisted so a redeploy keeps it.
   blockedPairs?: ChatBlock[];
 }
 
@@ -356,17 +332,14 @@ export interface MoveResult {
   captured: boolean; // landed on an opponent piece
   capturedPieceIds?: PieceId[]; // Every opponent piece sent home from the landing square (a stacked block sends all of them back)
   enteredHome: boolean; // moved into the home stretch (52-56)
-  // Landed on the goal square (57): the piece is home, and this is the move the
-  // arrival celebration belongs to. Never true on a capture (no opponent stands in
-  // a home lane), so a clash landing always reports false.
+  // Landed on the goal square (57), the move the arrival celebration belongs to.
+  // Always false on a capture, since no opponent stands in a home lane.
   reachedGoal: boolean;
   bonusRoll: boolean; // mover rolls again
   // Set only on a move that came out of a clash: who won the press race.
   clashOutcome?: 'attacker_won' | 'defender_won';
-  // Set on a move that came out of a clash: the loser's colour (the defender's, whatever
-  // the outcome) and how many defenders the landing stood. The repulse case needs both
-  // because capturedPieceIds then holds the ATTACKER's own id, so the victim colour
-  // cannot be read from it. `wallBroken` is true when the attack beat two or more.
+  // Clash outcome detail: the defender's colour and the wall size. A repulse puts the
+  // attacker's id in `capturedPieceIds`, so the victim colour cannot be read from it.
   defenderColor?: PlayerColor;
   defenderCount?: number;
   wallBroken?: boolean;
@@ -379,10 +352,8 @@ export interface LegalMove {
   to: number; // destination step
   isCapture: boolean; // destination holds an opponent piece
   isHomeEntry: boolean; // move enters the home stretch (52-56)
-  // True only on the move that lands the piece AT the goal (57). The home stretch is
-  // five cells long and every one of them used to fire the arrival celebration, so
-  // the score fired on the way in and never on the finish; this is the fact the ramp
-  // and the fanfare actually mean.
+  // True only on the move that lands the piece at the goal (57). The five-cell home
+  // stretch does not fire the arrival celebration; this flag is what the ramp means.
   isGoalEntry: boolean;
   // How many defenders the capture sends home: 1 for a single piece, the wall size
   // (2-4) for a breakable wall, 0 when nothing is captured. It is also the clash
@@ -416,11 +387,9 @@ export type GameEvent =
       // The lines this roll added to the log, so a live client never re-derives them.
       log?: LogEntry[];
     }
-  // A settled move: a plain move, or the move a clash chain resolved into. Carries
-  // the seat that holds the turn once the outcome has been applied, so no client has
-  // to predict the next seat from the rotation. The engine has already advanced it,
-  // handed it back on a bonus roll, or left it on the winner when this move finished
-  // the game. `piece_moved` is the only turn-bearing frame that used to omit it.
+  // A settled move, plain or clash-resolved. Carries the seat that holds the turn after
+  // the outcome, so no client predicts the rotation; the engine has already advanced,
+  // returned it on a bonus roll, or left it on the winner.
   | {
       type: 'piece_moved';
       gameId: string;
@@ -469,19 +438,17 @@ export type GameEvent =
       gameId: string;
       attackerKey: string;
       defenderKey: string;
-      // Key-shift schedules: one letter per side plus one per switch, and the absolute
-      // instants the letters change. Both sides travel on the one frame the room
-      // already received (a hotseat socket owns both seats and needs both); the client
-      // renders its own seat's schedule. Empty arrays on a room with the mutator off,
-      // so the frame's field set is constant.
+      // Key-shift schedules for both seats, with absolute switch instants. Both arrays
+      // hold keyShift + 1 letters and the pads hold one entry each, even at keyShift 0;
+      // switchAt is empty when the mutator is off.
       attackerKeys: string[];
       defenderKeys: string[];
+      attackerPads: string[][];
+      defenderPads: string[][];
       switchAt: number[];
       keyShift: 0 | 1 | 2;
-      // The engine clock at the instant the frame was built. The overlay derives one
-      // offset per clash from it and schedules the switches on the SERVER clock, so a
-      // skewed client does not flip early and show a letter the server is not yet
-      // accepting. It never gates a press: `recordPress` judges on the server clock.
+      // Engine clock when the frame was built. The overlay offsets to server time, so a
+      // skewed client does not flip early; presses are still judged on the server clock.
       serverNow: number;
       target: number;
       duration: number;
@@ -509,10 +476,8 @@ export type GameEvent =
       pressDeadline: number;
     }
   | { type: 'clash_press'; gameId: string; color: PlayerColor; presses: number }
-  // The roller caught their spinning die (38.7). Cosmetic and seat-only, on the pattern
-  // `clash_press` sets: the room plays the same acute branch, and nothing here can move a
-  // face or a landing, so no ack and no reducer. The engine paints no part of it — the
-  // client's acts are the whole frame's content.
+  // The roller caught their spinning die. Cosmetic and seat-only: no face or landing can
+  // move, so there is no ack or reducer, and the client's acts are the whole frame.
   | { type: 'dice_tapped'; gameId: string; color: PlayerColor }
   | {
       type: 'clash_result';
@@ -554,8 +519,6 @@ export type GameEvent =
       clashKeyShift: 0 | 1 | 2;
       captureFx: boolean;
     }
-  // One line the ENGINE wrote to the room's channel (M3): "Game started", and the
-  // universal "X has left". A player's own line never travels this way — it is
-  // emitted per socket, because a block has to be applied before a frame leaves.
-  // The wire frame is `chat:message`, the colon name the session socket already uses.
+  // One line the engine wrote to the room channel. A player's line travels per socket,
+  // because a block must apply before a frame leaves. The wire frame is `chat:message`.
   | { type: 'chat_message'; gameId: string; line: ChatLine };

@@ -294,7 +294,6 @@ in a single place; `app.module.ts` installs the guard.
 | `POST /api/auth/login` | 5 per minute |
 | `POST /api/auth/2fa/verify` | 5 per minute |
 | `POST /api/auth/2fa/resend` | 5 per hour |
-| `PATCH /api/auth/2fa` | 10 per hour |
 | `POST /api/auth/refresh` | 30 per minute (kept in step with the nginx zone) |
 | `POST /api/auth/forgot-password` | 3 per hour |
 | `POST /api/auth/reset-password` | 5 per 15 minutes |
@@ -609,7 +608,7 @@ memory, and SQL injection through user input.
   being applied. A fresh database and additive changes still apply as before.
 - **The frontend stores no session credential.** The session lives in the httpOnly cookies only; nothing
   session-like is kept in `localStorage` or `sessionStorage`. The one token that is stored is the engine
-  *match* ticket: `sessionStorage['lr.activeMatch']` (`store.tsx`) holds
+  *match* ticket: `sessionStorage['lr.activeMatch']` (`store/store.tsx`) holds
   `{ gameId, token, color, mode, playerCount }` so a page refresh can rejoin the same seat. It is signed
   with `ENGINE_JWT_SECRET` (not the session secret), carries `aud: "ludo-engine"`, is bound to one
   game/seat, lives 24 h, and is rejected by the backend API, so it cannot be replayed as a session.

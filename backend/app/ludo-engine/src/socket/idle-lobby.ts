@@ -1,10 +1,8 @@
 import type { RedisGameStore } from '../redis';
 import type { RoomRegistry } from './room-context';
 
-// Seats the match hash counts as occupied right now: a seat is a row with an id in
-// it. A reserved slot no longer exists (R18: leaving a waiting room either keeps the
-// seat counted or frees it outright), so there is one answer to "how many are seated"
-// and the engine's quorum rule is the other half of the same answer.
+// Occupied seats are rows with an id. A waiting-room leave either keeps the seat or
+// frees it outright, so this count and the engine's quorum rule share one answer.
 export function seatedCount(match: Record<string, string>): number {
   return [1, 2, 3, 4].filter((n) => match[`player${n}_id`]).length;
 }

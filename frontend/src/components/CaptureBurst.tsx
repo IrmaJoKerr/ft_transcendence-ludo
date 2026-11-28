@@ -37,14 +37,9 @@ const SPARKS = [
   { dx: 14, dy: 14, size: 5, white: false },
 ];
 
-/**
- * The capture burst — one expanding ring and eight sparks — drawn around a 0×0
- * anchor at its parent's origin, so the caller decides where on screen it goes: the
- * board anchors it in the landing cell, the clash card's dim copy pins it over the
- * cell the capture happened on. `opacity` multiplies the whole burst (each element's
- * keyframes fade themselves, so it dims rather than replaces them). Pure cosmetic:
- * no input, no layout.
- */
+// One expanding ring and eight sparks, anchored at the caller's origin. The board
+// places it in the landing cell and the clash card over the captured cell. Purely
+// cosmetic: `opacity` dims the whole effect, and it accepts no input.
 export function CaptureBurst({ color, opacity = 1 }: { color: string; opacity?: number }) {
   useEffect(ensureKeyframes, []);
   return (

@@ -5,10 +5,8 @@ import { isEngineGameStarted } from './seat-finalization';
 // game is ACTIVE or already started by the engine; ABORTED and legacy ENDED never
 // count, so a done room cannot keep its players locked out. Full rule in the docs.
 
-// Hash statuses that mean the room is over: not a live game for anyone. ENDED is no
-// longer written; it stays listed so a hash left by an older build cannot lock its
-// players out for the rest of its TTL. Exported because rejoin refuses the same two
-// statuses: a closed room is not a room to hand a token back into.
+// Statuses that mean the room is over. ENDED is only kept for hashes from older
+// builds. Rejoin uses the same set: a closed room cannot hand a token back.
 export const ENDED_MATCH_STATUSES = ['ABORTED', 'ENDED'];
 
 // The four seat ids of a match hash, in slot order. Shared with the account
@@ -24,11 +22,8 @@ export interface LiveMatch {
   gameId: string;
 }
 
-// The room this user holds a seat in right now, whatever its status: a waiting
-// lobby counts as much as a live game, because the rule is one seat at a time. Only
-// ABORTED/ENDED rooms are finished and never count, even while their hash lingers for
-// the rest of its TTL. `exceptGameId` exempts one room: reclaiming your own seat is
-// not "a second game".
+// The room this user holds a seat in, waiting or live, because the rule is one seat at
+// a time. ABORTED and ENDED never count. `exceptGameId` exempts reclaiming that seat.
 export async function findSeatedMatch(
   redis: Redis,
   userId: string,

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-/** Unconditional pre-game notice. Mounted by the auth shell only: the table
- *  screen and the PvP waiting room carry no strip, so the warning appears once,
- *  before sign-in. */
+// Unconditional pre-game notice. Mounted by the auth shell only: the table
+//  screen and the PvP waiting room carry no strip, so the warning appears once,
+//  before sign-in.
 export function LandscapeNotice() {
   const { t } = useTranslation();
   return (
@@ -32,14 +32,7 @@ export function LandscapeNotice() {
   );
 }
 
-/** Full-bleed retrowave auth shell: the era's plate plus a glass card.
- *
- *  The plate belongs to the shell, not to this component: `html, body` paints
- *  `--shell-image` (todo.md section 33, step 3), so everything mounted here is
- *  transparent on purpose. A full-bleed `--bg-primary` fill used to sit on this
- *  element and cover that plate - it was left from when the cityscape was
- *  mounted *inside* the layout, and it made sign-in the one route that did not
- *  show its era's ground. Nothing here may paint a ground again. */
+// Full-bleed retrowave auth shell: the era's plate plus a glass card.
 export function RetroAuthLayout({
   tag,
   topRight,

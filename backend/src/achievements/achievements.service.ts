@@ -30,10 +30,8 @@ export class AchievementsService {
   // Post-game auto-hook from processGameEnd. Never throws : failures log.
   async evaluateAfterGame(gameId: string): Promise<void> {
     try {
-      // The rows postgame has just written: one per seat, so each one is already
-      // that user's participation. No parent row to load, no join. A seat that left
-      // the room early also holds a row for this game, and its tallies must never
-      // unlock a rule it did not earn, so only completed rows are read.
+      // Rows are one per seat and already the participation, so no join is needed.
+      // Only COMPLETED rows count: an early leaver's tallies must not unlock a rule.
       const rows = await this.prisma.db.matchHistory.findMany({
         where: { game_id: gameId, status: 'COMPLETED' },
       });

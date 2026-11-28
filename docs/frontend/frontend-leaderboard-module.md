@@ -23,6 +23,8 @@ The Leaderboard page (`/leaderboard`, full-screen) shows players in rank order. 
 3. **Current user highlight** — "you" badge on the logged-in user's row.
 4. **Counts and states** — the total number of entries, plus loading and empty states.
 
+From 1024 px the page is a `page-fit-column`: the title, podium and frame stay put, the table is the one `.scroll-surface`, and its column header is the first sticky child inside that scroller so it shares the rows' stable gutter. Below 1024 px the document keeps ordinary scrolling.
+
 > **Note:** The Leaderboard reads live data from the leaderboard API (Application Programming Interface) at `GET /api/leaderboard?mode=global&limit=50`; there is no mock data. Translated text comes from `locales/*`, under the `leaderboard` namespace.
 
 
@@ -34,7 +36,7 @@ The Leaderboard page (`/leaderboard`, full-screen) shows players in rank order. 
 
 | File | Role |
 |------|------|
-| `src/pages/Leaderboard.tsx` | Leaderboard page — podium, rankings table, you-badge |
+| `src/pages/Leaderboard/` | Leaderboard page — podium, rankings table, you-badge |
 | `src/components/UserAvatar.tsx` | Player avatars |
 
 
@@ -109,5 +111,5 @@ sequenceDiagram
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `useApp` for current user |
+| `store/store.tsx` | `useApp` for current user |
 | `i18n.ts` | `useTranslation` (`leaderboard.*` keys) |

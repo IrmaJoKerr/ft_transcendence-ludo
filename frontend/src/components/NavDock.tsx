@@ -3,24 +3,11 @@ import { RetroNavbar } from './RetroNavbar';
 import { useDockPrefs } from '../hooks/useDockPrefs';
 import type { Notification } from '../hooks/useNotifications';
 
-/**
- * The seated navigation dock: one sticky spacer, one width, one chat preference.
- *
- * Every docked page mounts this instead of an `<aside>` + `<RetroNavbar>` pair,
- * so the spacer and the bar cannot disagree about the width, and the `xl`
- * threshold is one JS constant (`WIDE_MIN_PX`) rather than a `matchMedia` plus
- * six class literals.
- *
- * **The dock lives wherever it is mounted, so the chat needs no route check.**
- * Exactly five screens mount it: Home, Leaderboard, Friends, Profile (own and
- * another pilot's, two call sites) and LudoLobby. `/game`, `/gamelobby/table`
- * (the preparation lobby) and `/guest` mount neither the dock nor the panel:
- * those screens have no room for it, which is why "chat on the home, profile,
- * leaderboard, friends and lobby screens" is true by geometry. A new page opts
- * into the chat by mounting this component, knowingly.
- */
+// The seated navigation dock: one sticky spacer, one width and one chat preference.
+// Docked pages mount it instead of an `<aside>` + `<RetroNavbar>` pair, so the spacer,
+// bar width and `xl` threshold cannot disagree. Mounting it also opts the page into chat.
 interface NavDockProps {
-  /** The nav item to highlight; `RetroNavbar` falls back to the router. */
+    // The nav item to highlight; `RetroNavbar` falls back to the router.
   activeRoute: string;
   notifications?: Notification[];
   unreadCount?: number;

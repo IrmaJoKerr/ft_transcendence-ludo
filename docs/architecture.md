@@ -563,7 +563,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   └── src/
 │       ├── chat.constants.ts     # 300 chars, 2 s cooldown, 500/1000 rows, 400-line fallback, 3 h TTL, chatLength()
 │       ├── timing.constants.ts   # the twenty-six timings: clash windows, the scene's acts, the card lengths (the goal's four among them), step and dice animation, and the room's 3 h idle window
-│       └── wall-breaker.constants.ts # the token every seat is dealt, and the hand's ceiling
+│       └── clash.constants.ts    # tablet tap weight, the token every seat is dealt, and the hand's ceiling
 │
 ├── backend/                      # NestJS REST API (port 3000)
 │   ├── Dockerfile
@@ -582,6 +582,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │
 │   │   ├── common/               # Shared backend helpers (no Nest module)
 │   │   │   ├── scoring.ts         # ratingDeltaFor() — piece-based rating change
+│   │   │   ├── redis-client.ts    # REDIS_CLIENT factory + RedisClientLifecycle (module-scoped)
 │   │   │   └── botname-enforce.ts # BOT_PREFIX / isReservedBotName()
 │   │   │
 │   │   ├── i18n/                 # Backend email localization (consumed by auth/mail.service.ts)
@@ -593,8 +594,13 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   └── image-signature.util.ts  # Magic-byte validation of uploaded images
 │   │   │
 │   │   ├── auth/                 # JWT + OAuth (Google, GitHub, 42) + 2FA + mail
-│   │   │   ├── auth.controller.ts    # register, login, logout, me, profile/password, 2FA, OAuth
-│   │   │   ├── auth.service.ts       # Token signing, password hashing, account flows
+│   │   │   ├── auth.controller.ts    # register, login, logout, me, profile/password, 2FA verify, OAuth
+│   │   │   ├── auth.service.ts       # facade over registration, access, profile and OAuth
+│   │   │   ├── auth.registration.service.ts # register, verify, login/2FA challenge, reset
+│   │   │   ├── auth.access.service.ts       # token signing, session issue/refresh/logout
+│   │   │   ├── auth.profile.service.ts      # profile read/update, password change, deletion
+│   │   │   ├── auth.oauth.service.ts        # provider identity, link/create, unlink
+│   │   │   ├── auth.shared.ts               # SALT_ROUNDS, BASE_URL, public-user shapes
 │   │   │   ├── auth.module.ts        # JWT config (15-min access) + local & ngrok OAuth strategies
 │   │   │   ├── auth.constants.ts     # Auth tunables (token TTLs, resend limits)
 │   │   │   ├── login-lockout.service.ts # Per-account failed-login counters (Redis)
@@ -613,7 +619,6 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │       ├── login.dto.ts               # username-or-email + password
 │   │   │       ├── register.dto.ts            # signup fields (incl. language)
 │   │   │       ├── twofactor.dto.ts           # 2FA verify payload
-│   │   │       ├── two-factor-setting.dto.ts  # enable/disable 2FA
 │   │   │       ├── password.rules.ts          # shared password policy
 │   │   │       ├── change-password.dto.ts     # logged-in password change
 │   │   │       ├── forgot-password.dto.ts     # reset-link request
@@ -629,18 +634,24 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │   │   │   └── user.module.ts
 │   │   ├── friends/              # Friend system (requests, accept/decline, block, invites)
 │   │   │   ├── friends.controller.ts # friend + game-invite routes
-│   │   │   ├── friends.service.ts    # friendship rules + online enrichment
+│   │   │   ├── friends.service.ts    # facade over requests, invites and blocks
+│   │   │   ├── friends.requests.service.ts # request/accept/decline/remove + reads
+│   │   │   ├── friends.invites.service.ts  # challenge, room invites, sent/pending
+│   │   │   ├── friends.blocks.service.ts   # block, unblock, blocked list
+│   │   │   ├── friendship-access.ts  # shared pair reads, status and notifications
 │   │   │   ├── friendship-pair.ts    # pure pair predicates shared with match + presence
 │   │   │   ├── block-state.service.ts # the read-path pair gate (Prisma-only leaf)
 │   │   │   ├── block-state.module.ts  # exports it without pulling MatchModule in
 │   │   │   └── friends.module.ts
 │   │   ├── match/                # Matchmaking & game lifecycle (split services)
 │   │   │   ├── match.controller.ts        # match/game HTTP routes
-│   │   │   ├── match.service.ts           # facade over the four match sub-services
+│   │   │   ├── match.service.ts           # facade over the five match sub-services
 │   │   │   ├── match.creator.service.ts   # create/join/rejoin payloads
 │   │   │   ├── match.player.service.ts    # join/rejoin/invite/ready/exit actions
 │   │   │   ├── match.query.service.ts     # read-only open-rooms / my-rooms queries
 │   │   │   ├── match.postgame.service.ts  # POST /api/game/end handling
+│   │   │   ├── match.abandon.service.ts   # POST /api/game/:id/abandon handling
+│   │   │   ├── postgame-snapshot.ts       # snapshot + chatForSeat helpers
 │   │   │   ├── seat-finalization.ts       # terminal-seat lookup from engine state
 │   │   │   ├── engine-token.util.ts       # signEngineToken() — engine secret, aud, 24 h TTL
 │   │   │   ├── guest-limit.service.ts     # GUEST_LIMITS, hashed-address counters, delay ladder
@@ -742,7 +753,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── main.tsx              # React entry point
 │       ├── App.tsx               # Root component (routes + auth guard)
 │       ├── router.tsx            # Custom window.location router
-│       ├── store.tsx             # React context + API + game/settings state + guest setup + the session socket (and its online badge)
+│       ├── store/store.tsx             # React context + API + game/settings state + guest setup + the session socket (and its online badge)
 │       ├── api.ts                # Typed fetch wrapper (refresh + retry, CSRF, ngrok, error-code translation)
 │       ├── socket.ts             # Socket.IO client types + connectSocket()
 │       ├── i18n.ts               # i18next init
@@ -752,7 +763,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       ├── dicebear.ts           # @dicebear avatar style resolution
 │       ├── validateEmail.ts      # Client-side email-format check (mirror of @IsEmail)
 │       ├── validatePassword.ts   # Client-side password policy mirror
-│       ├── styles/               # themes/*/theme.css (one palette per era) + app.css + tw.ts
+│       ├── styles/               # themes/ registry + per-era theme.css + pieces/; app.css, tw.ts
 │       ├── pages/                # Home, Login, Signup, TwoFactor, ForgotPassword,
 │       │                         # ResetPassword, VerifyEmail, LudoLobby, Lobby, Game,
 │       │                         # Friends, Leaderboard, Profile, LegalPage
@@ -761,7 +772,7 @@ See the [README](../README.md) **Commands** section for the full list of make ta
 │       │                         # OAuthButtons, ProfileEditModal, UserAvatar,
 │       │                         # CyberModal, DeleteAccountModal, LegalModal,
 │       │                         # MarkdownViewer, ResultsModal, railButton.ts
-│       ├── game/                 # reducer.ts, types.ts
+│       ├── game/                 # reducer.ts, types.ts, pieceTypes/piecePaint/pieceGeometry.ts
 │       ├── hooks/                # useFitTextSize.ts, useNotifications.tsx
 │       ├── locales/              # en.ts, fr.ts, ms.ts
 │       ├── content/docs/         # Markdown docs rendered by LegalPage

@@ -3,10 +3,8 @@
 export const WS_NAMESPACE = '/ws';
 export const WS_PATH = '/ws-socket.io';
 
-// Detection at ~40 s, deliberately below the 45 s presence TTL
-// (PRESENCE_TTL_S in presence/presence.constants.ts): a dead peer's socket closes
-// before its presence key lapses, so every transition comes from a disconnect,
-// never a race between the two timers.
+// Detection at about 40 s, below the 45 s presence TTL, so a dead socket closes before
+// its key lapses and every transition comes from a disconnect, not a timer race.
 export const WS_PING_INTERVAL_MS = 20_000;
 export const WS_PING_TIMEOUT_MS = 20_000;
 

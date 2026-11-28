@@ -24,9 +24,7 @@ import { retroAudio } from '../utils/audio';
 // screen. Both keys exist in en, fr and ms.
 type FieldMessage = 'passwordInfo.error' | 'auth.passwordMismatch' | null;
 
-/**
- * Reset step 2 for an emailed link: the token sits in the URL fragment, never sent.
- */
+// Reset step 2 for an emailed link: the token sits in the URL fragment, never sent.
 export function ResetPassword() {
   const { t } = useTranslation();
   const { resetPassword } = useApp();

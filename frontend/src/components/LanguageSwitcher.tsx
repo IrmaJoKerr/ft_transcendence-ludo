@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import type { Lang } from '../store';
 import { retroAudio } from '../utils/audio';
 
-/** The shipped languages, with the short code and the endonym the navbar tabs show. */
+// The shipped languages, with the short code and the endonym the navbar tabs show.
 const LANGS: readonly { code: Lang; short: string; full: string }[] = [
   { code: 'en', short: 'EN', full: 'ENGLISH' },
   { code: 'ms', short: 'MS', full: 'MELAYU' },
   { code: 'fr', short: 'FR', full: 'FRANÇAIS' },
 ];
 
-/** Segmented EN / MS / FR switch; the caller owns the active language. */
+// Segmented EN / MS / FR switch; the caller owns the active language.
 export function LanguageSwitcher({
   value,
   onChange,
@@ -68,7 +68,6 @@ export function LanguageSwitcher({
                 cursor: 'pointer',
                 boxShadow: isSelected ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                 transition: 'all 0.18s ease',
-                outline: 'none',
               }}
             >
               <span

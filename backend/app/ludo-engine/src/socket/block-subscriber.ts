@@ -2,13 +2,9 @@ import Redis from 'ioredis';
 import type { RedisGameStore } from '../redis';
 import { withBlock, withoutBlock } from '../game-chat';
 
-// The backend publishes `blocks:changed { a, b, blocked }` when an account blocks or
-// unblocks another (M3). The engine holds the room's live ledger, so it is the side
-// that has to apply the cut: the block is minted in the backend, the chat lines are
-// minted here, and only this process knows the room's chat sequence.
-//
-// The channel name is duplicated from backend/src/common/channels.ts: the engine is a
-// separate build with no import path into the backend.
+// Backend publishes `blocks:changed`; the engine holds the room ledger and chat
+// sequence, so it applies the cut. The channel name is duplicated because the engine
+// cannot import from the backend.
 export const BLOCKS_CHANGED_CHANNEL = 'blocks:changed';
 
 interface BlocksMessage {

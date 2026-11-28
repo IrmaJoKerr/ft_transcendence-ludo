@@ -2,7 +2,7 @@
 // httpOnly cookie shared by every tab, and rotation consumes it, so two tabs
 // refreshing together leave the second with a 401 that reads as signed out.
 
-/** How this tab took part in one refresh round. */
+// How this tab took part in one refresh round.
 export type RefreshLease<T> =
   | {
       // This tab owns the refresh: post, then publish the result and release.
@@ -17,7 +17,7 @@ export type RefreshLease<T> =
       awaitResult: () => Promise<T | null>;
     };
 
-/** Per-page view of the cross-tab refresh lock. */
+// Per-page view of the cross-tab refresh lock.
 export interface RefreshLock {
   acquire<T>(): RefreshLease<T>;
 }

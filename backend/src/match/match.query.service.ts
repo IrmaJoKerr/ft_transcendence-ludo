@@ -1,9 +1,9 @@
 // Read-only match queries: open rooms, my-rooms, and the one snapshot the
 // realtime broadcaster diffs (socket consolidation, Phase 2).
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { secret } from '../secrets';
-import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis-client';
+import type Redis from 'ioredis';
 import { readRoomRules } from './room-rules';
 import { ENDED_MATCH_STATUSES } from './active-game';
 
@@ -32,19 +32,19 @@ export type RoomSnapshotRow = {
   freeExit: boolean;
   clashKeyShift: 0 | 1 | 2;
   captureFx: boolean;
-  /** Seat slots in order; empty strings for free slots. */
+  // Seat slots in order; empty strings for free slots.
   seatIds: string[];
-  /** Each slot's colour, slot order (blue, red, green, yellow): the claim's address book. */
+  // Each slot's colour, slot order (blue, red, green, yellow): the claim's address book.
   seatColors: string[];
-  /** The colours a joiner may still claim: a slot with no seat in a joinable room. */
+  // The colours a joiner may still claim: a slot with no seat in a joinable room.
   freeColors: string[];
-  /** Users whose seat the engine finalized: never rejoined, never listed. */
+  // Users whose seat the engine finalized: never rejoined, never listed.
   finalizedIds: string[];
-  /** The engine has already started this room's game. */
+  // The engine has already started this room's game.
   started: boolean;
 };
 
-/** One row of `rooms:list` — the payload the lobby renders. */
+// One row of `rooms:list` — the payload the lobby renders.
 export type LobbyRoom = {
   id: string;
   roomCode: string;
@@ -56,11 +56,7 @@ export type LobbyRoom = {
   maxSeats: number;
   mode: 'classic' | 'duel';
   mySeat: boolean;
-  /**
-   * The corners a joiner may still claim, in canonical order. The join palette is
-   * built from exactly this list, so a taken colour is never offered; the join
-   * route checks the same thing again (HSETNX).
-   */
+  // Free corners in canonical order; the join route checks again with HSETNX.
   freeColors: string[];
   clashEnabled: boolean;
   noSafeZones: boolean;
@@ -69,7 +65,7 @@ export type LobbyRoom = {
   captureFx: boolean;
 };
 
-/** One row of `rooms:mine` — the rejoin banner and "has an active game". */
+// One row of `rooms:mine` — the rejoin banner and "has an active game".
 export type MyRoom = {
   id: string;
   roomCode: string | null;
@@ -174,27 +170,13 @@ function readEngineState(
 // from Postgres. Used by match.controller.ts via MatchService, and by the
 // realtime broadcaster, which diffs one snapshot per rooms-change event.
 export class MatchQueryService {
-  // Redis client for scanning match:* game hashes.
-  private redis: Redis;
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
-  constructor(private readonly prisma: PrismaService) {
-    const host = process.env.REDIS_HOST ?? 'redis';
-    const port = parseInt(process.env.REDIS_PORT ?? '6479', 10);
-    const password = secret('REDIS_PASSWORD');
-    this.redis = new Redis({ host, port, password, retryStrategy: (t) => Math.min(t * 50, 2000) });
-    this.redis.on('error', (error) => {
-      console.error('Redis error:', error.message);
-    });
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.redis.quit();
-  }
-
-  // Every room the lobby or a rejoin banner could show anybody, read once: the
-  // hash scan, one engine-state read per room, and one Postgres query for the
-  // hosts. Each viewer's payload is then a filter (lobbyRoomsFor / myRoomsFor),
-  // which is what keeps one change from costing one scan per connected user.
+  // Read every visible room once: hash scan, one engine state per room, one host query.
+  // Each viewer's payload is a filter, so one change never costs one scan per user.
   async snapshot(): Promise<RoomSnapshotRow[]> {
     const rows: RoomSnapshotRow[] = [];
     let cursor = '0';

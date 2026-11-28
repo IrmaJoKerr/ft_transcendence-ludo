@@ -510,8 +510,10 @@ loadGameState(gameId)
   │   ├── Found → deserialize JSON to GameState
   │   │   └── withWallBreakerDefaults(state)
   │   │       ├── player.wallBreakerTokens === undefined → 0
-  │   │       ├── stats.clashWallBattlesWon === undefined → 0
-  │   │       └── diceRolls / sixes / piecesLost / clashWallsAttacked / clashWallsDefended → 0
+  │   │       ├── stats.clashDefendsWon / clashAttacksWon / clashAttacksLost /
+  │   │       │   clashDefendsLost === undefined → 0
+  │   │       └── stats.clashWallBattlesWon / threeSixes / piecesLost /
+  │   │           clashWallsAttacked / clashWallsDefended === undefined → 0
   │   └── Not found → return null
   └── Done
 ```
@@ -520,7 +522,8 @@ loadGameState(gameId)
 Redis, so a `GameState` without the Wall Breaker fields can be loaded mid-game, and it is normalised
 there. Every NUMERIC field feeds
 arithmetic (`wallBreakerTokens - 1` on an armed wall break, `+ 1` per clash won against a single defender up
-to `WALL_BREAKER_TOKEN_CAP`, `stats.clashWallBattlesWon += 1` when a wall chain is won, and the
+to `WALL_BREAKER_TOKEN_CAP`, `stats.clashAttacksWon += 1` and `stats.clashDefendsWon += 1` per resolved
+clash round, `stats.clashWallBattlesWon += 1` when a wall chain is won, and the
 match-row counters the engine tallies per seat), and `undefined - 1` is
 `NaN`: one NaN seat would stay broken for the rest of the
 match, because every later turn reads the poisoned counter back out of Redis. Normalizing at the

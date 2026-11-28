@@ -1,10 +1,10 @@
 // Shared Tailwind utility strings for classes reused across components.
 
 export const RETRO_BTN =
-  'inline-flex items-center gap-1.5 px-4 py-2.5 uppercase cursor-pointer outline-none text-[0.7rem] text-[var(--text-main)] bg-[var(--btn-bg)] border-2 border-(--accent-cyan) shadow-[var(--box-shadow)] [font-family:var(--font-heading)] [transition:all_0.2s_ease] hover:-translate-y-0.5 hover:shadow-[var(--btn-hover-shadow)] active:translate-y-px';
+  'inline-flex items-center gap-1.5 px-4 py-2.5 uppercase cursor-pointer text-[0.7rem] text-[var(--text-main)] bg-[var(--btn-bg)] border-2 border-(--accent-cyan) shadow-[var(--box-shadow)] [font-family:var(--font-heading)] [transition:all_0.2s_ease] hover:-translate-y-0.5 hover:shadow-[var(--btn-hover-shadow)] active:translate-y-px';
 
 export const THEME_TRIGGER_BTN_BASE =
-  "font-['Atkinson_Hyperlegible_Next',sans-serif] text-[0.65rem] h-[38px] w-[125px] px-2.5 box-border inline-flex items-center justify-between rounded gap-1 relative shrink-0 cursor-pointer outline-none [transition:background_0.2s_ease,border-color_0.2s_ease,box-shadow_0.2s_ease,color_0.2s_ease]";
+  "font-['Atkinson_Hyperlegible_Next',sans-serif] text-[0.65rem] h-[38px] w-[125px] px-2.5 box-border inline-flex items-center justify-between rounded gap-1 relative shrink-0 cursor-pointer [transition:background_0.2s_ease,border-color_0.2s_ease,box-shadow_0.2s_ease,color_0.2s_ease]";
 
 export const THEME_POPOVER_MENU_BASE =
   'absolute top-[calc(100%+10px)] right-0 z-[10001] bg-[var(--fs-bg)] border-2 border-[var(--fs-border)] shadow-[0_14px_40px_rgb(var(--shade-rgb)/.9),0_0_25px_var(--fs-glow)] p-2.5 rounded-md min-w-[240px] [transform-origin:top_right] backdrop-blur-[10px]';
@@ -28,7 +28,7 @@ export const RETRO_AUTH_LABEL =
   "font-['Atkinson_Hyperlegible_Next',sans-serif] text-xs font-bold tracking-[1.5px] text-[rgb(var(--accent-cyan-rgb)/.75)] uppercase";
 
 export const RETRO_AUTH_INPUT =
-  "w-full [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-(--text-main) bg-[rgb(var(--shade-rgb)/.45)] outline-none [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-(--accent-cyan) focus:shadow-[0_0_18px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_8px_rgb(var(--accent-cyan-rgb)/.1)] focus:bg-[rgb(var(--shade-rgb)/.6)]";
+  "w-full [border:1.5px_solid_rgb(var(--accent-cyan-rgb)/.28)] rounded-[11px] py-4 px-[18px] [font:500_16.5px_'Atkinson_Hyperlegible_Mono',monospace] text-(--text-main) bg-[rgb(var(--shade-rgb)/.45)] [transition:all_0.2s_ease] box-border placeholder:text-[rgba(184,166,228,.35)] focus:border-(--accent-cyan) focus:shadow-[0_0_18px_rgb(var(--accent-cyan-rgb)/.35),inset_0_0_8px_rgb(var(--accent-cyan-rgb)/.1)] focus:bg-[rgb(var(--shade-rgb)/.6)]";
 
 export const RETRO_AUTH_BTN =
   "border-0 rounded-xl py-[17px] px-[22px] [font:900_16px_'Atkinson_Hyperlegible_Next',sans-serif] tracking-[1.8px] text-(--text-main) cursor-pointer bg-[linear-gradient(135deg,var(--accent-pink),var(--accent-purple))] shadow-[0_0_22px_rgb(var(--accent-pink-rgb)/.4),0_8px_26px_rgb(var(--accent-purple-rgb)/.35)] [transition:all_0.22s_ease] uppercase hover:-translate-y-px hover:shadow-[0_0_32px_rgb(var(--accent-pink-rgb)/.65),0_12px_34px_rgb(var(--accent-purple-rgb)/.45),0_0_65px_rgb(var(--accent-cyan-rgb)/.2)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0";
@@ -57,12 +57,9 @@ export const RETRO_AUTH_MUTED =
 // Shared "page shell"
 export const CRT_SCREEN = 'relative z-10 min-h-screen';
 
-// The era plate is the shell's: `html, body` paints `--shell-image` (dimmed,
-// rearmost, every UI surface in front of it), so no route mounts a backdrop any
-// more and this layer paints no ground at all. What it still is, is the fixed
-// frame the 80s converging grid hangs in: `STATIC_GRID` is absolute and wants a
-// viewport-sized positioned parent. Home is its only reader (todo.md section 33,
-// step 3).
+// The era plate is the shell's: `html, body` paints `--shell-image` (dimmed, rearmost, every UI
+// surface in front of it), so no route mounts a backdrop any more and this layer paints no ground
+// at all.
 export const GRID_BACKGROUND = 'fixed inset-0 z-[0] pointer-events-none';
 
 // The old isometric background, frozen: converging perspective lines that
@@ -132,10 +129,9 @@ export const TICKET_YELLOW =
 export const TICKET_GREEN =
   'bg-[linear-gradient(90deg,rgba(0,255,136,.2)_0%,rgb(var(--bg-raise-rgb)/.96)_100%)] border-2 border-[#00ff88] shadow-[0_4px_20px_rgb(var(--shade-rgb)/.6),0_0_16px_rgba(0,255,136,.22)] hover:border-[#33ffaa] hover:bg-[linear-gradient(90deg,rgba(0,255,136,.3)_0%,rgba(30,8,55,.98)_100%)] hover:shadow-[0_8px_30px_rgb(var(--shade-rgb)/.75),0_0_28px_rgb(var(--accent-pink-rgb)/.55),inset_0_0_16px_rgba(0,255,136,.18)]';
 
-// The right-hand action pill inside a pass. The 1.5 px transparent border is not
-// decoration: all three pills share one width (the widest label, see
-// `PassActionPill`), and a pill without a border would be 3 px narrower than the
-// two with one. Pills that want a coloured edge override only the colour.
+// The right-hand action pill inside a pass. The 1.5 px transparent border is not decoration: all
+// three pills share one width (the widest label, see `PassActionPill`), and a pill without a
+// border would be 3 px narrower than the two with one.
 export const TICKET_ACTION_PILL =
   'inline-flex items-center justify-center py-3 px-6 rounded-md border-[1.5px] border-solid [border-color:var(--pill-border,transparent)] [font-family:var(--font-heading)] text-[0.9rem] font-black tracking-[1px] [transition:all_0.2s_ease] pointer-events-none shrink-0';
 
@@ -152,7 +148,7 @@ export const ARCADE_SCREEN_FRAME =
 // enough for the longest of the three locales' titles and no wider, so the attract mode
 // behind it stays the picture rather than a frame around a caption.
 export const ARCADE_START_OVERLAY =
-  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[49.2%] max-w-[348px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-auto cursor-pointer [animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
+  'absolute bottom-6 left-1/2 -translate-x-1/2 w-[49.2%] max-w-[348px] bg-(--start-overlay-bg) backdrop-blur-[8px] border-2 border-(--accent-pink) shadow-[0_0_20px_var(--start-overlay-glow),inset_0_0_12px_var(--start-overlay-inset)] rounded-md py-3 px-[18px] text-center flex flex-col items-center gap-1.5 pointer-events-auto cursor-pointer motion-safe:[animation:arcade-start-pulse_1.8s_infinite_ease-in-out] [transition:all_0.2s_ease] box-border';
 
 export const ARCADE_START_TITLE =
   '[font-family:var(--font-heading)] text-[0.95rem] text-(--accent-yellow) [text-shadow:0_0_10px_var(--accent-yellow),0_0_20px_var(--accent-pink)] tracking-[1.5px] font-bold whitespace-nowrap';
@@ -161,13 +157,6 @@ export const ARCADE_START_SUB =
   '[font-family:var(--font-mono)] text-[0.82rem] text-(--accent-cyan) tracking-[0.5px]';
 
 // Column spans inside `DASHBOARD_GRID`.
-//
-// A divided dashboard collapses at 992 px, 288 px below where the dock changes
-// shape (1280). A docked page that divides therefore has to pick its own
-// breakpoint at 1280: below it the dock is a rail and the content jumps 181 px
-// wider, so a span that only collapses at 992 would hold a divided layout in
-// that range. LudoLobby does not divide — it is one stack (passes, then the rooms
-// window) — so it lays out as a flex column instead of a row of spans.
 export const COL_4 = 'col-span-4 max-[992px]:col-span-12';
 
 export const COL_8 = 'col-span-8 max-[992px]:col-span-12';
@@ -180,7 +169,7 @@ export const CYBER_MODAL_OVERLAY =
   'group/modal fixed inset-0 bg-[rgba(5,2,14,.78)] backdrop-blur-[12px] backdrop-saturate-[1.8] z-[10002] grid place-items-center p-6 [transition:opacity_0.3s_ease] opacity-0 pointer-events-none data-[modal-state=open]:opacity-100 data-[modal-state=open]:pointer-events-auto';
 
 export const CYBER_MODAL_BOX =
-  "[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]";
+  "[--corner:12px] [--border:2px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--modal-accent:var(--accent-cyan)] [--modal-shadow:var(--accent-pink)] text-(--modal-accent) w-[clamp(340px,90vw,500px)] relative box-border [font-family:var(--font-display,sans-serif)] overflow-visible bg-transparent before:content-[''] before:absolute before:top-px before:bottom-px before:right-full before:w-4 before:[border:var(--border)_solid_var(--modal-accent)] before:[translate:-25%_0] before:opacity-0 before:backdrop-blur-[6px] before:backdrop-saturate-[180%] before:[transition-property:opacity,translate] before:duration-200 before:ease-out before:[transition-delay:325ms] before:[background:var(--modal-accent)] before:[mask:linear-gradient(#fff,hsl(0_0%_100%/0.6)_15%_95%,#fff)] after:content-[''] after:absolute after:top-px after:bottom-px after:right-full after:w-4 after:[border:var(--border)_solid_var(--modal-accent)] after:[translate:-25%_0] after:opacity-0 after:backdrop-blur-[6px] after:backdrop-saturate-[180%] after:[transition-property:opacity,translate] after:duration-200 after:ease-out after:[transition-delay:325ms] group-data-[modal-state=open]/modal:before:opacity-100 group-data-[modal-state=open]/modal:before:[translate:var(--border)_0] motion-safe:group-data-[modal-state=open]/modal:before:[animation:cyberModalFlicker_0.625s_var(--flicker)_none] group-data-[modal-state=open]/modal:before:[animation-delay:200ms] group-data-[modal-state=open]/modal:before:[transition-delay:0s] group-data-[modal-state=open]/modal:after:opacity-100 group-data-[modal-state=open]/modal:after:[translate:var(--border)_0]";
 
 export const CYBER_MODAL_BODY =
   'relative backdrop-blur-[8px] backdrop-saturate-[180%] [clip-path:inset(0_calc(100%_+_(2_*_var(--border)))_0_0)] [transition-property:clip-path] duration-[260ms] [transition-delay:75ms] group-data-[modal-state=open]/modal:[clip-path:inset(0_calc(var(--border)_*_-1)_0_0)] group-data-[modal-state=open]/modal:[transition-delay:220ms]';
@@ -210,7 +199,7 @@ export const CYBER_MODAL_ACTIONS =
   'flex items-center gap-[0.8rem] pt-[1.2rem] [transition-property:translate,opacity] duration-100 ease-out opacity-0 [translate:-24px_0] group-data-[modal-state=open]/modal:opacity-100 group-data-[modal-state=open]/modal:[translate:0_0] group-data-[modal-state=open]/modal:[transition-delay:500ms]';
 
 export const CYBER_MODAL_GLITCH =
-  '[--shimmy-distance:2] [--clip-one:polygon(0_2%,100%_2%,100%_95%,95%_95%,95%_90%,85%_90%,85%_95%,8%_95%,0_70%)] [--clip-two:polygon(0_78%,100%_78%,100%_100%,95%_100%,95%_90%,85%_90%,85%_100%,8%_100%,0_78%)] [--clip-three:polygon(0_44%,100%_44%,100%_54%,95%_54%,95%_54%,85%_54%,85%_54%,8%_54%,0_54%)] [--clip-four:polygon(0_0,100%_0,100%_0,95%_0,95%_0,85%_0,85%_0,8%_0,0_0)] [--clip-five:polygon(0_0,100%_0,100%_0,95%_0,95%_0,85%_0,85%_0,8%_0,0_0)] [--clip-six:polygon(0_40%,100%_40%,100%_85%,95%_85%,95%_85%,85%_85%,85%_85%,8%_85%,0_70%)] [--clip-seven:polygon(0_63%,100%_63%,100%_80%,95%_80%,95%_80%,85%_80%,85%_80%,8%_80%,0_70%)] absolute inset-0 p-[1.4rem] text-(--modal-shadow) pointer-events-none z-[-1] opacity-0 group-data-[glitching=true]/modal:opacity-100 group-data-[glitching=true]/modal:[animation:cyberModalFullGlitch_1.6s_ease_forwards]';
+  '[--shimmy-distance:2] [--clip-one:polygon(0_2%,100%_2%,100%_95%,95%_95%,95%_90%,85%_90%,85%_95%,8%_95%,0_70%)] [--clip-two:polygon(0_78%,100%_78%,100%_100%,95%_100%,95%_90%,85%_90%,85%_100%,8%_100%,0_78%)] [--clip-three:polygon(0_44%,100%_44%,100%_54%,95%_54%,95%_54%,85%_54%,85%_54%,8%_54%,0_54%)] [--clip-four:polygon(0_0,100%_0,100%_0,95%_0,95%_0,85%_0,85%_0,8%_0,0_0)] [--clip-five:polygon(0_0,100%_0,100%_0,95%_0,95%_0,85%_0,85%_0,8%_0,0_0)] [--clip-six:polygon(0_40%,100%_40%,100%_85%,95%_85%,95%_85%,85%_85%,85%_85%,8%_85%,0_70%)] [--clip-seven:polygon(0_63%,100%_63%,100%_80%,95%_80%,95%_80%,85%_80%,85%_80%,8%_80%,0_70%)] absolute inset-0 p-[1.4rem] text-(--modal-shadow) pointer-events-none z-[-1] opacity-0 motion-safe:group-data-[glitching=true]/modal:opacity-100 motion-safe:group-data-[glitching=true]/modal:[animation:cyberModalFullGlitch_1.6s_ease_forwards]';
 
 // **CyberButton**
 export const CYBER_BTN_BASE =
@@ -239,7 +228,7 @@ export const CYBER_BTN_KBD =
 export const CYBER_BTN_LABEL = 'relative z-[3] text-[0.76rem] tracking-[0.5px] uppercase';
 
 export const CYBER_BTN_GLITCH_LAYER =
-  'hidden absolute inset-0 items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] pointer-events-none text-(--btn-accent) [text-shadow:0_1px_var(--btn-shadow)] z-[4] group-hover:inline-flex group-hover:[animation:cyberBtnGlitch_1.8s_infinite]';
+  'hidden absolute inset-0 items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] pointer-events-none text-(--btn-accent) [text-shadow:0_1px_var(--btn-shadow)] z-[4] motion-safe:group-hover:inline-flex motion-safe:group-hover:[animation:cyberBtnGlitch_1.8s_infinite]';
 
 export const CYBER_BTN_LETTERS =
   'flex [&>span:nth-of-type(2)]:[scale:1_-1] [&>span:nth-of-type(5)]:[scale:1_-1] [&>span:nth-of-type(3)]:[scale:-1_-1] [&>span:nth-of-type(6)]:[scale:-1_-1] [&>span:nth-of-type(7)]:[scale:-1_-1]';
@@ -269,7 +258,7 @@ export const TICKET_PAPER_WRAPPER =
   'w-[80%] mt-[70px] mx-auto relative z-10 flex flex-col items-center box-border [clip-path:inset(0px_-50px_-10000px_-50px)]';
 
 export const RESULTS_INVOICE =
-  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgb(var(--bg-raise-rgb)/.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgb(var(--accent-cyan-rgb)/.6)] shadow-[0_15px_40px_rgb(var(--shade-rgb)/.8)] [animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
+  "relative top-6 z-[5] w-full mx-auto left-0 right-0 [font-family:'Atkinson_Hyperlegible_Mono',monospace] bg-[rgb(var(--bg-raise-rgb)/.97)] text-(--text-muted) py-[1.8em] px-[1.5em] rounded-b-[1.2em] border-[2.5px] border-(--accent-cyan) [border-top:2px_dashed_rgb(var(--accent-cyan-rgb)/.6)] shadow-[0_15px_40px_rgb(var(--shade-rgb)/.8)] motion-safe:[animation:printVendingTicketJitter_0.72s_cubic-bezier(.22,1,.36,1)_forwards] [transform-origin:top_center] box-border [will-change:transform,opacity] [backface-visibility:hidden] [transform:translate3d(0,0,0)] max-[520px]:py-[1.2em] max-[520px]:px-[1em]";
 
 const TICKET_NOTCH_BASE = 'absolute top-[55px] w-4 h-4 rounded-full z-[6] bg-(--bg-primary)';
 
@@ -313,21 +302,12 @@ export const PAY_NOW_BTN =
   'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgb(var(--accent-pink-rgb)/.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-(--accent-cyan) hover:border-(--accent-cyan) hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_var(--accent-cyan)] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
 
 // OAuthButtons' provider button: the one survivor of `theme.ts`'s twelve `CSSProperties`
-// constants. It was `btnOutline` spread at the call site and then overridden there (font
-// 14, padding 11/10, a flex row), so this string writes the recipe the button actually
-// rendered: section 33's action D, which deleted the other eleven because nothing
-// imported them. The browns are the 70s palette's warm chrome and stay literals until
-// their own family lands.
+// constants.
 export const OAUTH_BTN =
   "flex items-center justify-center gap-2 cursor-pointer rounded-xl px-[10px] py-[11px] [border:1px_solid_#4a3826] text-[#e8dcc6] bg-[linear-gradient(180deg,#2b2118,#20180f)] [font:700_14px_'Atkinson_Hyperlegible_Next',sans-serif]";
 
-// Section 33, action A: the twelve recipes that passes 1 and 2 left in an inline `style`
-// and used in more than one place, as class strings. Each was a fully static object, so
-// nothing computed is being frozen into a class; the constant is the channel rule's
-// second rung, and the 30 sites that carried the recipe now read it instead of restating
-// it. The twelfth recipe - six paint-only `{ color: 'var(--text-main)' }` - needed no
-// constant, because `text-(--text-main)` is one utility. The 71 single-use recipes are
-// style objects by rule and are not here (todo.md section 33, the ruling).
+// Section 33, action A: the twelve recipes that passes 1 and 2 left in an inline `style` and used
+// in more than one place, as class strings.
 export const DISPLAY_TITLE =
   'text-[1.05rem] font-black leading-none text-(--text-main) [font-family:var(--font-display)]';
 

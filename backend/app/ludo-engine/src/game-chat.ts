@@ -1,17 +1,10 @@
 import type { ChatBlock, ChatLine, GameState, PlayerColor } from './types';
 
-// The room's chat channel (M3), in one module: its keys, the line builders, and the
-// per-seat filter that every reader shares (live emit, join replay and the transcript a
-// row stores). Its limits are NOT here: they live in `common/src/chat.constants.ts` with
-// the lobby's, because one line's length and one transcript's depth are numbers both
-// builds count (`./__shared__/chat.constants` is the copy this tree compiles).
-//
-// The key shape mirrors `backend/src/common/channels.ts`: the channel name is
-// `game:<id>`, so its log is `chat:game:<id>:log` and its sequence
-// `chat:game:<id>:seq`. The engine never publishes chat on pub/sub: the room's own
-// socket set is the audience, so the fan-out is the emit that is already there.
+// Room chat: keys, line builders and the per-seat filter shared by live emit, rejoin and
+// stored transcripts. Limits come from `common/src/chat.constants.ts`. The log key is
+// `chat:game:<id>:log` and the sequence key is `chat:game:<id>:seq`; chat never uses pub/sub.
 
-/** The channel name: one per room, and the `ch` every line carries. */
+// The channel name: one per room, and the `ch` every line carries.
 export function chatChannel(gameId: string): string {
   return `game:${gameId}`;
 }

@@ -7,38 +7,8 @@ import { retroAudio } from '../utils/audio';
 import type { ChatCardStatus } from './chatCardTypes';
 import { CHAT_SURFACE } from './chatSurface';
 
-// INVITE COMMS (M3): the waiting room's occupancy list, mounted as the chat card's
-// `sidePanel` and only while `status === 'WAITING'`.
-//
-// It was a 150 px column beside the compact slot until 19.8, which meant the board's
-// left column reflowed when a room filled and the column left. It is a panel now:
-// portaled beside the open card (240 px, clamped inside the viewport), off until the
-// card head's switch asks for it, and gone when the match starts. Because it costs
-// the column nothing, a full room no longer hides it — it says nobody is free, which is
-// true at capacity and is the same press a half-empty room offers.
-//
-// It is occupancy, not duelling: a friend listed here is online and not already in
-// this room, so pressing invite cannot fail for the reason the duel gate exists. The
-// seat half of that test reads the room's own player list and never a presence
-// snapshot, which is what keeps a friend who has just joined from being listed; the
-// online half is the presence feed, because that is the only live signal there is.
-// A friend who is mid-match in another room still reads `online` here, and pressing
-// invite is answered by the band in one press: accepted, because hiding them would
-// need the live `playing` edge for a case that resolves itself (R1).
-//
-// The press is the app's room-invite route with the room's own id (`useChallenges`),
-// so an invite already out reads grey from the server's list rather than from a
-// remembered press, and it survives a reload. This column never duels: a challenge
-// makes its own room at the accept, which is the lobby's business and not a seat in
-// this one (19.6).
-//
-// Since 24 it wears the card's shell rather than the board windows' chrome. The two
-// rectangles are portaled 8 px apart and read together, and the card draws no bar, no
-// pink and no navy, so a panel on `RETRO_WINDOW`/`WINDOW_HEADER` looked like another
-// family standing beside it. `CHAT_SURFACE` (`chatSurface.ts`, 24.1) holds the one
-// recipe the card, the lobby's copy of it and this panel all spread, so the three
-// cannot drift apart again; the head, the well, the rows and the band are the card's
-// parts at the card's metrics for the same reason.
+// INVITE COMMS (M3): the waiting room's occupancy list, mounted as the chat card's `sidePanel` and
+// only while `status === 'WAITING'`.
 export function InviteComms({
   gameId,
   seatUserIds,
@@ -46,13 +16,13 @@ export function InviteComms({
   friends,
 }: {
   gameId: string;
-  /** Every account seated in this room, taken from the room's own player list. */
+    // Every account seated in this room, taken from the room's own player list.
   seatUserIds: string[];
-  /** The room's capacity. A full room lists nobody: every friend is either seated
-   *  here or has no free seat to take, so the panel says so rather than vanishing. */
+    // The room's capacity. A full room lists nobody: every friend is either seated
+  //  here or has no free seat to take, so the panel says so rather than vanishing.
   playerCount: number;
-  /** The friendship snapshot, read once by the page and shared with the name card, so
-   *  a waiting room opens with one read rather than one per surface. */
+    // The friendship snapshot, read once by the page and shared with the name card, so
+  //  a waiting room opens with one read rather than one per surface.
   friends: FriendRow[];
 }) {
   const { t } = useTranslation();
