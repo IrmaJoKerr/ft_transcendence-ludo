@@ -25,8 +25,12 @@ export function AutoCloseToggle() {
         width: '100%',
         padding: '10px 12px',
         borderRadius: 8,
-        background: notifAutoClose ? 'rgb(var(--state-on-rgb) / 0.12)' : 'rgb(var(--ink-rgb) / 0.04)',
-        border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgb(var(--ink-rgb) / 0.1)',
+        background: notifAutoClose
+          ? 'rgb(var(--state-on-rgb) / 0.12)'
+          : 'rgb(var(--ink-rgb) / 0.04)',
+        border: notifAutoClose
+          ? '1px solid var(--state-on)'
+          : '1px solid rgb(var(--ink-rgb) / 0.1)',
         boxShadow: notifAutoClose ? '0 0 10px rgb(var(--state-on-rgb) / 0.2)' : 'none',
         cursor: 'pointer',
         transition: 'all 0.18s ease',
@@ -36,11 +40,7 @@ export function AutoCloseToggle() {
         color: 'inherit',
       }}
     >
-      <span
-        className={DISPLAY_LABEL}
-      >
-        {t('notifications.autoCloseToggle')}
-      </span>
+      <span className={DISPLAY_LABEL}>{t('notifications.autoCloseToggle')}</span>
       <span
         style={{
           fontSize: '0.68rem',
@@ -50,7 +50,9 @@ export function AutoCloseToggle() {
           borderRadius: 4,
           background: notifAutoClose ? 'var(--state-on)' : 'rgb(var(--ink-rgb) / 0.12)',
           color: notifAutoClose ? 'var(--state-on-ink)' : 'var(--text-muted)',
-          border: notifAutoClose ? '1px solid var(--state-on)' : '1px solid rgb(var(--ink-rgb) / 0.18)',
+          border: notifAutoClose
+            ? '1px solid var(--state-on)'
+            : '1px solid rgb(var(--ink-rgb) / 0.18)',
         }}
       >
         {notifAutoClose ? t('navbar.enabledBadge') : t('navbar.disabledBadge')}

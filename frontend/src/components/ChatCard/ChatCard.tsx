@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { RETRO_WINDOW, WINDOW_HEADER, WINDOW_BODY, GAME_WINDOW_HEADER_EXTRA } from '../../styles/tw';
+import {
+  RETRO_WINDOW,
+  WINDOW_HEADER,
+  WINDOW_BODY,
+  GAME_WINDOW_HEADER_EXTRA,
+} from '../../styles/tw';
 import { retroAudio } from '../../utils/audio';
 import { CHAT_MAX_CHARS, chatLength } from '../../__shared__/chat.constants';
 import { systemLineText } from '../chatCardTypes';
@@ -22,30 +27,30 @@ import {
 } from './chatCardMetrics';
 
 export interface ChatCardProps {
-    // Oldest first, the order this component paints.
+  // Oldest first, the order this component paints.
   lines: ChatCardLine[];
-    // One line out. The ack is the host's own transport answer.
+  // One line out. The ack is the host's own transport answer.
   send: (text: string, ack: (reply: { ok: true } | { ok: false; error: string }) => void) => void;
-    // Whether the transport is open. A closed one leaves the composer disabled.
+  // Whether the transport is open. A closed one leaves the composer disabled.
   connected: boolean;
-        // The panel a host can mount beside the open card (the room's INVITE COMMS, waiting room only).
+  // The panel a host can mount beside the open card (the room's INVITE COMMS, waiting room only).
   sidePanel?: ReactNode;
-    // The name pressed in the transcript: the host owns the card it opens and the
+  // The name pressed in the transcript: the host owns the card it opens and the
   //  calls that card makes, and takes the pressed rectangle so the card can be placed
   //  against the name (the feed scrolls under the pointer).
   onOpenName?: (userId: string, displayName: string, anchor: DOMRect) => void;
-    // A sender's name colour, resolved by the host from the room's seats. Undefined keeps
+  // A sender's name colour, resolved by the host from the room's seats. Undefined keeps
   //  the card's own fallback (cyan for own lines, main text for others).
   senderColor?: (line: ChatCardLine) => string | undefined;
-    // A clash is up: the card stays mounted and readable but takes no keys (E7).
+  // A clash is up: the card stays mounted and readable but takes no keys (E7).
   inert?: boolean;
   titleKey?: string;
   scopeKey?: string;
   emptyTitleKey?: string;
   emptyDescKey?: string;
-    // The collapsed title, for the board's slot.
+  // The collapsed title, for the board's slot.
   slotTitleKey?: string;
-    // The composer's status, owned by the host when it reports friend actions too.
+  // The composer's status, owned by the host when it reports friend actions too.
   status?: ChatCardStatus | null;
   onStatus?: (status: ChatCardStatus | null) => void;
 }
@@ -88,7 +93,7 @@ export function ChatCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-    // Anchored to the slot's own rectangle: where the slot sits depends on the grid, the roster's
+  // Anchored to the slot's own rectangle: where the slot sits depends on the grid, the roster's
   // overhang and the window height, so CSS cannot say it.
   const place = useCallback(() => {
     const slot = slotRef.current;
@@ -131,7 +136,7 @@ export function ChatCard({
     setPanelOpen((was) => !was);
   }, [panelOpen, sidePanel]);
 
-    // Escape closes, and so does a press outside the card, its slot and its panel. `pointerdown`
+  // Escape closes, and so does a press outside the card, its slot and its panel. `pointerdown`
   // rather than `click`: a drag that ends outside must not close what the user aimed at.
   useEffect(() => {
     if (!open) return;
@@ -193,7 +198,7 @@ export function ChatCard({
         setStatus({ tone: 'error', text: t('chat.error.CHAT_TOO_LONG', { max: CHAT_MAX_CHARS }) });
         return;
       }
-            // The transmission (23.7), fired between the last validation and the send: one call here covers
+      // The transmission (23.7), fired between the last validation and the send: one call here covers
       // all three composers, since they all submit through this. The two refusals above get `deny`
       // instead, so the press is answered before the band's words are read.
       retroAudio.playChatSend();

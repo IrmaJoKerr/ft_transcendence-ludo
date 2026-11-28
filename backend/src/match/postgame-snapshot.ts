@@ -60,7 +60,6 @@ export type MatchParticipantSnapshot = {
 // trim can never lose a total.
 export const HISTORY_TRIM = 50;
 
-
 // Seat order the room hash is written in: slot N is `player<N>_*`, and its
 // colour is `player<N>_color` (a hotseat room may skip a colour, so the default
 // is only a fallback).
@@ -175,7 +174,7 @@ export function chatForSeat(
   // Only a pair that includes this seat cuts anything; a block between two other
   // players is not this reader's business and changes nothing here.
   const cuts = (Array.isArray(blocks) ? blocks : [])
-    .filter((block) => block && (block.a === seatUserId || block.b === seatUserId))
+    .filter((block) => block.a === seatUserId || block.b === seatUserId)
     .map((block) => ({
       other: block.a === seatUserId ? block.b : block.a,
       atSeq: block.atSeq,
@@ -183,7 +182,7 @@ export function chatForSeat(
 
   const kept = lines
     .filter((line) => {
-      if (!line || typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
+      if (typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
       if (!line.senderId || line.senderId === seatUserId) return true;
       return !cuts.some((cut) => cut.other === line.senderId && line.seq >= cut.atSeq);
     })
@@ -223,7 +222,10 @@ export interface EngineRoomState {
   players?: Array<{ color?: string; status?: string }>;
 }
 
-export async function readEngineState(redis: Redis, gameId: string): Promise<EngineRoomState | null> {
+export async function readEngineState(
+  redis: Redis,
+  gameId: string,
+): Promise<EngineRoomState | null> {
   const raw = await redis.hget(`game:${gameId}`, 'state');
   if (!raw) return null;
   try {

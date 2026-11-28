@@ -34,7 +34,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
   // The card the palette is filling: the host's own card on arrival, then whichever
   // empty card's add action was pressed. Null while the palette is closed.
   const [paletteCard, setPaletteCard] = useState<number | null>(null);
-    // The room rules chosen on this screen travel with the create body as separate fields of ONE
+  // The room rules chosen on this screen travel with the create body as separate fields of ONE
   // payload.
   const [clashEnabled, setClashEnabled] = useState(false);
   const [noSafeZones, setNoSafeZones] = useState(false);
@@ -115,8 +115,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
     setStartError(null);
     setStarting(true);
     try {
-      // `canStart` guarantees both of these; the guard is for the type checker.
-      if (!hostSeat || !isOccupiedSeat(hostSeat)) return;
+      // `canStart` guarantees a host seat, so `hostSeat` is narrowed here.
       // Guest launch: PvE only, and none of mode/playerCount/seatColors come from here;
       // the server forces the mode and derives the count. The guest's corner and the
       // bot colours travel, so the seats shown are the seats dealt.
@@ -166,7 +165,7 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
       const botNames = visible
         .map((s) => (s.type === 'bot' ? s.name : null))
         .filter((n): n is string => n !== null);
-            // The seated cards' colours in card order. `seatColors` travels because a room that skips a corner
+      // The seated cards' colours in card order. `seatColors` travels because a room that skips a corner
       // must not be re-densified: the engine seats exactly these colours. It does NOT decide who moves
       // first — turn order is colour order (blue → red → green → yellow).
       const seatColors = visible.filter(isOccupiedSeat).map((s) => s.color);
@@ -180,7 +179,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
         playerCount: number;
       }>('/api/match/create', {
         mode: gameMode,
-        playerCount: gameMode === 'hotseat' ? participants : gameMode === 'pve' ? 1 + botCount : playerCount,
+        playerCount:
+          gameMode === 'hotseat' ? participants : gameMode === 'pve' ? 1 + botCount : playerCount,
         botCount,
         // The host's colour is the host's seat: the server writes them at that
         // colour's slot, so the card here and the quadrant in game are the same.
@@ -226,8 +226,8 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
             boxSizing: 'border-box',
           }}
         >
-          {/* Hero Header - Identical 1-to-1 design & dimensions as Game.tsx */}          <LobbyHeader guest={guest} />
-
+          {/* Hero Header - Identical 1-to-1 design & dimensions as Game.tsx */}{' '}
+          <LobbyHeader guest={guest} />
           {/* Main Grid */}
           <main
             className={DASHBOARD_GRID}
@@ -301,7 +301,9 @@ export function Lobby({ guest = false }: { guest?: boolean } = {}) {
                 hostSeated={hostSeated}
                 starting={starting}
                 startError={startError}
-                onStart={onStart}
+                onStart={() => {
+                  void onStart();
+                }}
                 clashEnabled={clashEnabled}
                 onClash={setClashEnabled}
                 clashShiftCount={clashShiftCount}

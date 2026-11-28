@@ -33,12 +33,12 @@ const SCREEN_PREVIEW_LINES = 3;
 const SCREEN_MIN_HEIGHT = 112;
 
 interface LobbyChatProps {
-    // ON lights the screen; OFF leaves the same plate black, and inert: the card
+  // ON lights the screen; OFF leaves the same plate black, and inert: the card
   //  cannot be opened from a powered-down screen. The compact rail has no screen to
   //  switch, so it never reads this.
   open: boolean;
   onToggle: () => void;
-    // The rail's form: one glyph instead of the screen, and the card hanging off it
+  // The rail's form: one glyph instead of the screen, and the card hanging off it
   //  (decision 1.4, 2026-11-09). It carries no ON/OFF state and no unread cue, and
   //  the card closes itself, so the glyph is one press in either direction.
   compact?: boolean;
@@ -63,14 +63,12 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   // closes on a press, so the list is what a reopened card reads after a reload.
   const { isSent, challenge: sendChallenge } = useChallenges();
 
-    // A block hides that pilot's lines from this reader — the rule the channel's own empty state
+  // A block hides that pilot's lines from this reader — the rule the channel's own empty state
   // already promised.
   const blockedIds = useMemo(() => new Set(blocked.map((row) => row.id)), [blocked]);
   const lines = useMemo(
     () =>
-      blockedIds.size === 0
-        ? chatLog
-        : chatLog.filter((line) => !blockedIds.has(line.senderId)),
+      blockedIds.size === 0 ? chatLog : chatLog.filter((line) => !blockedIds.has(line.senderId)),
     [chatLog, blockedIds],
   );
 
@@ -91,14 +89,11 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
   const [box, setBox] = useState<CardBox | null>(null);
   const plateRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-    // The compact glyph is the plate's stand-in: it is the trigger, the rectangle `place()` measures,
+  // The compact glyph is the plate's stand-in: it is the trigger, the rectangle `place()` measures,
   // the element an outside press exempts and the one focus returns to. Reaching both through one
   // accessor is what keeps those four jobs written once instead of twice (decision 1.4).
   const glyphRef = useRef<HTMLButtonElement>(null);
-  const anchor = useCallback(
-    () => (compact ? glyphRef.current : plateRef.current),
-    [compact],
-  );
+  const anchor = useCallback(() => (compact ? glyphRef.current : plateRef.current), [compact]);
 
   // One line out. The three local refusals exist so the band answers in the same
   // tick as the press: the socket's own ack covers length, spacing and storage.
@@ -156,13 +151,13 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     (line: ChatCardLine, anchor: DOMRect) => {
       // Your own name opens nothing: every action on the card is about the other pilot,
       // so the only thing a self-card could offer is a guaranteed `400`.
-      if (user && line.senderId === user.id) return;
+      if (user?.id === line.senderId) return;
       setNameTarget({ id: line.senderId, name: line.senderName, anchor });
     },
     [user],
   );
 
-    // CHALLENGE is this surface's to offer: the friends list's own duel, thrown at the room the viewer
+  // CHALLENGE is this surface's to offer: the friends list's own duel, thrown at the room the viewer
   // already sits in — a seat offer, not a duel, because a duel makes its own room at the accept and
   // a seated player cannot host a second one (19.6).
   const challengeName = useCallback(
@@ -177,7 +172,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     [activeMatch, sendChallenge, t],
   );
 
-    // Measured from the plate's own rectangle rather than from CSS: where the plate sits depends on
+  // Measured from the plate's own rectangle rather than from CSS: where the plate sits depends on
   // the nav track, the notifications and the window height, and the card has to clear the viewport
   // edges at every one of them.
   const place = useCallback(() => {
@@ -186,7 +181,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     const r = plate.getBoundingClientRect();
     const reserve = document.querySelector('[data-chat-reserve]');
     const floor = reserve ? reserve.getBoundingClientRect().top : r.bottom;
-        // Left-aligned with the plate where that fits, held inside the right edge otherwise; rising out of
+    // Left-aligned with the plate where that fits, held inside the right edge otherwise; rising out of
     // the screen from the reserve rather than dropping over it.
     const bottom = Math.min(floor - 1, window.innerHeight - CHAT_CARD_MARGIN);
     const height = Math.max(0, Math.min(chatCardHeight(), bottom - CHAT_CARD_MARGIN));
@@ -254,7 +249,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     };
   }, [anchor, cardOpen, closeCard]);
 
-    // Focus moves into the card on open, so Escape and the composer are reachable without a second tab
+  // Focus moves into the card on open, so Escape and the composer are reachable without a second tab
   // stop; `closeCard` puts it back on the anchor — the plate in the dock, the glyph on the rail.
   useEffect(() => {
     if (cardOpen) cardRef.current?.focus();
@@ -271,7 +266,7 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
     else openCard();
   }, [cardOpen, closeCard, openCard]);
 
-    // The card and the name card are the same on both hosts: each hangs off whichever element is the
+  // The card and the name card are the same on both hosts: each hangs off whichever element is the
   // anchor, so the rail reuses them unchanged.
   const overlay = (
     <>

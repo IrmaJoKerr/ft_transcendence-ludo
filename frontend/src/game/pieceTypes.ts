@@ -15,14 +15,14 @@ export type PieceRole =
   | 'ink'
   | 'cream'
   | 'white'
-    // The 80s set's one face paint. Hue-independent, like the creams: a face is a
+  // The 80s set's one face paint. Hue-independent, like the creams: a face is a
   //  face on every seat, and the four teams are four characters, not four hues.
   | 'skin'
-    // Linear body gradient, hi → base → lo: the torso.
+  // Linear body gradient, hi → base → lo: the torso.
   | 'lid'
-    // The hero's torso: the same ramp lit flatter, for a figure 47 px tall.
+  // The hero's torso: the same ramp lit flatter, for a figure 47 px tall.
   | 'lidCrew'
-    // Radial body gradient, hi → base → lo: the helmet globe.
+  // Radial body gradient, hi → base → lo: the helmet globe.
   | 'gid';
 // A paint slot, or `none` for a stroke-only part.
 type Paint = PieceRole | 'none';
@@ -59,7 +59,7 @@ export type PiecePart =
       cy: number;
       rx: number;
       ry: number;
-            // Degrees about the ellipse's own centre.
+      // Degrees about the ellipse's own centre.
       rotate?: number;
       fill: Paint;
       stroke?: Paint;

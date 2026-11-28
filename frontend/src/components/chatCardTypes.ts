@@ -13,11 +13,11 @@ export type ChatCardLine = {
   text: string;
   at: number;
   ch?: string;
-    // The sender's semantic seat colour, stamped when the backend stores a profile
-    // transcript (`RED`, `GREEN`, `YELLOW`, `BLUE`). A live room line has no such
-    // stamp; the profile resolves it through the current palette.
+  // The sender's semantic seat colour, stamped when the backend stores a profile
+  // transcript (`RED`, `GREEN`, `YELLOW`, `BLUE`). A live room line has no such
+  // stamp; the profile resolves it through the current palette.
   senderColor?: string;
-    // A line the engine wrote. `text` is empty and `code` is the locale key.
+  // A line the engine wrote. `text` is empty and `code` is the locale key.
   kind?: 'system';
   code?: 'left' | 'started';
 };
@@ -31,7 +31,7 @@ export type ChatCardStatus = { tone: 'error' | 'info'; text: string };
 //  `pressed` is the panel's state, which the press toggles.
 export type ChatHeadGlyph = {
   glyph: string;
-    // The tooltip and the visible caption under the glyph. A panel's name, never its
+  // The tooltip and the visible caption under the glyph. A panel's name, never its
   //  state, because `aria-pressed` already carries that.
   label: string;
   pressed: boolean;

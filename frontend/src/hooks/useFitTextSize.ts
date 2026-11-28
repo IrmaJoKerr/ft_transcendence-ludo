@@ -2,11 +2,11 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 type FitTextSizeOptions = {
-    // Font size (px) kept whenever the text already fits: the design size.
+  // Font size (px) kept whenever the text already fits: the design size.
   maxFontSize: number;
-    // Lower bound (px) so long locales never shrink into illegibility.
+  // Lower bound (px) so long locales never shrink into illegibility.
   minFontSize?: number;
-    // Extra horizontal px kept free around the text as breathing room.
+  // Extra horizontal px kept free around the text as breathing room.
   reserve?: number;
 };
 

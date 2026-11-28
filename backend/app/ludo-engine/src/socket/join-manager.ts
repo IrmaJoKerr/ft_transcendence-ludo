@@ -101,7 +101,9 @@ export class JoinManager {
     // An account seat's username is the immutable login name, never the editable
     // display name. Hotseat drives several local seats from one socket and has no
     // account per seat, so there the lobby label is the seat's identity.
-    const effectiveUsername = isHotseat ? displayName || socket.data.username : socket.data.username;
+    const effectiveUsername = isHotseat
+      ? displayName || socket.data.username
+      : socket.data.username;
     const effectiveColor = (!isHotseat && socket.data.tokenColor) || playerColor;
 
     void this.withGameLock(effectiveGameId, async () => {

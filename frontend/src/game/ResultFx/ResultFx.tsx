@@ -15,7 +15,13 @@ import { AttackAct } from './AttackAct';
 import { CastPiece } from './CastPiece';
 import { CloudAct } from './CloudAct';
 import { JailAct } from './JailAct';
-import { CAGE_HALF, CAGE_TRAVEL_PX, BEAM_TRAVEL_PX, CLOUD_TEXT_LEAD_MS, ensureKeyframes } from './keyframes';
+import {
+  CAGE_HALF,
+  CAGE_TRAVEL_PX,
+  BEAM_TRAVEL_PX,
+  CLOUD_TEXT_LEAD_MS,
+  ensureKeyframes,
+} from './keyframes';
 import { resultFxBeats } from './timeline';
 import {
   ATTACKER_GLYPH_X,
@@ -96,7 +102,7 @@ export function ResultFx({
   // left; a repulse subtracts nothing, and there `n` is the whole set plus the one that
   // would have gone, which is why the total is the ceiling.
   const wallLayers = attackerWon ? layers : Math.min(total, WALL_MAX);
-    // The wall's column and the ring the shot meets, both read off `n`. The column: the front box at
+  // The wall's column and the ring the shot meets, both read off `n`. The column: the front box at
   // `WALL_FRONT_X`, and each further defender `WALL_TAPER` of the width, one rung up and left by the
   // rest of its own box — 36, 29.5, 24.2 and 19.8 wide, x 144 back to 59.
   const wallBoxes: { x: number; y: number; size: number }[] = [];
@@ -111,17 +117,16 @@ export function ResultFx({
     });
   }
   const shieldFaceX = +(
-    DOME_CX +
-    Math.sqrt(DOME_RADII[wallLayers - 1] ** 2 - (GROUND_Y - STRIKE_Y) ** 2)
+    DOME_CX + Math.sqrt(DOME_RADII[wallLayers - 1] ** 2 - (GROUND_Y - STRIKE_Y) ** 2)
   ).toFixed(1);
 
-    // One clock per act (25.8): an element is budgeted in the act it plays in, so nothing can outlive
+  // One clock per act (25.8): an element is budgeted in the act it plays in, so nothing can outlive
   // that act and re-timing one act leaves the others' instants alone.
   const attackMs = isWall ? SCENE_WALL_ATTACK_MS : SCENE_ATTACK_MS;
   const fx = (name: string) => `${name} ${SCENE_ATTACK_MS}ms ease-out both`;
   const wallFx = (name: string) => `${name} ${SCENE_WALL_ATTACK_MS}ms ease-out both`;
   const cloudFx = (name: string) => `${name} ${SCENE_CLOUD_MS}ms ease-out ${attackMs}ms both`;
-    // The jail is the second act everywhere and the THIRD on a breach, where the cloud sits between
+  // The jail is the second act everywhere and the THIRD on a breach, where the cloud sits between
   // the two clears.
   const jailStartMs = attackMs + (isBreach ? SCENE_CLOUD_MS : 0); // 700, 1600 or 3000
   const jailFx = (name: string) => `${name} ${SCENE_JAIL_MS}ms ease-out ${jailStartMs}ms both`;
@@ -137,7 +142,7 @@ export function ResultFx({
   // on the ground line — is the point it scales about.
   const growsUp: CSSProperties = { transformBox: 'fill-box', transformOrigin: 'center bottom' };
 
-    // The strike: from the winner's front face to whatever takes it. The tail sits 6 units inside the
+  // The strike: from the winner's front face to whatever takes it. The tail sits 6 units inside the
   // shooter's glyph, so the beam leaves a piece instead of crossing an empty lane (25.17 item 2).
   const beamFrom = attackerWon
     ? isWall
@@ -177,16 +182,16 @@ export function ResultFx({
   // capture (the attacker is on the right), left to right on a repulse — the same vector
   // as the beam, so the card reads as one sweep repeated.
   const cageFrom = `${attackerWon ? CAGE_TRAVEL_PX : -CAGE_TRAVEL_PX}px`;
-    // The beam travels a full stage clear on the pair, and its own width on a wall: the attacker
+  // The beam travels a full stage clear on the pair, and its own width on a wall: the attacker
   // stands beside the dome there, so the shot is a punch at close range rather than a lance across
   // the frame (25.3).
   const beamTravel = isWall ? beamW : BEAM_TRAVEL_PX;
   const beamEntry = `${attackerWon ? beamTravel : -beamTravel}px`;
-    // The strike may only exist inside the lane it crosses.
+  // The strike may only exist inside the lane it crosses.
   const beamClipId = useId();
   const beamClipX = Math.min(beamFrom, impactX);
   const beamClipW = Math.abs(impactX - beamFrom) + (attackerWon ? 0 : 16);
-    // The floor each composition stands on. The wall's runs from behind the rear-most defender to past
+  // The floor each composition stands on. The wall's runs from behind the rear-most defender to past
   // the attacker's own bay; the pair's follows the cell and stops at x 192, the widest both cards
   // can show, so the flash card never cuts a mark the clash card keeps.
   const pairFloorX1 = Math.max(0, cageCx - CAGE_HALF - 16);
@@ -194,7 +199,7 @@ export function ResultFx({
   const wallFloorX1 = Math.max(4, wallBoxes[wallLayers - 1].x - 12);
   const wallFloorX2 = Math.min(VB_W - 4, WALL_ATTACKER_X + PIECE_W + 8); // 236: the stage's edge
 
-    // The three compositions' gates.
+  // The three compositions' gates.
   const wallGate: CSSProperties = { animation: wallFx('fxWallClear') };
   // The dome scales about the ground under its centre, so its rim travels while the
   // column's feet stay put. `view-box` makes that floor point the origin instead of a
@@ -204,35 +209,30 @@ export function ResultFx({
     transformBox: 'view-box',
     transformOrigin: `${DOME_CX}px ${GROUND_Y}px`,
   };
-  const pairGate: CSSProperties = isWall
-    ? { opacity: 0, animation: atJailStart('fxCastIn') }
-    : {};
+  const pairGate: CSSProperties = isWall ? { opacity: 0, animation: atJailStart('fxCastIn') } : {};
   const cloudGate: CSSProperties = { animation: cloudFx('fxCloudClear') };
 
-    // The sentence's own numbers, from the string it draws (25.4): the same key carries a player's
+  // The sentence's own numbers, from the string it draws (25.4): the same key carries a player's
   // name now, so 27 — sized for an eleven-character word — is a ceiling and not a constant.
   const sentenceAtMs = attackMs + CLOUD_TEXT_LEAD_MS; // 2000: 400 ms into a breach's cloud
   const sentenceLen = Math.max(1, banner?.length ?? 1);
   const bannerFs = Math.max(
     BANNER_MIN_FS,
-    Math.min(
-      BANNER_MAX_FS,
-      Math.floor((VB_W - 2 * BANNER_PAD) / (BANNER_ADVANCE * sentenceLen)),
-    ),
+    Math.min(BANNER_MAX_FS, Math.floor((VB_W - 2 * BANNER_PAD) / (BANNER_ADVANCE * sentenceLen))),
   );
   const bannerBudget = VB_W - 2 * BANNER_PAD;
   const bannerSqueeze =
     BANNER_ADVANCE * bannerFs * sentenceLen > bannerBudget
       ? { textLength: bannerBudget, lengthAdjust: 'spacingAndGlyphs' as const }
       : {};
-    // The halo and the hairline are the two widths that were tuned against a 27 px word, so they
+  // The halo and the hairline are the two widths that were tuned against a 27 px word, so they
   // follow the size: at the ceiling they land on exactly 6 and 0.75 units, and at the floor they are
   // thin enough to leave the counters of the letters open instead of drowning them in glow.
   const bannerScale = bannerFs / BANNER_MAX_FS;
   const bannerHalo = Math.max(2, Math.round(6 * bannerScale));
   const bannerEdge = Math.max(0.4, +(0.75 * bannerScale).toFixed(2));
 
-    // The soundtrack belongs to the act, not to the host (25.5): both cards mount the same scene, so
+  // The soundtrack belongs to the act, not to the host (25.5): both cards mount the same scene, so
   // both play the same beats, and the flash card keeps the laser the walk found missing.
   useEffect(() => {
     const timers = resultFxBeats({
@@ -248,10 +248,10 @@ export function ResultFx({
 
   return (
     <svg
-      aria-hidden='true'
+      aria-hidden="true"
       viewBox={viewBox}
-      width='100%'
-      height='100%'
+      width="100%"
+      height="100%"
       style={{ display: 'block', overflow: 'hidden', pointerEvents: 'none' }}
     >
       {/* ── the attack act, on a wall: its defenders, the dome over them, and the
@@ -285,8 +285,8 @@ export function ResultFx({
           x2={pairFloorX2}
           y2={GROUND_Y}
           stroke={loserColor}
-          strokeOpacity='.22'
-          strokeWidth='2'
+          strokeOpacity=".22"
+          strokeWidth="2"
         />
 
         {/* the cast, at the same two places whichever seat won: the defender on the left,
@@ -295,20 +295,8 @@ export function ResultFx({
             is drawn twice and never contradicted (25.4). They face each other, which is the
             same rule the wall's row follows: the seats never swap, so neither does the
             direction each of them looks. */}
-        <CastPiece
-          x={DEFENDER_GLYPH_X}
-          y={GLYPH_Y}
-          color={defender}
-          pieces={pieces}
-          pose='right'
-        />
-        <CastPiece
-          x={ATTACKER_GLYPH_X}
-          y={GLYPH_Y}
-          color={attacker}
-          pieces={pieces}
-          pose='left'
-        />
+        <CastPiece x={DEFENDER_GLYPH_X} y={GLYPH_Y} color={defender} pieces={pieces} pose="right" />
+        <CastPiece x={ATTACKER_GLYPH_X} y={GLYPH_Y} color={attacker} pieces={pieces} pose="left" />
       </g>
 
       {/* the strike lands: the field cracks under the loser. The loser itself never moves
@@ -318,17 +306,17 @@ export function ResultFx({
         <g style={{ animation: fx('fxFieldCrack') }}>
           <path
             d={`M ${loserCx - 22} ${GROUND_Y} L ${loserCx - 8} ${GROUND_Y - 8} L ${loserCx - 2} ${GROUND_Y}`}
-            fill='none'
-            stroke='#e8e2ff'
-            strokeOpacity='.85'
-            strokeWidth='1.5'
+            fill="none"
+            stroke="#e8e2ff"
+            strokeOpacity=".85"
+            strokeWidth="1.5"
           />
           <path
             d={`M ${loserCx + 4} ${GROUND_Y} L ${loserCx + 14} ${GROUND_Y - 6} L ${loserCx + 24} ${GROUND_Y}`}
-            fill='none'
-            stroke='#e8e2ff'
-            strokeOpacity='.85'
-            strokeWidth='1.5'
+            fill="none"
+            stroke="#e8e2ff"
+            strokeOpacity=".85"
+            strokeWidth="1.5"
           />
         </g>
       )}
@@ -338,15 +326,22 @@ export function ResultFx({
           slide is revealed at the shooter's front face instead of painted behind him. */}
       <defs>
         <clipPath id={beamClipId}>
-          <rect x={beamClipX} y={STRIKE_Y - 12} width={Math.max(10, beamClipW)} height='24' />
+          <rect x={beamClipX} y={STRIKE_Y - 12} width={Math.max(10, beamClipW)} height="24" />
         </clipPath>
       </defs>
       <g
         clipPath={`url(#${beamClipId})`}
         style={{ animation: fx('fxBeam'), '--beamFrom': beamEntry } as CSSProperties}
       >
-        <rect x={beamX} y={STRIKE_Y - 3} width={Math.max(10, beamW)} height='6' rx='3' fill={winnerColor} />
-        <rect x={hotX} y={STRIKE_Y - 5} width='14' height='10' rx='4' fill='#ffffff' opacity='.7' />
+        <rect
+          x={beamX}
+          y={STRIKE_Y - 3}
+          width={Math.max(10, beamW)}
+          height="6"
+          rx="3"
+          fill={winnerColor}
+        />
+        <rect x={hotX} y={STRIKE_Y - 5} width="14" height="10" rx="4" fill="#ffffff" opacity=".7" />
       </g>
 
       {/* where it lands: the puncture star blooms on the piece the shot met — the defender's
@@ -354,9 +349,9 @@ export function ResultFx({
           a repulse — always in the winner's colour */}
       <path
         d={starAt(impactX, STRIKE_Y)}
-        fill='#ffffff'
+        fill="#ffffff"
         stroke={winnerColor}
-        strokeWidth='1.5'
+        strokeWidth="1.5"
         style={{ ...pivot, animation: fx('fxPuncture') }}
       />
 
@@ -400,14 +395,14 @@ export function ResultFx({
           <text
             x={VB_W / 2}
             y={BANNER_Y}
-            textAnchor='middle'
+            textAnchor="middle"
             fontSize={bannerFs}
             fontWeight={900}
-            fontFamily='var(--font-display)'
-            fill='none'
+            fontFamily="var(--font-display)"
+            fill="none"
             stroke={winnerColor}
             strokeWidth={bannerHalo}
-            strokeOpacity='.35'
+            strokeOpacity=".35"
             style={{ animation: readFx('fxBannerPulse', sentenceAtMs) }}
             {...bannerSqueeze}
           >
@@ -416,14 +411,14 @@ export function ResultFx({
           <text
             x={VB_W / 2}
             y={BANNER_Y}
-            textAnchor='middle'
+            textAnchor="middle"
             fontSize={bannerFs}
             fontWeight={900}
-            fontFamily='var(--font-display)'
+            fontFamily="var(--font-display)"
             fill={winnerColor}
-            stroke='#0b0118'
+            stroke="#0b0118"
             strokeWidth={bannerEdge}
-            paintOrder='stroke'
+            paintOrder="stroke"
             style={{ animation: readFx('fxBannerPulse', sentenceAtMs) }}
             {...bannerSqueeze}
           >

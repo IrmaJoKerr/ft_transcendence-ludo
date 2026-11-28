@@ -109,7 +109,15 @@ export function GoalCard({ color, count }: { color: PlayerColor; count: number }
         strokeOpacity="0.5"
         strokeWidth="1.4"
       />
-      <line x1="10" y1="118" x2="58" y2="118" stroke={hue} strokeWidth="2.6" strokeLinecap="round" />
+      <line
+        x1="10"
+        y1="118"
+        x2="58"
+        y2="118"
+        stroke={hue}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
 
       {/* The goal mouth: the lane's own opening, past the last station. */}
       <polygon

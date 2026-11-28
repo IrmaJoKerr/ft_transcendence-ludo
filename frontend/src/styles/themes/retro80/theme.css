@@ -23,7 +23,8 @@
   /* Lighter than --text-muted: pass captions and empty-state lines. */
   --text-soft: #d4caef;
   --border-color: var(--accent-pink);
-  --box-shadow: 0 0 15px rgb(var(--accent-pink-rgb) / 0.5), inset 0 0 15px rgb(var(--accent-cyan-rgb) / 0.2);
+  --box-shadow:
+    0 0 15px rgb(var(--accent-pink-rgb) / 0.5), inset 0 0 15px rgb(var(--accent-cyan-rgb) / 0.2);
   /* Both halves of the Atkinson Hyperlegible family from the Braille Institute,
      designed for low-vision legibility. Next is the UI face; Mono keeps tabular
      readouts and room codes aligned. */
@@ -39,16 +40,18 @@
   --window-header-bg: linear-gradient(90deg, var(--accent-pink), var(--accent-cyan));
   --window-header-text: #ffffff;
   --card-border-style: 2px solid var(--accent-pink);
-    /* The shell's ground. A token rather than a literal on `html, body`: synthwave wears the dimmed
+  /* The shell's ground. A token rather than a literal on `html, body`: synthwave wears the dimmed
      cityscape as its rearmost layer, retro70 wears the dimmed orbital colony the same way. */
-  --shell-image: linear-gradient(to bottom, rgba(13, 2, 33, 0.30) 0%, rgba(13, 2, 33, 0.62) 100%), url('./80s-Synthwave-Cityscape.jpg');
-    /* The press-start card's own fill. Its border reads `--accent-pink` and so rethemes for free;
+  --shell-image:
+    linear-gradient(to bottom, rgba(13, 2, 33, 0.3) 0%, rgba(13, 2, 33, 0.62) 100%),
+    url('./80s-Synthwave-Cityscape.jpg');
+  /* The press-start card's own fill. Its border reads `--accent-pink` and so rethemes for free;
      the fill and the two glows in its shadow do not, and they are the parts that read wrong over
      walnut. */
   --start-overlay-bg: rgba(13, 2, 33, 0.45);
   --start-overlay-glow: rgb(var(--accent-pink-rgb) / 0.35);
   --start-overlay-inset: rgb(var(--accent-cyan-rgb) / 0.2);
-    /* The channel form of the four accents and the three neutrals: `r g b`, always read as
+  /* The channel form of the four accents and the three neutrals: `r g b`, always read as
      `rgb(var(--x-rgb) / a)`. */
   --accent-pink-rgb: 255 0 127;
   --accent-cyan-rgb: 0 240 255;
@@ -57,14 +60,14 @@
   --ink-rgb: 255 255 255;
   --shade-rgb: 0 0 0;
   --bg-primary-rgb: 13 2 33;
-    /* The navy ramp's channel forms (section 33, family 2). The components had spelled these grounds
+  /* The navy ramp's channel forms (section 33, family 2). The components had spelled these grounds
      for themselves - thirty-two shades of the same five roles - so the ramp is five stops and
      family 2's codemod folded every site onto the nearest one. */
   --bg-void-rgb: 5 2 18;
   --bg-panel-rgb: 10 2 28;
   --bg-raise-rgb: 20 6 46;
   --bg-card-rgb: 25 10 56;
-    /* The state pair (26): the two colours that report a condition, as against the accents, which
+  /* The state pair (26): the two colours that report a condition, as against the accents, which
      name a thing, and the seat hues, which are identity. On, met, valid, ready, online and sent
      read `--state-on`; off, muted, refused, missed and out read `--state-off`. */
   --state-on: #00ff88;
@@ -72,7 +75,7 @@
   --state-on-ink: #0b021a;
   --state-off: #ff0055;
   --state-off-rgb: 255 0 85;
-    /* The board's fringes (45.9): the cell ground and its grid line, the yard's fill and border,
+  /* The board's fringes (45.9): the cell ground and its grid line, the yard's fill and border,
      the frame behind them and the shadow it casts. The 80s values are today's constants, byte
      for byte; the four seat fills and the core stay frozen in `Board.tsx`. */
   --board-cell: #050515;
@@ -85,8 +88,9 @@
   --board-yard-border-rgb: 33 33 255;
   --board-frame: rgba(15, 6, 38, 0.95);
   --board-frame-rgb: 15 6 38;
-  --board-frame-shadow: 0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgb(var(--accent-cyan-rgb) / 0.25);
-    /* The die's eight (38.9, row O): the cube's two body stops, its edge, the LED ring, the two
+  --board-frame-shadow:
+    0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgb(var(--accent-cyan-rgb) / 0.25);
+  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the LED ring, the two
      stops of a pip, the alternate pip and the shadow it casts. Same eight names, same order as the
      sibling table, and the era's face art (`components/diceParts80.ts`) reads them by role. */
   --dice-face: #1a0733;

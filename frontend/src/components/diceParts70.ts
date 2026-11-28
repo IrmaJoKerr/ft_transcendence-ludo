@@ -17,9 +17,9 @@ export type DicePart =
       fill?: DicePaint;
       stroke?: DicePaint;
       strokeW?: number;
-            // 0..1; the recesses and the molded highlights are all drawn faint.
+      // 0..1; the recesses and the molded highlights are all drawn faint.
       opacity?: number;
-            // A dashed stroke, in units: the 80s LED ring is segments rather than a line.
+      // A dashed stroke, in units: the 80s LED ring is segments rather than a line.
       dash?: string;
     }
   | {
@@ -28,7 +28,7 @@ export type DicePart =
       y: number;
       w: number;
       h: number;
-            // Corner radius.
+      // Corner radius.
       r: number;
       fill?: DicePaint;
       stroke?: DicePaint;

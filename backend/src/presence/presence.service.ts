@@ -107,7 +107,7 @@ export class PresenceService implements OnModuleDestroy {
   async setPlaying(userId: string, socketId: string, playing: boolean): Promise<void> {
     const connection = this.connections.get(socketId);
     // A stale event (the close raced it) must not resurrect the row.
-    if (!connection || connection.userId !== userId) return;
+    if (connection?.userId !== userId) return;
     // The account's aggregate, before and after: a second tab entering a match is not
     // an edge, and only an edge is worth a push to every friend.
     const wasPlaying = this.playingNow(userId);
@@ -190,7 +190,7 @@ export class PresenceService implements OnModuleDestroy {
       void this.refreshConnection(socketId);
     }, PRESENCE_REFRESH_MS);
     // A pending session socket must not hold the process open on shutdown.
-    refresh.unref?.();
+    refresh.unref();
     this.connections.set(socketId, { userId, playing, refresh });
   }
 
@@ -204,7 +204,12 @@ export class PresenceService implements OnModuleDestroy {
       await this.redis
         .multi()
         .expire(presenceConnsKey(connection.userId), PRESENCE_TTL_S)
-        .set(this.key(connection.userId), this.playingNow(connection.userId) ? 'playing' : 'online', 'EX', PRESENCE_TTL_S)
+        .set(
+          this.key(connection.userId),
+          this.playingNow(connection.userId) ? 'playing' : 'online',
+          'EX',
+          PRESENCE_TTL_S,
+        )
         .exec();
     } catch (error) {
       console.error('Failed to refresh presence:', error);
@@ -234,7 +239,7 @@ export class PresenceService implements OnModuleDestroy {
       this.offlineTimers.delete(userId);
       void this.fireOfflineEdge(userId);
     }, delayMs);
-    timer.unref?.();
+    timer.unref();
     this.offlineTimers.set(userId, timer);
   }
 
@@ -271,7 +276,7 @@ export class PresenceService implements OnModuleDestroy {
       this.countTimer = null;
       void this.pushCount();
     }, PRESENCE_COUNT_COALESCE_MS - sinceLast);
-    this.countTimer.unref?.();
+    this.countTimer.unref();
   }
 
   private async pushCount(): Promise<void> {

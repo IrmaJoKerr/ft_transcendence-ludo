@@ -5,13 +5,11 @@ import type { ColorKey } from '../../../../theme';
 import type { HelmetSet, PiecePart } from '../../../../game/pieceTypes';
 
 // The ear pods, part of the silhouette: they must not be squashed with the visor.
-const PODS: PiecePart[] = [25.5, 74.5].flatMap(
-  (cx): PiecePart[] => [
-    { kind: 'circle', cx, cy: 41, r: 9, fill: 'lo', stroke: 'ink', strokeW: 2.8 },
-    { kind: 'circle', cx, cy: 41, r: 9, fill: 'none', stroke: 'hi', strokeW: 1.5, opacity: 0.55 },
-    { kind: 'circle', cx, cy: 41, r: 3.4, fill: 'pop', stroke: 'deepink', strokeW: 1.4 },
-  ],
-);
+const PODS: PiecePart[] = [25.5, 74.5].flatMap((cx): PiecePart[] => [
+  { kind: 'circle', cx, cy: 41, r: 9, fill: 'lo', stroke: 'ink', strokeW: 2.8 },
+  { kind: 'circle', cx, cy: 41, r: 9, fill: 'none', stroke: 'hi', strokeW: 1.5, opacity: 0.55 },
+  { kind: 'circle', cx, cy: 41, r: 3.4, fill: 'pop', stroke: 'deepink', strokeW: 1.4 },
+]);
 // H1 EAR PODS: the widest silhouette, and the busiest of the four at board size.
 const H1: HelmetSet = {
   visor: [

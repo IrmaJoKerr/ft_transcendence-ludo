@@ -4,7 +4,7 @@ _This project has been created as part of the 42 curriculum by bleow, liyu-her, 
 
 ## Description
 
-A browser-based multiplayer Ludo platform. Players register or sign in through an external
+A browser-based multiplayer Ludo platform heavily revamped by bleow to have extra features and improved security. Players register or sign in through an external
 provider, join a lobby, and play server-authoritative matches against remote opponents, a
 local hotseat partner, or an AI. A guest can also drop straight into a PvE game from the
 login screen with no account, in which case the game runs on the server but the result is
@@ -117,8 +117,8 @@ Both publishes are hardcoded in `compose.yaml` and belong to no compose profile,
 
 | Login      | Role(s)                                   | Responsibilities                                                                                                                                                                                 |
 | ---------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `liyu-her` | Product Owner, Project Manager, Developer | Planning sessions, progress and deadline tracking, risk and blocker management, backlog and feature priorities, validating completed work, stakeholder communication — plus feature development. |
-| `bleow`    | Tech Lead, Developer                      | Technical architecture, product vision, documentation, stack decisions, code quality and review of critical changes — plus feature development                                                   |
+| `liyu-her` |  Developer | Planning sessions, progress and deadline tracking, risk and blocker management, backlog and feature priorities, validating completed work, stakeholder communication — plus feature development. |
+| `bleow`    | Product Owner, Project Manager, Tech Lead, Developer                      | Technical architecture, product vision, documentation, stack decisions, code quality and review of critical changes — plus feature development                                                   |
 | `hang`     | Developer                                 | Feature implementation, code review, testing, documentation                                                                                                                                      |
 | `jow`      | Project Manager, Developer                | Planning sessions, progress and deadline tracking, risk and blocker management — plus feature development                                                                                        |
 

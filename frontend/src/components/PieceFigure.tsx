@@ -21,9 +21,9 @@ function Gradients({ ck, pal }: { ck: ColorKey; pal: PiecePalette }) {
   const stops = (key: 'lid' | 'gid') => {
     const spec = PIECE_GRADIENT[key];
     return [
-      <stop key='0' offset={0} stopColor={pal[spec.from]} />,
-      <stop key='1' offset={spec.midAt} stopColor={pal[spec.mid]} />,
-      <stop key='2' offset={1} stopColor={pal[spec.to]} />,
+      <stop key="0" offset={0} stopColor={pal[spec.from]} />,
+      <stop key="1" offset={spec.midAt} stopColor={pal[spec.mid]} />,
+      <stop key="2" offset={1} stopColor={pal[spec.to]} />,
     ];
   };
   return (
@@ -69,9 +69,7 @@ function Part({ part, ck, pal }: { part: PiecePart; ck: ColorKey; pal: PiecePale
         ? part.opacity
         : undefined,
     strokeLinejoin: 'round' as const,
-    strokeLinecap: (part.kind === 'line' || part.kind === 'path'
-      ? (part.linecap ?? 'butt')
-      : 'butt') as 'butt' | 'round',
+    strokeLinecap: part.kind === 'line' || part.kind === 'path' ? (part.linecap ?? 'butt') : 'butt',
   };
 
   switch (part.kind) {
@@ -100,7 +98,7 @@ function Part({ part, ck, pal }: { part: PiecePart; ck: ColorKey; pal: PiecePale
           x2={part.x2}
           y2={part.y2}
           {...common}
-          fill='none'
+          fill="none"
           strokeOpacity={part.opacity ?? 1}
         />
       );

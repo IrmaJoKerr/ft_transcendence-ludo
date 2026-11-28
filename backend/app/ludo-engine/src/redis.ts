@@ -3,10 +3,7 @@ import { createHash } from 'node:crypto';
 import type { GameState, PlayerColor, Piece, PlayerMeta, ClashState, ChatLine } from './types';
 import { PIECES_PER_PLAYER } from './types';
 import { STARTING_WALL_BREAKER_TOKENS } from './__shared__/clash.constants';
-import {
-  GAME_CHAT_MAX_LINES,
-  GAME_CHAT_TTL_S,
-} from './__shared__/chat.constants';
+import { GAME_CHAT_MAX_LINES, GAME_CHAT_TTL_S } from './__shared__/chat.constants';
 import { GAME_STATE_TTL_S } from './__shared__/timing.constants';
 import { chatLogKey, chatSeqKey, parseChatLine } from './game-chat';
 

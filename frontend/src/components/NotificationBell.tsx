@@ -30,7 +30,7 @@ export function NotificationBell({
   onMarkAllRead: () => void;
   placement?: 'bottom-right' | 'right';
   fullWidth?: boolean;
-    // Icon-only trigger (no text pill): used by RetroNavbar's collapsed sidebar rail.
+  // Icon-only trigger (no text pill): used by RetroNavbar's collapsed sidebar rail.
   compact?: boolean;
   containerStyle?: CSSProperties;
   buttonStyle?: CSSProperties;
@@ -152,9 +152,11 @@ export function NotificationBell({
         right: 'auto',
         width: 350,
         maxHeight: 460,
-        background: 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
+        background:
+          'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
         border: '1.5px solid var(--accent-cyan)',
-        boxShadow: '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 20px 60px rgb(var(--shade-rgb) / 0.95)',
+        boxShadow:
+          '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 20px 60px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 14,
         // Portaled to <body> (see useLayoutEffect above), so this z-index
         // only has to beat other <body>-level layers (modals at 10002).
@@ -176,7 +178,8 @@ export function NotificationBell({
         maxHeight: 460,
         background: 'rgb(var(--bg-panel-rgb) / 0.96)',
         border: '1.5px solid var(--accent-cyan)',
-        boxShadow: '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 16px 40px rgb(var(--shade-rgb) / 0.9)',
+        boxShadow:
+          '0 0 25px rgb(var(--accent-cyan-rgb) / 0.25), 0 16px 40px rgb(var(--shade-rgb) / 0.9)',
         borderRadius: 4,
         // Portaled to <body> (see useLayoutEffect above) so this always
         // renders above every other element, regardless of which stacking
@@ -391,16 +394,20 @@ export function NotificationBell({
                   letterSpacing: 0.5,
                 }}
               >
-                {unavailable
-                  ? t('notifications.unavailable')
-                  : t('notifications.noTransmissions')}
+                {unavailable ? t('notifications.unavailable') : t('notifications.noTransmissions')}
               </div>
             ) : (
               // Sixty rows, sixty unread: the store's cap and the render's bound
               // are one number, so nothing a client can receive is hidden (22.8).
-              list.slice(0, 60).map((n) => (
-                <NotificationRow key={n.id} notification={n} onActivate={() => handleItemClick(n)} />
-              ))
+              list
+                .slice(0, 60)
+                .map((n) => (
+                  <NotificationRow
+                    key={n.id}
+                    notification={n}
+                    onActivate={() => handleItemClick(n)}
+                  />
+                ))
             )}
           </div>
         </div>,

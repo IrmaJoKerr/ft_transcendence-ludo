@@ -221,8 +221,12 @@ export class MatchCreatorService {
     const totalBots = botCount;
     const isPvP = mode === 'pvp';
 
-    const { hostColor: seatedHostColor, hostSlot, colorSlot, resolvedSeatColors } =
-      this.resolveSeatColors(playerCount, seatColors, hostColor, isPvP);
+    const {
+      hostColor: seatedHostColor,
+      hostSlot,
+      colorSlot,
+      resolvedSeatColors,
+    } = this.resolveSeatColors(playerCount, seatColors, hostColor, isPvP);
 
     const updates: Record<string, string> = {
       id: gameId,
@@ -297,13 +301,13 @@ export class MatchCreatorService {
     resolvedSeatColors: string[];
   } {
     const colorSlot = new Map<string, number>(SLOT_COLORS.map((c, i) => [c, i + 1]));
-    if (!hostColor || !colorSlot.has(hostColor)) {
+    const hostSlot = hostColor ? colorSlot.get(hostColor) : undefined;
+    if (!hostColor || hostSlot === undefined) {
       throw new BadRequestException({
         code: 'MATCH_INVALID_COLOR',
         message: `hostColor is required and must be one of ${SLOT_COLORS.join(', ')}`,
       });
     }
-    const hostSlot = colorSlot.get(hostColor)!;
 
     // Persist the exact seat list so the engine seats matching colors: hotseat can
     // skip seats (e.g. blue + green + yellow, no red), and this order is what keeps
@@ -344,7 +348,6 @@ export class MatchCreatorService {
     }
     return { hostColor, hostSlot, colorSlot, resolvedSeatColors };
   }
-
 
   // Write the bot seats into the room hash: the colour's own slot, the `bot-` id,
   // the isBot flag, the rolled personality and the display label. A bot may hold
@@ -401,7 +404,6 @@ export class MatchCreatorService {
     }
   }
 
-
   // The room hash and its lobby publish travel together: a new room is a lobby
   // change; best effort, the broadcaster's tick repairs a missed publish.
   private async writeRoomAndPublish(
@@ -436,7 +438,6 @@ export class MatchCreatorService {
       color: hostColor,
     });
   }
-
 
   // The caller's own PvP lobby room, if they still have one: seated, hash still
   // WAITING, engine game not started, and the caller's seat not finalized. Left
@@ -531,7 +532,16 @@ export class MatchCreatorService {
       });
     }
     const botCount = playerCount - 1;
-    return this.createMatch(userId, 'pve', playerCount, botCount, undefined, undefined, undefined, hostColor);
+    return this.createMatch(
+      userId,
+      'pve',
+      playerCount,
+      botCount,
+      undefined,
+      undefined,
+      undefined,
+      hostColor,
+    );
   }
 
   // The guest door: an anonymous, ephemeral PvE room. Not createMatch(): mode is

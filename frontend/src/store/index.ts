@@ -21,4 +21,3 @@ export type {
   ThemeType,
   VerifyOutcome,
 } from './types';
-

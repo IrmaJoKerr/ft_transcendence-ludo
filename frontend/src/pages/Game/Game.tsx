@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import type { CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +21,12 @@ import { avatarSeed, localizedBotName, localizedColor } from '../../utils/botNam
 import { applyEvent, initialView } from '../../game/reducer';
 import { LOG_CAP, type LogEntry, type PlayerColor, type PlayerMeta } from '../../game/types';
 import { ClashOverlay } from '../../game/ClashOverlay';
-import { ResultFx, FLASH_CARD_ASPECT, FLASH_CARD_STAGE_MAX_PX, FLASH_CARD_VIEWBOX } from '../../game/ResultFx';
+import {
+  ResultFx,
+  FLASH_CARD_ASPECT,
+  FLASH_CARD_STAGE_MAX_PX,
+  FLASH_CARD_VIEWBOX,
+} from '../../game/ResultFx';
 import { stepToCell } from '../../game/boardGeometry';
 import {
   CAPTURE_CARD_FADE_MS,
@@ -247,7 +260,7 @@ export function Game() {
   // display name resent on a reconnect (and written back onto the seat).
   const userRef = useRef(user);
   userRef.current = user;
-    // Whether this socket has been accepted by the engine, i.e. whether it holds a seat at all.
+  // Whether this socket has been accepted by the engine, i.e. whether it holds a seat at all.
   const joinedRef = useRef(false);
 
   // **CRT & AUDIO CONTROLS**
@@ -280,7 +293,7 @@ export function Game() {
     for (const seat of seats) if (seat.type === 'player') names[seat.color] = seat.name;
     return names;
   }, [seats]);
-    // Seat label for the move log / podium rows: a hotseat seat's name first (a typed one, or the raw
+  // Seat label for the move log / podium rows: a hotseat seat's name first (a typed one, or the raw
   // `player-<color>` id the lobby wrote, both localized the same way), then the engine's display
   // label (bots carry "bot-<color> (<assistant>)"), then the raw id.
   const seatLabel = (p: {
@@ -346,7 +359,7 @@ export function Game() {
   viewRef.current = view;
   const [moveLogs, setMoveLogs] = useState<LogEntry[]>([]);
   const moveLogContainerRef = useRef<HTMLDivElement>(null);
-    // The room's channel (M3): the transcript as this seat sees it, and whether the engine socket is
+  // The room's channel (M3): the transcript as this seat sees it, and whether the engine socket is
   // up.
   const {
     lines: chatLines,
@@ -402,7 +415,7 @@ export function Game() {
   const tapDieRef = useRef<() => void>(() => {});
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
-    // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that effect
+  // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that effect
   // also re-runs for a roster or locale update, and a cleanup on the path that changes no turn would
   // cancel the clear without rescheduling it, leaving the notice up until the next swap.
   const turnSwapNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -426,8 +439,7 @@ export function Game() {
     const offset = view.clash?.serverOffset;
     if (offset != null) resultCardOffsetRef.current = offset;
     const until = view.resultCardUntil;
-    const remaining =
-      until == null ? 0 : until - (Date.now() + resultCardOffsetRef.current);
+    const remaining = until == null ? 0 : until - (Date.now() + resultCardOffsetRef.current);
     setResultCardOpen(remaining > 0);
     if (remaining <= 0) return;
     const timer = setTimeout(() => setResultCardOpen(false), remaining);
@@ -475,7 +487,7 @@ export function Game() {
     x: number;
     y: number;
   } | null>(null);
-    // The opt-in capture flash card (25.6): a non-clash capture, when the room rule is on, paints the
+  // The opt-in capture flash card (25.6): a non-clash capture, when the room rule is on, paints the
   // capture gesture top-centre over the board.
   const [flashCard, setFlashCard] = useState<{
     id: number;
@@ -517,11 +529,11 @@ export function Game() {
     retroAudio.playUiBeep(breakerArmed ? 420 : 880, 0.06, 'square');
     socketRef.current?.emit('arm_wall_breaker', !breakerArmed);
   };
-    // The Wall Breaker column is an in-game control, so it starts with the opening roll: in the
+  // The Wall Breaker column is an in-game control, so it starts with the opening roll: in the
   // waiting room there is no turn to take, the engine refuses an arm ("Game not active"), and every
   // hand still holds only the dealt starting token.
   const showWallBreakerColumn = view.clashMode === true && view.status !== 'waiting';
-    // The waiting rail draws the room's own seats, in turn order: `view.players` is one entry per seat
+  // The waiting rail draws the room's own seats, in turn order: `view.players` is one entry per seat
   // (the engine seats exactly the colours the room was created with), so sorting it by `SEAT_COLORS`
   // shows the rotation and nothing else — no seat index is involved.
   const waitingRailColors: PlayerColor[] =
@@ -529,7 +541,7 @@ export function Game() {
       ? [...view.players]
           .sort((a, b) => SEAT_COLORS.indexOf(a.color) - SEAT_COLORS.indexOf(b.color))
           .map((p) => p.color)
-      : SEAT_COLORS.slice(0, activeMatch?.playerCount || SEAT_COLORS.length);
+      : SEAT_COLORS.slice(0, activeMatch?.playerCount ?? SEAT_COLORS.length);
   const railColors: PlayerColor[] = view.status === 'waiting' ? waitingRailColors : SEAT_COLORS;
   // One list feeds both grid tracks: waiting renders every rail card, an active room
   // only seats the view lists as non-inactive. Math.max(1, ...) keeps one row.
@@ -626,8 +638,7 @@ export function Game() {
       );
     };
     measure();
-    const observer =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
     for (const element of [headerRef.current, controlsRef.current, actionsRef.current]) {
       if (element) observer?.observe(element);
     }
@@ -644,7 +655,7 @@ export function Game() {
     const bump = () => setFitPass((value) => value + 1);
     window.addEventListener('resize', bump);
     let cancelled = false;
-    void document.fonts?.ready.then(() => {
+    void document.fonts.ready.then(() => {
       if (!cancelled) bump();
     });
     return () => {
@@ -680,7 +691,15 @@ export function Game() {
       Math.max(0.8, Math.min(window.innerWidth / width, window.innerHeight / height)),
     );
     setFitZoom((prev) => (Math.abs(prev - factor) < 0.001 ? prev : factor));
-  }, [fittedLayout, fitHeights, fitPass, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
+  }, [
+    fittedLayout,
+    fitHeights,
+    fitPass,
+    view.status,
+    view.clashMode,
+    isGameEnded,
+    activeMatch?.mode,
+  ]);
 
   // The fitted height cap is the viewport less the wrapper's vertical padding
   // (8 + 8), the header's 6 px bottom margin, the controls and action stacks' 6 px
@@ -692,9 +711,7 @@ export function Game() {
   const boardCap = fittedLayout
     ? `max(${MIN_FIT_BOARD_PX}px, min(650px, calc(100dvh - ${fitHeights.header}px - ${fitHeights.controls}px - ${fitHeights.actions}px - ${fitChrome}px)))`
     : 'min(650px, 66vh)';
-  const boardMaxWidth = fittedLayout
-    ? `min(${boardCap}, 100% - ${rosterOverhang}px)`
-    : boardCap;
+  const boardMaxWidth = fittedLayout ? `min(${boardCap}, 100% - ${rosterOverhang}px)` : boardCap;
   const boardSlack = `100% - ${boardMaxWidth}`;
   const boardMarginRight = fittedLayout
     ? `max(0px, calc((${boardSlack} - ${rosterOverhang}px + var(--game-gap)) / 2))`
@@ -796,7 +813,7 @@ export function Game() {
         .catch(() => undefined);
     }
 
-        // The result read (M1): what this seat's match did, from the database.
+    // The result read (M1): what this seat's match did, from the database.
     const querySeatResult = async (gameId: string) => {
       if (matchOverRef.current) return;
       try {
@@ -886,7 +903,7 @@ export function Game() {
     const handleEngineEvent = (state: unknown) => {
       const type = (state as { type?: string }).type;
 
-            // A roll is not dispatched where it arrives: the reducer sees it when the die lands, so the moves
+      // A roll is not dispatched where it arrives: the reducer sees it when the die lands, so the moves
       // do not light up mid-spin. Every other frame is applied on arrival, which means a frame that
       // follows a roll on the wire but beats its landing reaches the reducer FIRST.
       if (type !== 'piece_moved') {
@@ -1001,14 +1018,14 @@ export function Game() {
           if (e.captured) {
             retroAudio.playExplosionSound();
             if (e.clashOutcome) {
-                            // The clash result card is taking the screen in this same frame, and the board's burst would burn
+              // The clash result card is taking the screen in this same frame, and the board's burst would burn
               // down behind its backdrop. So the card gets a dim copy at the landing cell now, and the real
               // burst is held until the card goes (the `view.clash` effect below).
               pendingCardBurstRef.current = { color: e.color, to: e.to };
               setCardCaptureFx(captureBurstAnchor(e.color, e.to));
             } else {
               setCaptureFx({ color: e.color, to: e.to });
-                            // The opt-in flash card rides above the board's own burst (25.6). Only the non-clash path paints
+              // The opt-in flash card rides above the board's own burst (25.6). Only the non-clash path paints
               // it, and only when the room turned the rule on.
               const live = viewRef.current;
               if (live.captureFx) {
@@ -1035,7 +1052,7 @@ export function Game() {
         };
 
         const enterGoal = () => {
-                    // The cell the piece just left: the step before the last one, and for a one-step path the step it
+          // The cell the piece just left: the step before the last one, and for a one-step path the step it
           // came from.
           const leftStep = path.length > 1 ? path[path.length - 2] : e.from;
           const anchor = captureBurstAnchor(e.color, leftStep);
@@ -1149,18 +1166,19 @@ export function Game() {
           players: endedPlayers,
           abandoned: false,
         });
-                // A game can end on the goal that ended it, and that celebration is still playing — or, more
+        // A game can end on the goal that ended it, and that celebration is still playing — or, more
         // often, still ahead of the walk.
         const goalEndsAt = goalFxEndsAtRef.current;
         goalFxEndsAtRef.current = null;
-        const celebrationLeft = goalEndsAt == null ? 0 : Math.max(0, goalEndsAt - performance.now());
+        const celebrationLeft =
+          goalEndsAt == null ? 0 : Math.max(0, goalEndsAt - performance.now());
         setTimeout(() => {
           setShowResultsModal(true);
         }, celebrationLeft + RESULTS_MODAL_DELAY_MS);
       }
     };
 
-        // The roller caught their die (38.7).
+    // The roller caught their die (38.7).
     socket.on('dice_tapped', () => {
       if (!isRollingRef.current || rollStartRef.current != null) return;
       setDieTapAt(performance.now());
@@ -1417,10 +1435,13 @@ export function Game() {
     // No answer: give the die back rather than leave it spinning forever. The guard is
     // this roll's own length plus the arming slack, never a flat number that would cut the
     // acute act of a caught roll (38.G).
-    rollAnswerGuardRef.current = setTimeout(() => {
-      rollAnswerGuardRef.current = null;
-      if (isRollingRef.current) resetRoll();
-    }, diceRollMs(rollSpinMsRef.current) + DICE_BRAKE_ARM_MS);
+    rollAnswerGuardRef.current = setTimeout(
+      () => {
+        rollAnswerGuardRef.current = null;
+        if (isRollingRef.current) resetRoll();
+      },
+      diceRollMs(rollSpinMsRef.current) + DICE_BRAKE_ARM_MS,
+    );
   };
 
   // Schedule the landing. `rollLandAtRef` is what the move animation reads, so a
@@ -1439,7 +1460,7 @@ export function Game() {
     );
   };
 
-    // The die's one handler, three states: at rest it starts a roll, a spinning roll THIS device
+  // The die's one handler, three states: at rest it starts a roll, a spinning roll THIS device
   // started catches the die once the acts are armed, anything else is ignored (another seat's roll,
   // a tap inside the arming window, a roll already caught).
   const tapDie = () => {
@@ -1518,7 +1539,7 @@ export function Game() {
   // resultCardUntil, so the freeze follows the engine clock, not this timer.
   const clearClash = () => dispatch({ type: 'clash_clear' });
 
-    // The result card appeared: tell the engine when it will be done. The forecast is in this client's
+  // The result card appeared: tell the engine when it will be done. The forecast is in this client's
   // clock and is sent once per card, so a chain reports each round. It gates nothing locally; the
   // engine's release frame is the authority.
   const clashCardLength = clashCardMs(
@@ -1532,7 +1553,7 @@ export function Game() {
     socketRef.current?.emit('clash_card_hold', cardId, clashCardLength + CARD_HOLD_MARGIN_MS);
   }, [view.clashResult, clashCardLength]);
 
-    // The clash card owns the capture burst. While it is up the card wears a dim copy (rendered with
+  // The clash card owns the capture burst. While it is up the card wears a dim copy (rendered with
   // it, below), and the moment the card goes the board gets the real one: CAPTURE_FX_AFTER_CARD_MS
   // later, so the two never share a frame.
   useEffect(() => {
@@ -1570,7 +1591,7 @@ export function Game() {
         answered = true;
         ack({ ok: false, error: 'CHAT_UNAVAILABLE' });
       }, CHAT_ACK_TIMEOUT_MS);
-      socket.emit('chat:send', text, (reply: { ok: true } | { ok: false; error: string }) => {
+      socket.emit('chat:send', text, (reply?: { ok: true } | { ok: false; error: string }) => {
         if (answered) return;
         answered = true;
         clearTimeout(guard);
@@ -1610,7 +1631,7 @@ export function Game() {
 
   const endGame = () => {
     retroAudio.playExplosionSound();
-        // Two ways to end a room, and the room decides which (rows 2-4 of the leave/abort matrix): the
+    // Two ways to end a room, and the room decides which (rows 2-4 of the leave/abort matrix): the
     // host closing a waiting room calls the host-only route, which tears the room down for everybody,
     // and everyone else leaves their own seat through the engine.
     const current = activeMatchRef.current;
@@ -1773,9 +1794,7 @@ export function Game() {
   const activeHumanTurn = view.players.some(
     (p) => p.color === effectiveTurn && p.status === 'active' && !p.isBot,
   );
-  const seatIdentityMatches = view.players.some(
-    (p) => p.color === effectiveTurn && isMySeat(p),
-  );
+  const seatIdentityMatches = view.players.some((p) => p.color === effectiveTurn && isMySeat(p));
   const isMyTurn =
     !isPausedForReconnect &&
     (isHotseat
@@ -1794,7 +1813,7 @@ export function Game() {
     !animatingPiece &&
     !isMovingPiece &&
     !captureFx;
-    // The roll THIS device started, as against one it is only watching. `isRolling` drives the die for
+  // The roll THIS device started, as against one it is only watching. `isRolling` drives the die for
   // both, but the ROLL button and the status line belong to the local roll: a remote die must not
   // hold this page's button down (38. F).
   const isOwnRoll = isRolling && rollStartRef.current != null;
@@ -1826,7 +1845,7 @@ export function Game() {
           : t('game.botTurn', { name: localizedColor(t, effectiveTurn) }).toUpperCase();
   const turnAccent =
     view.status === 'waiting' ? 'var(--accent-cyan)' : SEAT_HUES[effectiveTurn] || '#00f0ff';
-    // The status marquee only speaks when the pill cannot (20.5 step 1, settling 20.7 item 2): the
+  // The status marquee only speaks when the pill cannot (20.5 step 1, settling 20.7 item 2): the
   // pill already names WAITING ROOM, YOUR TURN, a colour's turn and the paused seat, and the board
   // column prints the phase hint under the die, so those marquee rows said nothing new.
   const statusMarquee =
@@ -1840,7 +1859,7 @@ export function Game() {
   // it, and the board's 480 px floor never moves. Desktop uses the band; the
   // stacked layout keeps the notice in flow below the pill.
   const marqueeOverlaysPill = fittedLayout && !cornerBanner;
-    // The notice's one box, placed differently in the two layouts (20.5).
+  // The notice's one box, placed differently in the two layouts (20.5).
   const statusMarqueeBox =
     statusMarquee == null ? null : (
       <div
@@ -1864,7 +1883,7 @@ export function Game() {
           boxSizing: 'border-box',
           ...(cornerBanner
             ? {
-                                // `max-content` up to 640, not `100%`: the band is only as wide as the title column, and a box
+                // `max-content` up to 640, not `100%`: the band is only as wide as the title column, and a box
                 // that shrank to it would wrap a two-word notice at the narrowest corner width.
                 position: 'absolute',
                 left: '50%',
@@ -2116,7 +2135,7 @@ export function Game() {
                     style={{
                       marginRight: cornerBanner ? 38 : 0,
                       maxWidth: 'min(240px, 100%)',
-                                            // (1.5rem × 1.25 − 0.62rem × 1.2) / 2: half the difference between the title's line box and the
+                      // (1.5rem × 1.25 − 0.62rem × 1.2) / 2: half the difference between the title's line box and the
                       // label's, which lands the label's middle on the title's.
                       paddingTop: cornerBanner ? 'calc((1.875rem - 0.744rem) / 2)' : 0,
                       display: 'flex',
@@ -2138,7 +2157,7 @@ export function Game() {
                         <span
                           style={{
                             fontSize: '0.62rem',
-                                                        // 1.2, not `normal`: the cluster's padding is arithmetic on this label's line box, so it has to be
+                            // 1.2, not `normal`: the cluster's padding is arithmetic on this label's line box, so it has to be
                             // a known multiple of the font size. Not 1 — `fr` and `ms` wrap at the 240px cap and would run
                             // their two lines together.
                             lineHeight: 1.2,
@@ -2247,9 +2266,7 @@ export function Game() {
                 alignItems: 'stretch',
                 width: '100%',
                 margin: '0 auto',
-                '--game-gap': tabletLayout
-                  ? 'clamp(16px, 1.5vw, 20px)'
-                  : 'clamp(28px, 2vw, 40px)',
+                '--game-gap': tabletLayout ? 'clamp(16px, 1.5vw, 20px)' : 'clamp(28px, 2vw, 40px)',
               } as CSSProperties
             }
           >
@@ -2363,366 +2380,367 @@ export function Game() {
                     }}
                   >
                     {visibleSeats.map((ck) => {
-                        const playerMeta = view.players.find((p) => p.color === ck);
-                        const occupied = Boolean(
-                          playerMeta &&
-                          (view.status !== 'waiting' ||
-                            (playerMeta.status === 'active' && playerMeta.username)),
-                        );
-                        const isActive = effectiveTurn === ck;
+                      const playerMeta = view.players.find((p) => p.color === ck);
+                      const occupied = Boolean(
+                        playerMeta &&
+                        (view.status !== 'waiting' ||
+                          (playerMeta.status === 'active' && playerMeta.username)),
+                      );
+                      const isActive = effectiveTurn === ck;
 
-                        // Color neon accent map
-                        const colorAccent =
-                          ck === 'red'
-                            ? '#ff007f'
-                            : ck === 'green'
-                              ? '#00ff88'
-                              : ck === 'yellow'
-                                ? '#ffe600'
-                                : '#00f0ff';
+                      // Color neon accent map
+                      const colorAccent =
+                        ck === 'red'
+                          ? '#ff007f'
+                          : ck === 'green'
+                            ? '#00ff88'
+                            : ck === 'yellow'
+                              ? '#ffe600'
+                              : '#00f0ff';
 
-                        if (view.status === 'waiting') {
-                          // `ck === view.myColor` lags the server's seat assignment for a PvP joiner,
-                          // so fall back to the account id, which recognises the seat on first paint.
-                          const isYou =
-                            ck === view.myColor ||
-                            (occupied && !!playerMeta && isMySeat(playerMeta));
-                          const isReady = view.readyPlayers.includes(ck);
-
-                          return (
-                            <div
-                              key={ck}
-                              title={
-                                isYou
-                                  ? t('game.yourSeat', 'Your seat')
-                                  : occupied
-                                    ? t('game.occupied', 'Occupied seat')
-                                    : t('game.emptySeat', 'Empty seat')
-                              }
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 10,
-                                padding: '10px 12px',
-                                borderRadius: 4,
-                                cursor: 'default',
-                                gridColumn: 1,
-                                minWidth: 0,
-                                border: isYou
-                                  ? `1.5px solid ${colorAccent}`
-                                  : occupied
-                                    ? `1px solid ${colorAccent}66`
-                                    : '1px dashed rgb(var(--ink-rgb) / 0.15)',
-                                background: isYou
-                                  ? `${colorAccent}26`
-                                  : occupied
-                                    ? 'rgb(var(--bg-card-rgb) / 0.65)'
-                                    : 'rgb(var(--bg-panel-rgb) / 0.35)',
-                                boxShadow: isYou ? `0 0 12px ${colorAccent}55` : 'none',
-                                opacity: occupied || isYou ? 1 : 0.5,
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              {occupied && playerMeta?.username ? (
-                                <UserAvatar
-                                  username={seatAvatarName(playerMeta)}
-                                  // The engine reports the seat's immutable id and whether it has a photo, so
-                                  // the client never asks for an image that is not there; `isBot` gates bot seats.
-                                  userId={playerMeta.userId}
-                                  isBot={playerMeta.isBot}
-                                  hasAvatarPhoto={playerMeta.hasAvatarPhoto ?? false}
-                                  avatarStyle={playerMeta.avatarStyle}
-                                  size={34}
-                                  fallbackStyle={{
-                                    width: 34,
-                                    height: 34,
-                                    flex: 'none',
-                                    borderRadius: 4,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.75rem',
-                                    color: 'rgb(var(--bg-primary-rgb))',
-                                    background: colorAccent,
-                                    border: `1px solid ${colorAccent}`,
-                                  }}
-                                  style={{ borderRadius: 4, border: `1px solid ${colorAccent}` }}
-                                />
-                              ) : (
-                                <div
-                                  style={{
-                                    width: 34,
-                                    height: 34,
-                                    flex: 'none',
-                                    borderRadius: 4,
-                                    display: 'grid',
-                                    placeItems: 'center',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.7rem',
-                                    color: colorAccent,
-                                    background: 'transparent',
-                                    border: `1.5px dashed ${colorAccent}88`,
-                                  }}
-                                >
-                                  {ck.slice(0, 1).toUpperCase()}
-                                </div>
-                              )}
-
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div
-                                  style={{
-                                    fontWeight: 'bold',
-                                    fontSize: '0.82rem',
-                                    color: 'var(--text-main)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                    }}
-                                  >
-                                    {occupied && playerMeta?.username
-                                      ? localizedBotName(t, playerMeta.displayName) ||
-                                        localizedBotName(t, playerMeta.username)
-                                      : t('game.emptySeat')}
-                                  </span>
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: '0.68rem',
-                                    color: isYou ? colorAccent : 'var(--text-muted)',
-                                    fontFamily: 'var(--font-mono)',
-                                  }}
-                                >
-                                  {isYou
-                                    ? `// [${t('game.yourSeat', 'YOUR SEAT')}]`
-                                    : occupied
-                                      ? `// [${t('game.occupied', 'OCCUPIED')}]`
-                                      : `// [${t('game.emptySeat', 'EMPTY SEAT')}]`}
-                                </div>
-                              </div>
-
-                              {occupied ? (
-                                <span
-                                  className={RETRO_BADGE}
-                                  style={{
-                                    padding: '2px 6px',
-                                    fontSize: '0.62rem',
-                                    border: isReady ? '1px solid var(--state-on)' : '1px solid var(--state-off)',
-                                    color: isReady ? 'var(--state-on)' : 'var(--state-off)',
-                                  }}
-                                >
-                                  {isReady ? 'READY OK' : 'WAITING'}
-                                </span>
-                              ) : null}
-                            </div>
-                          );
-                        }
-
-                        // Active game pilot card: only render participating pilots
-                        if (!playerMeta || playerMeta.status === 'inactive') return null;
-                        const isDisconnected = playerMeta.status === 'disconnected';
-                        // An exited seat is shown as gone: it has no pieces left, but
-                        // the row stays because the results card needs it.
-                        const isOut = playerMeta.status === 'exited';
-                        // An exited seat can never hold the turn, so never advertise it
-                        // as the pilot in control.
-                        const isActiveSeat = isActive && !isOut;
-                        const isHotseat = activeMatch.mode === 'hotseat';
-                        // Hotseat's local seats have no account, so the engine leaves
-                        // their userId undefined. Only the host's seat (the colour this
-                        // device joined with) can show a photo.
-                        const isHostSeat = isHotseat && ck === activeMatch.color;
-                        const isYou = isHotseat
-                          ? ck === view.myColor
-                          : !playerMeta.isBot && isMySeat(playerMeta);
-                        const name =
-                          (localNames[ck] ?? localizedBotName(t, playerMeta.displayName)) ||
-                          localizedBotName(t, playerMeta.username) ||
-                          (playerMeta.isBot
-                            ? t('common.bot')
-                            : isYou
-                              ? t('common.you')
-                              : isHotseat
-                                ? t('game.localPlayer')
-                                : 'Pilot');
-                        // The engine stamps the face on the seat that actually rolled, so a
-                        // rejoined client shows it instead of guessing from the turn.
-                        const lastRoll = playerMeta.lastRoll;
+                      if (view.status === 'waiting') {
+                        // `ck === view.myColor` lags the server's seat assignment for a PvP joiner,
+                        // so fall back to the account id, which recognises the seat on first paint.
+                        const isYou =
+                          ck === view.myColor || (occupied && !!playerMeta && isMySeat(playerMeta));
+                        const isReady = view.readyPlayers.includes(ck);
 
                         return (
                           <div
                             key={ck}
+                            title={
+                              isYou
+                                ? t('game.yourSeat', 'Your seat')
+                                : occupied
+                                  ? t('game.occupied', 'Occupied seat')
+                                  : t('game.emptySeat', 'Empty seat')
+                            }
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: 10,
                               padding: '10px 12px',
                               borderRadius: 4,
-                              border: isActiveSeat
-                                ? `1.5px solid ${colorAccent}`
-                                : occupied
-                                  ? `1.5px solid ${colorAccent}44`
-                                  : '1.5px dashed rgb(var(--ink-rgb) / 0.12)',
-                              background: isActiveSeat
-                                ? `rgba(35, 12, 70, 0.95)`
-                                : 'rgb(var(--bg-card-rgb) / 0.65)',
-                              boxShadow: isActiveSeat
-                                ? `0 0 20px ${colorAccent}aa, inset 0 0 12px ${colorAccent}44`
-                                : 'none',
-                              // Three levels of presence: in the match (full), temporarily
-                              // away (dimmed), or out of the match for good (faded out and
-                              // desaturated, so it reads as removed rather than present).
-                              opacity: isOut ? 0.3 : isDisconnected ? 0.55 : 1,
-                              filter: isOut ? 'grayscale(1)' : 'none',
-                              position: 'relative',
+                              cursor: 'default',
                               gridColumn: 1,
                               minWidth: 0,
-                              transition:
-                                'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
-                              boxSizing: 'border-box',
+                              border: isYou
+                                ? `1.5px solid ${colorAccent}`
+                                : occupied
+                                  ? `1px solid ${colorAccent}66`
+                                  : '1px dashed rgb(var(--ink-rgb) / 0.15)',
+                              background: isYou
+                                ? `${colorAccent}26`
+                                : occupied
+                                  ? 'rgb(var(--bg-card-rgb) / 0.65)'
+                                  : 'rgb(var(--bg-panel-rgb) / 0.35)',
+                              boxShadow: isYou ? `0 0 12px ${colorAccent}55` : 'none',
+                              opacity: occupied || isYou ? 1 : 0.5,
+                              transition: 'all 0.2s ease',
                             }}
                           >
-                            {/* Active Turn Top-Right Badge */}
-                            {isActiveSeat && (
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  top: -7,
-                                  right: 8,
-                                  background: colorAccent,
+                            {occupied && playerMeta?.username ? (
+                              <UserAvatar
+                                username={seatAvatarName(playerMeta)}
+                                // The engine reports the seat's immutable id and whether it has a photo, so
+                                // the client never asks for an image that is not there; `isBot` gates bot seats.
+                                userId={playerMeta.userId}
+                                isBot={playerMeta.isBot}
+                                hasAvatarPhoto={playerMeta.hasAvatarPhoto ?? false}
+                                avatarStyle={playerMeta.avatarStyle}
+                                size={34}
+                                fallbackStyle={{
+                                  width: 34,
+                                  height: 34,
+                                  flex: 'none',
+                                  borderRadius: 4,
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.75rem',
                                   color: 'rgb(var(--bg-primary-rgb))',
-                                  fontSize: '0.55rem',
-                                  fontFamily: 'var(--font-mono)',
-                                  fontWeight: 900,
-                                  padding: '1px 6px',
-                                  borderRadius: 3,
-                                  letterSpacing: '0.5px',
-                                  boxShadow: `0 0 10px ${colorAccent}`,
+                                  background: colorAccent,
+                                  border: `1px solid ${colorAccent}`,
+                                }}
+                                style={{ borderRadius: 4, border: `1px solid ${colorAccent}` }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: 34,
+                                  height: 34,
+                                  flex: 'none',
+                                  borderRadius: 4,
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.7rem',
+                                  color: colorAccent,
+                                  background: 'transparent',
+                                  border: `1.5px dashed ${colorAccent}88`,
                                 }}
                               >
-                                ▶ {t('game.inControl')} ◀
-                              </span>
+                                {ck.slice(0, 1).toUpperCase()}
+                              </div>
                             )}
 
-                            {/* Every seat renders an avatar. A bot has no account, so it takes
-                            the generated avatar seeded from the lobby's assistant name, and
-                            only the host's seat can show an uploaded photo. */}
-                            <UserAvatar
-                              // The host's seat uses the account identity, so the navbar
-                              // and this card share one DiceBear seed. Other local seats
-                              // seed from the name typed in the lobby.
-                              username={
-                                isHostSeat
-                                  ? (user?.username ?? playerMeta.username)
-                                  : seatAvatarName(playerMeta)
-                              }
-                              userId={isHostSeat ? user?.id : playerMeta.userId}
-                              isBot={playerMeta.isBot}
-                              hasAvatarPhoto={
-                                isHostSeat
-                                  ? (user?.hasAvatarPhoto ?? false)
-                                  : (playerMeta.hasAvatarPhoto ?? false)
-                              }
-                              avatarStyle={
-                                isHostSeat ? (user?.avatarStyle ?? null) : playerMeta.avatarStyle
-                              }
-                              size={36}
-                              fallbackStyle={{
-                                width: 36,
-                                height: 36,
-                                flex: 'none',
-                                borderRadius: 4,
-                                display: 'grid',
-                                placeItems: 'center',
-                                fontWeight: 'bold',
-                                fontSize: '0.8rem',
-                                color: 'rgb(var(--bg-primary-rgb))',
-                                background: colorAccent,
-                              }}
-                              style={{ borderRadius: 4, border: `1.5px solid ${colorAccent}` }}
-                            />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div
                                 style={{
                                   fontWeight: 'bold',
-                                  fontSize: '0.84rem',
+                                  fontSize: '0.82rem',
                                   color: 'var(--text-main)',
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 6,
                                 }}
                               >
-                                {isActiveSeat && (
-                                  <span
-                                    style={{
-                                      color: colorAccent,
-                                      fontWeight: 'bold',
-                                      fontSize: '0.75rem',
-                                    }}
-                                  >
-                                    ▶
-                                  </span>
-                                )}
                                 <span
                                   style={{
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
-                                    // The badge below is `flex: none`, so the callsign must be able
-                                    // to shrink for its ellipsis to apply.
-                                    flex: '1 1 auto',
-                                    minWidth: 0,
-                                    color: isOut ? 'var(--text-muted)' : undefined,
-                                    textDecoration: isOut ? 'line-through' : 'none',
                                   }}
                                 >
-                                  {name}
+                                  {occupied && playerMeta?.username
+                                    ? localizedBotName(t, playerMeta.displayName) ||
+                                      localizedBotName(t, playerMeta.username)
+                                    : t('game.emptySeat')}
                                 </span>
-                                {/* Seat presence: away for now, or out of the match for good. */}
-                                {(isOut || isDisconnected) && (
-                                  <span
-                                    className={RETRO_BADGE}
-                                    style={{
-                                      flex: 'none',
-                                      padding: '1px 5px',
-                                      fontSize: '0.55rem',
-                                      border: `1px solid ${isOut ? 'var(--state-off)' : '#ffb300'}`,
-                                      color: isOut ? 'var(--state-off)' : '#ffb300',
-                                    }}
-                                  >
-                                    {isOut
-                                      ? playerMeta.departedReason === 'leave'
-                                        ? t('game.pilotAborted')
-                                        : t('game.pilotLeft')
-                                      : t('game.reconnecting')}
-                                  </span>
-                                )}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: '0.68rem',
+                                  color: isYou ? colorAccent : 'var(--text-muted)',
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                              >
+                                {isYou
+                                  ? `// [${t('game.yourSeat', 'YOUR SEAT')}]`
+                                  : occupied
+                                    ? `// [${t('game.occupied', 'OCCUPIED')}]`
+                                    : `// [${t('game.emptySeat', 'EMPTY SEAT')}]`}
                               </div>
                             </div>
 
-                            {/* Fixed slot for MiniDie to prevent callsign layout jitter */}
-                            <div
+                            {occupied ? (
+                              <span
+                                className={RETRO_BADGE}
+                                style={{
+                                  padding: '2px 6px',
+                                  fontSize: '0.62rem',
+                                  border: isReady
+                                    ? '1px solid var(--state-on)'
+                                    : '1px solid var(--state-off)',
+                                  color: isReady ? 'var(--state-on)' : 'var(--state-off)',
+                                }}
+                              >
+                                {isReady ? 'READY OK' : 'WAITING'}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      }
+
+                      // Active game pilot card: only render participating pilots
+                      if (!playerMeta || playerMeta.status === 'inactive') return null;
+                      const isDisconnected = playerMeta.status === 'disconnected';
+                      // An exited seat is shown as gone: it has no pieces left, but
+                      // the row stays because the results card needs it.
+                      const isOut = playerMeta.status === 'exited';
+                      // An exited seat can never hold the turn, so never advertise it
+                      // as the pilot in control.
+                      const isActiveSeat = isActive && !isOut;
+                      const isHotseat = activeMatch.mode === 'hotseat';
+                      // Hotseat's local seats have no account, so the engine leaves
+                      // their userId undefined. Only the host's seat (the colour this
+                      // device joined with) can show a photo.
+                      const isHostSeat = isHotseat && ck === activeMatch.color;
+                      const isYou = isHotseat
+                        ? ck === view.myColor
+                        : !playerMeta.isBot && isMySeat(playerMeta);
+                      const name =
+                        (localNames[ck] ?? localizedBotName(t, playerMeta.displayName)) ||
+                        localizedBotName(t, playerMeta.username) ||
+                        (playerMeta.isBot
+                          ? t('common.bot')
+                          : isYou
+                            ? t('common.you')
+                            : isHotseat
+                              ? t('game.localPlayer')
+                              : 'Pilot');
+                      // The engine stamps the face on the seat that actually rolled, so a
+                      // rejoined client shows it instead of guessing from the turn.
+                      const lastRoll = playerMeta.lastRoll;
+
+                      return (
+                        <div
+                          key={ck}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            padding: '10px 12px',
+                            borderRadius: 4,
+                            border: isActiveSeat
+                              ? `1.5px solid ${colorAccent}`
+                              : occupied
+                                ? `1.5px solid ${colorAccent}44`
+                                : '1.5px dashed rgb(var(--ink-rgb) / 0.12)',
+                            background: isActiveSeat
+                              ? `rgba(35, 12, 70, 0.95)`
+                              : 'rgb(var(--bg-card-rgb) / 0.65)',
+                            boxShadow: isActiveSeat
+                              ? `0 0 20px ${colorAccent}aa, inset 0 0 12px ${colorAccent}44`
+                              : 'none',
+                            // Three levels of presence: in the match (full), temporarily
+                            // away (dimmed), or out of the match for good (faded out and
+                            // desaturated, so it reads as removed rather than present).
+                            opacity: isOut ? 0.3 : isDisconnected ? 0.55 : 1,
+                            filter: isOut ? 'grayscale(1)' : 'none',
+                            position: 'relative',
+                            gridColumn: 1,
+                            minWidth: 0,
+                            transition:
+                              'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+                            boxSizing: 'border-box',
+                          }}
+                        >
+                          {/* Active Turn Top-Right Badge */}
+                          {isActiveSeat && (
+                            <span
                               style={{
-                                width: 36,
-                                height: 28,
-                                flex: 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
+                                position: 'absolute',
+                                top: -7,
+                                right: 8,
+                                background: colorAccent,
+                                color: 'rgb(var(--bg-primary-rgb))',
+                                fontSize: '0.55rem',
+                                fontFamily: 'var(--font-mono)',
+                                fontWeight: 900,
+                                padding: '1px 6px',
+                                borderRadius: 3,
+                                letterSpacing: '0.5px',
+                                boxShadow: `0 0 10px ${colorAccent}`,
                               }}
                             >
-                              {typeof lastRoll === 'number' && lastRoll > 0 && (
-                                <MiniDie value={lastRoll} />
+                              ▶ {t('game.inControl')} ◀
+                            </span>
+                          )}
+
+                          {/* Every seat renders an avatar. A bot has no account, so it takes
+                            the generated avatar seeded from the lobby's assistant name, and
+                            only the host's seat can show an uploaded photo. */}
+                          <UserAvatar
+                            // The host's seat uses the account identity, so the navbar
+                            // and this card share one DiceBear seed. Other local seats
+                            // seed from the name typed in the lobby.
+                            username={
+                              isHostSeat
+                                ? (user?.username ?? playerMeta.username)
+                                : seatAvatarName(playerMeta)
+                            }
+                            userId={isHostSeat ? user?.id : playerMeta.userId}
+                            isBot={playerMeta.isBot}
+                            hasAvatarPhoto={
+                              isHostSeat
+                                ? (user?.hasAvatarPhoto ?? false)
+                                : (playerMeta.hasAvatarPhoto ?? false)
+                            }
+                            avatarStyle={
+                              isHostSeat ? (user?.avatarStyle ?? null) : playerMeta.avatarStyle
+                            }
+                            size={36}
+                            fallbackStyle={{
+                              width: 36,
+                              height: 36,
+                              flex: 'none',
+                              borderRadius: 4,
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontWeight: 'bold',
+                              fontSize: '0.8rem',
+                              color: 'rgb(var(--bg-primary-rgb))',
+                              background: colorAccent,
+                            }}
+                            style={{ borderRadius: 4, border: `1.5px solid ${colorAccent}` }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: 'bold',
+                                fontSize: '0.84rem',
+                                color: 'var(--text-main)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                              }}
+                            >
+                              {isActiveSeat && (
+                                <span
+                                  style={{
+                                    color: colorAccent,
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem',
+                                  }}
+                                >
+                                  ▶
+                                </span>
+                              )}
+                              <span
+                                style={{
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  // The badge below is `flex: none`, so the callsign must be able
+                                  // to shrink for its ellipsis to apply.
+                                  flex: '1 1 auto',
+                                  minWidth: 0,
+                                  color: isOut ? 'var(--text-muted)' : undefined,
+                                  textDecoration: isOut ? 'line-through' : 'none',
+                                }}
+                              >
+                                {name}
+                              </span>
+                              {/* Seat presence: away for now, or out of the match for good. */}
+                              {(isOut || isDisconnected) && (
+                                <span
+                                  className={RETRO_BADGE}
+                                  style={{
+                                    flex: 'none',
+                                    padding: '1px 5px',
+                                    fontSize: '0.55rem',
+                                    border: `1px solid ${isOut ? 'var(--state-off)' : '#ffb300'}`,
+                                    color: isOut ? 'var(--state-off)' : '#ffb300',
+                                  }}
+                                >
+                                  {isOut
+                                    ? playerMeta.departedReason === 'leave'
+                                      ? t('game.pilotAborted')
+                                      : t('game.pilotLeft')
+                                    : t('game.reconnecting')}
+                                </span>
                               )}
                             </div>
                           </div>
-                        );
+
+                          {/* Fixed slot for MiniDie to prevent callsign layout jitter */}
+                          <div
+                            style={{
+                              width: 36,
+                              height: 28,
+                              flex: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                            }}
+                          >
+                            {typeof lastRoll === 'number' && lastRoll > 0 && (
+                              <MiniDie value={lastRoll} />
+                            )}
+                          </div>
+                        </div>
+                      );
                     })}
 
                     {/* Wall Breaker column: clash mode is the OPPORTUNITY to break
@@ -2876,7 +2894,7 @@ export function Game() {
                           seatUserIds={view.players
                             .map((player) => player.userId)
                             .filter((id): id is string => typeof id === 'string' && id !== '')}
-                          playerCount={activeMatch.playerCount ?? 4}
+                          playerCount={activeMatch.playerCount}
                           friends={friends}
                         />
                       ) : undefined
@@ -2900,7 +2918,8 @@ export function Game() {
                       fontSize: '0.82rem',
                       fontFamily: 'var(--font-heading)',
                       letterSpacing: '1px',
-                      background: 'linear-gradient(135deg, var(--accent-pink), var(--accent-purple))',
+                      background:
+                        'linear-gradient(135deg, var(--accent-pink), var(--accent-purple))',
                       borderColor: 'var(--accent-pink)',
                       color: 'var(--text-main)',
                       boxShadow: '0 0 16px rgb(var(--accent-pink-rgb) / 0.4)',
@@ -3039,7 +3058,10 @@ export function Game() {
                           pointerEvents: 'none',
                         }}
                       >
-                        <GoalConfetti key={`goal-confetti-${goalFx.id}`} color={SEAT_HUES[goalFx.color]} />
+                        <GoalConfetti
+                          key={`goal-confetti-${goalFx.id}`}
+                          color={SEAT_HUES[goalFx.color]}
+                        />
                       </div>,
                       document.body,
                     )
@@ -3147,11 +3169,7 @@ export function Game() {
                     }}
                     style={{
                       width: '100%',
-                      padding: isGameEnded
-                        ? '14px 18px'
-                        : compactFit
-                          ? '8px 14px'
-                          : '12px 14px',
+                      padding: isGameEnded ? '14px 18px' : compactFit ? '8px 14px' : '12px 14px',
                       fontSize: isGameEnded ? '0.88rem' : '0.78rem',
                       fontFamily: 'var(--font-mono)',
                       fontWeight: 'bold',
@@ -3162,7 +3180,9 @@ export function Game() {
                         : 'rgb(var(--accent-cyan-rgb) / 0.12)',
                       border: '1.5px solid var(--accent-cyan)',
                       color: 'var(--text-main)',
-                      boxShadow: isGameEnded ? '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)' : 'none',
+                      boxShadow: isGameEnded
+                        ? '0 0 16px rgb(var(--accent-cyan-rgb) / 0.4)'
+                        : 'none',
                       cursor: 'pointer',
                       textAlign: 'center',
                       justifyContent: 'center',
@@ -3179,7 +3199,7 @@ export function Game() {
                 {!isGameEnded && (
                   <CyberButton
                     label={
-                                          // A hotseat room calls off a match, exactly as a live PvP does: it writes no row and has no second
+                      // A hotseat room calls off a match, exactly as a live PvP does: it writes no row and has no second
                       // player to inform, but what is being ended is a match, so the control wears the same word. Only a
                       // PvE simulation has no match to abort.
                       activeMatch.mode === 'pve'
@@ -3235,7 +3255,7 @@ export function Game() {
               style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
             >
               {view.status === 'waiting' ? (
-                                // WAITING ROOM SETUP WINDOW
+                // WAITING ROOM SETUP WINDOW
                 <section className={RETRO_WINDOW} id="waitingSetupWindow">
                   <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                     <span>{t('game.waitingBayTitle')}</span>
@@ -3259,7 +3279,9 @@ export function Game() {
                             width: '100%',
                             padding: '12px 0',
                             fontSize: '0.8rem',
-                            background: alreadyReady ? 'rgb(var(--state-on-rgb) / 0.2)' : 'var(--btn-bg)',
+                            background: alreadyReady
+                              ? 'rgb(var(--state-on-rgb) / 0.2)'
+                              : 'var(--btn-bg)',
                             borderColor: alreadyReady ? 'var(--state-on)' : 'var(--accent-pink)',
                             color: alreadyReady ? 'var(--state-on)' : 'var(--text-main)',
                             opacity: disabled ? 0.6 : 1,
@@ -3291,7 +3313,10 @@ export function Game() {
 
                     {activeMatch.mode === 'pvp' && (
                       <div
-                        style={{ borderTop: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)', paddingTop: 12 }}
+                        style={{
+                          borderTop: '1px solid rgb(var(--accent-cyan-rgb) / 0.25)',
+                          paddingTop: 12,
+                        }}
                       >
                         <div
                           style={{
@@ -3423,7 +3448,7 @@ export function Game() {
                   </div>
                 </section>
               ) : (
-                                // IN-GAME DICE CONTROLS WINDOW
+                // IN-GAME DICE CONTROLS WINDOW
                 <section className={RETRO_WINDOW} id="diceControlWindow">
                   <div className={`${WINDOW_HEADER} ${GAME_WINDOW_HEADER_EXTRA}`}>
                     <span>{t('game.diceSystemTitle')}</span>
@@ -3456,7 +3481,9 @@ export function Game() {
                           style={{
                             width: '100%',
                             padding: '8px 12px',
-                            background: isMyTurn ? 'rgb(var(--accent-pink-rgb) / 0.25)' : `${turnColorHex}18`,
+                            background: isMyTurn
+                              ? 'rgb(var(--accent-pink-rgb) / 0.25)'
+                              : `${turnColorHex}18`,
                             border: isMyTurn
                               ? '1.5px solid var(--accent-pink)'
                               : `1.5px solid ${turnColorHex}`,
@@ -3552,9 +3579,7 @@ export function Game() {
                         justifyContent: 'center',
                         textAlign: 'center',
                         background:
-                          canRoll && !isOwnRoll
-                            ? 'var(--btn-bg)'
-                            : 'rgb(var(--bg-card-rgb) / 0.5)',
+                          canRoll && !isOwnRoll ? 'var(--btn-bg)' : 'rgb(var(--bg-card-rgb) / 0.5)',
                         borderColor:
                           canRoll && !isOwnRoll
                             ? 'var(--accent-pink)'
@@ -3593,7 +3618,9 @@ export function Game() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           textAlign: 'center',
-                          background: breakerArmed ? 'rgb(var(--accent-yellow-rgb) / 0.22)' : 'var(--btn-bg)',
+                          background: breakerArmed
+                            ? 'rgb(var(--accent-yellow-rgb) / 0.22)'
+                            : 'var(--btn-bg)',
                           borderColor: breakerArmed ? 'var(--accent-yellow)' : 'var(--accent-cyan)',
                           color: breakerArmed ? 'var(--accent-yellow)' : 'var(--text-main)',
                           boxShadow: breakerArmed ? '0 0 18px var(--accent-yellow)' : 'none',
@@ -3703,8 +3730,6 @@ export function Game() {
                   </div>
                 </section>
               )}
-
-
             </div>
           </main>
         </div>
@@ -3729,7 +3754,7 @@ export function Game() {
         onProceed={() => {
           setIsAbortModalOpen(false);
           endGame();
-                    // Hotseat: the End Game path ends the room (single-instance rooms are torn down by the post-game
+          // Hotseat: the End Game path ends the room (single-instance rooms are torn down by the post-game
           // flow, so nothing is left to resume), and the menu is where the player came from. No result card
           // to read and nobody else to inform.
           if (activeMatch.mode === 'hotseat') {
@@ -3776,7 +3801,6 @@ export function Game() {
       {/* The rules, ten pages of them. The component is shared with the lobby
           header (34, item 2), so both screens read the same ten pages. */}
       <GameRulesModal isOpen={isSystemModalOpen} onClose={() => setIsSystemModalOpen(false)} />
-
 
       {/* QTE Clash overlay: one component serves keyboard and touch. In hotseat a
           single device owns both seats, so both sides' keys are live at once. The

@@ -7,7 +7,7 @@ import type { Notification } from '../hooks/useNotifications';
 // Docked pages mount it instead of an `<aside>` + `<RetroNavbar>` pair, so the spacer,
 // bar width and `xl` threshold cannot disagree. Mounting it also opts the page into chat.
 interface NavDockProps {
-    // The nav item to highlight; `RetroNavbar` falls back to the router.
+  // The nav item to highlight; `RetroNavbar` falls back to the router.
   activeRoute: string;
   notifications?: Notification[];
   unreadCount?: number;

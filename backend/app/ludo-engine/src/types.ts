@@ -408,7 +408,13 @@ export type GameEvent =
   | { type: 'game_started'; gameId: string }
   | { type: 'game_expired'; gameId: string }
   | { type: 'player_exited'; gameId: string; color: PlayerColor }
-  | { type: 'player_aborted'; gameId: string; color: PlayerColor; username: string; log?: LogEntry[] }
+  | {
+      type: 'player_aborted';
+      gameId: string;
+      color: PlayerColor;
+      username: string;
+      log?: LogEntry[];
+    }
   | { type: 'player_disconnected'; gameId: string; color: PlayerColor }
   | { type: 'player_reconnected'; gameId: string; color: PlayerColor; displayName?: string }
   // Full-state frame: the engine changed something the event-specific payloads

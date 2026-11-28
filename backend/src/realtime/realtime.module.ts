@@ -24,5 +24,3 @@ import { SessionAuthService } from './session-auth';
   providers: [SessionAuthService, RealtimeGateway, RealtimeBroadcaster],
 })
 export class RealtimeModule {}
-
-

@@ -69,29 +69,31 @@ export class AvatarThumbnailService {
   // multi-page WebP when more than one page is read, and `pages: 1` on an
   // animated source yields a still (the static fallback above).
   private render(source: Buffer, pages: number): Promise<Buffer> {
-    return sharp(source, {
-      pages,
-      limitInputPixels: MAX_INPUT_PIXELS,
-      // Abort on a decode error instead of emitting a half-decoded frame.
-      failOn: 'error',
-      sequentialRead: true,
-    })
-      // EXIF orientation first, or a portrait photo taken on a phone would be
-      // cropped as if it were landscape.
-      .rotate()
-      // Cover = fill the square and crop the overflow, so no avatar is
-      // letterboxed. No enlargement: a 64 px source stays 64 px instead of
-      // becoming a blurry 256 px copy.
-      .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'cover', withoutEnlargement: true })
-      .webp({
-        quality: THUMB_QUALITY,
-        effort: THUMB_EFFORT,
-        // 0 = loop forever, which is what an animated avatar is expected to do.
-        // The encoder default is not derived from the source, so the loop count
-        // is pinned here rather than inherited.
-        loop: 0,
+    return (
+      sharp(source, {
+        pages,
+        limitInputPixels: MAX_INPUT_PIXELS,
+        // Abort on a decode error instead of emitting a half-decoded frame.
+        failOn: 'error',
+        sequentialRead: true,
       })
-      .timeout({ seconds: TIMEOUT_SECONDS })
-      .toBuffer();
+        // EXIF orientation first, or a portrait photo taken on a phone would be
+        // cropped as if it were landscape.
+        .rotate()
+        // Cover = fill the square and crop the overflow, so no avatar is
+        // letterboxed. No enlargement: a 64 px source stays 64 px instead of
+        // becoming a blurry 256 px copy.
+        .resize(THUMB_SIZE, THUMB_SIZE, { fit: 'cover', withoutEnlargement: true })
+        .webp({
+          quality: THUMB_QUALITY,
+          effort: THUMB_EFFORT,
+          // 0 = loop forever, which is what an animated avatar is expected to do.
+          // The encoder default is not derived from the source, so the loop count
+          // is pinned here rather than inherited.
+          loop: 0,
+        })
+        .timeout({ seconds: TIMEOUT_SECONDS })
+        .toBuffer()
+    );
   }
 }

@@ -31,12 +31,16 @@ const UA =
 
 const apiUrl =
   'https://fonts.googleapis.com/css2?' +
-  FAMILIES.map((f) => `family=${f.name.replaceAll(' ', '+')}:wght@${f.weights.join(';')}`).join('&') +
+  FAMILIES.map((f) => `family=${f.name.replaceAll(' ', '+')}:wght@${f.weights.join(';')}`).join(
+    '&',
+  ) +
   '&display=swap';
 
 const css = await (await fetch(apiUrl, { headers: { 'User-Agent': UA } })).text();
 if (!css.includes('@font-face')) {
-  throw new Error(`Google Fonts returned no @font-face blocks for ${apiUrl}:\n${css.slice(0, 400)}`);
+  throw new Error(
+    `Google Fonts returned no @font-face blocks for ${apiUrl}:\n${css.slice(0, 400)}`,
+  );
 }
 
 // Each block is preceded by its subset comment, e.g. `/* latin *\/`.
@@ -66,7 +70,9 @@ for (const face of faces) {
   if (!response.ok) throw new Error(`${response.status} fetching ${face.url}`);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.subarray(0, 4).toString('latin1') !== 'wOF2') {
-    throw new Error(`${file} is not a woff2 payload (got ${bytes.subarray(0, 4).toString('latin1')})`);
+    throw new Error(
+      `${file} is not a woff2 payload (got ${bytes.subarray(0, 4).toString('latin1')})`,
+    );
   }
   await writeFile(join(FONT_DIR, file), bytes);
   written.push({ ...face, file, kib: (bytes.length / 1024).toFixed(1) });

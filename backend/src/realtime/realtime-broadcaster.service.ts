@@ -112,9 +112,8 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
     this.roomsTick = setInterval(() => {
       void this.flushRooms(true);
     }, ROOMS_REPAIR_TICK_MS);
-    this.roomsTick.unref?.();
+    this.roomsTick.unref();
   }
-
 
   async onModuleDestroy(): Promise<void> {
     if (this.roomsTimer) clearTimeout(this.roomsTimer);
@@ -132,7 +131,7 @@ export class RealtimeBroadcaster implements OnModuleInit, OnModuleDestroy {
       this.roomsTimer = null;
       void this.flushRooms(false);
     }, ROOMS_DEBOUNCE_MS);
-    this.roomsTimer.unref?.();
+    this.roomsTimer.unref();
   }
 
   // Read one snapshot, then derive each connected viewer's payload from it. The

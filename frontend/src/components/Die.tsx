@@ -220,7 +220,7 @@ export function Die({
     const flops = flopsRef.current;
     const beganAt = beganRef.current;
 
-        // ACCEL tips the die off the face it is resting on and up onto a corner, half a turn already on
+    // ACCEL tips the die off the face it is resting on and up onto a corner, half a turn already on
     // it, so the throw has begun before the spin does.
     const corner: Pose = {
       spin: rest.spin + HALF_TURN,
@@ -266,7 +266,7 @@ export function Die({
     // Whether an instant in this plan is still ahead of us. A replan turns the cube to the
     // same targets, but it must not re-voice what the room has already heard.
     const ahead = (ms: number) => beganAt + ms > performance.now();
-        // The tail from an instant: one flop per landing, each shorter than the one before it. The last
+    // The tail from an instant: one flop per landing, each shorter than the one before it. The last
     // landing is the settle, so the roll's face is HEARD as well as seen (38. Q); a tail of one flop
     // is therefore a settle with no flop ahead of it.
     const flopFrom = (spin: number, at: number) => {
@@ -288,7 +288,7 @@ export function Die({
       });
     };
 
-        // The rattle (38.13): a tick at each quarter turn's own instant, which is the spin's plan and
+    // The rattle (38.13): a tick at each quarter turn's own instant, which is the spin's plan and
     // never a second schedule beside it.
     const tickEvery = spinMs / TICKS_PER_SPIN;
     const tickAt = (ms: number) => {

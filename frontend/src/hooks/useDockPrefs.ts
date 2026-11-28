@@ -31,13 +31,13 @@ function readCompact(): boolean {
 }
 
 export interface DockPrefs {
-    // The chat screen is powered on. It does not change the dock's width: the
+  // The chat screen is powered on. It does not change the dock's width: the
   //  screen lights up inside the slot it already occupies.
   chatOn: boolean;
   toggleChat: () => void;
-    // The viewport is under WIDE_MIN_PX: the dock is the icon rail.
+  // The viewport is under WIDE_MIN_PX: the dock is the icon rail.
   isCompact: boolean;
-    // The dock's width in px: the one number the spacer and the bar both use.
+  // The dock's width in px: the one number the spacer and the bar both use.
   width: number;
 }
 
@@ -65,7 +65,7 @@ export function useDockPrefs(): DockPrefs {
     });
   }, []);
 
-    // One width per breakpoint, never one per chat state. A dock that resizes when a decoration
+  // One width per breakpoint, never one per chat state. A dock that resizes when a decoration
   // toggles drags the whole page sideways, and re-wraps every column of the dashboard under whoever
   // is reading it; the chat lights up inside the slot it already occupies instead (`LobbyChat`).
   const width = isCompact ? DOCK_RAIL_PX : DOCK_CHAT_PX;

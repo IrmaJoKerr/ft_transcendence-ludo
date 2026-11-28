@@ -8,11 +8,11 @@ export type PlateCircle = { cx: number; cy: number; r: number };
 // The still a card is painted on.
 export type HeroPlate = {
   src: string;
-    // The art row, as a fraction of its height, that is put on the card row `at`.
+  // The art row, as a fraction of its height, that is put on the card row `at`.
   horizon: number;
-    // The card row that row lands on.
+  // The card row that row lands on.
   at: number;
-    // Two stops over the plate, top first. A plate is dimmed under the chrome that
+  // Two stops over the plate, top first. A plate is dimmed under the chrome that
   //  reads on it, and this is the era's own ink.
   dim: readonly [string, string];
 };
@@ -23,16 +23,16 @@ export type Synthwave80sScene = {
   bgTop: string;
   bgMid: string;
   bgBot: string;
-        // The card's own still: the cityscape the shell wears as its ground, which is the same shot the
-    // drawn sunset below approximates.
+  // The card's own still: the cityscape the shell wears as its ground, which is the same shot the
+  // drawn sunset below approximates.
   plate: HeroPlate;
-    // The disc: its centre is the card's midline (360 of 720) and its rim is `r`.
+  // The disc: its centre is the card's midline (360 of 720) and its rim is `r`.
   sun: { y: number; r: number; c1: string; c2: string; scanline: string };
-    // The perspective grid's stroke, drawn below `horizonY`.
+  // The perspective grid's stroke, drawn below `horizonY`.
   gridColor: string;
-    // Where the ground starts: the grid's vanishing line and the starfield's floor.
+  // Where the ground starts: the grid's vanishing line and the starfield's floor.
   horizonY: number;
-    // How many stars drift across the sky.
+  // How many stars drift across the sky.
   starCount: number;
   starfield: string;
   marqueeColor: string;
@@ -71,30 +71,30 @@ export const SYNTHWAVE_80S_CFG: Synthwave80sScene = {
 // its sky.
 export type Colony70sScene = {
   kind: '70s-Colony';
-    // The ground the card shows before its still decodes, and forever if it never
+  // The ground the card shows before its still decodes, and forever if it never
   // does: the retired room's sky, which is the darkest ground this era has. Three
   // stops, top first, so a failed still is a night sky rather than a blank card.
   bgTop: string;
   bgMid: string;
   bgBot: string;
-    // The colony still: its top edge on the card's top edge (decision 7).
+  // The colony still: its top edge on the card's top edge (decision 7).
   plate: HeroPlate;
-    // The porthole the colony looks out through, in the still's own fractions: the
+  // The porthole the colony looks out through, in the still's own fractions: the
   // circle the traffic is confined to. Measured off the artwork (centre 633, 453 of
   // 1264×848, radius 390), where the cream ring's inner edge closes the window.
   porthole: PlateCircle;
-        // The gas giant hung in that porthole, same units (centre 642, 242, radius 141). The traffic
-    // passes in front of it, so the frame mask is cleared over this disc: the planet is sky, not
-    // frame, and rock in front of it is the one place a stone may cross something bright.
+  // The gas giant hung in that porthole, same units (centre 642, 242, radius 141). The traffic
+  // passes in front of it, so the frame mask is cleared over this disc: the planet is sky, not
+  // frame, and rock in front of it is the one place a stone may cross something bright.
   planet: PlateCircle;
-    // How many pinpricks the fallback sky is seeded with. They do not drift: they
+  // How many pinpricks the fallback sky is seeded with. They do not drift: they
   //  stand in for the still's own stars rather than animate.
   starCount: number;
   starfield: string;
-    // How many streaks cross the sky, and how many stones tumble across it.
+  // How many streaks cross the sky, and how many stones tumble across it.
   meteorCount: number;
   rockCount: number;
-    // The cream both are drawn in, as the channels an `rgba()` needs.
+  // The cream both are drawn in, as the channels an `rgba()` needs.
   meteorColor: string;
   marqueeColor: string;
 };

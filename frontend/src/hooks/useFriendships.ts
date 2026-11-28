@@ -59,9 +59,9 @@ export type FriendshipFeed = {
   friends: FriendRow[];
   requests: { sent: FriendRequestRow[]; received: FriendRequestRow[] };
   blocked: BlockedRow[];
-    // True until the first snapshot has landed (or failed).
+  // True until the first snapshot has landed (or failed).
   loading: boolean;
-    // Re-read the snapshot — after a mutation, on reconnect, on window focus.
+  // Re-read the snapshot — after a mutation, on reconnect, on window focus.
   refresh: () => void;
 };
 
@@ -105,7 +105,7 @@ export function useFriendships(): FriendshipFeed {
     };
   }, [revision]);
 
-    // The repair paths (D2). The first `connect` is the mount's own fetch, so it only marks the
+  // The repair paths (D2). The first `connect` is the mount's own fetch, so it only marks the
   // connection as seen; a later one means a reconnect whose frames are gone.
   useEffect(() => {
     if (!sessionSocket) return;

@@ -33,7 +33,7 @@ export function Home() {
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-    // 4. CYBER COMM // FRIEND LIST & AUDIO: one initial read for first paint; from then on
+  // 4. CYBER COMM // FRIEND LIST & AUDIO: one initial read for first paint; from then on
   // `friendship:changed` drives the column and the request badge (socket D2). The 12 s poll, and the
   // separate request fetch it repeated, are gone.
   const { friends: friendRows, requests, loading: friendsLoading } = useFriendships();
@@ -43,7 +43,7 @@ export function Home() {
   );
   const pendingRequestsCount = requests.received.length;
 
-    // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the session socket.
+  // 4b. HERO BADGE BAR: live site-wide online-player count, straight off the session socket.
 
   // **5. HUB ARCADE CABINET: ATTRACT MODE & PRESS START**
   // The canvas, its scene and its one rAF loop belong to `useHeroScene`; the theme

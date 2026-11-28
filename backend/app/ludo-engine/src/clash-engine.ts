@@ -169,10 +169,7 @@ export class ClashEngine {
     gameId: string,
     // Press-phase open anchor and window, used to charge bot switches. Scheduling from
     // the anchor keeps a late timer firing from shifting the rest of the schedule.
-    onPressStart?: (
-      pressStartAt: number,
-      window: { switchAt: number[]; pressMs: number },
-    ) => void,
+    onPressStart?: (pressStartAt: number, window: { switchAt: number[]; pressMs: number }) => void,
   ): void {
     const existing = this.clashTimers.get(gameId);
     if (existing) clearTimeout(existing);
@@ -396,7 +393,13 @@ export class ClashEngine {
     count = 1,
   ): Promise<number> {
     return this.withGameLock(gameId, async () => {
-      const { meter, target } = await this.clashManager.recordPress(gameId, color, key ?? '', isBot, count);
+      const { meter, target } = await this.clashManager.recordPress(
+        gameId,
+        color,
+        key ?? '',
+        isBot,
+        count,
+      );
       // Compare against the round's target, not the base constant: a shifted room
       // needs 55 or 67 presses, so a fixed 42 would end it early.
       if (meter > 0 && meter >= target) {
@@ -456,7 +459,8 @@ export class ClashEngine {
           defenderPiece.isInGoal = false;
           // An intermediate round still cost this seat a piece: the chain goes on,
           // but the defender sent home here never comes back to the square.
-          if (defenderMeta) defenderMeta.stats.piecesLost = (defenderMeta.stats.piecesLost ?? 0) + 1;
+          if (defenderMeta)
+            defenderMeta.stats.piecesLost = (defenderMeta.stats.piecesLost ?? 0) + 1;
         }
         pc.beatenDefenderIds = [...ledger.beaten, defenderPieceId];
         pc.remainingDefenderIds = ledger.remaining.slice(1);
@@ -538,12 +542,10 @@ export class ClashEngine {
       // the chain). Both are per chain, counted once, at the end of it.
       if (wallBroken) {
         if (attackerMeta) {
-          attackerMeta.stats.clashWallsAttacked =
-            (attackerMeta.stats.clashWallsAttacked ?? 0) + 1;
+          attackerMeta.stats.clashWallsAttacked = (attackerMeta.stats.clashWallsAttacked ?? 0) + 1;
         }
         if (!attackerWon && defenderMeta) {
-          defenderMeta.stats.clashWallsDefended =
-            (defenderMeta.stats.clashWallsDefended ?? 0) + 1;
+          defenderMeta.stats.clashWallsDefended = (defenderMeta.stats.clashWallsDefended ?? 0) + 1;
         }
       }
       if (!attackerWon) {
@@ -557,7 +559,8 @@ export class ClashEngine {
           moverPiece.isInGoal = false;
           // A repulsed attack is the attacker losing a piece, and the one capture a
           // seat can suffer by its own hand.
-          if (attackerMeta) attackerMeta.stats.piecesLost = (attackerMeta.stats.piecesLost ?? 0) + 1;
+          if (attackerMeta)
+            attackerMeta.stats.piecesLost = (attackerMeta.stats.piecesLost ?? 0) + 1;
         }
         result.captured = true;
         result.capturedPieceIds = [pc.pieceId];

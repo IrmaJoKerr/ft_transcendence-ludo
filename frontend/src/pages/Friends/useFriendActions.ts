@@ -102,7 +102,7 @@ export function useFriendActions({
     const outcome = await challenge({ id: friendId, name }, { hostColor });
     if (!outcome.ok) {
       setMsg({
-        text: outcome.message || t('friends.genericError'),
+        text: outcome.message ?? t('friends.genericError'),
         type: 'error',
       });
       setInvitingId(null);

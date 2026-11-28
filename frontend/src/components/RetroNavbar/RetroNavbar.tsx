@@ -26,7 +26,6 @@ import {
   DISPLAY_LABEL,
 } from '../../styles/tw';
 
-
 // The one room the rejoin row speaks for: a PvE or PvP seat the account still holds.
 function rejoinableRoom(rooms: MyRoom[]): MyRoom | null {
   return rooms.find((room) => room.gameType === 'PVE' || room.gameType === 'PVP') ?? null;
@@ -46,10 +45,10 @@ const NAV_LABEL_SAFETY_PX = 2; // kept free so rounding can't trigger ellipsis
 // mount rule is documented there.
 interface RetroNavbarProps {
   activeRoute?: string;
-    // Under `WIDE_MIN_PX`: icon rail, no labels, and the chat slot as one glyph
+  // Under `WIDE_MIN_PX`: icon rail, no labels, and the chat slot as one glyph
   //  rather than a screen.
   isCompact: boolean;
-    // The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`.
+  // The chat panel's on/off state, owned by `useDockPrefs` in `NavDock`.
   chatOn: boolean;
   onToggleChat: () => void;
   notifications?: Notification[];
@@ -316,7 +315,9 @@ export function RetroNavbar({
           : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.86), rgb(var(--bg-panel-rgb) / 0.94))',
         backdropFilter: 'blur(32px) saturate(220%)',
         WebkitBackdropFilter: 'blur(32px) saturate(220%)',
-        border: SEVENTIES ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)' : '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+        border: SEVENTIES
+          ? '1px solid rgb(var(--accent-yellow-rgb) / 0.35)'
+          : '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
         borderRadius: 22,
         boxShadow: SEVENTIES
           ? '0 28px 70px rgb(var(--shade-rgb) / 0.8), 0 0 32px rgb(var(--accent-yellow-rgb) / 0.15), inset 0 1px 0 rgb(var(--ink-rgb) / 0.15), inset 0 0 20px rgba(229, 52, 11, 0.08)'
@@ -390,7 +391,9 @@ export function RetroNavbar({
                   width: 30,
                   height: 30,
                   borderRadius: 8,
-                  background: SEVENTIES ? 'rgba(36, 26, 18, 0.95)' : 'rgb(var(--bg-card-rgb) / 0.95)',
+                  background: SEVENTIES
+                    ? 'rgba(36, 26, 18, 0.95)'
+                    : 'rgb(var(--bg-card-rgb) / 0.95)',
                   color: 'var(--accent-pink)',
                   display: 'grid',
                   placeItems: 'center',
@@ -453,7 +456,9 @@ export function RetroNavbar({
                     ? 'linear-gradient(180deg, rgba(36, 26, 18, 0.96), rgba(18, 13, 10, 0.98))'
                     : 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.96), rgb(var(--bg-panel-rgb) / 0.98))',
                   backdropFilter: 'blur(32px) saturate(220%)',
-                  border: SEVENTIES ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)' : '1.5px solid rgb(var(--accent-cyan-rgb) / 0.45)',
+                  border: SEVENTIES
+                    ? '1.5px solid rgb(var(--accent-yellow-rgb) / 0.45)'
+                    : '1.5px solid rgb(var(--accent-cyan-rgb) / 0.45)',
                   boxShadow: SEVENTIES
                     ? '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgb(var(--accent-yellow-rgb) / 0.25)'
                     : '0 20px 60px rgb(var(--shade-rgb) / 0.95), 0 0 25px rgb(var(--accent-cyan-rgb) / 0.25)',
@@ -517,11 +522,7 @@ export function RetroNavbar({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: '1rem' }}>{soundMuted ? '🔇' : '🔊'}</span>
-                    <span
-                      className={DISPLAY_LABEL}
-                    >
-                      {t('navbar.audioLabel')}
-                    </span>
+                    <span className={DISPLAY_LABEL}>{t('navbar.audioLabel')}</span>
                   </div>
                   <span
                     style={{
@@ -566,7 +567,9 @@ export function RetroNavbar({
                       : 'linear-gradient(90deg, rgba(255, 0, 85, 0.25), rgb(var(--accent-pink-rgb) / 0.35))',
                     border: SEVENTIES ? '1.5px solid #e5340b' : '1.5px solid #ff0055',
                     color: 'var(--text-main)',
-                    boxShadow: SEVENTIES ? '0 0 12px rgba(229, 52, 11, 0.3)' : '0 0 12px rgba(255, 0, 85, 0.3)',
+                    boxShadow: SEVENTIES
+                      ? '0 0 12px rgba(229, 52, 11, 0.3)'
+                      : '0 0 12px rgba(255, 0, 85, 0.3)',
                     borderRadius: 8,
                     cursor: 'pointer',
                     display: 'flex',
@@ -710,7 +713,9 @@ export function RetroNavbar({
           // A thin cyan scrollbar when a very short window does force one: the
           // default light bar is the one bright thing on a dark dock.
           scrollbarWidth: 'thin',
-          scrollbarColor: SEVENTIES ? 'rgb(var(--accent-yellow-rgb) / 0.35) transparent' : 'rgb(var(--accent-cyan-rgb) / 0.35) transparent',
+          scrollbarColor: SEVENTIES
+            ? 'rgb(var(--accent-yellow-rgb) / 0.35) transparent'
+            : 'rgb(var(--accent-cyan-rgb) / 0.35) transparent',
           padding: isCompact ? '8px 10px' : '8px 16px',
         }}
       >

@@ -12,13 +12,13 @@ export type FriendRow = {
   avatarV?: number;
   hasAvatarPhoto?: boolean;
   rating: number;
-    // When the friendship began; null on a row that arrived from a block/request.
+  // When the friendship began; null on a row that arrived from a block/request.
   friendsSince: string | null;
   status: PresenceStatus;
 };
 
 export type FriendRequestRow = {
-    // The pair row id: what accept/decline take.
+  // The pair row id: what accept/decline take.
   id: string;
   userId: string;
   username: string;

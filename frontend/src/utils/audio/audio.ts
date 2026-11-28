@@ -183,7 +183,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // One noise recipe for every impact: a white-noise buffer through a filter that sweeps `fromHz` →
+  // One noise recipe for every impact: a white-noise buffer through a filter that sweeps `fromHz` →
   // `toHz` over `seconds` (a bandpass holds its centre instead, for rustles).
   private noiseBurst(
     seconds: number,
@@ -398,7 +398,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // Clash result FX — the wall taking a hit, scaled by `weight` (25.5).
+  // Clash result FX — the wall taking a hit, scaled by `weight` (25.5).
   playBreachBloom(weight = 1) {
     if (this.muted) return;
     try {
@@ -544,7 +544,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A in morse on
+  // Play the chat transmission (23.7): a squelch of bandpassed noise, then the letter A in morse on
   // a 900 Hz sine. It fires per line, so it is the quietest tone the engine owns: half of `volume`.
   playChatSend() {
     if (this.muted) return;
@@ -607,7 +607,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // The goal (32.5) — the one cue that plays on EVERY goal, whatever the room's effects rule says:
+  // The goal (32.5) — the one cue that plays on EVERY goal, whatever the room's effects rule says:
   // the rule governs the overlay, never the celebration.
   playFanfare() {
     if (this.muted) return;
@@ -661,7 +661,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // The die's three cues (38), voiced from `DICE_SFX` and scheduled by `Die` at the plan's own
+  // The die's three cues (38), voiced from `DICE_SFX` and scheduled by `Die` at the plan's own
   // instants: the rattle is the SPIN's tempo, a flop is one landing of the tail, and the settle is
   // the last of them, which is the landing.
   playDiceSpinTick(era: DiceEra = 'retro80') {
@@ -725,7 +725,7 @@ export class RetroAudioEngine {
     }
   }
 
-    // The die has stopped, on `value`'s face. The face is a note: `settleHz` is face 1 and each face
+  // The die has stopped, on `value`'s face. The face is a note: `settleHz` is face 1 and each face
   // above it climbs a semitone, so a 6 rings higher than a 1 and the roll's outcome is heard before
   // the panel prints it.
   playDiceSettle(value = 1, era: DiceEra = 'retro80') {

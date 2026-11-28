@@ -1,11 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import {
-  HERO_SECTION,
-  HERO_TITLE,
-  HERO_SUBTITLE,
-  BADGE_BAR,
-  RETRO_BADGE,
-} from '../../styles/tw';
+import { HERO_SECTION, HERO_TITLE, HERO_SUBTITLE, BADGE_BAR, RETRO_BADGE } from '../../styles/tw';
 
 export function LudoLobbyHeader({
   roomsCount,

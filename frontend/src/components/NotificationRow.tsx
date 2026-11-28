@@ -138,9 +138,7 @@ export function NotificationRow({
           ? (e) => (e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.15)')
           : undefined
       }
-      onMouseLeave={
-        interactive ? (e) => (e.currentTarget.style.background = restingBg) : undefined
-      }
+      onMouseLeave={interactive ? (e) => (e.currentTarget.style.background = restingBg) : undefined}
       style={{
         display: 'flex',
         alignItems: 'flex-start',

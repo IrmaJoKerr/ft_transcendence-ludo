@@ -137,14 +137,22 @@ a:hover {
    UNMOUNT is the next board event, but a board that then sits idle must not keep a stale
    cage floating over the top of the board, so the wrapper carries this fade. */
 @keyframes flash-card-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* The goal's ramp card fades itself out over its last beat (32.5), the way the flash card does:
    the panel unmounts on its own timer, but a board that then sits idle must not keep a stale
    card floating over it. */
 @keyframes goal-card-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }

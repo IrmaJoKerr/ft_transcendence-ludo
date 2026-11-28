@@ -68,8 +68,8 @@ export class MatchAbandonService {
         message: 'gameId is required',
       });
     }
-    const userId = typeof seat?.userId === 'string' ? seat.userId : '';
-    const color = typeof seat?.color === 'string' ? seat.color.toUpperCase() : '';
+    const userId = typeof seat.userId === 'string' ? seat.userId : '';
+    const color = typeof seat.color === 'string' ? seat.color.toUpperCase() : '';
     if (!userId || !color) {
       throw new BadRequestException({
         code: 'MATCH_ABANDON_SEAT_REQUIRED',
@@ -99,7 +99,7 @@ export class MatchAbandonService {
     const seatStatus = engineState?.players?.find(
       (p) => (p.color ?? '').toUpperCase() === color,
     )?.status;
-    const roomOver = ENDED_MATCH_STATUSES.includes(matchData.status ?? '');
+    const roomOver = ENDED_MATCH_STATUSES.includes(matchData.status);
     if (seatStatus !== 'exited' && seatStatus !== 'inactive' && !roomOver) {
       throw new ConflictException({
         code: 'MATCH_ABANDON_SEAT_ACTIVE',

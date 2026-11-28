@@ -1,5 +1,9 @@
 import type { Notification } from '../../hooks/useNotifications';
-import { offerMechanism, offerMechanismLabel, parseNotificationPayload } from '../notificationParts';
+import {
+  offerMechanism,
+  offerMechanismLabel,
+  parseNotificationPayload,
+} from '../notificationParts';
 
 // One autoclose window for every card: the shared 8 s clock. The 30 ms entrance and
 // 350 ms exit are transitions, not autoclose timers, and are not controlled here.

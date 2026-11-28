@@ -1,4 +1,4 @@
-import type { PresenceStatus } from'../../theme' ;
+import type { PresenceStatus } from '../../theme';
 
 // What the backend allows this viewer to see: `full`, or one of the two blocked
 // states. A blocked payload is the identity and avatar only.
@@ -10,11 +10,11 @@ export interface UserProfile {
   displayName?: string;
   avatarStyle: string | null;
   hasAvatarPhoto: boolean;
-    // The avatar-meta stamp, echoed into `?v=` so a stale photo is never reused.
+  // The avatar-meta stamp, echoed into `?v=` so a stale photo is never reused.
   avatarV?: number;
-    // Absent only from a pre-gate payload; read as full.
+  // Absent only from a pre-gate payload; read as full.
   visibility?: ProfileVisibility;
-    // The career row (PlayerStats), not the account: rating, record and streaks all
+  // The career row (PlayerStats), not the account: rating, record and streaks all
   // live together there. Absent on a blocked payload, which carries identity only.
   stats?: {
     rating: number;
@@ -64,7 +64,7 @@ export type MatchHistoryRow = {
   gameType: 'PVP' | 'PVE';
   gameModes: RoomRules | null;
   color: string;
-    // 1 on the winning row, 2 on every other: the engine records no placement, so this is a win/loss
+  // 1 on the winning row, 2 on every other: the engine records no placement, so this is a win/loss
   // bit and never a podium. A `rank` that is not 1 on a completed row is a loss — not "second" —
   // because the only seat that finished is the one that brought its fourth piece home.
   rank: number | null;
@@ -93,7 +93,7 @@ export type MatchHistoryRow = {
   // The room's channel (M3), owner-only: the API ships this field to the row's own
   // account and omits it entirely for a friend, so its absence is the permission.
   chat?: TranscriptLine[] | null;
-    // True when the engine had to cut the payload: a cut transcript says so.
+  // True when the engine had to cut the payload: a cut transcript says so.
   chatTruncated?: boolean;
 };
 
@@ -105,8 +105,8 @@ export type TranscriptLine = {
   senderName: string;
   text: string;
   at: number;
-    // The backend's semantic seat stamp (`RED` and so on). Absent on a system line,
-    // an old row and a row whose sender left no mapped seat.
+  // The backend's semantic seat stamp (`RED` and so on). Absent on a system line,
+  // an old row and a row whose sender left no mapped seat.
   senderColor?: string;
   kind?: 'system';
   code?: 'left' | 'started';

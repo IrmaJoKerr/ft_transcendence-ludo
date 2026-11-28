@@ -19,15 +19,15 @@ export function ConfirmActionModal({
   onCancel,
 }: {
   isOpen: boolean;
-    // The question, in the panel's own header voice ("SEVER LINK?").
+  // The question, in the panel's own header voice ("SEVER LINK?").
   title: string;
-    // What is about to happen, naming the other side.
+  // What is about to happen, naming the other side.
   message: ReactNode;
-    // The consequence, in a sentence: what cannot be undone and where it lives.
+  // The consequence, in a sentence: what cannot be undone and where it lives.
   subMessage?: string;
   proceedLabel: string;
   cancelLabel: string;
-    // Pink/danger affordance by default: every caller so far is irreversible.
+  // Pink/danger affordance by default: every caller so far is irreversible.
   isDanger?: boolean;
   onProceed: () => void;
   onCancel: () => void;

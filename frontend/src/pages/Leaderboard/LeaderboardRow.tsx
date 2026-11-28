@@ -4,13 +4,7 @@ import { navigate } from '../../router';
 import { retroAudio } from '../../utils/audio';
 import type { LeaderboardEntry } from './leaderboardTypes';
 
-export function LeaderboardRow({
-  entry,
-  isYou,
-}: {
-  entry: LeaderboardEntry;
-  isYou: boolean;
-}) {
+export function LeaderboardRow({ entry, isYou }: { entry: LeaderboardEntry; isYou: boolean }) {
   const { t } = useTranslation();
   const isRankOne = entry.rank === 1;
   const isTopThree = entry.rank <= 3;

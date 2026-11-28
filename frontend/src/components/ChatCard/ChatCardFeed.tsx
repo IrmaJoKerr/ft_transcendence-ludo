@@ -65,12 +65,7 @@ export function ChatCardFeed({
         <FeedEmpty titleKey={emptyTitleKey} descKey={emptyDescKey} />
       ) : (
         lines.map((line) => (
-          <FeedLine
-            key={line.id}
-            line={line}
-            onOpenName={onOpenName}
-            senderColor={senderColor}
-          />
+          <FeedLine key={line.id} line={line} onOpenName={onOpenName} senderColor={senderColor} />
         ))
       )}
     </div>
@@ -168,11 +163,7 @@ function FeedEmpty({ titleKey, descKey }: { titleKey: string; descKey: string })
   const { t } = useTranslation();
   return (
     <>
-      <span
-        className={DISPLAY_TAG}
-      >
-        {t(titleKey)}
-      </span>
+      <span className={DISPLAY_TAG}>{t(titleKey)}</span>
       <span
         style={{
           fontFamily: 'var(--font-mono)',

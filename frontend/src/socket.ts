@@ -64,7 +64,7 @@ export type ServerEvents = {
     currentTurn: PlayerColor;
     forfeited?: boolean;
   }) => void;
-    // The settled move. `currentTurn` is the seat the engine left holding the turn (it has already
+  // The settled move. `currentTurn` is the seat the engine left holding the turn (it has already
   // advanced it, kept it on a bonus roll, or left it on the winner), so the reducer takes that seat
   // instead of predicting one.
   piece_moved: (e: MoveResult & { currentTurn?: PlayerColor }) => void;
@@ -118,7 +118,7 @@ export type ServerEvents = {
   // Host flipped the room rules while the room is still waiting. Carries what
   // the engine actually persisted, not what the caller asked for.
   modifiers_updated: (e: RoomRules) => void;
-    // The room's channel (M3). `chat:message` is one live line, `chat:history` the transcript pushed
+  // The room's channel (M3). `chat:message` is one live line, `chat:history` the transcript pushed
   // to this socket right after `game_joined`, already filtered by the engine for this seat.
   'chat:message': (e: { line: ChatCardLine }) => void;
   'chat:history': (e: { lines: ChatCardLine[] }) => void;

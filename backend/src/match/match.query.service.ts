@@ -193,7 +193,10 @@ export class MatchQueryService {
         const seatColors = SLOT_COLORS.map(
           (fallback, i) => data[`player${i + 1}_color`] || fallback,
         );
-        const engine = readEngineState(await this.redis.hget(`game:${data.id}`, 'state'), seatColors);
+        const engine = readEngineState(
+          await this.redis.hget(`game:${data.id}`, 'state'),
+          seatColors,
+        );
         const maxSeats = parseInt(data.playerCount || '4', 10);
 
         rows.push({
@@ -216,7 +219,9 @@ export class MatchQueryService {
           // An empty slot in a room that declares it is a free corner. Beyond
           // `playerCount` the slot is not part of the room at all.
           freeColors: seatColors.filter((_, i) => i < maxSeats && !seatIds[i]),
-          finalizedIds: seatIds.filter((id, i) => !!id && engine.finalizedColors.has(seatColors[i])),
+          finalizedIds: seatIds.filter(
+            (id, i) => !!id && engine.finalizedColors.has(seatColors[i]),
+          ),
           started: engine.started,
         });
       }
@@ -324,8 +329,7 @@ export class MatchQueryService {
     // ABORTED marker, or an abandoned one) leaves nothing to wait for, and a hash that
     // is gone entirely is a room the completion pass has already swept.
     const matchData = await this.redis.hgetall(`match:${gameId}`);
-    const live =
-      Boolean(matchData.id) && !ENDED_MATCH_STATUSES.includes(matchData.status ?? '');
+    const live = Boolean(matchData.id) && !ENDED_MATCH_STATUSES.includes(matchData.status);
     return { state: live ? ('pending' as const) : ('unknown' as const), row: null };
   }
 }

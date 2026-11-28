@@ -57,25 +57,24 @@ export type ChallengeAck = { ok: true; kind: 'challenge' };
 export type ChallengeTarget = { id: string; name: string };
 
 export type ChallengeOptions = {
-    // The waiting room the caller sits in. A room invite, and the only shape that
+  // The waiting room the caller sits in. A room invite, and the only shape that
   //  answers with a room.
   gameId?: string;
-    // The caller's corner for a duel, seated when the friend accepts and the room is
+  // The caller's corner for a duel, seated when the friend accepts and the room is
   //  made. The only shape that can create anything.
   hostColor?: string;
 };
 
 // What one press answered: the room, no room at all, or the sentence for the band.
 export type ChallengeOutcome =
-  | { ok: true; room?: ChallengeRoom }
-  | { ok: false; code?: string; message: string };
+  { ok: true; room?: ChallengeRoom } | { ok: false; code?: string; message: string };
 
 export type ChallengesFeed = {
-    // Is this friend's offer out, as far as the server last said?
+  // Is this friend's offer out, as far as the server last said?
   isSent: (friendId: string) => boolean;
-    // The friend whose offer is in flight, or null.
+  // The friend whose offer is in flight, or null.
   busy: string | null;
-    // Send it. Never refuses locally: the answer says whether it is out.
+  // Send it. Never refuses locally: the answer says whether it is out.
   challenge: (friend: ChallengeTarget, options?: ChallengeOptions) => Promise<ChallengeOutcome>;
 };
 
@@ -124,7 +123,7 @@ export function useChallenges(): ChallengesFeed {
     async (friend: ChallengeTarget, options?: ChallengeOptions): Promise<ChallengeOutcome> => {
       setBusy(friend.id);
       try {
-                // Two routes, one per act (19.6): a room id means the caller already sits in the room being
+        // Two routes, one per act (19.6): a room id means the caller already sits in the room being
         // offered, so the press offers a seat in it; a corner means a duel, whose room is made by the
         // friend's accept.
         const roomInvite = Boolean(options?.gameId);
@@ -144,7 +143,7 @@ export function useChallenges(): ChallengesFeed {
         return { ok: true, room };
       } catch (error) {
         const code = (error as { code?: string } | null)?.code;
-                // A 409 is the server saying the offer is already out: this tab's list was behind (another tab, or
+        // A 409 is the server saying the offer is already out: this tab's list was behind (another tab, or
         // a press it never saw). Recording it from the answer is what keeps the next press from reading as
         // a fresh one.
         if (code === 'CHALLENGE_ALREADY_SENT')

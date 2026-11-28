@@ -2,7 +2,11 @@ import { useTranslation } from 'react-i18next';
 import { PendingOffers } from '../../components/PendingOffers';
 import { UserAvatar } from '../../components/UserAvatar';
 import { retroAudio } from '../../utils/audio';
-import type { BlockedRow, FriendRequestRow, FriendRow as FriendRowData } from '../../friendshipFeed';
+import type {
+  BlockedRow,
+  FriendRequestRow,
+  FriendRow as FriendRowData,
+} from '../../friendshipFeed';
 import {
   RETRO_WINDOW,
   WINDOW_HEADER,
@@ -285,7 +289,6 @@ export function FriendsWindow({
           </div>
         </div>
 
-
         <div
           style={{
             display: 'flex',
@@ -311,4 +314,3 @@ export function FriendsWindow({
     </section>
   );
 }
-

@@ -16,12 +16,12 @@ export function InviteComms({
   friends,
 }: {
   gameId: string;
-    // Every account seated in this room, taken from the room's own player list.
+  // Every account seated in this room, taken from the room's own player list.
   seatUserIds: string[];
-    // The room's capacity. A full room lists nobody: every friend is either seated
+  // The room's capacity. A full room lists nobody: every friend is either seated
   //  here or has no free seat to take, so the panel says so rather than vanishing.
   playerCount: number;
-    // The friendship snapshot, read once by the page and shared with the name card, so
+  // The friendship snapshot, read once by the page and shared with the name card, so
   //  a waiting room opens with one read rather than one per surface.
   friends: FriendRow[];
 }) {
@@ -32,9 +32,7 @@ export function InviteComms({
   const full = seatUserIds.length >= playerCount;
   const listed = full
     ? []
-    : friends.filter(
-        (friend) => friend.status === 'online' && !seatUserIds.includes(friend.id),
-      );
+    : friends.filter((friend) => friend.status === 'online' && !seatUserIds.includes(friend.id));
 
   const invite = async (friendId: string, name: string) => {
     setMessage(null);
@@ -116,11 +114,7 @@ export function InviteComms({
       >
         {listed.length === 0 ? (
           <>
-            <span
-              className={DISPLAY_TAG}
-            >
-              {t('gameChat.inviteEmpty')}
-            </span>
+            <span className={DISPLAY_TAG}>{t('gameChat.inviteEmpty')}</span>
             <span
               style={{
                 fontFamily: 'var(--font-mono)',

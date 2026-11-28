@@ -15,13 +15,13 @@ export type LobbyRoom = {
   maxSeats: number;
   mode: 'classic' | 'duel';
   mySeat?: boolean;
-    // The corners a joiner may still claim, in canonical order (the join palette's list).
+  // The corners a joiner may still claim, in canonical order (the join palette's list).
   freeColors?: string[];
   clashEnabled: boolean;
   noSafeZones: boolean;
   freeExit: boolean;
   clashKeyShift?: 0 | 1 | 2;
-    // The attack animations: positive flag, independent of clash mode.
+  // The attack animations: positive flag, independent of clash mode.
   captureFx?: boolean;
 };
 
@@ -126,7 +126,7 @@ export type SessionServerEvents = {
   'friendship:changed': (record: FriendshipRecord) => void;
   // One notification frame, on the account's `user:` room (or every socket for a
   // global broadcast). Replaces the SSE event of the same shape.
-  'notification': (event: Notification) => void;
+  notification: (event: Notification) => void;
   // The connect snapshot: the account's unread list, re-sent on every (re)connect.
   // It is the bell's only read path.
   'notifications:unread': (list: Notification[]) => void;

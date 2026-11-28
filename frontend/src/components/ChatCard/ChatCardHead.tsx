@@ -12,7 +12,7 @@ export function ChatCardHead({
   onClose?: () => void;
   titleKey?: string;
   scopeKey?: string;
-    // The host's panel switch, when it has a panel to open (the room's INVITE COMMS).
+  // The host's panel switch, when it has a panel to open (the room's INVITE COMMS).
   glyph?: ChatHeadGlyph;
 }) {
   const { t } = useTranslation();
@@ -69,7 +69,9 @@ export function ChatCardHead({
               cursor: 'pointer',
               borderRadius: 5,
               color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
-              background: glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.14)' : 'rgb(var(--ink-rgb) / 0.05)',
+              background: glyph.pressed
+                ? 'rgb(var(--accent-cyan-rgb) / 0.14)'
+                : 'rgb(var(--ink-rgb) / 0.05)',
               border: `1px solid ${glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,
               transition: 'all 0.18s ease',
             }}

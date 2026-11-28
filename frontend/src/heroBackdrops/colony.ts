@@ -114,7 +114,7 @@ export function paintColony(
     }
   }
 
-    // 2. What the picture cannot have: stones and streaks, in its own band — and behind the window's
+  // 2. What the picture cannot have: stones and streaks, in its own band — and behind the window's
   // frame rather than over it.
   const still = state.plateImg;
   const placed = still?.complete && still.naturalWidth > 0 ? still : null;
@@ -147,7 +147,7 @@ export function paintColony(
   // 3. The marquee, over the brightest thing on the card.
   paintMarquee(ctx, marquee, scene.marqueeColor, scene.bgBot);
 
-    // The frame is not read: the stones advance by their own velocity and this card has no grid to
+  // The frame is not read: the stones advance by their own velocity and this card has no grid to
   // scroll. It stays in the signature because `paintHero` hands one frame to whichever painter the
   // theme picked, and a painter that could not take one could not be swapped for the other.
   void frame;

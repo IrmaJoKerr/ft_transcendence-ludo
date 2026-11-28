@@ -43,7 +43,6 @@ import { PresencePlayingDto } from './dto/presence-playing.dto';
 import { SessionAuthService, readCookie } from './session-auth';
 import { SilentEventRejectionFilter } from './silent-event-rejection.filter';
 
-
 // What the handshake middleware puts on a socket before it connects. A socket
 // that fails the gate never reaches `handleConnection`, so both fields are set
 // on every socket this class sees.
@@ -74,7 +73,7 @@ type SessionData = { userId?: string; username?: string };
 })
 export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  private server!: Namespace;
+  private server?: Namespace;
 
   // userId -> that account's live socket ids, for the broadcaster's rooms diff.
   // Presence knows the same thing in Redis, but this is read on every flush and
@@ -97,7 +96,6 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     private readonly chat: ChatService,
     private readonly blocks: BlockStateService,
   ) {}
-
 
   // The handshake gate. Refusing here reaches the client as `connect_error`,
   // which a socket disconnected after `connection` cannot produce.
@@ -172,11 +170,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
 
   // One notification frame, to one account's room or to every socket. The
   // deliverer hands it here, so the routing rule lives with the rooms.
-  private emitNotification(
-    server: Namespace,
-    target: string | 'all',
-    event: NotificationPayload,
-  ): void {
+  private emitNotification(server: Namespace, target: string, event: NotificationPayload): void {
     if (target === 'all') {
       server.emit(EVENT_NOTIFICATION, event);
       return;

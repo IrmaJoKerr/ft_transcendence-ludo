@@ -30,7 +30,6 @@ export type ChatAck =
   | { ok: true }
   | { ok: false; error: 'CHAT_EMPTY' | 'CHAT_TOO_LONG' | 'CHAT_COOLDOWN' | 'CHAT_UNAVAILABLE' };
 
-
 const isString = (value: unknown): value is string => typeof value === 'string';
 
 // The broadcaster's guard: a malformed record is dropped here rather than handed
@@ -51,7 +50,8 @@ export function parseChatRecord(raw: string): ChatRecord | null {
     ) {
       return null;
     }
-    if (candidate.senderBlocked !== undefined && !Array.isArray(candidate.senderBlocked)) return null;
+    if (candidate.senderBlocked !== undefined && !Array.isArray(candidate.senderBlocked))
+      return null;
     const senderBlocked = (candidate.senderBlocked ?? []).filter(isString);
     return { message, senderBlocked };
   } catch {
@@ -83,10 +83,7 @@ export class ChatService implements OnModuleDestroy {
   // Append one message: mint the id, push it, trim the list. The display name is
   // read here rather than trusted from the socket, so a rename shows up on the
   // next line and a crafted frame cannot choose its own name.
-  async append(
-    sender: { id: string; username: string },
-    text: string,
-  ): Promise<ChatMessage> {
+  async append(sender: { id: string; username: string }, text: string): Promise<ChatMessage> {
     const seq = await this.redis.incr(chatSeqKey(CHAT_CHANNEL));
     const profile = await this.prisma.db.user.findUnique({
       where: { id: sender.id },
@@ -117,7 +114,7 @@ export class ChatService implements OnModuleDestroy {
     for (const line of lines) {
       try {
         const parsed = JSON.parse(line) as ChatMessage;
-        if (isString(parsed?.id) && isString(parsed?.text) && isString(parsed?.senderId)) {
+        if (isString(parsed.id) && isString(parsed.text) && isString(parsed.senderId)) {
           messages.push(parsed);
         }
       } catch {

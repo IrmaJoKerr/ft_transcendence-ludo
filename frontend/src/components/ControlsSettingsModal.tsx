@@ -18,7 +18,7 @@ import {
 interface ControlsSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-    // Mirrors the `retroAudio` singleton: the flag lives there, not in here.
+  // Mirrors the `retroAudio` singleton: the flag lives there, not in here.
   muted: boolean;
   onToggleSound: () => void;
 }

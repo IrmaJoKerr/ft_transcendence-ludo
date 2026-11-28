@@ -8,12 +8,11 @@ import { THEME_BY_ID } from '../../styles/themes';
 import { PieceFigure } from '../PieceFigure';
 import { CaptureBurst } from '../CaptureBurst';
 
-
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
   const { theme } = useApp();
   const pieces = THEME_BY_ID[theme].pieces;
 
-    // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the 1980s
+  // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the 1980s
   // characters, each in a 100-unit box with real strokes and no pixel snapping.
   return (
     <svg
@@ -274,20 +273,20 @@ type BoardProps = {
     to: number;
     isCapture: boolean;
     isHomeEntry: boolean;
-        // Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds.
+    // Defenders the move would fight: R ≥ 2 means the attack is a clash chain of R rounds.
     captureCount?: number;
-        // Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag.
+    // Wall Breaker exit: the move costs one token, so the piece wears the 🔓 price tag.
     spendsWallBreakerToken?: boolean;
   }>;
   onPieceClick?: (pieceId: string) => void;
-    // While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation.
+  // While set, this piece renders at `step` (box by box) instead of its real logical step: see Game.tsx's move animation.
   animating?: { pieceId: string; step: number } | null;
-    // Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay.
+  // Transient capture burst: expanding ring + sparks on the cell the mover landed on. Pure cosmetic overlay.
   fx?: { color: string; to: number } | null;
   // Hardcore room rule, stored inverted: false means a standard room. When true every safe
   // square loses its star, including the four start cells.
   noSafeZones?: boolean;
-    // True while the player has armed the Wall Breaker control for this roll: only
+  // True while the player has armed the Wall Breaker control for this roll: only
   // then is a token-priced exit a tap target (and badged), so tapping a piece can
   // never spend a token by accident. Client-local state, owned by Game.tsx.
   breakerArmed?: boolean;
@@ -312,7 +311,9 @@ export function Board({
     (legalMoves ?? []).filter((m) => m.spendsWallBreakerToken).map((m) => m.pieceId),
   );
   const legalPieceIds = new Set(
-    (legalMoves ?? []).filter((m) => !m.spendsWallBreakerToken || breakerArmed).map((m) => m.pieceId),
+    (legalMoves ?? [])
+      .filter((m) => !m.spendsWallBreakerToken || breakerArmed)
+      .map((m) => m.pieceId),
   );
   // Clash chain preview: an attack on a stack of defenders costs one QTE round per
   // defender, so the legal piece wears a ×R badge. Plain moves and single defenders

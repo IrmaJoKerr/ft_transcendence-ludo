@@ -22,8 +22,7 @@ export function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: 1 |
       style={
         isApex
           ? {
-              background:
-                'linear-gradient(180deg, rgba(48, 12, 38, 0.95), rgba(20, 5, 28, 0.98))',
+              background: 'linear-gradient(180deg, rgba(48, 12, 38, 0.95), rgba(20, 5, 28, 0.98))',
               border: '2px solid #ff1744',
               borderRadius: 8,
               padding: '24px 26px',
@@ -44,7 +43,9 @@ export function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: 1 |
         retroAudio.playUiBeep(isApex ? 750 : 600, 0.05);
         navigate(`/profile?u=${entry.username}`);
       }}
-      onMouseEnter={isApex ? undefined : (e) => (e.currentTarget.style.transform = 'translateY(-3px)')}
+      onMouseEnter={
+        isApex ? undefined : (e) => (e.currentTarget.style.transform = 'translateY(-3px)')
+      }
       onMouseLeave={isApex ? undefined : (e) => (e.currentTarget.style.transform = 'translateY(0)')}
     >
       <div
@@ -150,7 +151,6 @@ export function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: 1 |
           )}
         </div>
       </div>
-
 
       <div
         className={isApex ? undefined : STAT_FOOTER}

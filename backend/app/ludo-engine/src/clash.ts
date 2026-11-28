@@ -150,7 +150,11 @@ export function drawClashPads(
   let pads: string[][] | null = null;
   for (let walk = 0; walk < 32 && !pads; walk++) {
     visited = 0;
-    pads = search(0, previous, Array.from({ length: 4 }, () => new Map<string, number>()));
+    pads = search(
+      0,
+      previous,
+      Array.from({ length: 4 }, () => new Map<string, number>()),
+    );
   }
 
   if (!pads) {
@@ -229,7 +233,8 @@ export class ClashManager {
     // Mutator and chain seam come from state. The per-game lock makes the load safe;
     // older state reads as no mutator.
     const state = await this.store.loadGameState(gameId);
-    const shift = state?.clashKeyShift === 1 || state?.clashKeyShift === 2 ? state.clashKeyShift : 0;
+    const shift =
+      state?.clashKeyShift === 1 || state?.clashKeyShift === 2 ? state.clashKeyShift : 0;
     const previous = state?.pendingCapture?.lastKeys;
     const attackerDraw = drawClashPads(
       rng,

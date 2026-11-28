@@ -54,7 +54,7 @@ export function storedSeats(): Seat[] {
     // discards the whole value rather than minting a duplicate.
     const taken = new Set<ColorKey>();
     const seats = parsed.map((seat): Seat => {
-      const color = SEAT_COLORS.find((c) => c === seat?.color && !taken.has(c));
+      const color = SEAT_COLORS.find((c) => c === seat.color && !taken.has(c));
       if (!color) return { type: 'empty' };
       taken.add(color);
       const name = typeof seat.name === 'string' && seat.name ? seat.name : '';
@@ -63,10 +63,11 @@ export function storedSeats(): Seat[] {
       if (seat.type === 'player') return { type: 'player', name: name || `player-${color}`, color };
       return { type: 'empty' };
     });
-    if (parsed.some((seat, i) => seat?.type !== 'empty' && seats[i].type === 'empty')) return emptySeats();
+    if (parsed.some((seat, i) => seat.type !== 'empty' && seats[i].type === 'empty'))
+      return emptySeats();
     return seats;
   } catch {
-        // a corrupt value is a fresh roster
+    // a corrupt value is a fresh roster
     return emptySeats();
   }
 }

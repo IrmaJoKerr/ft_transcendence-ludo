@@ -1,12 +1,7 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { NotificationService } from '../notification/notification.service';
 import { PrismaService } from '../prisma.service';
-import {
-  effectiveStatus,
-  pairKey,
-  type FriendshipStatus,
-  type PairLike,
-} from './friendship-pair';
+import { effectiveStatus, pairKey, type FriendshipStatus, type PairLike } from './friendship-pair';
 
 // The `code` a service exception carries. Only a couple of places translate one
 // failure into another (the challenge accept does it for the challenger's seat), and

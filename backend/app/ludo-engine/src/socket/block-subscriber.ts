@@ -29,7 +29,7 @@ export class BlockSubscriber {
   }
 
   start(): void {
-    this.subscriber.subscribe(BLOCKS_CHANGED_CHANNEL, (err, count) => {
+    void this.subscriber.subscribe(BLOCKS_CHANGED_CHANNEL, (err, count) => {
       if (err) {
         console.error('Failed to subscribe to blocks:changed:', err);
       } else {

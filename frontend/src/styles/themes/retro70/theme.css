@@ -37,16 +37,18 @@
   --window-header-bg: linear-gradient(90deg, #e5340b, #ffb000);
   --window-header-text: #ffe7bd;
   --card-border-style: 2px solid var(--accent-pink);
-    /* The orbital colony is the 70s shell's ground, painted the same way the synthwave shell wears
+  /* The orbital colony is the 70s shell's ground, painted the same way the synthwave shell wears
      its cityscape: full-bleed, fixed, dimmed so every UI surface sits in front of it. */
-  --shell-image: linear-gradient(to bottom, rgba(20, 16, 14, 0.50) 0%, rgba(20, 16, 14, 0.80) 100%), url('./1970s-Orbital-Colony.jpg');
+  --shell-image:
+    linear-gradient(to bottom, rgba(20, 16, 14, 0.5) 0%, rgba(20, 16, 14, 0.8) 100%),
+    url('./1970s-Orbital-Colony.jpg');
   /* Black at 55 per cent, the value the stills paint this card at: the navy the
      synthwave card uses reads purple over walnut. The glows move to the palette's
      amber and hot red, the pair the stills ring the card in. */
   --start-overlay-bg: rgba(11, 8, 5, 0.55);
   --start-overlay-glow: rgba(255, 176, 0, 0.35);
   --start-overlay-inset: rgba(229, 52, 11, 0.22);
-    /* The channel form (see the block above): two of these are additions rather than translations,
+  /* The channel form (see the block above): two of these are additions rather than translations,
      because the 70s palette has no value to translate from. */
   --accent-pink-rgb: 229 52 11;
   --accent-cyan-rgb: 95 179 176;
@@ -62,14 +64,14 @@
   --bg-panel-rgb: 17 14 12;
   --bg-raise-rgb: 30 24 21;
   --bg-card-rgb: 43 30 21;
-    /* The state pair (26), measured against the surface the text actually sits on rather than the
+  /* The state pair (26), measured against the surface the text actually sits on rather than the
      page ground. */
   --state-on: #82903f;
   --state-on-rgb: 130 144 63;
   --state-on-ink: #1a1009;
   --state-off: #e8697d;
   --state-off-rgb: 232 105 125;
-    /* The board's fringes (45.9): the same eleven names in the same order as the 80s table. The
+  /* The board's fringes (45.9): the same eleven names in the same order as the 80s table. The
      cell is a dark walnut, the grid line its amber, the yard the raised card ground and the frame
      the secondary ground; the shadow keeps the era's amber and hot red rather than neon. */
   --board-cell: #1b120b;
@@ -83,7 +85,7 @@
   --board-frame: rgba(36, 26, 18, 0.95);
   --board-frame-rgb: 36 26 18;
   --board-frame-shadow: 0 0 25px rgba(255, 176, 0, 0.35), inset 0 0 20px rgba(229, 52, 11, 0.18);
-    /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded highlight, the
+  /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded highlight, the
      two stops of a pip, the alternate pip and the shadow it casts. */
   --dice-face: #fbf5e6;
   --dice-face-shade: #e4d8bf;

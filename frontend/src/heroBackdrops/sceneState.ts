@@ -32,13 +32,13 @@ export type SceneState = {
   plateImg?: HTMLImageElement;
   meteors?: Meteor[];
   rocks?: Rock[];
-    // The 70s card's frame, keyed off the still once it decodes: the pixels the sky
+  // The 70s card's frame, keyed off the still once it decodes: the pixels the sky
   //  must not be painted over. Null until the still is there, and forever if it is
   //  not — a card with no picture has no frame to hide anything behind.
   frameMask?: HTMLCanvasElement | null;
-    // The layer the stones and streaks are drawn into before the frame cuts them.
+  // The layer the stones and streaks are drawn into before the frame cuts them.
   skyLayer?: HTMLCanvasElement;
-        // Set once the 70s traffic has been seeded against the still's own porthole.
+  // Set once the 70s traffic has been seeded against the still's own porthole.
   trafficPlaced?: boolean;
 };
 

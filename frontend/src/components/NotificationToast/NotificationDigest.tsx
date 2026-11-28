@@ -18,7 +18,7 @@ export function NotificationDigest({
   onDismiss,
 }: {
   report: DigestReport | null;
-    // Clearance from the viewport bottom, so it stacks above any live toasts.
+  // Clearance from the viewport bottom, so it stacks above any live toasts.
   bottom: number;
   onOpen: () => void;
   onDismiss: () => void;
@@ -62,7 +62,8 @@ export function NotificationDigest({
         width: 380,
         background: 'rgb(var(--bg-panel-rgb) / 0.97)',
         border: '2px solid var(--accent-cyan)',
-        boxShadow: '0 0 24px rgb(var(--accent-cyan-rgb) / 0.35), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
+        boxShadow:
+          '0 0 24px rgb(var(--accent-cyan-rgb) / 0.35), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
         borderRadius: 4,
         display: 'flex',
         flexDirection: 'column',

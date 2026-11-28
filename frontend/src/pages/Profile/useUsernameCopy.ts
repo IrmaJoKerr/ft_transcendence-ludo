@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { retroAudio } from '../../utils/audio';
 
 export function useUsernameCopy(username: string) {
-
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

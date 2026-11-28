@@ -120,7 +120,9 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
   // Error text rendered under the field it belongs to (falls back to the first field).
   const errorFor = (fields: ErrorField[]) =>
     error && fields.includes(errorField) ? (
-      <div style={{ fontSize: '0.7rem', color: 'var(--state-off)', margin: '-4px 0 10px' }}>{error}</div>
+      <div style={{ fontSize: '0.7rem', color: 'var(--state-off)', margin: '-4px 0 10px' }}>
+        {error}
+      </div>
     ) : null;
 
   // Load the full profile (linked providers + email) on open.
@@ -551,9 +553,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           <div
             style={{ borderTop: '1px solid var(--border-color)', margin: '10px 0', paddingTop: 10 }}
           >
-            <div
-              className={DISPLAY_SUBTITLE}
-            >
+            <div className={DISPLAY_SUBTITLE}>
               {hasPassword ? t('profileEdit.password') : t('profileEdit.passwordSet')}
             </div>
             {hasPassword && (
@@ -626,11 +626,7 @@ export function ProfileEditModal({ onClose }: { onClose: () => void }) {
           <div
             style={{ borderTop: '1px solid var(--border-color)', margin: '10px 0', paddingTop: 10 }}
           >
-            <div
-              className={DISPLAY_SUBTITLE}
-            >
-              {t('profileEdit.oauthMethods')}
-            </div>
+            <div className={DISPLAY_SUBTITLE}>{t('profileEdit.oauthMethods')}</div>
             {PROVIDERS.map((p) => {
               const linked = providers.includes(p);
               return (

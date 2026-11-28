@@ -58,19 +58,19 @@ interface NotificationsContextValue {
   markReadMany: (ids: string[]) => void;
   markAllRead: () => void;
   dismissToast: (id: string, reason?: ToastDismissReason) => void;
-    // The last presence edge each friend's account announced on this connection.
+  // The last presence edge each friend's account announced on this connection.
   // The friends lists read it for their dots now that they are not polled.
   friendPresence: Record<string, PresenceStatus>;
-    // The bell panel's open state: the navbar's trigger and the digest toast both
+  // The bell panel's open state: the navbar's trigger and the digest toast both
   // drive it, so it cannot live in the navbar's local state.
   bellOpen: boolean;
   setBellOpen: (open: boolean) => void;
   openBell: () => void;
-    // The boot report: the rows the handshake snapshot held, frozen for this load.
+  // The boot report: the rows the handshake snapshot held, frozen for this load.
   // `null` once its `x` wiped it, or when there was nothing to report.
   digest: DigestReport | null;
   dismissDigest: () => void;
-    // True while the socket is down: the bell says so instead of reading empty,
+  // True while the socket is down: the bell says so instead of reading empty,
   // because the socket is its only source (there is no REST list route).
   unavailable: boolean;
 }
@@ -82,7 +82,7 @@ const NotificationsContext = createContext<NotificationsContextValue | null>(nul
 function mergeById(current: Notification[], incoming: Notification[]): Notification[] {
   const byId = new Map(current.map((n) => [n.id, n]));
   for (const n of incoming) {
-    if (n?.id) byId.set(n.id, n);
+    if (n.id) byId.set(n.id, n);
   }
   return [...byId.values()].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
@@ -115,7 +115,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // **Unread count (derived)**
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-    // The session socket: frames and the connect snapshot, keyed by the id and socket rather than
+  // The session socket: frames and the connect snapshot, keyed by the id and socket rather than
   // the whole user object, so a profile refresh replaces `user` without tearing down a shared
   // connection's listeners.
   useEffect(() => {
@@ -149,7 +149,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       // Upsert, never replace: a frame that arrived while this read was in
       // flight stays, and a duplicate id updates in place.
       setNotifications((prev) => mergeById(prev, list));
-            // The report is drawn once, from this first snapshot (22.2).
+      // The report is drawn once, from this first snapshot (22.2).
       if (!digestArmed.current) {
         digestArmed.current = true;
         const rows = list
@@ -161,7 +161,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     };
 
     const onFrame = (notification: Notification) => {
-      if (!notification?.id) return;
+      if (!notification.id) return;
       // A display-name change is SHORT-LIVED/TRANSIENT: toast only, never the
       // bell/unread badge. The backend targets it at the actor alone
       // (notifyTransient), so nobody else is ever told: show it as-is.
@@ -179,7 +179,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       ) {
         const p = notification.payload;
         if (p.userId === userId) return;
-                // The dot's only live source (D2): the record itself says nothing about presence, and the list is
+        // The dot's only live source (D2): the record itself says nothing about presence, and the list is
         // no longer polled. `friend_playing` is the M3 edge that keeps the duel gate honest: a friend in a
         // match reads `playing`, not a stale `online`.
         const friendId = typeof p.userId === 'string' ? p.userId : null;
@@ -235,7 +235,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   // **Actions**
 
-    // Mark a single notification as read: the server deletes it, so the bell
+  // Mark a single notification as read: the server deletes it, so the bell
   // drops the id rather than flagging it (delete-on-read, D12).
   const markRead = useCallback((id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -244,7 +244,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
   }, []);
 
-    // Read many entries in one round trip: a row click that prunes the rows it
+  // Read many entries in one round trip: a row click that prunes the rows it
   // speaks for (22.3). The cards for those ids go too, since an entry that
   // exists no longer has a card to show.
   const markReadMany = useCallback((ids: string[]) => {
@@ -256,7 +256,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     postApi('/api/notifications/read', { ids }).catch(() => {});
   }, []);
 
-    // Mark all notifications as read: both keys are deleted server-side.
+  // Mark all notifications as read: both keys are deleted server-side.
   const markAllRead = useCallback(() => {
     announceRead(notifications.map((n) => n.id));
     setNotifications([]);
@@ -264,7 +264,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     apiFetch('/api/notifications/read-all', { method: 'POST' }).catch(() => {});
   }, [notifications]);
 
-    // The only way a card leaves (22.3). The card's `x` and every action button
+  // The only way a card leaves (22.3). The card's `x` and every action button
   // pass `read`, so the entry goes with it; the clock passes `timeout`, so the
   // card hides and the entry waits unread in the bell.
   const dismissToast = useCallback(
@@ -275,7 +275,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [markReadMany],
   );
 
-    // Every tab hears a deletion. The three mutations above write one `storage` key; this tab never
+  // Every tab hears a deletion. The three mutations above write one `storage` key; this tab never
   // receives its own event, which is why they also drop the ids locally.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {

@@ -35,6 +35,14 @@ import {
   type UserProfile,
 } from './profileTypes';
 
+// Resolve a seat colour without trusting an old or malformed stamp. `ColorKey`
+// says every palette entry exists; the runtime check keeps an unknown value on
+// the muted fallback instead of throwing.
+function seatInk(color: string): string {
+  const key = color.toLowerCase();
+  return Object.hasOwn(COL, key) ? COL[key as ColorKey].base : 'var(--text-muted)';
+}
+
 export function Profile() {
   const { t } = useTranslation();
   const { query } = useRoute();
@@ -61,7 +69,7 @@ export function Profile() {
   // The backend only returns entries for achievements the user has touched, so
   // a missing key must read as "no report yet" even though the map type is dense.
   const getAchievementReport = (key: string): AchievementReport | undefined => achievements[key];
-    // The bell's destinations name the tab (22.7 item 3): `? tab=` is the initial value, and later
+  // The bell's destinations name the tab (22.7 item 3): `? tab=` is the initial value, and later
   // changes are followed in an effect because the bell is a portal — a second click while already
   // here changes only the query, not the page.
   const [mainTab, setMainTab] = useState<'history' | 'achievements'>(() =>
@@ -285,7 +293,9 @@ export function Profile() {
   const totalAchievements = ACHIEVEMENTS_DEF.length;
   const achievementPercent = Math.round((unlockedCount / totalAchievements) * 100);
 
-  const hasMoreMatches = gamesData ? gamesData.pagination.page < gamesData.pagination.totalPages : false;
+  const hasMoreMatches = gamesData
+    ? gamesData.pagination.page < gamesData.pagination.totalPages
+    : false;
 
   // Append the next page. The list is the server's order (newest first), so the rows
   // are concatenated rather than merged, and `pagination` moves to the page just
@@ -301,9 +311,7 @@ export function Profile() {
       .then((page: MatchHistory | null) => {
         if (!page) return;
         setGamesData((prev) =>
-          prev
-            ? { games: [...prev.games, ...page.games], pagination: page.pagination }
-            : page,
+          prev ? { games: [...prev.games, ...page.games], pagination: page.pagination } : page,
         );
       })
       .catch(() => {})
@@ -413,7 +421,7 @@ export function Profile() {
                 {t('profile.playerNotFoundArchives', { username })}
               </div>
             ) : (
-                            // Full-Width Unified Retro Window Container
+              // Full-Width Unified Retro Window Container
               <section
                 className={RETRO_WINDOW}
                 style={{
@@ -786,7 +794,9 @@ export function Profile() {
                                 {(uploadError || photoWarning) && (
                                   <span
                                     style={{
-                                      color: uploadError ? 'var(--state-off)' : 'var(--accent-yellow)',
+                                      color: uploadError
+                                        ? 'var(--state-off)'
+                                        : 'var(--accent-yellow)',
                                       fontSize: '0.66rem',
                                       fontFamily: 'var(--font-mono)',
                                       lineHeight: 1.45,
@@ -902,7 +912,9 @@ export function Profile() {
                                   ? 'rgb(var(--state-on-rgb) / 0.12)'
                                   : 'rgb(var(--state-off-rgb) / 0.12)',
                               border: `1px solid ${
-                                lastDelta > 0 ? 'rgb(var(--state-on-rgb) / 0.5)' : 'rgb(var(--state-off-rgb) / 0.5)'
+                                lastDelta > 0
+                                  ? 'rgb(var(--state-on-rgb) / 0.5)'
+                                  : 'rgb(var(--state-off-rgb) / 0.5)'
                               }`,
                               borderRadius: 4,
                               padding: '3px 10px',
@@ -1318,15 +1330,20 @@ export function Profile() {
                               fontFamily: 'var(--font-display)',
                               fontWeight: 900,
                               borderRadius: 4,
-                              color: mainTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
+                              color:
+                                mainTab === 'history' ? 'var(--text-main)' : 'var(--text-muted)',
                               background:
-                                mainTab === 'history' ? 'rgb(var(--accent-cyan-rgb) / 0.25)' : 'transparent',
+                                mainTab === 'history'
+                                  ? 'rgb(var(--accent-cyan-rgb) / 0.25)'
+                                  : 'transparent',
                               borderColor:
                                 mainTab === 'history'
                                   ? 'var(--accent-cyan)'
                                   : 'rgb(var(--ink-rgb) / 0.15)',
                               boxShadow:
-                                mainTab === 'history' ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
+                                mainTab === 'history'
+                                  ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)'
+                                  : 'none',
                             }}
                           >
                             {t('profile.flightLogsTab')}
@@ -1343,7 +1360,10 @@ export function Profile() {
                               fontFamily: 'var(--font-display)',
                               fontWeight: 900,
                               borderRadius: 4,
-                              color: mainTab === 'achievements' ? 'var(--text-main)' : 'var(--text-muted)',
+                              color:
+                                mainTab === 'achievements'
+                                  ? 'var(--text-main)'
+                                  : 'var(--text-muted)',
                               background:
                                 mainTab === 'achievements'
                                   ? 'rgb(var(--accent-yellow-rgb) / 0.22)'
@@ -1368,7 +1388,8 @@ export function Profile() {
                         <div
                           style={{
                             fontSize: '0.72rem',
-                            color: mainTab === 'history' ? 'var(--accent-cyan)' : 'var(--accent-yellow)',
+                            color:
+                              mainTab === 'history' ? 'var(--accent-cyan)' : 'var(--accent-yellow)',
                             fontFamily: 'var(--font-display)',
                             fontWeight: 'bold',
                           }}
@@ -1390,7 +1411,7 @@ export function Profile() {
                         }}
                       >
                         {mainTab === 'history' ? (
-                                                    // Match Activity Stream
+                          // Match Activity Stream
                           !gamesData || gamesData.games.length === 0 ? (
                             <div
                               style={{
@@ -1429,19 +1450,18 @@ export function Profile() {
                                         fg: 'var(--state-off)',
                                       };
                                 const playedAt = new Date(g.playedAt);
-                                                                // The chips come from the room the match recorded, not from the lobby: a finished game's rules
+                                // The chips come from the room the match recorded, not from the lobby: a finished game's rules
                                 // survive only on the row. `{}` draws none (a standard room), and a rule this client does not know
                                 // yet draws none either.
                                 const chips: string[] = [];
                                 if (g.gameModes?.clashEnabled) chips.push(t('game.clashMode'));
-                                if (g.gameModes?.noSafeZones)
-                                  chips.push(t('game.noSafeZones'));
+                                if (g.gameModes?.noSafeZones) chips.push(t('game.noSafeZones'));
                                 if (g.gameModes?.freeExit) chips.push(t('game.freeExit'));
                                 if (g.gameModes?.captureFx) chips.push(t('game.captureFx'));
                                 const keyShift = g.gameModes?.clashKeyShift ?? 0;
                                 if (keyShift > 0)
                                   chips.push(t('profile.chipKeyShift', { count: keyShift }));
-                                                                // The counters a row keeps. Rolls and sixes are gone: the engine no longer tallies faces, and
+                                // The counters a row keeps. Rolls and sixes are gone: the engine no longer tallies faces, and
                                 // "lost" (your pieces sent home) was the only number it ever printed that read like a game result.
                                 // "Pieces in goal" is the count the rating is computed from, so it is the one that matters.
                                 const clashOn = Boolean(g.gameModes?.clashEnabled);
@@ -1459,9 +1479,11 @@ export function Profile() {
                                   ],
                                   [
                                     t('profile.statClashesLost'),
-                                    clashOn ? g.clashAttacksLost + g.clashDefendsLost : notApplicable,
+                                    clashOn
+                                      ? g.clashAttacksLost + g.clashDefendsLost
+                                      : notApplicable,
                                   ],
-                                                                    // A clash room's wall numbers. The chips are printed in every row so the layout never shifts
+                                  // A clash room's wall numbers. The chips are printed in every row so the layout never shifts
                                   // between a clash game and a standard one: a room without clash prints N/A rather than a zero that
                                   // reads as "fought, none won".
                                   [
@@ -1543,7 +1565,8 @@ export function Profile() {
                                               padding: '3px 8px',
                                               borderRadius: 3,
                                               color: 'var(--accent-cyan)',
-                                              border: '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
+                                              border:
+                                                '1px solid rgb(var(--accent-cyan-rgb) / 0.35)',
                                               background: 'rgb(var(--accent-cyan-rgb) / 0.08)',
                                             }}
                                           >
@@ -1551,7 +1574,9 @@ export function Profile() {
                                           </span>
                                         ))}
                                       </div>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                      <div
+                                        style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                                      >
                                         {/* An abandoned row moved no rating, so it prints
                                             the label instead of a swing. */}
                                         {isAbandoned ? (
@@ -1588,7 +1613,10 @@ export function Profile() {
                                           </span>
                                         )}
                                         <span
-                                          style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}
+                                          style={{
+                                            fontSize: '0.72rem',
+                                            color: 'var(--text-muted)',
+                                          }}
                                         >
                                           {playedAt.toLocaleDateString()}{' '}
                                           {playedAt.toLocaleTimeString([], {
@@ -1612,8 +1640,7 @@ export function Profile() {
                                     >
                                       {counters.map(([label, value]) => (
                                         <span key={label}>
-                                          {label}{' '}
-                                          <b className="text-(--text-main)">{value}</b>
+                                          {label} <b className="text-(--text-main)">{value}</b>
                                         </span>
                                       ))}
                                     </div>
@@ -1649,9 +1676,7 @@ export function Profile() {
                                               height: 8,
                                               borderRadius: 2,
                                               display: 'inline-block',
-                                              background:
-                                                COL[seat.color.toLowerCase() as ColorKey]?.base ??
-                                                'var(--text-muted)',
+                                              background: seatInk(seat.color),
                                             }}
                                           />
                                           {seat.isBot ? seat.displayName : seat.username}
@@ -1693,7 +1718,7 @@ export function Profile() {
                             </div>
                           )
                         ) : (
-                                                    // Achievements Grid & Progress
+                          // Achievements Grid & Progress
                           <div>
                             {/* Progress Bar */}
                             <div style={{ marginBottom: 14 }}>
@@ -1785,7 +1810,9 @@ export function Profile() {
                                             fontSize: '0.8rem',
                                             fontWeight: 900,
                                             fontFamily: 'var(--font-display)',
-                                            color: isUnlocked ? 'var(--text-main)' : 'var(--text-muted)',
+                                            color: isUnlocked
+                                              ? 'var(--text-main)'
+                                              : 'var(--text-muted)',
                                             letterSpacing: '0.03em',
                                             whiteSpace: 'nowrap',
                                             overflow: 'hidden',
@@ -1847,7 +1874,9 @@ export function Profile() {
                                           style={{
                                             fontSize: '0.6rem',
                                             fontFamily: 'var(--font-mono)',
-                                            color: isUnlocked ? 'var(--accent-yellow)' : 'var(--text-muted)',
+                                            color: isUnlocked
+                                              ? 'var(--accent-yellow)'
+                                              : 'var(--text-muted)',
                                           }}
                                         >
                                           {isUnlocked
@@ -1978,13 +2007,16 @@ export function Profile() {
                                     navigate(`/profile?u=${f.username}`);
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'rgb(var(--accent-cyan-rgb) / 0.16)';
+                                    e.currentTarget.style.background =
+                                      'rgb(var(--accent-cyan-rgb) / 0.16)';
                                     e.currentTarget.style.borderColor = 'var(--accent-cyan)';
                                     e.currentTarget.style.transform = 'translateX(2px)';
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'rgb(var(--bg-panel-rgb) / 0.85)';
-                                    e.currentTarget.style.borderColor = 'rgb(var(--accent-cyan-rgb) / 0.25)';
+                                    e.currentTarget.style.background =
+                                      'rgb(var(--bg-panel-rgb) / 0.85)';
+                                    e.currentTarget.style.borderColor =
+                                      'rgb(var(--accent-cyan-rgb) / 0.25)';
                                     e.currentTarget.style.transform = 'translateX(0)';
                                   }}
                                 >
@@ -2049,9 +2081,7 @@ export function Profile() {
                                           flexWrap: 'wrap',
                                         }}
                                       >
-                                        <span
-                                          className={DISPLAY_ELLIPSIS}
-                                        >
+                                        <span className={DISPLAY_ELLIPSIS}>
                                           {f.displayName ?? f.username}
                                         </span>
                                       </div>
@@ -2079,11 +2109,7 @@ export function Profile() {
                                       gap: 4,
                                     }}
                                   >
-                                    <span
-                                      className={DISPLAY_TITLE}
-                                    >
-                                      {f.rating}
-                                    </span>
+                                    <span className={DISPLAY_TITLE}>{f.rating}</span>
                                     <span
                                       style={{
                                         fontSize: '0.64rem',

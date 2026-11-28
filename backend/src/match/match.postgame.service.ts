@@ -115,7 +115,7 @@ export class MatchPostgameService {
     // left to prove the game was played.
     const engineState = await readEngineState(this.redis, gameId);
     const engineOver = engineState?.status === 'finished';
-    const roomOver = ENDED_MATCH_STATUSES.includes(matchData.status ?? '');
+    const roomOver = ENDED_MATCH_STATUSES.includes(matchData.status);
     if (engineState !== null && !engineOver && !roomOver) {
       throw new ConflictException({
         code: 'MATCH_END_STILL_ACTIVE',

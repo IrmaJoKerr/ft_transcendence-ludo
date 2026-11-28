@@ -234,7 +234,9 @@ export class SocketServer {
                       : 0;
                 this.botScheduler.schedule(event.gameId, baseDelay + cardWait);
               })
-              .catch(() => this.botScheduler.schedule(event.gameId, baseDelay));
+              .catch(() => {
+                this.botScheduler.schedule(event.gameId, baseDelay);
+              });
           }
         }
       } else if (event.type === 'dice_rolled') {
@@ -386,11 +388,7 @@ export class SocketServer {
           return;
         }
         const bucket =
-          event === 'clash_input'
-            ? clashLimiter
-            : event === 'dice_tapped'
-              ? tapLimiter
-              : limiter;
+          event === 'clash_input' ? clashLimiter : event === 'dice_tapped' ? tapLimiter : limiter;
         if (bucket.allow()) {
           next();
           return;

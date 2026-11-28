@@ -66,7 +66,11 @@ function seedMeteor(width: number, glass: PlateCircle | null): Meteor {
   };
 }
 
-export function seedMeteors(count: number, width: number, glass: PlateCircle | null = null): Meteor[] {
+export function seedMeteors(
+  count: number,
+  width: number,
+  glass: PlateCircle | null = null,
+): Meteor[] {
   return Array.from({ length: count }, () => seedMeteor(width, glass));
 }
 

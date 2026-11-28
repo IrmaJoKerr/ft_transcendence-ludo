@@ -54,9 +54,7 @@ export function LudoLobby() {
   // host's own colour, a joined room is one of the corners it still lists. Nothing
   // is posted until a colour is picked, and a pick is final (no swap afterwards).
   const [palette, setPalette] = useState<
-    | { kind: 'create' }
-    | { kind: 'join'; code: string; room?: Room; colors: ColorKey[] }
-    | null
+    { kind: 'create' } | { kind: 'join'; code: string; room?: Room; colors: ColorKey[] } | null
   >(null);
 
   // Strict state lock, mirrored from the backend: /api/games/mine lists every room
@@ -91,7 +89,7 @@ export function LudoLobby() {
     fetchHasActiveGame();
   }, []);
 
-    // The push half. `rooms:list` is already filtered for this viewer, so the rows drop straight in;
+  // The push half. `rooms:list` is already filtered for this viewer, so the rows drop straight in;
   // `rooms:mine` answers the "active game" lock. A reconnect refetches once, because the broadcaster
   // only emits a diff and the socket may have missed a change while it was down.
   useEffect(() => {
@@ -122,7 +120,7 @@ export function LudoLobby() {
     setError(null);
     retroAudio.playUiBeep(920, 0.08);
     try {
-            // A PvP room is created with the standard rules (false/false/false: clash off, free exit off, safe
+      // A PvP room is created with the standard rules (false/false/false: clash off, free exit off, safe
       // zones ON, stored inverted).
       const res = await postApi<MatchResult>('/api/match/pvp/invite', {
         hostColor,
@@ -266,7 +264,7 @@ export function LudoLobby() {
     else void joinByCode(target.code, color);
   };
 
-    // A friend invite lands here as `? join=<code>`: the accept path in the notification bell/toast
+  // A friend invite lands here as `? join=<code>`: the accept path in the notification bell/toast
   // carries the room, not a seat, so the invitee claims a corner exactly like a hand-typed code.
   const handledJoinCode = useRef<string | null>(null);
   useEffect(() => {
@@ -325,7 +323,9 @@ export function LudoLobby() {
                 joiningRoomId={joiningRoomId}
                 username={user?.username}
                 onOpenJoinByCode={openJoinByCode}
-                onRejoinRoom={rejoinRoom}
+                onRejoinRoom={(room) => {
+                  void rejoinRoom(room);
+                }}
                 onOpenJoinRoom={openJoinRoom}
                 onOpenRules={() => setRulesOpen(true)}
               />

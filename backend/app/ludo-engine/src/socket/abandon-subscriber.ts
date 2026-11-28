@@ -36,7 +36,7 @@ export class MatchAbandonSubscriber {
   }
 
   start(): void {
-    this.subscriber.subscribe(MATCH_ABANDON_CHANNEL, (err, count) => {
+    void this.subscriber.subscribe(MATCH_ABANDON_CHANNEL, (err, count) => {
       if (err) {
         console.error('Failed to subscribe to match:abandon:', err);
       } else {
@@ -73,13 +73,14 @@ export class MatchAbandonSubscriber {
       // Only a live room loses a seat: a finished room keeps its state for the
       // post-game window, and a waiting room is the idle watcher's business.
       const state = await this.store.loadGameState(gameId);
-      if (!state || state.status !== 'active') return;
+      if (state?.status !== 'active') return;
 
       // The hash owns seat -> account: the engine state's userId is absent for
       // hotseat seats, and a hotseat room can never receive this message anyway.
       const slot = [1, 2, 3, 4].find((n) => data[`player${n}_id`] === userId);
       if (!slot) return; // the account is not seated in this room
-      const color = (data[`player${slot}_color`] as PlayerColor | undefined) ?? SLOT_COLORS[slot - 1];
+      const color =
+        (data[`player${slot}_color`] as PlayerColor | undefined) ?? SLOT_COLORS[slot - 1];
 
       // 'leave' is the reason the shipped leave_game handler passes for an active
       // room, so a sign-out and a manual leave cannot drift apart.

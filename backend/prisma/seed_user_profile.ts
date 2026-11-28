@@ -21,7 +21,13 @@ const now = Date.now();
 interface SeedMatch {
   ago: number;
   type: 'PVP' | 'PVE';
-  parts: Array<{ uid?: string; c: 'RED' | 'GREEN' | 'YELLOW' | 'BLUE'; r: number; cap: number; goal: number }>;
+  parts: Array<{
+    uid?: string;
+    c: 'RED' | 'GREEN' | 'YELLOW' | 'BLUE';
+    r: number;
+    cap: number;
+    goal: number;
+  }>;
 }
 
 // A seat's printable identity, for the row's participant snapshot.

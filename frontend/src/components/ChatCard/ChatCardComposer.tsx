@@ -40,7 +40,7 @@ export function ChatCardComposer({
   const disabled = !connected || inert === true;
   const boxRef = useRef<HTMLTextAreaElement>(null);
 
-    // Grown from the rendered text rather than from a row count: the browser is the only thing that
+  // Grown from the rendered text rather than from a row count: the browser is the only thing that
   // knows how many rows a 200-character line wraps to.
   useEffect(() => {
     const box = boxRef.current;

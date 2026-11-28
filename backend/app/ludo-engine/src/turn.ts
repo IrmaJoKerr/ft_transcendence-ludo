@@ -37,9 +37,7 @@ function logMoveOutcome(state: GameState, result: MoveResult, attackerWon: boole
   // A broken wall names the re-roll as the wall's reward, so it replaces the plain
   // capture line; anything else that captures logs the capture and then the re-roll.
   if (wall && result.bonusRoll) {
-    return [
-      pushLog(state, { kind: 'wallBrokenBonusRoll', color: result.color, victim }),
-    ];
+    return [pushLog(state, { kind: 'wallBrokenBonusRoll', color: result.color, victim })];
   }
   const lines = [pushLog(state, { kind: 'capturedPiece', color: result.color, victim, wall })];
   if (result.bonusRoll) {

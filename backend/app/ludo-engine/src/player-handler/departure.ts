@@ -1,10 +1,4 @@
-import type {
-  GameState,
-  PlayerColor,
-  GameEvent,
-  DepartureReason,
-  ExitRecord,
-} from '../types';
+import type { GameState, PlayerColor, GameEvent, DepartureReason, ExitRecord } from '../types';
 import type { RedisGameStore } from '../redis';
 import { MoveValidator } from '../move-validator';
 import { seatDisplayName } from '../game-chat';
@@ -215,7 +209,7 @@ export async function closeRoom(
 // is deleted, which is the only moment the tallies still exist.
 async function captureRoomExits(store: RedisGameStore, gameId: string): Promise<ExitRecord[]> {
   const state = await store.loadGameState(gameId);
-  if (!state || state.status !== 'active') return [];
+  if (state?.status !== 'active') return [];
   if (!writesMatchRows(await store.getMatchData(gameId))) return [];
   const records: ExitRecord[] = [];
   for (const player of state.players) {

@@ -20,8 +20,7 @@ export const RESULT_FX_MS = SCENE_ATTACK_MS + SCENE_JAIL_MS; // the two-act scen
 export const RESULT_HEADLINE_READ_MS = 1000; // the headline after the gesture stops
 export const CLASH_RESULT_MS = RESULT_FX_MS + RESULT_HEADLINE_READ_MS; // the card: 2.7 s
 // Every wall card except a breach: the same acts plus the wall beat. A repulse plays this stage too.
-export const CLASH_WALL_RESULT_MS =
-  RESULT_FX_MS + SCENE_WALL_BEAT_MS + RESULT_HEADLINE_READ_MS; // 3.6 s
+export const CLASH_WALL_RESULT_MS = RESULT_FX_MS + SCENE_WALL_BEAT_MS + RESULT_HEADLINE_READ_MS; // 3.6 s
 // A breach is a final card: wall attack, cloud and jail, with no separate read window.
 // It is the longest card, so the engine derives its freeze from it.
 export const CLASH_BREACH_RESULT_MS = SCENE_WALL_ATTACK_MS + SCENE_CLOUD_MS + SCENE_JAIL_MS; // 4.0 s
@@ -36,8 +35,7 @@ export const CARD_HOLD_MARGIN_MS = 200;
 // Client, roll guard and bot pacing all count the same total.
 export const CAPTURE_CARD_HOLD_MS = 210; // the cell, held still AFTER the gesture stops
 export const CAPTURE_CARD_FADE_MS = 300; // the panel's own fade out
-export const CAPTURE_CARD_MS =
-  RESULT_FX_MS + CAPTURE_CARD_HOLD_MS + CAPTURE_CARD_FADE_MS; // the whole card: 2.2 s
+export const CAPTURE_CARD_MS = RESULT_FX_MS + CAPTURE_CARD_HOLD_MS + CAPTURE_CARD_FADE_MS; // the whole card: 2.2 s
 export const CAPTURE_CARD_GRACE_MS = 150; // the roll guard's slack past the card
 
 // --- the goal beat -------------------------------------------------------------
@@ -62,8 +60,7 @@ export const DICE_ACUTE_MS = 760; // a tap's own act, fixed, so the tap always r
 export const DICE_SLOWDOWN_MS = 560; // the standard slowdown into the flop
 export const DICE_ACUTE_SLOWDOWN_MS = Math.round(DICE_SLOWDOWN_MS * 0.75); // the tapped one: 420
 export const DICE_FLOP_MS = 620; // the tumbling settle onto the face the engine sent
-export const DICE_ROLL_ANIM_MS =
-  DICE_ACCEL_MS + DICE_SPIN_MAX_MS + DICE_SLOWDOWN_MS + DICE_FLOP_MS; // the ceiling: 3.70 s
+export const DICE_ROLL_ANIM_MS = DICE_ACCEL_MS + DICE_SPIN_MAX_MS + DICE_SLOWDOWN_MS + DICE_FLOP_MS; // the ceiling: 3.70 s
 
 // --- the room's own window -----------------------------------------------------
 // Idle life of a room's Redis state and chat keys, re-armed on every save. It is a backstop,

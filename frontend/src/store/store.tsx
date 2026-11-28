@@ -14,14 +14,56 @@ import { BOT_POOL, type ColorKey } from '../theme';
 import { apiFetch, fetchWithCsrf, refreshOnce, translateErrorCode } from '../api';
 import { useChatFeed } from '../hooks/useChatFeed';
 import { connectSessionSocket } from '../sessionSocket';
-import { ACCESS_TOKEN_REFRESH_MS, ACTIVE_MATCH_KEY, LANG_KEY, NOTIF_AUTOCLOSE_KEY, SEATS_KEY, THEME_KEY, emptySeats, storedActiveMatch, storedAutoClose, storedLang, storedSeats, storedTheme } from './storage';
-import type { ActiveMatch, AppState, AuthUser, GuestSetup, Lang, LastResult, PlayerCount, Seat, ThemeType, VerifyOutcome } from './types';
+import {
+  ACCESS_TOKEN_REFRESH_MS,
+  ACTIVE_MATCH_KEY,
+  LANG_KEY,
+  NOTIF_AUTOCLOSE_KEY,
+  SEATS_KEY,
+  THEME_KEY,
+  emptySeats,
+  storedActiveMatch,
+  storedAutoClose,
+  storedLang,
+  storedSeats,
+  storedTheme,
+} from './storage';
+import type {
+  ActiveMatch,
+  AppState,
+  AuthUser,
+  GuestSetup,
+  Lang,
+  LastResult,
+  PlayerCount,
+  Seat,
+  ThemeType,
+  VerifyOutcome,
+} from './types';
 import { SETTING_DEFAULTS } from './types';
 import { THEME_BY_ID } from '../styles/themes';
 import type { ChatAck, ChatMessage, SessionSocket } from '../sessionSocket';
 
-export type { AuthUser, GuestSetup, LastResult, Lang, PlayerCount, Seat, ThemeType, VerifyOutcome, ActiveMatch, ResultPlayer } from './types';
-export { LANGUAGES, THEMES, SETTING_DEFAULTS, RULES_ON_START_KEY, isOccupiedSeat, freeColors } from './types';
+export type {
+  AuthUser,
+  GuestSetup,
+  LastResult,
+  Lang,
+  PlayerCount,
+  Seat,
+  ThemeType,
+  VerifyOutcome,
+  ActiveMatch,
+  ResultPlayer,
+} from './types';
+export {
+  LANGUAGES,
+  THEMES,
+  SETTING_DEFAULTS,
+  RULES_ON_START_KEY,
+  isOccupiedSeat,
+  freeColors,
+} from './types';
 
 const Ctx = createContext<AppState | null>(null);
 
@@ -276,7 +318,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // the connect-time emit happens once per connection, so a listener owned by the
   // connection cannot miss it the way a per-mount one would after a navigation.
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
-    // The public channel's transcript (queue item 3), and whether the socket is up. Both live here
+  // The public channel's transcript (queue item 3), and whether the socket is up. Both live here
   // rather than in the dock's panel: the channel can be switched off, and most screens render no
   // panel at all, but the log must not lose a line and the composer must know if a send is possible.
   const {
@@ -335,7 +377,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // first paint as well as its updates.
     socket.on('counts:online', (event) => setOnlineCount(event.count));
 
-        // The handshake is the one auth point on this transport (D4): the access token can be 15 minutes
+    // The handshake is the one auth point on this transport (D4): the access token can be 15 minutes
     // old by the time a reconnect reads the cookie, and only HTTP refreshes it.
     let refused = 0;
     socket.on('connect_error', (error) => {

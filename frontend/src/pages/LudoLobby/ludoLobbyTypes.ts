@@ -79,9 +79,7 @@ export const HEADER_ACTION_STYLE: CSSProperties = {
   cursor: 'pointer',
 };
 
-export function badgeStyle(
-  badge: 'ranked' | 'semiRanked' | 'casual' | 'invite',
-): CSSProperties {
+export function badgeStyle(badge: 'ranked' | 'semiRanked' | 'casual' | 'invite'): CSSProperties {
   const hue =
     badge === 'ranked'
       ? '#ffe600'

@@ -20,7 +20,7 @@ export function Friends() {
   // Read once at mount: the CRT look is a page-level choice, not a dock control.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
 
-    // STATE MANAGEMENT: one initial read, then `friendship:changed` drives all three lists
+  // STATE MANAGEMENT: one initial read, then `friendship:changed` drives all three lists
   // (socket D2).
   const {
     friends: friendRows,
@@ -41,7 +41,7 @@ export function Friends() {
       }),
     [friendRows],
   );
-    // The bell's destinations name the tab (22.7 item 3): `? tab=friends` is the initial value, and a
+  // The bell's destinations name the tab (22.7 item 3): `? tab=friends` is the initial value, and a
   // later change is adjusted during render because the bell is a portal — a second click while
   // already here changes only the query, not the page.
   const { query } = useRoute();

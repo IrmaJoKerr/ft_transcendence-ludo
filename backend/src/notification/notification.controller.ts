@@ -28,7 +28,7 @@ export class NotificationController {
   @Throttle(NOTIFICATION_THROTTLE.markAllRead)
   @Post('api/notifications/read')
   async markMany(@Request() req: { user: { id: string } }, @Body() body: { ids?: unknown }) {
-    const ids = Array.isArray(body?.ids)
+    const ids = Array.isArray(body.ids)
       ? body.ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
       : [];
     await this.notifications.markMany(ids, req.user.id);

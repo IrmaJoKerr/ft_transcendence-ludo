@@ -16,7 +16,7 @@ function seatInk(line: ChatCardLine): string | undefined {
   if (!key) return undefined;
   // An unknown stamp (or an inherited key such as `toString`) falls through to
   // `undefined`, so the feed's own fallback paints the name.
-  return COL[key as ColorKey]?.base;
+  return Object.hasOwn(COL, key) ? COL[key as ColorKey].base : undefined;
 }
 
 export function TranscriptRow({

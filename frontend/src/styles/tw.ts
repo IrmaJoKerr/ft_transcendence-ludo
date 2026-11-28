@@ -93,7 +93,8 @@ export const RETRO_WINDOW =
 export const WINDOW_HEADER =
   'bg-(--window-header-bg) text-(--window-header-text) py-2 px-3.5 [font-family:var(--font-heading)] text-[0.75rem] flex justify-between items-center select-none';
 
-export const GAME_WINDOW_HEADER_EXTRA = '!bg-[#140a35] border-b-2 border-b-[#2121ff] !text-(--text-main)';
+export const GAME_WINDOW_HEADER_EXTRA =
+  '!bg-[#140a35] border-b-2 border-b-[#2121ff] !text-(--text-main)';
 
 export const WINDOW_BODY = 'p-5 grow';
 
@@ -113,7 +114,8 @@ export const APEX_CHAMPION_CARD =
 // One real 12-column grid for the page bodies. The gutters are 25 px from
 // 1250 px up and clamp below that, so eleven of them can never exceed a narrow
 // content box; the 360 px dock is paid for by the viewport, not by the gutter.
-export const DASHBOARD_GRID = 'grid grid-cols-12 gap-x-[clamp(8px,2vw,25px)] gap-y-[25px] mb-[30px]';
+export const DASHBOARD_GRID =
+  'grid grid-cols-12 gap-x-[clamp(8px,2vw,25px)] gap-y-[25px] mb-[30px]';
 
 // A pass is one of the lobby's three entry tickets: host a new arena, hotseat,
 // bots. 124 px is its design height, set by the tallest content it carries.
@@ -205,7 +207,8 @@ export const CYBER_MODAL_GLITCH =
 export const CYBER_BTN_BASE =
   'group [--corner:10px] [--border:1.5px] [--clip:polygon(0_0,100%_0,100%_calc(100%_-_var(--corner)),calc(100%_-_var(--corner))_100%,0%_100%)] [--btn-accent:var(--accent-cyan)] [--btn-shadow:var(--accent-pink)] [font-family:var(--font-display,sans-serif)] font-black tracking-[1px] min-w-[140px] text-left uppercase inline-flex items-center gap-[0.6rem] py-[0.6rem] px-[0.8rem] border-0 bg-transparent relative text-(--btn-accent) cursor-pointer box-border select-none [transition:transform_0.15s_ease] overflow-visible disabled:opacity-40 disabled:cursor-not-allowed hover:text-[rgb(var(--bg-primary-rgb))] focus-visible:text-[rgb(var(--bg-primary-rgb))]';
 
-export const CYBER_BTN_PINK = '![--btn-accent:var(--accent-pink)] ![--btn-shadow:var(--accent-purple)]';
+export const CYBER_BTN_PINK =
+  '![--btn-accent:var(--accent-pink)] ![--btn-shadow:var(--accent-purple)]';
 
 export const CYBER_BTN_YELLOW =
   '![--btn-accent:var(--accent-yellow,#ffe600)] ![--btn-shadow:#ff5500]';
@@ -296,7 +299,8 @@ export const PAY_TAG_RUNNER =
 
 export const PAY_TAG_THIRD = 'border-[#ff9900] text-[#ff9900] bg-[rgba(255,153,0,.15)]';
 
-export const PAY_TAG_FOURTH = 'border-[rgb(var(--ink-rgb)/.35)] text-(--text-muted) bg-[rgb(var(--ink-rgb)/0.08)]';
+export const PAY_TAG_FOURTH =
+  'border-[rgb(var(--ink-rgb)/.35)] text-(--text-muted) bg-[rgb(var(--ink-rgb)/0.08)]';
 
 export const PAY_NOW_BTN =
   'w-full [font-family:var(--font-heading)] text-base bg-(--accent-pink) text-(--text-main) py-[1.1em] border-2 border-(--accent-pink) rounded-[0.85em] shadow-[0_0_20px_rgb(var(--accent-pink-rgb)/.45)] cursor-pointer tracking-[1.5px] [transition:all_0.2s_ease] mt-[1.2em] hover:bg-(--accent-cyan) hover:border-(--accent-cyan) hover:text-[rgb(var(--bg-primary-rgb))] hover:shadow-[0_0_28px_var(--accent-cyan)] hover:-translate-y-0.5 max-[520px]:text-[0.88rem]';
@@ -314,7 +318,8 @@ export const DISPLAY_TITLE =
 export const LOBBY_SECTION_TITLE =
   '[font-family:var(--font-heading)] text-[1.22rem] font-black text-(--text-main) tracking-[1.8px] mb-[6px]';
 
-export const DISPLAY_LABEL = '[font-family:var(--font-display)] text-[0.84rem] font-black text-(--text-main)';
+export const DISPLAY_LABEL =
+  '[font-family:var(--font-display)] text-[0.84rem] font-black text-(--text-main)';
 
 export const DISPLAY_TAG =
   '[font-family:var(--font-display)] text-[0.78rem] font-black tracking-[1px] text-(--text-main)';
@@ -339,4 +344,3 @@ export const STAT_FOOTER =
 
 export const HEADING_ELLIPSIS =
   'font-extrabold text-[0.92rem] text-(--text-main) [font-family:var(--font-heading)] overflow-hidden text-ellipsis whitespace-nowrap';
-

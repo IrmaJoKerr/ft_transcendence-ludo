@@ -17,11 +17,11 @@ type PendingOffer = {
   fromUsername?: string;
   gameId?: string;
   inviteCode?: string;
-    // The strip's order: newest first.
+  // The strip's order: newest first.
   sentAt?: number;
-    // The offer's own life, which is what the strip schedules itself against.
+  // The offer's own life, which is what the strip schedules itself against.
   expiresAt?: number;
-    // A room invite whose room has started or ended: the row stays, the verb goes.
+  // A room invite whose room has started or ended: the row stays, the verb goes.
   expired?: boolean;
 };
 
@@ -254,9 +254,7 @@ export function PendingOffers() {
                     fontWeight: 'bold',
                     letterSpacing: 1,
                     color:
-                      mechanism === 'room'
-                        ? 'var(--accent-yellow, #ffe600)'
-                        : 'var(--accent-cyan)',
+                      mechanism === 'room' ? 'var(--accent-yellow, #ffe600)' : 'var(--accent-cyan)',
                     fontFamily: 'var(--font-mono, monospace)',
                   }}
                 >

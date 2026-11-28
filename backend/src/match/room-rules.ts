@@ -18,7 +18,11 @@ export type RoomRules = {
 export function clampClashKeyShift(raw: unknown, clashEnabled: boolean): 0 | 1 | 2 {
   if (!clashEnabled) return 0;
   const n =
-    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string' && raw.trim() !== ''
+        ? Number(raw)
+        : NaN;
   if (!Number.isFinite(n)) return 0;
   return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }

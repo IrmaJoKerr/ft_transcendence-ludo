@@ -25,6 +25,16 @@ import {
 
 // Clash timing lives in ./timing, shared with the engine and pinned by the `timing-contract`
 // harness. Phase transitions come from server deadlines, so these values only drive presentation.
+// Empty display names should fall through to the username, so `??` alone is not
+// enough; this keeps the first non-empty string without turning a blank label into
+// a blank result card.
+function firstNonEmpty(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    if (value) return value;
+  }
+  return undefined;
+}
+
 const CLASH_BAR_WIDTH_PX = 168;
 
 // ── Touch input (tablet) ───────────────────────────────────────────────────
@@ -90,17 +100,17 @@ type Props = {
   clash: NonNullable<GameViewState['clash']>;
   result: ClashResult | null;
   myColor: PlayerColor;
-    // The room's seats: the result card names the winner in the breach sentence, and this
+  // The room's seats: the result card names the winner in the breach sentence, and this
   //  is the only place the name can come from — `ResultFx` draws a finished string and
   //  never sees a player (25.4).
   players: GameViewState['players'];
   onKeyPress: (key: string, count?: number) => void;
   onComplete: () => void;
-    // Hotseat only: one device controls both seats, so BOTH sides' inputs must be
+  // Hotseat only: one device controls both seats, so BOTH sides' inputs must be
   //  accepted at once. PvP/PvE leave this false: each player only presses their
   //  own side's keys.
   allowBothSides?: boolean;
-    // The room's `captureFx` rule: the ONE gate on every act of the card (25.7). Off
+  // The room's `captureFx` rule: the ONE gate on every act of the card (25.7). Off
   //  means no scene, no scene sound and a text-only card of `CLASH_TEXT_ONLY_MS`.
   animations?: boolean;
 };
@@ -227,7 +237,7 @@ function KeyBadge({
   label: string;
   emphasized: boolean;
   flipping?: boolean;
-    // One border flash as the new letter lands.
+  // One border flash as the new letter lands.
   flash?: boolean;
 }) {
   const face: CSSProperties = {
@@ -244,7 +254,7 @@ function KeyBadge({
     border: `2px solid ${emphasized ? 'var(--accent-yellow)' : 'var(--text-muted)'}`,
     color: emphasized ? 'var(--text-main)' : 'var(--text-muted)',
     boxShadow: flash || emphasized ? '0 0 14px var(--accent-yellow)' : 'none',
-        // The return leg uses an overshooting curve, so the incoming face lands just past its resting size
+    // The return leg uses an overshooting curve, so the incoming face lands just past its resting size
     // and settles: the "1.06 and back" bounce, in one transition.
     transition: `transform ${CLASH_SWITCH_FLIP_MS}ms cubic-bezier(.3, 1.5, .5, 1), opacity ${CLASH_SWITCH_FLIP_MS}ms linear, box-shadow 160ms linear`,
     transform: `rotateY(${flipping ? 90 : 0}deg) scale(${flipping ? 0.96 : 1})`,
@@ -306,7 +316,7 @@ function TouchPad({
 
   // A new pad must not keep a circle lit: a press from before the switch no longer
   // matches this draw, so nothing shows.
-  const lit = pressed && pressed.index === switchIndex ? pressed.key : null;
+  const lit = pressed?.index === switchIndex ? pressed.key : null;
 
   useEffect(
     () => () => {
@@ -359,7 +369,7 @@ function TouchPad({
         }}
       >
         {pad.map((k, index) => (
-                    // The wrapper owns the switch flip and the button keeps its 90 ms press flash, so the two
+          // The wrapper owns the switch flip and the button keeps its 90 ms press flash, so the two
           // transforms never fight over one transition. The stagger lands the four new letters in a diagonal
           // sweep from the first circle, each starting CLASH_SWITCH_PAD_STAGGER_MS after the one before.
           <div
@@ -434,7 +444,7 @@ export function ClashOverlay({
   const portrait = useIsPortrait(touchMode);
   const rootRef = useRef<HTMLDivElement>(null);
 
-    // The card's own length (25.8), from its parts: the scene's acts plus the read window, the
+  // The card's own length (25.8), from its parts: the scene's acts plus the read window, the
   // breach's three acts with no read window, or the text-only length when the room has the acts
   // switched off.
   const cardMs = clashCardMs(result, result?.attacker ?? clash.attacker, animations);
@@ -443,7 +453,7 @@ export function ClashOverlay({
   // is accepting; `flipping` is the half-flip before a switch (the badge is edge-on
   // exactly at the instant), `flash` the beat after it, `warning` the 400 ms lead.
   const shiftSchedule = clash.switchAt ?? [];
-    // The switch state that the timers drive, stamped with the clash it belongs to: a chain's next
+  // The switch state that the timers drive, stamped with the clash it belongs to: a chain's next
   // round is a new clash, so a value left over from the last round must not apply.
   const [shift, setShift] = useState({
     startedAt: clash.startedAt,
@@ -452,16 +462,30 @@ export function ClashOverlay({
     flash: false,
     warning: false,
   });
-  const current = shift.startedAt === clash.startedAt ? shift : { ...shift, startedAt: clash.startedAt, index: 0, flipping: false, flash: false, warning: false };
+  const current =
+    shift.startedAt === clash.startedAt
+      ? shift
+      : {
+          ...shift,
+          startedAt: clash.startedAt,
+          index: 0,
+          flipping: false,
+          flash: false,
+          warning: false,
+        };
   // The letter is derived from the clock too, so a client joining mid-press shows the live
   // letter immediately. The 250 ms tick may lag by one; each switch timer sets the exact
   // index, later winning, clamped to the schedule's last letter.
-  const scheduleLength = Math.max(1, clash.attackerKeys?.length ?? 1, clash.defenderKeys?.length ?? 1);
+  const scheduleLength = Math.max(
+    1,
+    clash.attackerKeys?.length ?? 1,
+    clash.defenderKeys?.length ?? 1,
+  );
   const derivedIndex = shiftSchedule.filter((at) => clock >= at).length;
   const keyIndex = Math.min(Math.max(derivedIndex, current.index), scheduleLength - 1);
   const { flipping, flash, warning } = current;
 
-    // Schedule every switch on the SERVER clock. `serverOffset` (derived once by the reducer from the
+  // Schedule every switch on the SERVER clock. `serverOffset` (derived once by the reducer from the
   // frame's `serverNow`) turns an absolute engine stamp into a local delay, so a device whose clock
   // is minutes out still flips when the engine switches.
   useEffect(() => {
@@ -480,7 +504,7 @@ export function ClashOverlay({
     };
     at.forEach((when, i) => {
       if (Date.now() + offsetMs >= when) return;
-            // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on the flip (the flip
+      // The warning is the only cue in its 400 ms: the sting sounds WITH it, not on the flip (the flip
       // already has the banner, the pad change and the round's own tone, so a voice landing there
       // would double the cue instead of warning).
       later(when - CLASH_SWITCH_WARN_MS, () => {
@@ -535,7 +559,7 @@ export function ClashOverlay({
           ? t('game.clashChainBroken')
           : t('game.clashChainRepulsed');
 
-    // Which gesture the result card plays (game/ResultFx.tsx).
+  // Which gesture the result card plays (game/ResultFx.tsx).
   const fxAttacker = result?.attacker ?? clash.attacker;
   const fxAttackerWon = result ? result.winner === fxAttacker : false;
   const fxKind: ResultFxKind = fxAttackerWon ? 'capture' : 'repulse';
@@ -546,13 +570,12 @@ export function ClashOverlay({
     : result.winner === fxAttacker
       ? result.loser
       : result.winner;
-    // The sentence the breach card draws (25.4): the winner's name, resolved here because the scene
+  // The sentence the breach card draws (25.4): the winner's name, resolved here because the scene
   // never sees a player. The colour word is the same fallback the winner line uses, so an unnamed
   // seat reads the same in the sentence and in the headline instead of one of them saying nothing.
   const winnerSeat = result ? players.find((p) => p.color === result.winner) : undefined;
   const winnerName =
-    winnerSeat?.displayName ||
-    winnerSeat?.username ||
+    firstNonEmpty(winnerSeat?.displayName, winnerSeat?.username) ??
     (result ? result.winner.toUpperCase() : '');
 
   // The overlay swallows every tap: a stray tap must not emit a roll or a move and
@@ -627,7 +650,7 @@ export function ClashOverlay({
   const showDefenderPad = touchMode && iAmInClash && (allowBothSides || defenderIsMe);
   const showAttackerPad = touchMode && iAmInClash && (allowBothSides || attackerIsMe);
 
-    // The stage never outgrows the room the pads leave (25.13): one pad online, two in hotseat (the
+  // The stage never outgrows the room the pads leave (25.13): one pad online, two in hotseat (the
   // branch is `allowBothSides`).
   const padCount = touchMode ? (allowBothSides ? 2 : 1) : 0;
   const padsCss = padCount ? `calc(${padCount} * ${TOUCH_BUTTON})` : '0px';

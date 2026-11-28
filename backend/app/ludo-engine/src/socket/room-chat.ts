@@ -35,30 +35,42 @@ export class RoomChat {
     // A guest room has no channel at all, and a socket with no seat has no business
     // speaking in one.
     if (!gameId || !userId || socket.data.isGuest) {
-      return reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      return;
     }
 
     const state = await this.store.loadGameState(gameId);
     // The room outlives the last move while the result card is up, and the channel
     // ends with the game (E5): a finished room refuses exactly as a torn-down one does.
     if (!state || state.status === 'finished') {
-      return reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      return;
     }
     const seat = state.players.find((player) => player.userId === userId && !player.isBot);
     if (!seat || seat.status === 'exited' || seat.status === 'inactive') {
-      return reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      reply({ ok: false, error: 'CHAT_UNAVAILABLE' });
+      return;
     }
 
     const text = typeof raw === 'string' ? raw.trim() : '';
     // `.length`, the same UTF-16 count the composer's `n / 300` uses, so the two
     // can never disagree about one emoji (E4/R8).
-    if (text === '') return reply({ ok: false, error: 'CHAT_EMPTY' });
-    if (text.length > CHAT_MAX_CHARS) return reply({ ok: false, error: 'CHAT_TOO_LONG' });
+    if (text === '') {
+      reply({ ok: false, error: 'CHAT_EMPTY' });
+      return;
+    }
+    if (text.length > CHAT_MAX_CHARS) {
+      reply({ ok: false, error: 'CHAT_TOO_LONG' });
+      return;
+    }
 
     const key = `${gameId}:${userId}`;
     const now = Date.now();
     const last = this.cooldowns.get(key) ?? 0;
-    if (now - last < CHAT_COOLDOWN_MS) return reply({ ok: false, error: 'CHAT_COOLDOWN' });
+    if (now - last < CHAT_COOLDOWN_MS) {
+      reply({ ok: false, error: 'CHAT_COOLDOWN' });
+      return;
+    }
 
     try {
       const seq = await this.store.nextChatSeq(gameId);
@@ -90,7 +102,11 @@ export class RoomChat {
       const state = await this.store.loadGameState(gameId);
       const lines = await this.store.chatTail(gameId);
       socket.emit('chat:history', {
-        lines: filterChatForSeat(lines, normalizeBlocks(state?.blockedPairs), socket.data.userId ?? ''),
+        lines: filterChatForSeat(
+          lines,
+          normalizeBlocks(state?.blockedPairs),
+          socket.data.userId ?? '',
+        ),
       });
     } catch (error) {
       console.error(`Failed to replay the chat for ${gameId}:`, error);
@@ -109,7 +125,11 @@ export class RoomChat {
   // One player's line, to the sockets that may see it. The block ledger is applied
   // here rather than on the client, so a hidden line never reaches the tab it is
   // hidden from; pre-block lines already in the transcript stay.
-  private emitLine(gameId: string, line: ChatLine, blocks: ReturnType<typeof normalizeBlocks>): void {
+  private emitLine(
+    gameId: string,
+    line: ChatLine,
+    blocks: ReturnType<typeof normalizeBlocks>,
+  ): void {
     for (const socket of this.io.sockets.sockets.values()) {
       const seated = socket.data as Partial<GameSocket['data']>;
       if (seated.gameId !== gameId) continue;

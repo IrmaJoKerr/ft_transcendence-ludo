@@ -72,7 +72,7 @@ export function ResultsModal({
     };
   }, []);
 
-    // Abandoned seats keep their row (their name still reads) but never take a place: they sort after
+  // Abandoned seats keep their row (their name still reads) but never take a place: they sort after
   // the seats that finished, and the badge rule below gives them none. A seat that kept its
   // pieces-home count can otherwise out-rank the real winner of a room it had already left.
   const ranked = [...result.players].sort((a, b) => {
@@ -102,7 +102,7 @@ export function ResultsModal({
   const won = hasRealWinner && result.winner === myColor;
   const winnerPlayer = result.players.find((p) => p.color === result.winner);
 
-  const winnerColorName = (result.winner && COLOR_KEYS[result.winner]) || COLOR_KEYS.red;
+  const winnerColorName = COLOR_KEYS[result.winner ?? 'red'];
   const winnerName = winnerPlayer
     ? winnerPlayer.color === myColor
       ? t('common.you')

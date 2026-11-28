@@ -1,10 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import {
-  HERO_SECTION,
-  HERO_TITLE,
-  BADGE_BAR,
-  RETRO_BADGE,
-} from '../../styles/tw';
+import { HERO_SECTION, HERO_TITLE, BADGE_BAR, RETRO_BADGE } from '../../styles/tw';
 
 export function FriendsHeader({
   onlineFriendsCount,
@@ -29,7 +24,13 @@ export function FriendsHeader({
 
       <div
         className={BADGE_BAR}
-        style={{ marginTop: 10, display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}
+        style={{
+          marginTop: 10,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
       >
         <span
           className={RETRO_BADGE}

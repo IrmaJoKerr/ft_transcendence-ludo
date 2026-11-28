@@ -87,7 +87,8 @@ export function Toast({
     width: 430,
     background: 'rgb(var(--bg-panel-rgb) / 0.97)',
     border: '2px solid var(--accent-pink)',
-    boxShadow: '0 0 24px rgb(var(--accent-pink-rgb) / 0.4), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
+    boxShadow:
+      '0 0 24px rgb(var(--accent-pink-rgb) / 0.4), 0 20px 48px rgb(var(--shade-rgb) / 0.95)',
     borderRadius: 4,
     display: 'flex',
     flexDirection: 'column',

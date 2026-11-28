@@ -1,21 +1,20 @@
-
 // The two eras the die is voiced for: the molded plastic die and the LED one.
 export type DiceEra = 'retro70' | 'retro80';
 
 // Everything the die's three cues are made of, so a walk can re-voice the rattle without reading a
 // method (38).
 export type DiceVoicing = {
-    // The rattle's tick: one per quarter turn, so the interval is the plan's, not a number.
+  // The rattle's tick: one per quarter turn, so the interval is the plan's, not a number.
   tickType: OscillatorType;
   tickHz: number;
   tickSeconds: number;
-    // A flop: the body thump (falling `flopHz` → `flopDropHz`) and the edge's noise.
+  // A flop: the body thump (falling `flopHz` → `flopDropHz`) and the edge's noise.
   flopType: OscillatorType;
   flopHz: number;
   flopDropHz: number;
   flopSeconds: number;
   flopNoiseHz: number;
-    // The settle: the face's own note, held, plus a fifth above it.
+  // The settle: the face's own note, held, plus a fifth above it.
   settleType: OscillatorType;
   settleHz: number;
   settleSeconds: number;
@@ -49,4 +48,3 @@ export const DICE_SFX: Record<DiceEra, DiceVoicing> = {
     settleSeconds: 0.26,
   },
 };
-

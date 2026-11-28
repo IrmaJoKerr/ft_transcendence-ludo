@@ -81,11 +81,7 @@ export function LadderTable({
           </div>
         ) : (
           entries.map((entry) => (
-            <LeaderboardRow
-              key={entry.rank}
-              entry={entry}
-              isYou={entry.username === username}
-            />
+            <LeaderboardRow key={entry.rank} entry={entry} isYou={entry.username === username} />
           ))
         )}
       </div>

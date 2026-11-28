@@ -20,20 +20,20 @@ const NAME_CARD_MARGIN = 12;
 export type ChatNameCardTarget = { id: string; name: string; anchor: DOMRect };
 
 export interface ChatNameCardProps {
-    // Who was pressed, and the rectangle the press came from: the transcript scrolls
+  // Who was pressed, and the rectangle the press came from: the transcript scrolls
   //  under the pointer, so the card is placed once, off that rectangle.
   target: ChatNameCardTarget;
-    // The friendship snapshot, read by the host so opening a card refetches nothing.
+  // The friendship snapshot, read by the host so opening a card refetches nothing.
   friends: FriendRow[];
   requests: { sent: FriendRequestRow[]; received: FriendRequestRow[] };
   loading: boolean;
-    // CHALLENGE, when the host has one to offer. `onPress` rejects with the sentence
+  // CHALLENGE, when the host has one to offer. `onPress` rejects with the sentence
   //  the band should carry, because the host owns the refusal's wording.
   challenge?: { sent: boolean; onPress: () => Promise<void> };
   onClose: () => void;
-    // The band the outcome lands in: the host's, so a room reports into the room.
+  // The band the outcome lands in: the host's, so a room reports into the room.
   onStatus: (status: ChatCardStatus | null) => void;
-    // Re-read the friendship snapshot: a block is a mutation, and a host whose feed
+  // Re-read the friendship snapshot: a block is a mutation, and a host whose feed
   //  filters blocked senders builds its filter from that snapshot.
   onBlocked: () => void;
 }
@@ -74,7 +74,7 @@ export function ChatNameCard({
     };
   });
 
-    // Escape and an outside press close it, the same pair of gestures the transcript card uses.
+  // Escape and an outside press close it, the same pair of gestures the transcript card uses.
   // `pointerdown` so a drag that ends outside does not count as a press.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -210,10 +210,12 @@ export function ChatNameCard({
         gap: 10,
         padding: 12,
         borderRadius: 10,
-        background: 'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.97), rgb(var(--bg-panel-rgb) / 0.985))',
+        background:
+          'linear-gradient(180deg, rgb(var(--bg-raise-rgb) / 0.97), rgb(var(--bg-panel-rgb) / 0.985))',
         backdropFilter: 'blur(24px) saturate(180%)',
         border: '1px solid rgb(var(--accent-cyan-rgb) / 0.45)',
-        boxShadow: '0 24px 60px rgb(var(--shade-rgb) / 0.85), 0 0 20px rgb(var(--accent-cyan-rgb) / 0.2)',
+        boxShadow:
+          '0 24px 60px rgb(var(--shade-rgb) / 0.85), 0 0 20px rgb(var(--accent-cyan-rgb) / 0.2)',
       }}
     >
       <span

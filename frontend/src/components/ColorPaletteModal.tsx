@@ -68,7 +68,7 @@ function ringSegment(from: [number, number], to: [number, number], hue: string, 
 interface ColorPaletteModalProps {
   isOpen: boolean;
   title: string;
-    // The colours still free, already filtered: a taken colour is never offered.
+  // The colours still free, already filtered: a taken colour is never offered.
   colors: ColorKey[];
   onPick: (color: ColorKey) => void;
   onCancel: () => void;

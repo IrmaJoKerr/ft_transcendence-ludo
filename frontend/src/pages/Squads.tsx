@@ -63,11 +63,11 @@ export function Squads() {
       <div className="relative z-10 box-border flex h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
         <NavDock activeRoute="/gamelobby" />
 
-        <div className="flex h-full w-full min-w-0 flex-1 flex-col" style={{ margin: 0, padding: 0 }}>
-          <header
-            className={HERO_SECTION}
-            style={{ margin: 0, padding: '16px 0', flexShrink: 0 }}
-          >
+        <div
+          className="flex h-full w-full min-w-0 flex-1 flex-col"
+          style={{ margin: 0, padding: 0 }}
+        >
+          <header className={HERO_SECTION} style={{ margin: 0, padding: '16px 0', flexShrink: 0 }}>
             <h1
               className={HERO_TITLE}
               style={{ fontSize: '1.45rem', margin: 0, letterSpacing: '1.5px' }}
@@ -136,7 +136,7 @@ export function Squads() {
               className={WINDOW_BODY}
               style={{
                 display: 'grid',
-                                // Two columns, not "as many as fit" (34, item 2): the four squads sit in `BOARD_QUADRANTS` order,
+                // Two columns, not "as many as fit" (34, item 2): the four squads sit in `BOARD_QUADRANTS` order,
                 // so a third column would put blue on the top row and leave yellow under red — the board's 2x2,
                 // read wrong.
                 gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, max(320px, 45%)), 1fr))',

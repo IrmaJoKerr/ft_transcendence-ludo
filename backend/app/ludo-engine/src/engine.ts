@@ -51,7 +51,11 @@ function normalizeRoomRules(raw: unknown): RoomRules {
 export function clampClashKeyShift(raw: unknown, clashEnabled: boolean): 0 | 1 | 2 {
   if (!clashEnabled) return 0;
   const n =
-    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string' && raw.trim() !== ''
+        ? Number(raw)
+        : NaN;
   if (!Number.isFinite(n)) return 0;
   return Math.min(2, Math.max(0, Math.round(n))) as 0 | 1 | 2;
 }
@@ -110,7 +114,9 @@ export class LudoEngine {
 
   // Register where a departure's record is delivered. Called once, by the socket
   // layer, beside setIdleRefresher.
-  setExitSubmitter(submitter: (gameId: string, records: ExitRecord[]) => void | Promise<void>): void {
+  setExitSubmitter(
+    submitter: (gameId: string, records: ExitRecord[]) => void | Promise<void>,
+  ): void {
     this.exitSubmitter = submitter;
   }
 
@@ -638,16 +644,22 @@ export class LudoEngine {
     notifyAbort?: (gameId: string) => void,
   ): Promise<void> {
     return this.withGameLock(gameId, () =>
-      startReconnectGrace(this.store, (e) => {
-        this.emit(e);
-      }, gameId, color, () => {
-        void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
-          console.error(
-            `Failed to settle the reconnect window of ${color} in ${gameId}:`,
-            error instanceof Error ? error.message : error,
-          );
-        });
-      }),
+      startReconnectGrace(
+        this.store,
+        (e) => {
+          this.emit(e);
+        },
+        gameId,
+        color,
+        () => {
+          void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
+            console.error(
+              `Failed to settle the reconnect window of ${color} in ${gameId}:`,
+              error instanceof Error ? error.message : error,
+            );
+          });
+        },
+      ),
     );
   }
 
@@ -684,14 +696,17 @@ export class LudoEngine {
     delayMs: number,
     notifyAbort?: (gameId: string) => void,
   ): void {
-    setTimeout(() => {
-      void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
-        console.error(
-          `Failed to resume the reconnect window of ${color} in ${gameId}:`,
-          error instanceof Error ? error.message : error,
-        );
-      });
-    }, Math.max(0, delayMs));
+    setTimeout(
+      () => {
+        void this.expireReconnectGrace(gameId, color, notifyAbort).catch((error: unknown) => {
+          console.error(
+            `Failed to resume the reconnect window of ${color} in ${gameId}:`,
+            error instanceof Error ? error.message : error,
+          );
+        });
+      },
+      Math.max(0, delayMs),
+    );
   }
 
   // Returns true only when the seat was genuinely restored (see

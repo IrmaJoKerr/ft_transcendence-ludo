@@ -397,7 +397,8 @@ export class FriendsInvitesService {
       rows.map(async (offer) => ({
         ...offer,
         expired:
-          typeof offer.gameId === 'string' && !(await this.matchService.isWaitingRoom(offer.gameId)),
+          typeof offer.gameId === 'string' &&
+          !(await this.matchService.isWaitingRoom(offer.gameId)),
       })),
     );
   }

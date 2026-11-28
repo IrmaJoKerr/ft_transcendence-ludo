@@ -24,7 +24,7 @@ export function useHeroScene(
 
     const scene = THEME_BY_ID[theme].heroScene;
     const state = createSceneState(scene, canvas.width);
-        // The scene's own still loads in the background; the rAF loop paints it the frame it decodes, and
+    // The scene's own still loads in the background; the rAF loop paints it the frame it decodes, and
     // until then the painter draws what that card was before it had one. The file sits in its theme's
     // folder (todo.md 33, decision 19) and `sceneArt` is what says which file belongs to which scene.
     const art = new Image();

@@ -41,12 +41,7 @@ export class PostGameManager {
     const player = state.players.find((p) => p.color === color);
     const username = player?.username || color;
 
-    const { closed } = await this.engine.departSeat(
-      gameId,
-      color,
-      'end_game',
-      this.cleanup,
-    );
+    const { closed } = await this.engine.departSeat(gameId, color, 'end_game', this.cleanup);
     // A closed room already told everyone (`game_expired`) and deleted its state,
     // so there is nothing left to write into a snapshot.
     if (closed) return;

@@ -110,7 +110,7 @@ export type LastResult = {
   mode: 'pvp' | 'pve' | 'hotseat';
   playerCount: number;
   players: ResultPlayer[];
-    // True when the match was abandoned/expired: a different Results card (no winner/podium).
+  // True when the match was abandoned/expired: a different Results card (no winner/podium).
   abandoned?: boolean;
 } | null;
 
@@ -119,7 +119,7 @@ export type LastResult = {
 // screen. Not persisted: a guest session dies with the tab.
 export type GuestSetup = {
   botCount: number;
-    // The guest's own corner: the palette is theirs too, and there is no default.
+  // The guest's own corner: the palette is theirs too, and there is no default.
   hostColor: string;
   botColors?: string[];
   botNames?: string[];
@@ -134,29 +134,29 @@ export type AppState = {
   user: AuthUser | null;
   setUser: (u: AuthUser | null) => void;
   authReady: boolean;
-    // Factor one. `identifier` is a username or email. Session = {}, emailed
+  // Factor one. `identifier` is a username or email. Session = {}, emailed
   //  code = { pendingToken }; otherwise { error }.
   login: (
     identifier: string,
     password: string,
   ) => Promise<{ error?: string; pendingToken?: string; notVerified?: boolean }>;
-    // Success = { username } (verification email sent, no session yet); failure = { error }.
+  // Success = { username } (verification email sent, no session yet); failure = { error }.
   register: (
     username: string,
     password: string,
     email: string,
   ) => Promise<{ error?: string; username?: string }>;
-    // Factor two. Success = null (session cookie set, user in store); failure = message.
+  // Factor two. Success = null (session cookie set, user in store); failure = message.
   verify2fa: (pendingToken: string, code: string) => Promise<string | null>;
-    // Re-issues the login code for a live 2FA challenge. Success = null.
+  // Re-issues the login code for a live 2FA challenge. Success = null.
   resend2fa: (pendingToken: string) => Promise<string | null>;
-    // Emails a reset link. Always resolves null (generic response: no account enumeration).
+  // Emails a reset link. Always resolves null (generic response: no account enumeration).
   forgotPassword: (email: string) => Promise<string | null>;
-    // Redeems a reset token and sets a new password. Success = null; failure = message.
+  // Redeems a reset token and sets a new password. Success = null; failure = message.
   resetPassword: (token: string, password: string) => Promise<string | null>;
-    // Resends a signup verification link (public). Success = null.
+  // Resends a signup verification link (public). Success = null.
   resendVerification: (email: string) => Promise<string | null>;
-    // Redeems an emailed verify link (signup or email-change).
+  // Redeems an emailed verify link (signup or email-change).
   verifyEmail: (token: string) => Promise<VerifyOutcome>;
   logout: () => Promise<void>;
   playerCount: PlayerCount;
@@ -166,18 +166,18 @@ export type AppState = {
   turn: number;
   settings: Record<string, boolean>;
   setPlayerCount: (c: PlayerCount) => void;
-    // Seats the host (`you`) on card `i` with the picked colour. One host card only: a re-pick moves the seat.
+  // Seats the host (`you`) on card `i` with the picked colour. One host card only: a re-pick moves the seat.
   placeHost: (i: number, color: ColorKey) => void;
-    // Seats a bot on card `i` at the picked colour.
+  // Seats a bot on card `i` at the picked colour.
   addBot: (i: number, color: ColorKey) => void;
-    // Seats a local hotseat pilot on card `i` at the picked colour.
+  // Seats a local hotseat pilot on card `i` at the picked colour.
   addPlayer: (i: number, color: ColorKey) => void;
-    // Empties card `i`, host card included: an emptied card gives its colour back.
+  // Empties card `i`, host card included: an emptied card gives its colour back.
   removeSeat: (i: number) => void;
   renamePlayer: (i: number, name: string) => void;
-    // Clears every card: call when entering the sub-lobby so a fresh room never inherits seats from a previous session.
+  // Clears every card: call when entering the sub-lobby so a fresh room never inherits seats from a previous session.
   resetSeats: () => void;
-    // False until the host is seated: every other card is added after the host's colour is theirs.
+  // False until the host is seated: every other card is added after the host's colour is theirs.
   startGame: () => boolean;
   roll: () => void;
   endTurn: () => void;
@@ -187,26 +187,26 @@ export type AppState = {
   setTheme: (t: ThemeType) => void;
   lang: Lang;
   setLang: (l: Lang) => void;
-    // True when a notification card closes itself (22.5). Off means it stays until
+  // True when a notification card closes itself (22.5). Off means it stays until
   // its `x`, and it governs the boot report as well as the live cards. Stored
   // under `lr.notifAutoClose`, on when the key is absent.
   notifAutoClose: boolean;
   setNotifAutoClose: (on: boolean) => void;
   setPlaying: (playing: boolean) => void;
-    // The session socket, or null while signed out (a guest never opens one).
+  // The session socket, or null while signed out (a guest never opens one).
   // Presence rides on it; screens subscribe to its pushes.
   sessionSocket: SessionSocket | null;
-    // The last site-wide online count the socket pushed. The badge's only source
+  // The last site-wide online count the socket pushed. The badge's only source
   // (D11): there is no REST read, and it survives a screen remount because this
   // listener lives as long as the connection. Null until the first push.
   onlineCount: number | null;
-    // Whether the session socket is up right now. The chat composer is disabled
+  // Whether the session socket is up right now. The chat composer is disabled
   // while it is not: an emit made offline would be queued and land minutes later.
   sessionConnected: boolean;
-    // The public channel's transcript, oldest first, at most `CHAT_HISTORY` lines. Held
+  // The public channel's transcript, oldest first, at most `CHAT_HISTORY` lines. Held
   // above the panel so a collapsed channel and `/game` both keep it current.
   chatLog: ChatMessage[];
-    // Sends one line to the public channel. The ack reports a refusal (too long,
+  // Sends one line to the public channel. The ack reports a refusal (too long,
   // too soon, empty, or the transport being down) for the panel's status line.
   sendChat: (text: string, done?: (reply: ChatAck) => void) => void;
   activeMatch: ActiveMatch;

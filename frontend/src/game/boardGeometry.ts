@@ -68,4 +68,3 @@ export function stepToCell(color: ColorKey, step: number): Cell | null {
   }
   return null;
 }
-

@@ -6,17 +6,17 @@ import { useCallback, useState } from 'react';
 export const CHAT_LINES_KEPT = 200;
 
 export interface ChatFeed<Line> {
-    // Oldest first, the order both surfaces paint.
+  // Oldest first, the order both surfaces paint.
   lines: Line[];
-    // A `chat:history` frame: the authority on what was said before the surface
+  // A `chat:history` frame: the authority on what was said before the surface
   //  mounted, so it replaces the local copy rather than merging into it. A frame
   //  with no array (or a torn one) is an empty history, never a crash.
   replace: (lines: ReadonlyArray<Line | null | undefined> | undefined) => void;
-    // A `chat:message` frame: one live line. Dropped when its id is already painted,
+  // A `chat:message` frame: one live line. Dropped when its id is already painted,
   //  because the history's seam and a frame that raced it overlap by exactly the
   //  newest line or two.
   append: (line: Line | undefined) => void;
-    // A disconnect or an account change: the next connection re-sends the history,
+  // A disconnect or an account change: the next connection re-sends the history,
   //  and another tab's channel must not be inherited in the meantime.
   clear: () => void;
 }

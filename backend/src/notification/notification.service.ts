@@ -40,7 +40,7 @@ export interface NotificationPayload {
 
 // Where a frame goes: one account, or every connected socket. The gateway owns
 // the rooms, so the hub only names the target.
-type Deliver = (target: string | 'all', event: NotificationPayload) => void;
+type Deliver = (target: string, event: NotificationPayload) => void;
 
 // D12 (22.8): at most 60 unread per account, and both keys idle out after 14
 // days. Sixty is what the bell renders, so the store, the panel and the batch
@@ -131,7 +131,7 @@ export class NotificationService implements OnModuleDestroy {
     this.deliverer = deliver;
   }
 
-  private deliver(target: string | 'all', event: NotificationPayload): void {
+  private deliver(target: string, event: NotificationPayload): void {
     // No gateway yet means no sockets either: the connect snapshot is what
     // repairs a frame published in that window.
     this.deliverer?.(target, event);
@@ -302,4 +302,3 @@ export class NotificationService implements OnModuleDestroy {
     await this.pub.del(this.hashKey(userId), this.unreadKey(userId));
   }
 }
-
