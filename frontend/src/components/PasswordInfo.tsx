@@ -44,7 +44,6 @@ export function PasswordInfo() {
           border: '1px solid rgb(var(--accent-cyan-rgb) / 0.55)',
           color: 'rgb(var(--accent-cyan-rgb) / 0.85)',
           cursor: 'help',
-          outline: 'none',
         }}
       >
         <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true" focusable="false">

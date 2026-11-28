@@ -287,13 +287,13 @@ export function LudoLobby() {
       {/* CRT Monitor Overlay FX Container */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
-        <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
+        <div className="page-fit-shell relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
           <NavDock activeRoute="/gamelobby" />
 
           {/* Main Content Flow */}
           <div
-            className="sticky top-8 flex w-full min-w-0 flex-1 flex-col"
+            className="page-fit-column sticky top-8 flex w-full min-w-0 flex-1 flex-col"
             style={{ margin: 0, padding: 0, minHeight: 'calc(100vh - 64px)' }}
           >
             <LudoLobbyHeader

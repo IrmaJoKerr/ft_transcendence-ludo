@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { PieceFigure } from '../../components/PieceFigure';
-import type { PiecePose } from '../pieceParts70';
+import type { PiecePose, PieceSetDefinition } from '../pieceTypes';
 import type { PlayerColor } from '../types';
 import { PIECE_W } from './geometry';
 
@@ -12,7 +12,7 @@ export function CastPiece({
   y,
   size = PIECE_W,
   color,
-  retro70,
+  pieces,
   pose = 'front',
   style,
 }: {
@@ -20,13 +20,13 @@ export function CastPiece({
   y: number;
   size?: number;
   color: PlayerColor;
-  retro70: boolean;
+  pieces: PieceSetDefinition;
   pose?: PiecePose;
   style?: CSSProperties;
 }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${size / 100})`} style={style}>
-      <PieceFigure ck={color} set={retro70 ? 'retro70' : 'retro80'} pose={pose} />
+      <PieceFigure ck={color} pieces={pieces} pose={pose} />
     </g>
   );
 }

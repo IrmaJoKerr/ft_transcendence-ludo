@@ -53,7 +53,6 @@ export function RoomCodeForm({
                         fontFamily: 'var(--font-mono)',
                         letterSpacing: '1.5px',
                         textAlign: 'center',
-                        outline: 'none',
                         boxShadow: 'inset 0 0 10px rgb(var(--accent-cyan-rgb) / 0.25)',
                       }}
                     />

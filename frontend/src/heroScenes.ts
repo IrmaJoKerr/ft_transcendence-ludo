@@ -1,4 +1,3 @@
-import type { ThemeType } from './store';
 import cityscapeArt from './styles/themes/retro80/80s-Synthwave-Cityscape.jpg';
 import colonyArt from './styles/themes/retro70/1970s-Orbital-Colony.jpg';
 
@@ -132,12 +131,6 @@ export const RETRO70_CFG: Colony70sScene = {
 
 // Every card: one scene per theme, discriminated on `kind`.
 export type HeroScene = Synthwave80sScene | Colony70sScene;
-
-// The scene a theme paints. One map, so a new `ThemeType` cannot ship unpainted.
-export const HERO_SCENES: Record<ThemeType, HeroScene> = {
-  retro80: SYNTHWAVE_80S_CFG,
-  retro70: RETRO70_CFG,
-};
 
 // The still a scene is made of: the colony, the city's skyline.
 export function sceneArt(scene: HeroScene): string {

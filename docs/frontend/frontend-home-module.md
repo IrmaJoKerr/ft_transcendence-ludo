@@ -36,7 +36,7 @@ The Home page is the main landing page after login (`/home`, full-screen). It al
 | File | Role |
 |------|------|
 | `src/pages/Home/` | Home page — hero header, arcade panel, friends list, footer |
-| `src/heroScenes.ts` | One scene per theme (`SYNTHWAVE_80S_CFG`, `RETRO70_CFG`) behind `HERO_SCENES`: the palette, the drift counters, the marquee colour, each still's placement and dim, the 70s card's two measured circles (`porthole`, `planet`), and the artwork both scenes are made of (`sceneArt`) |
+| `src/heroScenes.ts` | The two scenes (`SYNTHWAVE_80S_CFG`, `RETRO70_CFG`): the palette, the drift counters, the marquee colour, each still's placement and dim, the 70s card's two measured circles (`porthole`, `planet`), and the artwork both scenes are made of (`sceneArt`). The theme registry selects one through `THEME_BY_ID[theme].heroScene` |
 | `src/heroBackdrops/` | The attract-mode painters, split by job: the 80s and 70s cards, their shared scene state, the 70s traffic and the `paintHero` dispatch. The folder keeps the public path stable through its index |
 | `src/heroBackdrops/index.ts` | The public door: explicit re-exports of the scene-state types, `seedStars`, `createSceneState`, both painters and `paintHero` |
 | `src/heroBackdrops/heroBackdrops.ts` | The dispatch: `paintHero` sends one frame to `paintSynthwave` or `paintColony` on the scene's `kind` |
@@ -98,7 +98,7 @@ sequenceDiagram
     participant Home as Home.tsx
     participant Hook as useFriendships()
     participant API as Backend
-    participant Store as store.tsx
+    participant Store as store/store.tsx
     participant Notif as useNotifications()
 
     App->>Home: <Home /> (full-screen route)
@@ -118,7 +118,7 @@ The arcade panel renders its scene on one 720×400 canvas, and the theme decides
 
 The 80s card is made of its era's still: the cityscape the shell wears as its ground, cover-cropped to the card with its own horizon on the card's, dimmed and then given the drifting stars and the marquee. Until that still decodes — or if it never does — the same painter draws the card it used to be, a banded sun over a horizon grid, and the still retires both when it arrives, because art that already carries a sun, a skyline and a grid must not be given a second of each. The two compositions are the same shot, so the swap does not jump. The four hologram nodes that used to stand along the card's bottom edge (RED, GREEN, YELLOW, BLUE at y 350–360) are gone: the row sat on the same line as the cabinet's PRESS TO START banner and read as the legend for the button, and the still says the era without it.
 
-Every number a painter draws with is a literal beside the call that uses it, and only colour comes from the scene. `heroScenes.ts` holds `SYNTHWAVE_80S_CFG` and `RETRO70_CFG` — the palette, the drift counters, the marquee colour, each still's placement and two dim stops, and the 70s card's two measured circles (`porthole`, `planet`) — behind one `HERO_SCENES: Record<ThemeType, HeroScene>` map, so a theme cannot ship unpainted. It is also the one place that knows which artwork belongs to which scene: `sceneArt` names the file (the 80s cityscape, the 70s colony), each sitting in its own theme's folder (todo.md 33, decision 19), and the hook preloads what it names. A painter that imported an asset itself would put a path in two modules.
+Every number a painter draws with is a literal beside the call that uses it, and only colour comes from the scene. `heroScenes.ts` holds `SYNTHWAVE_80S_CFG` and `RETRO70_CFG` — the palette, the drift counters, the marquee colour, each still's placement and two dim stops, and the 70s card's two measured circles (`porthole`, `planet`) — selected by `THEME_BY_ID[theme].heroScene`; the registry derives `HERO_SCENES` from its rows, so a theme cannot ship unpainted. It is also the one place that knows which artwork belongs to which scene: `sceneArt` names the file (the 80s cityscape, the 70s colony), each sitting in its own theme's folder (todo.md 33, decision 19), and the hook preloads what it names. A painter that imported an asset itself would put a path in two modules.
 
 Three painter details are load-bearing. The sun's disc and its scanlines share a single clip path, so a scanline stroke cannot extend past the disc even though each stroke is wider than the disc near its top. The room's sky is clipped to an aperture of 74..646 × 30..230: the frame, the ledge and the press-start card are three separate bands, so no sky is spent where the card would hide it. And the 80s still is positioned by its **horizon**, not its centre: cover-cropped to the card it is 720×483, the art draws its ground's haze 62 per cent down, and putting that row on the card's horizon at y 260 is what keeps the skyline above the grid. The room's sheet is cached under the marquee *and* whether the still has decoded, because a sheet painted before the colony arrived would otherwise be reused forever and a cold load would show a window with no colony in it.
 
@@ -192,8 +192,8 @@ as the socket registers (D11 removed the old first-paint `GET`).
 | Dependency | Purpose |
 |-----------|---------|
 | `api.ts` | `getApi` for `/api/friends`, `/api/friends/requests` |
-| `store.tsx` | `useApp` for user, settings and the badge's `onlineCount` (pushed over the session socket) |
+| `store/store.tsx` | `useApp` for user, settings and the badge's `onlineCount` (pushed over the session socket) |
 | `hooks/useNotifications.tsx` | Real-time notification bell + toasts |
 | `router.tsx` | `navigate` to `/gamelobby` and `/profile` |
-| `utils/audio.ts` | `retroAudio` sound effects |
+| `utils/audio/index.ts` | `retroAudio` sound effects |
 | `styles/tw.ts` | The hero, window and arcade class constants |

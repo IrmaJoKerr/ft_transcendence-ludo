@@ -292,19 +292,6 @@ export function ColorPaletteModal({
                 {t('lobby.noFreeColors')}
               </div>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
-              <button
-                type="button"
-                className={`${RETRO_BTN} font-display rounded-lg border border-(--accent-cyan) px-4 py-1.5 text-xs font-black text-(--text-main)`}
-                onClick={() => {
-                  retroAudio.playUiBeep(440, 0.05);
-                  onCancel();
-                }}
-              >
-                {t('lobby.cancelPick')}
-              </button>
-            </div>
           </div>
         </div>
       </div>

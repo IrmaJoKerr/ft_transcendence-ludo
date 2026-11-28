@@ -54,33 +54,6 @@ export class AuthProfileService {
     return { user: await this.access.publicUser(user) };
   }
 
-  // Turn email-code 2FA on or off for the user. Turning it off weakens the
-  // account, so a password account must confirm its current password first;
-  // OAuth-only accounts are trusted through the active session.
-  async setTwoFactorSetting(userId: string, enabled: boolean, currentPassword?: string) {
-    const user = await this.prisma.db.user.findUnique({
-      where: { id: userId },
-      select: { password_hash: true, twoFactorEnabled: true },
-    });
-    if (!user)
-      throw new UnauthorizedException({ code: 'USER_NOT_FOUND', message: 'User not found' });
-
-    if (enabled !== user.twoFactorEnabled && user.password_hash) {
-      const matches = await bcrypt.compare(currentPassword ?? '', user.password_hash);
-      if (!matches)
-        throw new UnauthorizedException({
-          code: 'AUTH_CURRENT_PASSWORD_INCORRECT',
-          message: 'Current password is incorrect',
-        });
-    }
-
-    await this.prisma.db.user.update({
-      where: { id: userId },
-      data: { twoFactorEnabled: enabled },
-    });
-    return { twoFactorEnabled: enabled };
-  }
-
   // Complete profile update : edit display name, email, and/or the email-code
   // 2FA method in one call; only provided fields change. Email changes reuse
   // the signup verification flow. Username is immutable.

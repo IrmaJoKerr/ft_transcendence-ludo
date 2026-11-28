@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { navigate, useRoute } from '../../router';
 import { railButtonStyle, railGlyphFrameStyle, railHoverHandlers } from '../railButton';
 import { useApp } from '../../store';
+import { THEME_BY_ID } from '../../styles/themes';
 import { retroAudio } from '../../utils/audio';
 import { UserAvatar } from '../UserAvatar';
 import { LanguageSwitcher } from '../LanguageSwitcher';
@@ -77,7 +78,7 @@ export function RetroNavbar({
   // The dock's shell wears 1970s walnut and amber when the 70s theme is on, and
   // the synthwave navy and neon otherwise. Seat hues and text colours stay as
   // they are — they are not theme surfaces.
-  const SEVENTIES = theme === 'retro70';
+  const SEVENTIES = THEME_BY_ID[theme].shell === 'walnut';
   const rejoinEdge = {
     borderColor: 'var(--accent-pink)',
     boxShadow: SEVENTIES

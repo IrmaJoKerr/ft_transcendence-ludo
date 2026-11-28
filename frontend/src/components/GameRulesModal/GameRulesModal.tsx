@@ -39,19 +39,16 @@ export function GameRulesModal({ isOpen, onClose }: GameRulesModalProps) {
       versionTag={t('gameExtra.rulesVersionTag')}
       cancelLabel={t('common.close')}
       proceedLabel={
-        rulesPage < LAST_RULES_PAGE ? t('gameExtra.nextPageBtn') : t('gameExtra.startPlayingBtn')
+        rulesPage < LAST_RULES_PAGE ? t('gameExtra.nextPageBtn') : t('gameExtra.backToFirstPageBtn')
       }
       cancelShortcut="ESC"
-      proceedShortcut={rulesPage < LAST_RULES_PAGE ? '→' : '↵'}
-      closeOnProceed={rulesPage >= LAST_RULES_PAGE}
+      proceedShortcut={rulesPage < LAST_RULES_PAGE ? '→' : '↩'}
+      closeOnProceed={false}
+      panelStyle={{ width: 'min(1200px, calc(100vw - 3rem))' }}
       onCancel={closeModal}
       onProceed={() => {
-        if (rulesPage < LAST_RULES_PAGE) {
-          retroAudio.playUiBeep(700, 0.05);
-          setRulesPage((p) => p + 1);
-        } else {
-          closeModal();
-        }
+        retroAudio.playUiBeep(700, 0.05);
+        setRulesPage((p) => (p < LAST_RULES_PAGE ? p + 1 : 0));
       }}
       message={
         <div
@@ -62,8 +59,9 @@ export function GameRulesModal({ isOpen, onClose }: GameRulesModalProps) {
             display: 'flex',
             flexDirection: 'column',
             gap: 16,
-            minWidth: 380,
-            maxWidth: 520,
+            width: '100%',
+            minWidth: 0,
+            maxWidth: 1140,
             // From page 7 the deck outgrows a 900 px window. Capping the page column here, not in
             // `CyberModal`, keeps the NEXT PAGE footer visible; `stable` reserves the scrollbar
             // gutter so a short page keeps its line breaks.

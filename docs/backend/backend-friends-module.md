@@ -49,7 +49,11 @@ helpers in `friendship-pair.ts`.
 | File | Role |
 |------|------|
 | `friends.controller.ts` | HTTP routes: send, accept, decline, remove, list, requests, block/unblock, blocked list, and the one game challenge (invite, the sent list, pending, dismiss) |
-| `friends.service.ts` | Business logic: directional pair transitions, requests, blocking, invites |
+| `friends.service.ts` | Facade — composes `FriendsRequestsService`, `FriendsInvitesService` and `FriendsBlocksService`; keeps the public method names the controller injects |
+| `friends.requests.service.ts` | Directional request, accept, decline, remove, and the friends/requests read paths |
+| `friends.invites.service.ts` | The one challenge route, room invites, sent/pending lists, and dismissal |
+| `friends.blocks.service.ts` | Block, unblock, and the blocked list |
+| `friendship-access.ts` | Shared pair reads, status lookup and the friend-request/accepted notifications the three feature services call |
 | `friendship-pair.ts` | Pure helpers (`pairKey`, `effectiveStatus`, `isFriendPair`, `isBlockedPair`) shared with match + presence — no NestJS/Prisma imports, so no circular DI |
 | `friendship-record.ts` | Pure helpers for the live record: `viewerState` (the five viewer-relative states), `stateSince`, and the broadcaster's payload guard. No NestJS/Prisma imports |
 | `friendship-events.service.ts` | The `friendship:changed` publisher: `publishPair` (both directions of a changed row) and `publishSubject` (a changed display name / avatar / rating to every accepted friend) |
@@ -497,7 +501,7 @@ friend list every 5 s. Since Phase 3 a write publishes **one record per recipien
 client merges it over its first-paint snapshot.
 
 ```
-friends.service.ts (mutation)     FriendshipEventsService.publishPair(a, b)
+friends.*.service.ts (mutation)   FriendshipEventsService.publishPair(a, b)
         │                                   │
         │  1. publishPair(user, target)     ├─ Prisma: the pair row + both profiles (1 query)
         ├──────────────────────────────────▶├─ presence.getStatuses([a, b])  ← 0 watchers → stop
@@ -520,7 +524,7 @@ friends.service.ts (mutation)     FriendshipEventsService.publishPair(a, b)
 > publish threw a Prisma validation error that the publisher's own `catch` swallowed into a warning,
 > so friends lists and the chat filter's live path (`noteBlockState`) silently stopped updating.
 > The `chat/` probe family in `Test-harnesses/` caught it; keep the two selects in step with
-> `friends.service.ts`'s list and blocked routes, which already read `stats`.
+> `friends.requests.service.ts`'s list route and `friends.blocks.service.ts`'s blocked route, which already read `stats`.
 
 **Audience is a subscription, not a graph.** Every session socket joins `friends:of:<ownUserId>` in
 `handleConnection`, next to `user:<id>`; the id comes from the handshake, never from a client payload,
@@ -539,13 +543,13 @@ fail the mutation):
 
 | Trigger | File | Publication |
 |---|---|---|
-| request (first contact, resend, mutual auto-accept) | `friends.service.ts` | `publishPair(caller, target)` |
-| accept | `friends.service.ts` | `publishPair(pair.user1Id, pair.user2Id)` |
-| decline | `friends.service.ts` | `publishPair(...)` → both sides read `none` |
-| remove | `friends.service.ts` | `publishPair(...)` |
-| block | `friends.service.ts` | `publishPair(...)` → blocker `blocked`, other side `none` |
-| unblock | `friends.service.ts` | `publishPair(...)` → back to `none` (or `blocked` if the other side still holds one) |
-| display-name change | `auth.service.ts` (`updateProfile`) | `publishSubject(userId)` → an `accepted` record to every accepted friend |
+| request (first contact, resend, mutual auto-accept) | `friends.requests.service.ts` | `publishPair(caller, target)` |
+| accept | `friends.requests.service.ts` | `publishPair(pair.user1Id, pair.user2Id)` |
+| decline | `friends.requests.service.ts` | `publishPair(...)` → both sides read `none` |
+| remove | `friends.requests.service.ts` | `publishPair(...)` |
+| block | `friends.blocks.service.ts` | `publishPair(...)` → blocker `blocked`, other side `none` |
+| unblock | `friends.blocks.service.ts` | `publishPair(...)` → back to `none` (or `blocked` if the other side still holds one) |
+| display-name change | `auth.profile.service.ts` (`updateProfile`) | `publishSubject(userId)` → an `accepted` record to every accepted friend |
 | avatar upload / delete | `user.service.ts` | `publishSubject(userId)` |
 | postgame rating | `match.postgame.service.ts` | `publishSubject(userId)` per human participant, after the transaction |
 

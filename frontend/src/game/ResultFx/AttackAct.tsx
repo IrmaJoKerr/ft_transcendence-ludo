@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import type { PieceSetDefinition } from '../pieceTypes';
 import type { PlayerColor } from '../types';
 import { CastPiece } from './CastPiece';
 import {
@@ -21,7 +22,7 @@ export function AttackAct({
   defenderColor,
   attacker,
   attackerWon,
-  isRetro70,
+  pieces,
   wallFx,
   pivot,
 }: {
@@ -35,7 +36,7 @@ export function AttackAct({
   defenderColor: string;
   attacker: PlayerColor;
   attackerWon: boolean;
-  isRetro70: boolean;
+  pieces: PieceSetDefinition;
   wallFx: (name: string) => string;
   pivot: CSSProperties;
 }) {
@@ -65,7 +66,7 @@ export function AttackAct({
               y={y}
               size={size}
               color={defender}
-              retro70={isRetro70}
+              pieces={pieces}
               pose='right'
               style={
                 attackerWon && i === 0
@@ -116,7 +117,7 @@ export function AttackAct({
             x={WALL_ATTACKER_X}
             y={GLYPH_Y}
             color={attacker}
-            retro70={isRetro70}
+            pieces={pieces}
             pose='left'
           />
         </g>

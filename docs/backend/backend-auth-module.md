@@ -45,8 +45,13 @@ the single-use emailed tokens.
 | File | Role |
 |------|------|
 | `auth.module.ts` | NestJS module — registers Passport, JwtModule, all strategies, and exports them for other modules |
-| `auth.controller.ts` | HTTP routes: register, verify-email, login, 2fa/verify, refresh, forgot-password, reset-password, logout, me, profile read/update, password change, account deletion, 2FA settings, and 3 OAuth flows |
-| `auth.service.ts` | Core business logic: password hashing (bcrypt), JWT issuance, OAuth validation, 2FA orchestration, email verification, and the verify-then-commit email change |
+| `auth.controller.ts` | HTTP routes: register, verify-email, login, 2fa/verify, refresh, forgot-password, reset-password, logout, me, profile read/update, password change, account deletion, and 3 OAuth flows |
+| `auth.service.ts` | Facade — composes `AuthRegistrationService`, `AuthAccessService`, `AuthProfileService` and `AuthOAuthService`; keeps the public method names the controller, guards and strategies inject |
+| `auth.registration.service.ts` | Registration, email verification, password login and the 2FA challenge, password reset, and both resend flows |
+| `auth.access.service.ts` | Access-token signing, session issue/refresh/logout, token validation, and the `publicUser` view |
+| `auth.profile.service.ts` | Profile read/update (including `twoFactorEnabled`), password change, and account deletion |
+| `auth.oauth.service.ts` | Provider identity lookup, link/create, OAuth link tokens, and unlinking a method |
+| `auth.shared.ts` | Values every auth service reads the same way: `SALT_ROUNDS`, `BASE_URL`, `normalizeEmail`, `formatVerifiedAt`, `randomSuffix`, and the `PublicUser`/`UserRow` shapes |
 | `auth.constants.ts` | `AUTH`: single-source auth tunables (token TTLs, 2FA challenge/resend limits, email-change rate cap) |
 | `login-lockout.service.ts` | Per-account failed-login counters in Redis: slows attempts from the 5th failure and refuses the account from the 10th (see [Login lockout (per account)](#login-lockout-per-account)) |
 | `jwt.strategy.ts` | Passport strategy that extracts JWT from the `token` cookie and requires our issuer, the API audience, `HS256` and a string `sub` |
@@ -68,7 +73,6 @@ the single-use emailed tokens.
 | `dto/forgot-password.dto.ts` | Validation schema for `POST /api/auth/forgot-password` |
 | `dto/reset-password.dto.ts` | Validation schema for `POST /api/auth/reset-password` |
 | `dto/twofactor.dto.ts` | Validation schema for `POST /api/auth/2fa/verify` |
-| `dto/two-factor-setting.dto.ts` | Validation schema for `PATCH /api/auth/2fa` |
 | `dto/password.rules.ts` | Shared password policy constants used by RegisterDto and ResetPasswordDto |
 | `dto/update-profile.dto.ts` | Validation schema for profile updates (incl. `currentPassword` for the email-change re-auth, and `language` for the transactional-email copy) |
 | `dto/resend-verification.dto.ts` | Validation schema for `POST /api/auth/resend-verification` |
@@ -127,12 +131,6 @@ interface JwtPayload {
 | `pendingToken` | string | Exactly 64 chars (hex-encoded random bytes) |
 | `code` | string | Exactly 6 digits |
 
-### TwoFactorSettingDto
-
-| Field | Type | Constraints |
-|-------|------|-------------|
-| `enabled` | boolean | Required |
-
 ### Password Policy (password.rules.ts)
 
 ```typescript
@@ -167,7 +165,6 @@ export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])
 | `PATCH` | `/api/auth/profile` | JWT | Update profile (display name, email, 2FA, OAuth). Email changes are verify-then-commit; sensitive fields need `currentPassword` |
 | `PATCH` | `/api/auth/profile/password` | JWT | Change password while logged in (needs current password) |
 | `DELETE` | `/api/auth/profile` | JWT | Permanently delete the account (password-verified) |
-| `PATCH` | `/api/auth/2fa` | JWT | Toggle the user's 2FA preference (needs `currentPassword` on a password account); the value is read back from `/api/auth/me` or `/api/auth/profile` |
 | `GET` | `/api/auth/google` | None | Redirect to Google OAuth |
 | `GET` | `/api/auth/google/callback` | None | Google OAuth callback |
 | `GET` | `/api/auth/github` | None | Redirect to GitHub OAuth |
@@ -218,7 +215,6 @@ the non-auth controllers', are declared in `backend/src/common/throttles.ts`.
 | `POST /api/auth/login` | 5 per minute, per address (plus the per-account lockout below) |
 | `POST /api/auth/2fa/verify` | 5 per minute |
 | `POST /api/auth/2fa/resend` | 5 per hour (+ 3 per hour per user) |
-| `PATCH /api/auth/2fa` | 10 per hour |
 | `POST /api/auth/refresh` | 30 per minute |
 | `POST /api/auth/forgot-password` | 3 per hour |
 | `POST /api/auth/reset-password` | 5 per 15 minutes |
@@ -324,7 +320,7 @@ changes in one place:
 | `AUTH.loginLockout.hardLockS` | 15 min | How long that refusal lasts (equal to `windowS` today: separate knobs on purpose) |
 | `AUTH.loginLockout.maxDelayS` | 30 | Ceiling on the per-attempt delay |
 
-Other tunables stay in their own files: `SALT_ROUNDS` (`auth.service.ts`, 10, bcrypt cost),
+Other tunables stay in their own files: `SALT_ROUNDS` (`auth.shared.ts`, 10, bcrypt cost),
 `ACCESS_MAX_AGE_MS` / `REFRESH_MAX_AGE_MS` (`auth.controller.ts`), `REFRESH_TTL_S`
 (`session.service.ts`), `PASSWORD_MIN` / `PASSWORD_MAX` (`auth/dto/password.rules.ts`, 12 / 72,
 mirrored in `frontend/src/validatePassword.ts`).

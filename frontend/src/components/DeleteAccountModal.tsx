@@ -38,7 +38,6 @@ function inputStyle(): CSSProperties {
     background: 'rgb(var(--shade-rgb) / 0.4)',
     color: 'var(--text-main)',
     border: '1px solid var(--border-color)',
-    outline: 'none',
     fontFamily: 'var(--font-mono)',
     fontSize: '0.78rem',
   };

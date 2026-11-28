@@ -56,7 +56,6 @@ export function AddFriendPanel({
                           padding: '10px 12px',
                           fontSize: '0.85rem',
                           fontFamily: 'var(--font-display)',
-                          outline: 'none',
                           letterSpacing: '0.04em',
                         }}
                       />

@@ -108,6 +108,7 @@ interface CyberModalProps {
   proceedShortcut?: string;
   isDanger?: boolean;
   closeOnProceed?: boolean;
+  panelStyle?: CSSProperties;
 }
 
 export function CyberModal({
@@ -124,6 +125,7 @@ export function CyberModal({
   proceedShortcut = '↵',
   isDanger = false,
   closeOnProceed = true,
+  panelStyle,
 }: CyberModalProps) {
   const [mounted, setMounted] = useState(isOpen);
   const [isOpenActive, setIsOpenActive] = useState(false);
@@ -212,7 +214,7 @@ export function CyberModal({
       data-glitching={isGlitching ? 'true' : 'false'}
       onClick={handleCancel}
     >
-      <div className={CYBER_MODAL_BOX} onClick={(e) => e.stopPropagation()}>
+      <div className={CYBER_MODAL_BOX} style={panelStyle} onClick={(e) => e.stopPropagation()}>
         <section className={CYBER_MODAL_BODY}>
           {/* Animated Sliding Backdrop Plate */}
           <div className={CYBER_MODAL_BODY_BACKDROP}>

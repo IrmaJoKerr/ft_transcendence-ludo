@@ -34,6 +34,9 @@ export interface ChatCardProps {
   //  calls that card makes, and takes the pressed rectangle so the card can be placed
   //  against the name (the feed scrolls under the pointer).
   onOpenName?: (userId: string, displayName: string, anchor: DOMRect) => void;
+    // A sender's name colour, resolved by the host from the room's seats. Undefined keeps
+  //  the card's own fallback (cyan for own lines, main text for others).
+  senderColor?: (line: ChatCardLine) => string | undefined;
     // A clash is up: the card stays mounted and readable but takes no keys (E7).
   inert?: boolean;
   titleKey?: string;
@@ -53,6 +56,7 @@ export function ChatCard({
   connected,
   sidePanel,
   onOpenName,
+  senderColor,
   inert,
   titleKey = 'gameChat.title',
   scopeKey = 'gameChat.scope',
@@ -272,7 +276,9 @@ export function ChatCard({
                     <span className="text-(--text-muted)">{systemLineText(t, line)}</span>
                   ) : (
                     <>
-                      <span className="text-(--accent-cyan)">{line.senderName}</span>
+                      <span style={{ color: senderColor?.(line) ?? 'var(--accent-cyan)' }}>
+                        {line.senderName}
+                      </span>
                       <span className="text-(--text-muted)"> &gt; </span>
                       <span>{line.text}</span>
                     </>
@@ -316,6 +322,8 @@ export function ChatCard({
               zIndex: 10004,
               display: 'flex',
               flexDirection: 'column',
+              // The dialog shell is programmatically focusable (tabIndex -1); focus lands
+              // on a visible control inside it, so the shell itself draws no ring.
               outline: 'none',
             }}
           >
@@ -336,6 +344,7 @@ export function ChatCard({
             />
             <ChatCardFeed
               lines={lines}
+              senderColor={senderColor}
               onOpenName={
                 onOpenName
                   ? (line, anchor) => {

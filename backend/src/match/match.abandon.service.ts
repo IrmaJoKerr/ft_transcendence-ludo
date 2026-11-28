@@ -16,6 +16,7 @@ import {
   chatColumns,
   isUniqueViolation,
   readEngineState,
+  seatColorsByUserId,
   seatSnapshot,
 } from './postgame-snapshot';
 import type { GameChatBlock, GameChatPayload } from './postgame-snapshot';
@@ -80,6 +81,9 @@ export class MatchAbandonService {
     // hash that is gone leaves nothing to describe. A departure only reaches the
     // backend while its room still has one (a teardown marks the hash before it posts).
     const matchData = await this.redis.hgetall(`match:${gameId}`);
+    // The departing seat's transcript gets the same semantic name colours as a finished
+    // room's, read from the hash that still holds every seat.
+    const seatColors = seatColorsByUserId(matchData);
     if (!matchData.id) {
       throw new NotFoundException({
         code: 'MATCH_GAME_NOT_FOUND',
@@ -204,7 +208,7 @@ export class MatchAbandonService {
             clashWallsDefended: seat.clashWallsDefended ?? 0,
             participants: snapshot,
             // What this seat was shown of the room, up to the moment it left (M3).
-            ...chatColumns(seat.chat, seat.blocks, userId),
+            ...chatColumns(seat.chat, seat.blocks, userId, seatColors),
           },
         });
 

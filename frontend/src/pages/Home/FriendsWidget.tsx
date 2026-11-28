@@ -43,7 +43,6 @@ export function FriendsWidget({
                           animation: 'pulse 1.5s infinite',
                           cursor: 'pointer',
                           border: 'none',
-                          outline: 'none',
                           fontFamily: 'inherit',
                           display: 'inline-flex',
                           alignItems: 'center',

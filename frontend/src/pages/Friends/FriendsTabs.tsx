@@ -96,7 +96,6 @@ export function FriendsTabs({
               padding: '4px 10px',
               fontSize: '0.72rem',
               fontFamily: 'var(--font-display)',
-              outline: 'none',
               width: 170,
             }}
           />

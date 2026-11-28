@@ -1,6 +1,7 @@
 import { SEAT_COLORS, type ColorKey } from '../theme';
 import type { ChatAck, ChatMessage, SessionSocket } from '../sessionSocket';
 import type { PlayerColor } from '../game/types';
+import type { ThemeType } from '../styles/themes';
 
 export type AuthUser = {
   id: string;
@@ -45,7 +46,7 @@ export function freeColors(seats: Seat[]): ColorKey[] {
 export type PlayerCount = 2 | 3 | 4;
 
 export type Lang = 'en' | 'fr' | 'ms';
-export type ThemeType = 'retro80' | 'retro70';
+export type { ThemeType } from '../styles/themes';
 
 // Languages offered in the account menu.
 export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
@@ -54,11 +55,8 @@ export const LANGUAGES: Array<{ code: Lang; label: string; flag: string }> = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
 ];
 
-// The themes the shell offers, in the order the account menu lists them.
-export const THEMES: Array<{ id: ThemeType; label: string; swatch: [string, string] }> = [
-  { id: 'retro80', label: "RETRO 80'S", swatch: ['#ff007f', '#00f0ff'] },
-  { id: 'retro70', label: "RETRO 70'S", swatch: ['#e5340b', '#ffb000'] },
-];
+// The themes the shell offers; the registry owns the rows and their order.
+export { THEMES } from '../styles/themes';
 
 export const RULES_ON_START_KEY = 'rulesShowOnStart';
 // Defaults for the settings toggles, keyed "<group>-<row>".

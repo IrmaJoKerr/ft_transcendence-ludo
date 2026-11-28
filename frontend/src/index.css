@@ -47,24 +47,6 @@ a:hover {
   }
 }
 
-/* active-turn dot */
-@keyframes pulseRing {
-  0% {
-    box-shadow: 0 0 0 0 rgba(240, 209, 138, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 12px rgba(240, 209, 138, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(240, 209, 138, 0);
-  }
-}
-
-.mode-card:hover {
-  transform: translateY(-4px);
-  border-color: #c99b45 !important;
-}
-
 /* Home page: fixed-size components, but the whitespace around them shrinks
    on short viewports so the page never needs to scroll. */
 .home-page {
@@ -78,10 +60,6 @@ a:hover {
 }
 .home-hero-actions {
   margin-top: 22px;
-}
-.mode-card {
-  padding: 20px;
-  gap: 12px;
 }
 .home-ladder {
   padding: 22px;
@@ -106,10 +84,6 @@ a:hover {
   .home-hero-actions {
     margin-top: 14px;
   }
-  .mode-card {
-    padding: 14px;
-    gap: 8px;
-  }
   .home-ladder {
     padding: 16px;
   }
@@ -133,10 +107,6 @@ a:hover {
   }
   .home-hero-actions {
     margin-top: 8px;
-  }
-  .mode-card {
-    padding: 8px;
-    gap: 4px;
   }
   .home-ladder {
     padding: 8px;

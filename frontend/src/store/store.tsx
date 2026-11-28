@@ -17,6 +17,7 @@ import { connectSessionSocket } from '../sessionSocket';
 import { ACCESS_TOKEN_REFRESH_MS, ACTIVE_MATCH_KEY, LANG_KEY, NOTIF_AUTOCLOSE_KEY, SEATS_KEY, THEME_KEY, emptySeats, storedActiveMatch, storedAutoClose, storedLang, storedSeats, storedTheme } from './storage';
 import type { ActiveMatch, AppState, AuthUser, GuestSetup, Lang, LastResult, PlayerCount, Seat, ThemeType, VerifyOutcome } from './types';
 import { SETTING_DEFAULTS } from './types';
+import { THEME_BY_ID } from '../styles/themes';
 import type { ChatAck, ChatMessage, SessionSocket } from '../sessionSocket';
 
 export type { AuthUser, GuestSetup, LastResult, Lang, PlayerCount, Seat, ThemeType, VerifyOutcome, ActiveMatch, ResultPlayer } from './types';
@@ -32,19 +33,27 @@ function apiError(body: unknown, fallback: string): string {
   return fallback;
 }
 
+// One write for the two attributes and the browser's own chrome. The meta is the
+// theme's value, not a second table; a document without it (an old built page) is fine.
+function applyThemeToDocument(next: ThemeType) {
+  document.documentElement.setAttribute('data-theme', next);
+  document.body.setAttribute('data-theme', next);
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', THEME_BY_ID[next].themeColor);
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeType>(storedTheme);
 
   const setTheme = useCallback((newTheme: ThemeType) => {
     setThemeState(newTheme);
     localStorage.setItem(THEME_KEY, newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-    document.body.setAttribute('data-theme', newTheme);
+    applyThemeToDocument(newTheme);
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.body.setAttribute('data-theme', theme);
+    applyThemeToDocument(theme);
   }, [theme]);
 
   const [user, setUser] = useState<AuthUser | null>(null);

@@ -1,8 +1,8 @@
 // The four 1970s helmets, each cut into a turning visor and upright pods or
 // aerials, plus the seat-to-helmet assignment the board draws.
 
-import type { ColorKey } from '../../theme';
-import type { HelmetSet, PiecePart } from './types';
+import type { ColorKey } from '../../../../theme';
+import type { HelmetSet, PiecePart } from '../../../../game/pieceTypes';
 
 // The ear pods, part of the silhouette: they must not be squashed with the visor.
 const PODS: PiecePart[] = [25.5, 74.5].flatMap(

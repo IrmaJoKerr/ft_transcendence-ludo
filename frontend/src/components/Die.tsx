@@ -10,6 +10,7 @@ import {
 import { diceFace70, type DicePart, type DicePaint } from './diceParts70';
 import { diceFace80 } from './diceParts80';
 import { useApp } from '../store';
+import { THEME_BY_ID } from '../styles/themes';
 import { retroAudio, type DiceEra } from '../utils/audio';
 
 // Pip indexes (3×3 grid, row-major) lit per face value.
@@ -176,10 +177,10 @@ export function Die({
   // The catch's timestamp, null for a roll nobody tapped.
   tappedAt?: number | null;
 }) {
-  // The era the faces are painted in, read from the store as `Board.tsx:15` reads it for the
+  // The era the faces are painted in, read from the theme registry as `Board` reads its
   // piece set — so the five props stay five and no call site passes a theme (38).
   const { theme } = useApp();
-  const era: DiceEra = theme === 'retro70' ? 'retro70' : 'retro80';
+  const era: DiceEra = THEME_BY_ID[theme].diceEra;
   const face = FACE_ROTATIONS[value] ?? FACE_ROTATIONS[1];
   // The cube's live orientation and the transition carrying it there: one render per act,
   // each with its own duration, which is what makes the acts read as acts.
@@ -449,7 +450,7 @@ function DiceShape({ part }: { part: DicePart }) {
 // `MiniDie` reuses this component. Era comes from the store; the 80s bloom is CSS.
 export function DiceFace({ value, size = SIZE }: { value: number; size?: number }) {
   const { theme } = useApp();
-  const era: DiceEra = theme === 'retro70' ? 'retro70' : 'retro80';
+  const era: DiceEra = THEME_BY_ID[theme].diceEra;
   const parts = FACE_PARTS[era][value] ?? [];
 
   return (

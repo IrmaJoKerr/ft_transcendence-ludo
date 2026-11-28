@@ -7,7 +7,7 @@ import { fetchWithCsrf, translateErrorCode } from '../../api';
 import { ProfileEditModal } from '../../components/ProfileEditModal';
 import { useRoute, navigate } from '../../router';
 import { useApp } from '../../store';
-import { STATUS_STYLE } from '../../theme';
+import { COL, STATUS_STYLE, type ColorKey } from '../../theme';
 import { retroAudio } from '../../utils/audio';
 import {
   CRT_SCREEN,
@@ -29,7 +29,6 @@ import { TranscriptRow } from './TranscriptRow';
 import { useUsernameCopy } from './useUsernameCopy';
 import {
   HISTORY_PAGE_SIZE,
-  SEAT_COLOR,
   STATUS_KEYS,
   type Friend,
   type MatchHistory,
@@ -330,12 +329,15 @@ export function Profile() {
       {/* CRT Monitor Overlay FX Container */}
       <div className={`${CRT_SCREEN} crt-screen ${crtEnabled ? 'relative' : ''}`} id="crtScreen">
         {/* Dynamic Full-Width Seated Sidebar & Content Layout Container */}
-        <div className="relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
+        <div className="page-fit-shell relative z-10 box-border flex min-h-screen w-full flex-row items-start justify-center gap-7 px-6 py-8">
           {/* Left-Seated Navigation Dock */}
           <NavDock activeRoute="/profile" />
 
           {/* Main Content Flow */}
-          <div className="sticky top-8 w-full min-w-0 flex-1" style={{ margin: 0, padding: 0 }}>
+          <div
+            className="page-fit-column sticky top-8 w-full min-w-0 flex-1"
+            style={{ margin: 0, padding: 0 }}
+          >
             {/* One-shot notice after an emailed email-change link is redeemed. */}
             {query.get('emailChanged') === '1' && (
               <div
@@ -1379,6 +1381,7 @@ export function Profile() {
 
                       {/* Tab Body (Internally Scrollable) */}
                       <div
+                        className="scroll-surface"
                         style={{
                           padding: '14px 16px',
                           flex: 1,
@@ -1647,7 +1650,8 @@ export function Profile() {
                                               borderRadius: 2,
                                               display: 'inline-block',
                                               background:
-                                                SEAT_COLOR[seat.color] ?? 'var(--text-muted)',
+                                                COL[seat.color.toLowerCase() as ColorKey]?.base ??
+                                                'var(--text-muted)',
                                             }}
                                           />
                                           {seat.isBot ? seat.displayName : seat.username}
@@ -1666,7 +1670,6 @@ export function Profile() {
                                       chat={g.chat}
                                       chatTruncated={g.chatTruncated === true}
                                       gameType={g.gameType}
-                                      ownerId={user?.id ?? ''}
                                     />
                                   </div>
                                 );
@@ -1929,6 +1932,7 @@ export function Profile() {
                         </div>
 
                         <div
+                          className="scroll-surface"
                           style={{
                             padding: '12px 14px',
                             display: 'flex',

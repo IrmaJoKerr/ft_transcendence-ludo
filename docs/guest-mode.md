@@ -95,9 +95,9 @@ hand the second student on a shared campus NAT the first student's `MATCH_ALREAD
 | --- | --- |
 | `frontend/src/App.tsx` | Registers `/guest` (renders `<Lobby guest />`), lists it as public, and opens `/game` to a visitor only while a guest handoff is held in memory. |
 | `frontend/src/pages/Login.tsx` | The **Play as guest** button and its hint. |
-| `frontend/src/pages/Lobby.tsx` | The `guest` prop: same setup screen, bots only, no active-game poll, no local mode, launch posts `/api/match/guest` and stores the setup for "Play again". |
-| `frontend/src/pages/Game.tsx` | Reads `activeMatch.isGuest`, joins under the localized guest name, sends both exits to `/login`, and remints for "Play again". |
-| `frontend/src/store.tsx` | `ActiveMatch.isGuest` and `guestSetup`, both memory-only (never in `sessionStorage`). |
+| `frontend/src/pages/Lobby/Lobby.tsx` | The `guest` prop: same setup screen, bots only, no active-game poll, no local mode, launch posts `/api/match/guest` and stores the setup for "Play again". |
+| `frontend/src/pages/Game/Game.tsx` | Reads `activeMatch.isGuest`, joins under the localized guest name, sends both exits to `/login`, and remints for "Play again". |
+| `frontend/src/store/store.tsx` | `ActiveMatch.isGuest` and `guestSetup`, both memory-only (never in `sessionStorage`). |
 | `frontend/src/components/ResultsModal.tsx` | Guest-only "Play again" and the guest exit label. |
 | `frontend/src/locales/{en,fr,ms}.ts` | The `guest` block plus the `GUEST_LIMITED` / `GUEST_CAPACITY` error strings. |
 

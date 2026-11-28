@@ -4,6 +4,7 @@ import { NavDock } from '../components/NavDock';
 import { PieceFigure } from '../components/PieceFigure';
 import { navigate } from '../router';
 import { useApp } from '../store';
+import { THEME_BY_ID } from '../styles/themes';
 import { BOARD_QUADRANTS, COL, COLOR_KEYS, type ColorKey } from '../theme';
 import { retroAudio } from '../utils/audio';
 import {
@@ -38,9 +39,10 @@ function seatKey(ck: ColorKey): string {
 export function Squads() {
   const { t } = useTranslation();
   const { theme } = useApp();
+  const themeDef = THEME_BY_ID[theme];
   // The locale keys carry the decade as a suffix, because both decades' words ship
   // in every locale: `nickRed70` and `nickRed80` are two different crews.
-  const era = theme === 'retro70' ? '70' : '80';
+  const era = themeDef.era;
 
   // Read once at mount, like every other page: the CRT look is a page-level choice.
   const [crtEnabled] = useState(() => localStorage.getItem('retro_crt') !== 'false');
@@ -92,7 +94,7 @@ export function Squads() {
                   fontWeight: 'bold',
                 }}
               >
-                {t(theme === 'retro70' ? 'squadsPage.era70' : 'squadsPage.era80')}
+                {t(`squadsPage.era${era}`)}
               </span>
             </div>
           </header>
@@ -187,7 +189,7 @@ export function Squads() {
                           role="img"
                           aria-label={`${colour}${NICK_SEPARATOR}${nick}`}
                         >
-                          <PieceFigure ck={ck} set={theme} />
+                          <PieceFigure ck={ck} pieces={themeDef.pieces} />
                         </svg>
                       </span>
                       <h2

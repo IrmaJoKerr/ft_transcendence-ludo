@@ -68,7 +68,6 @@ export function ChatCardHead({
               flexShrink: 0,
               cursor: 'pointer',
               borderRadius: 5,
-              outline: 'none',
               color: glyph.pressed ? 'var(--accent-cyan)' : 'var(--text-muted)',
               background: glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.14)' : 'rgb(var(--ink-rgb) / 0.05)',
               border: `1px solid ${glyph.pressed ? 'rgb(var(--accent-cyan-rgb) / 0.55)' : 'rgba(184, 166, 228, 0.28)'}`,

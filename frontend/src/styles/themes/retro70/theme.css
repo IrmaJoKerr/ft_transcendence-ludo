@@ -69,6 +69,20 @@
   --state-on-ink: #1a1009;
   --state-off: #e8697d;
   --state-off-rgb: 232 105 125;
+    /* The board's fringes (45.9): the same eleven names in the same order as the 80s table. The
+     cell is a dark walnut, the grid line its amber, the yard the raised card ground and the frame
+     the secondary ground; the shadow keeps the era's amber and hot red rather than neon. */
+  --board-cell: #1b120b;
+  --board-cell-rgb: 27 18 11;
+  --board-line: #ffb000;
+  --board-line-rgb: 255 176 0;
+  --board-yard: rgba(43, 30, 21, 0.95);
+  --board-yard-rgb: 43 30 21;
+  --board-yard-border: #e5340b;
+  --board-yard-border-rgb: 229 52 11;
+  --board-frame: rgba(36, 26, 18, 0.95);
+  --board-frame-rgb: 36 26 18;
+  --board-frame-shadow: 0 0 25px rgba(255, 176, 0, 0.35), inset 0 0 20px rgba(229, 52, 11, 0.18);
     /* The die's eight (38.9, row O): the cube's two body stops, its edge, the molded highlight, the
      two stops of a pip, the alternate pip and the shadow it casts. */
   --dice-face: #fbf5e6;

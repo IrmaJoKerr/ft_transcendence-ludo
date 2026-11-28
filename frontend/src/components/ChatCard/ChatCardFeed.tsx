@@ -11,23 +11,30 @@ import type { ChatCardLine } from '../chatCardTypes';
 export function ChatCardFeed({
   lines,
   onOpenName,
+  senderColor,
+  autoScroll = true,
   emptyTitleKey = 'chat.emptyTitle',
   emptyDescKey = 'chat.emptyDesc',
 }: {
   lines: ChatCardLine[];
   onOpenName?: (line: ChatCardLine, anchor: DOMRect) => void;
+  senderColor?: (line: ChatCardLine) => string | undefined;
+  // A live card follows its newest line. An archived transcript opts out so it
+  // opens at the oldest line instead of jumping to its own end.
+  autoScroll?: boolean;
   emptyTitleKey?: string;
   emptyDescKey?: string;
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
   // Stick to the bottom only while the reader is already there: a scrollback must not
   // be yanked away by the next line (R8).
-  const atBottomRef = useRef(true);
+  const atBottomRef = useRef(autoScroll);
 
   useEffect(() => {
+    if (!autoScroll) return;
     const feed = feedRef.current;
     if (feed && atBottomRef.current) feed.scrollTop = feed.scrollHeight;
-  }, [lines.length]);
+  }, [lines.length, autoScroll]);
 
   return (
     <div
@@ -57,7 +64,14 @@ export function ChatCardFeed({
       {lines.length === 0 ? (
         <FeedEmpty titleKey={emptyTitleKey} descKey={emptyDescKey} />
       ) : (
-        lines.map((line) => <FeedLine key={line.id} line={line} onOpenName={onOpenName} />)
+        lines.map((line) => (
+          <FeedLine
+            key={line.id}
+            line={line}
+            onOpenName={onOpenName}
+            senderColor={senderColor}
+          />
+        ))
       )}
     </div>
   );
@@ -69,9 +83,11 @@ export function ChatCardFeed({
 function FeedLine({
   line,
   onOpenName,
+  senderColor,
 }: {
   line: ChatCardLine;
   onOpenName?: (line: ChatCardLine, anchor: DOMRect) => void;
+  senderColor?: (line: ChatCardLine) => string | undefined;
 }) {
   const { t } = useTranslation();
   const { user } = useApp();
@@ -100,7 +116,7 @@ function FeedLine({
     fontSize: '0.58rem',
     fontWeight: 900,
     letterSpacing: '0.5px',
-    color: mine ? 'var(--accent-cyan)' : 'var(--text-main)',
+    color: senderColor?.(line) ?? (mine ? 'var(--accent-cyan)' : 'var(--text-main)'),
     padding: 0,
     margin: 0,
     background: 'none',

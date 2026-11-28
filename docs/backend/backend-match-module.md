@@ -41,11 +41,13 @@ The module uses Redis for short-lived match data (queues, active games) and lets
 | File | Role |
 |------|------|
 | `match.controller.ts` | HTTP routes: matchmaking, game actions, room browsing, engine callbacks |
-| `match.service.ts` | Facade — composes the four split services (`MatchCreatorService`, `MatchPlayerService`, `MatchQueryService`, `MatchPostgameService`) and re-exports the `GameEndPayload` type from `match.postgame.service.ts` (`ENGINE_WS_URL` is defined/exported by `match.creator.service.ts`) |
+| `match.service.ts` | Facade — composes the five split services (`MatchCreatorService`, `MatchPlayerService`, `MatchQueryService`, `MatchPostgameService`, `MatchAbandonService`) and re-exports the `GameEndPayload`/`SeatAbandonPayload` types from their owners (`ENGINE_WS_URL` is defined/exported by `match.creator.service.ts`) |
 | `match.creator.service.ts` | Match creation: PvP/PvE/hotseat, invite codes, room joining, bot seeding |
 | `match.player.service.ts` | In-game actions: join, rejoin, invite friend, ready, exit, cancel |
 | `match.query.service.ts` | Browse queries: open rooms, my rooms, and `seatResult()` (the caller's own row for a match they can no longer join) |
-| `match.postgame.service.ts` | `POST /api/game/end` (the completion pass: scoring, ratings, the clash tallies, achievements) and `POST /api/game/:id/abandon` (one abandoned row, no scoring) |
+| `match.postgame.service.ts` | `POST /api/game/end` (the completion pass: scoring, ratings, the clash tallies, achievements) and `notifyMatchFinished` |
+| `match.abandon.service.ts` | `POST /api/game/:id/abandon`: one abandoned row for the leaving seat, no scoring, no hash deletion |
+| `postgame-snapshot.ts` | Pure snapshot/chat helpers for the postgame read, including the exported `seatColorsByUserId` map and `chatForSeat` projection |
 | `seat-finalization.ts` | Engine GameState readers — `isSeatFinalized()` (can this seat still be rejoined?) and `isEngineGameStarted()` (has the ready-check already started the game?). Used by `GET /api/games/mine`, `GET /api/games/rooms`, `POST /api/game/:id/rejoin`, `POST /api/match/join/:code`, and the create reuse lookup |
 | `active-game.ts` | The strict state lock — `findLiveMatch()`: the live game this player already holds a seat in (`{ gameId }`, or `null`). Composes the `match:*` hash status with `isEngineGameStarted()`; backs every create (all modes), `POST /api/match/join/:code`, rejoin refusal, and the sign-out that ends the room. `matchSeatIds()` lists a hash's four seat ids for the account-deletion sweep |
 | `engine-token.util.ts` | `signEngineToken()` — signs the game-scoped Socket.IO tokens with `ENGINE_JWT_SECRET` and `aud: 'ludo-engine'` (the single place both mint sites below go through) |
@@ -630,14 +632,15 @@ engine sent them as it stored them.
 | piece | where |
 | --- | --- |
 | the payload | `GameEndPayload.chat` / `.blocks` and `SeatAbandonPayload.chat` / `.blocks`: `chat: { truncated?: boolean, lines: ChatLine[] }` and `blocks: { a, b, atSeq }[]` |
-| the projection | `chatForSeat(chat, blocks, seatUserId)` (exported from `match.postgame.service.ts`): the room's lines in order, cut at the ledger — a line is hidden when a block between that seat and its sender was applied at or before the line's own sequence, in either direction. A seat's own lines and every system line always survive |
-| the columns | `chatColumns(...)` is spread into `matchHistory.create` by both `processGameEnd` and `recordAbandonedSeat`: `chat` stays absent when the room had no channel or never spoke, and `chatTruncated` is only ever true when the engine's 413 fallback cut the payload |
+| the seat colour map | `seatColorsByUserId(matchData)` pairs each `player<N>_id` with its `player<N>_color` (falling back to `SLOT_COLORS[N - 1]`) and returns a `Map<userId, SEMANTIC_COLOR>`; an empty slot is skipped |
+| the projection | `chatForSeat(chat, blocks, seatUserId, seatColors)` (exported from `postgame-snapshot.ts`): the room's lines in order, cut at the ledger — a line is hidden when a block between that seat and its sender was applied at or before the line's own sequence, in either direction. A seat's own lines and every system line always survive. After the cut, each kept player line whose `senderId` is in the map is cloned and stamped with `senderColor` (`RED`, `GREEN`, `YELLOW` or `BLUE`); a system line and an unmapped sender stay untouched |
+| the columns | `chatColumns(chat, blocks, seatUserId, seatColors)` is spread into `matchHistory.create` by both `processGameEnd` and `recordAbandonedSeat`: `chat` stays absent when the room had no channel or never spoke, and `chatTruncated` is only ever true when the engine's 413 fallback cut the payload |
 | the body cap | `main.ts` mounts a 2 MB json parser for `POST /api/game/end` and `POST /api/game/:id/abandon` and the 100 kB default for everything else. A 413 is the one refusal the engine answers rather than retries: it re-posts the newest 400 lines with `truncated: true` |
 
 The transcript is written once, at the end of the room, and it is **never** read back by
 `GET /api/game/:id/result`: a card needs the outcome, not the conversation. The one reader is
 `getUserGames`, which ships `chat` and `chatTruncated` to the row's own account and omits both for
-a friend, so the profile's expander is owner-only by construction rather than by a UI condition.
+a friend, so the profile's comms-logs modal is owner-only by construction rather than by a UI condition.
 
 ## The result read (`GET /api/game/:id/result`)
 

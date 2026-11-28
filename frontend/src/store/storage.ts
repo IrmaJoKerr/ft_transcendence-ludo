@@ -1,5 +1,6 @@
-import { LANGUAGES, THEMES, type ActiveMatch, type Lang, type Seat, type ThemeType } from './types';
+import { LANGUAGES, type ActiveMatch, type Lang, type Seat, type ThemeType } from './types';
 import { SEAT_COLORS, type ColorKey } from '../theme';
+import { DEFAULT_THEME, THEME_BY_ID } from '../styles/themes';
 
 export const LANG_KEY = 'lr.lang';
 export const THEME_KEY = 'retro_theme';
@@ -19,7 +20,7 @@ export function storedLang(): Lang {
 
 export function storedTheme(): ThemeType {
   const raw = localStorage.getItem(THEME_KEY);
-  return THEMES.some((theme) => theme.id === raw) ? (raw as ThemeType) : 'retro80';
+  return raw && Object.hasOwn(THEME_BY_ID, raw) ? (raw as ThemeType) : DEFAULT_THEME;
 }
 
 // A popup setting that forgets on reload is not a setting (22.5). Absent or

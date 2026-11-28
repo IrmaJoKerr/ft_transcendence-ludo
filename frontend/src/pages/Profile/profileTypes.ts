@@ -105,6 +105,9 @@ export type TranscriptLine = {
   senderName: string;
   text: string;
   at: number;
+    // The backend's semantic seat stamp (`RED` and so on). Absent on a system line,
+    // an old row and a row whose sender left no mapped seat.
+  senderColor?: string;
   kind?: 'system';
   code?: 'left' | 'started';
 };
@@ -113,14 +116,6 @@ export type TranscriptLine = {
 export type MatchHistory = {
   games: MatchHistoryRow[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
-};
-
-// The seat colours, as the swatch beside each name paints them.
-export const SEAT_COLOR: Record<string, string> = {
-  RED: '#ff3b5c',
-  GREEN: '#00ff88',
-  YELLOW: '#ffe600',
-  BLUE: '#00b3ff',
 };
 
 // How many rows a history page asks for. The backend keeps the newest 50, so three

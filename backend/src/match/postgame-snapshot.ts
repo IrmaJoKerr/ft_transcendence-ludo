@@ -14,6 +14,9 @@ export type GameChatLine = {
   text: string;
   at: number;
   ch: string;
+  // Semantic seat name (`RED`..`BLUE`), stamped by the projection; the frontend resolves
+  // it through the live palette. Absent on a system line, an unmapped sender or a legacy row.
+  senderColor?: string;
   kind?: 'system';
   code?: 'left' | 'started';
 };
@@ -74,6 +77,23 @@ export function botSeatColors(matchData: Record<string, string>): Set<string> {
     bots.add((matchData[`player${slot}_color`] || fallback).toLowerCase());
   });
   return bots;
+}
+
+// The seat colour for each user id in the room hash, keyed for the transcript's
+// `senderId`. The hash stores `player<N>_id` and `player<N>_color` side by side, and
+// the colour is uppercased to the semantic name the profile stores. An empty slot has
+// no id and is skipped; a slot with an id but no colour takes its positional fallback,
+// exactly as the participant snapshot does. Bots are harmless here: they have no chat
+// lines, so no stamp is ever read for them.
+export function seatColorsByUserId(matchData: Record<string, string>): Map<string, string> {
+  const colors = new Map<string, string>();
+  SLOT_COLORS.forEach((fallback, index) => {
+    const slot = index + 1;
+    const userId = matchData[`player${slot}_id`];
+    if (!userId) return;
+    colors.set(userId, (matchData[`player${slot}_color`] || fallback).toUpperCase());
+  });
+  return colors;
 }
 
 // Prisma raises P2002 for a unique index. Checked structurally so this file needs
@@ -147,6 +167,7 @@ export function chatForSeat(
   chat: GameChatPayload | undefined,
   blocks: GameChatBlock[] | undefined,
   seatUserId: string,
+  seatColors: Map<string, string>,
 ): { lines: GameChatLine[]; truncated: boolean } | null {
   const lines = Array.isArray(chat?.lines) ? chat.lines : [];
   if (lines.length === 0) return null;
@@ -160,11 +181,20 @@ export function chatForSeat(
       atSeq: block.atSeq,
     }));
 
-  const kept = lines.filter((line) => {
-    if (!line || typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
-    if (!line.senderId || line.senderId === seatUserId) return true;
-    return !cuts.some((cut) => cut.other === line.senderId && line.seq >= cut.atSeq);
-  });
+  const kept = lines
+    .filter((line) => {
+      if (!line || typeof line.id !== 'string' || typeof line.seq !== 'number') return false;
+      if (!line.senderId || line.senderId === seatUserId) return true;
+      return !cuts.some((cut) => cut.other === line.senderId && line.seq >= cut.atSeq);
+    })
+    // Clone before stamping: the payload belongs to the caller and one projection must
+    // not colour the next seat's copy. A system line and an unmapped sender stay exactly
+    // as the room stored them, which is also the fallback an old row relies on.
+    .map((line) => {
+      if (!line.senderId || line.kind === 'system') return line;
+      const senderColor = seatColors.get(line.senderId);
+      return senderColor ? { ...line, senderColor } : line;
+    });
   return { lines: kept, truncated: chat?.truncated === true };
 }
 
@@ -175,8 +205,9 @@ export function chatColumns(
   chat: GameChatPayload | undefined,
   blocks: GameChatBlock[] | undefined,
   seatUserId: string,
+  seatColors: Map<string, string>,
 ): { chat?: GameChatLine[]; chatTruncated: boolean } {
-  const projected = chatForSeat(chat, blocks, seatUserId);
+  const projected = chatForSeat(chat, blocks, seatUserId, seatColors);
   if (!projected) return { chatTruncated: false };
   return { chat: projected.lines, chatTruncated: projected.truncated };
 }

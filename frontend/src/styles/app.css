@@ -12,6 +12,27 @@
 /* No CSS reset here; Tailwind's preflight (imported by `index.css`) supplies it.
    This file is unlayered, so a rule added here beats every utility class. */
 
+/* Native controls and scrollbars follow the era palette. The focus ring is global;
+   an inline `outline: none` still wins, which is why the audit removed it from
+   interactive controls. */
+:root {
+  color-scheme: dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: rgb(var(--accent-pink-rgb) / 0.35);
+  color: var(--text-main);
+}
+
 html,
 body {
   width: 100%;
@@ -44,6 +65,22 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--accent-pink);
   border: 1px solid var(--accent-cyan);
+}
+
+/* One bounded scroll surface per panel: reserve the bar's width before the list
+   overflows, so revealing it never shifts a row sideways. Chromium keeps the
+   global pink-and-cyan bar; the guarded block gives Firefox a thin themed bar. */
+.scroll-surface {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scroll-surface {
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-pink) var(--bg-secondary);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -130,15 +167,15 @@ body {
    appears and disappears, at the same size, in place. */
 @media (prefers-reduced-motion: no-preference) {
   .chat-screen--on .chat-raster {
-    animation: chatRasterOn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: chatRasterOn 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .chat-screen--on .chat-picture {
-    animation: chatPictureIn 420ms ease-out both;
+    animation: chatPictureIn 340ms ease-out both;
   }
 
   .chat-screen--off .chat-raster {
-    animation: chatRasterOff 260ms cubic-bezier(0.42, 0, 1, 1) both;
+    animation: chatRasterOff 220ms cubic-bezier(0.42, 0, 1, 1) both;
   }
 
   /* The expanded card rises out of the plate: 10 px of travel and a hair of
@@ -283,16 +320,39 @@ body {
   box-sizing: border-box !important;
 }
 
-/* The desktop `/game` fit: the wrapper is the viewport's one flex column, and the
-   board column's measured budget is what gives the board its square. The stacked
-   layout keeps its natural height and ordinary page scroll. */
+/* The bounded panel pages: at desktop widths the shell is the viewport and the
+   main column owns the remaining height, so a list scrolls inside its border.
+   Below 1024 px every page keeps its natural height and ordinary page scroll. */
 @media (min-width: 1024px) {
+  .page-fit-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .page-fit-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+/* The desktop `/game` fit: the wrapper is the viewport's one flex column, and the
+   board's measured budget gives it its square; 1280 px starts the grid. The stacked
+   layout keeps its natural height and ordinary page scroll. */
+@media (min-width: 1280px) {
   .app-wrapper.game-page.game-fit {
     height: 100dvh;
     max-height: 100dvh;
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+
+  .game-fit > header {
+    flex: 0 0 auto;
   }
 
   .game-fit > main {
@@ -303,6 +363,47 @@ body {
   .game-fit > main > * {
     min-width: 0;
     min-height: 0;
+  }
+}
+
+/* The landscape-tablet `/game` fit: the same one-viewport three-column room as
+   desktop, but with narrow side tracks so the board keeps its square. This is the
+   100%-zoom answer to the old stacked tablet page, which ran to ~1.8k px tall. */
+@media (orientation: landscape) and (min-width: 1024px) and (max-width: 1279px) {
+  .app-wrapper.game-page.game-fit {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .game-fit > header {
+    flex: 0 0 auto;
+  }
+
+  .game-fit > main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .game-fit > main > * {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .game-tactical-grid {
+    grid-template-columns:
+      clamp(210px, 19.5vw, 250px)
+      minmax(0, 1fr)
+      clamp(210px, 19.5vw, 250px);
+    gap: var(--game-gap);
+  }
+
+  .game-tactical-grid > .order-1,
+  .game-tactical-grid > .order-2,
+  .game-tactical-grid > .order-3 {
+    order: 0;
   }
 }
 

@@ -215,7 +215,7 @@ export function passwordMeetsPolicy(pw: string): boolean {
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `verify2fa`, `resend2fa`, `forgotPassword`, `resetPassword` actions |
+| `store/store.tsx` | `verify2fa`, `resend2fa`, `forgotPassword`, `resetPassword` actions |
 | `router.tsx` | `navigate`, `useRoute` for token query params |
 | `validatePassword.ts` | Client-side password-policy check (`passwordMeetsPolicy`, boolean) |
 | `RetroAuthLayout.tsx` | Centered card layout wrapper |

@@ -1,6 +1,8 @@
 // Shared vocabulary for both piece sets: the paint roles, the five part shapes,
 // the resolved palette record, and the pose and layer types the renderer walks.
 
+import type { ColorKey } from '../theme';
+
 export type PieceRole =
   | 'base'
   | 'hi'
@@ -99,3 +101,12 @@ export type PieceSet = 'retro70' | 'retro80';
 export type PieceLayer = { parts: PiecePart[]; turn: boolean };
 // A figure cut at the neck, in the order it has to be drawn.
 export type PieceLayers = PieceLayer[];
+
+// One theme's complete piece set: the id it is drawn from, and the two functions
+// the renderer calls for a seat. The theme row owns this object, so adding a set
+// is a theme folder, not a second registry.
+export type PieceSetDefinition = {
+  id: PieceSet;
+  layers: (ck: ColorKey) => PieceLayers;
+  palette: (ck: ColorKey) => PiecePalette;
+};

@@ -1,13 +1,13 @@
-import type { ColorKey } from '../../theme';
-import type { PiecePart } from '../pieceParts70';
+import type { ColorKey } from '../../../../theme';
+import type { PiecePart } from '../../../../game/pieceTypes';
 import { BIKER } from './biker';
 import { CYBORG } from './cyborg';
 import { NETRUNNER } from './netrunner';
 import { PUNK } from './punk';
 
-// The 1980s piece set: one figure per seat, drawn in a 100x100 box, traced from the supplied sheet
-// (`spritesheet-80's.jpg`) and painted in the language of the 1970s set in `pieceParts70/` — roles
-// from that seat's value ladder, `pop` for the one accent, real strokes, no pixel snapping.
+// The 1980s piece set: one figure per seat in a 100x100 box, traced from the supplied sheet
+// (`spritesheet-80's.jpg`) and painted in the 1970s set's language (`styles/themes/retro70/pieces/`),
+// with roles from that seat's value ladder, `pop` for the accent, real strokes and no pixel snapping.
 
 // How many of each figure's parts sit above the neck, which is how a pose finds the head:
 // `parts80.py` authors every figure head-first and body-after with `HEAD_END` between them, and

@@ -102,11 +102,6 @@ export class AuthService {
     return this.profile.getProfile(userId);
   }
 
-  // Turn email-code 2FA on or off for the user.
-  async setTwoFactorSetting(userId: string, enabled: boolean, currentPassword?: string) {
-    return this.profile.setTwoFactorSetting(userId, enabled, currentPassword);
-  }
-
   // Complete profile update: display name, email, 2FA and OAuth methods in one call.
   async updateProfile(
     userId: string,

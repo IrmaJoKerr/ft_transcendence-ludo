@@ -169,12 +169,11 @@ itself is listed under *Friends* with the other block codes.
    - [`POST /api/auth/forgot-password`](#post-apiauthforgot-password) — Request a password-reset link by email
    - [`POST /api/auth/reset-password`](#post-apiauthresetpassword) — Set a new password using the token from the reset email (sent in the body, not the URL)
    - [`GET /api/auth/profile`](#get-apiauthprofile) — Get your full profile (email, linked OAuth providers, has password)
-   - [`PATCH /api/auth/profile`](#patch-apiauthprofile) — Update your username, display name, or email
+   - [`PATCH /api/auth/profile`](#patch-apiauthprofile) — Update your username, display name, email, language or 2FA preference
    - [`PATCH /api/auth/profile/password`](#patch-apiauthprofilepassword) — Change your password while logged in
    - [`DELETE /api/auth/profile`](#delete-apiauthprofile) — Permanently delete your account (password-verified)
 
-3. **[Auth — 2FA](#3-auth--2fa)** — Toggle two-factor authentication
-   - [`PATCH /api/auth/2fa`](#patch-apiauth2fa) — Turn two-factor authentication on or off
+3. **[Auth — 2FA](#3-auth--2fa)** — The account toggle is part of `PATCH /api/auth/profile`; verify and resend are under Account & Sessions
 
 4. **[Auth — OAuth (Google / GitHub / 42)](#4-auth--oauth-google--github--42)** — Sign in with a third-party provider
    - [`GET /api/auth/google`](#get-apiauthgoogle) — Log in with Google
@@ -809,40 +808,10 @@ change-password flow).
 
 ### 3. Auth — 2FA
 
-
----
----
-
-
-#### `PATCH /api/auth/2fa`
-
-**Source:** `backend/src/auth/auth.controller.ts` — AuthModule
-
-Toggle the user's 2FA preference. There is no `GET` counterpart: the current value already rides on
-`GET /api/auth/me` and `GET /api/auth/profile` as `twoFactorEnabled`, which is where the Edit-Profile
-card reads it.
-
-**Headers:** 🔒 (requires `token` cookie)  
-**Body:**
-
-```json
-{
-  "enabled": true,
-  "currentPassword": "required for a password account (ignored for OAuth-only)"
-}
-
-```
-
-**Response:**
-
-```json
-{
-  "twoFactorEnabled": true
-}
-
-```
-
-**Errors:** `401 AUTH_CURRENT_PASSWORD_INCORRECT` when the toggle changes and the supplied password is wrong; `429 RATE_LIMITED` above 10 toggles/hour.
+The account toggle is part of [`PATCH /api/auth/profile`](#patch-apiauthprofile), which accepts
+`twoFactorEnabled` and `currentPassword`; the Edit-Profile card writes through that route. The login
+challenge's verify and resend routes are documented under
+[Auth — Account & Sessions](#1-auth--account--sessions).
 
 
 ---
@@ -2858,7 +2827,7 @@ socket.emit('skip_wall_breaker');
 
 **Source:** `backend/app/ludo-engine/src/socket/socket-handlers.ts` (`handleClashInput`)
 
-One QTE keypress during the press phase. The key itself picks the side (defender keys are the left block, attacker keys the right); in a key-shift room the live letter changes at each `switchAt` instant, so the opening key stops counting there. The seat binding then proves the caller owns it. `count` is the tablet tap weight, clamped to `CLASH_TAP_COUNT_MAX` (2).
+One QTE keypress during the press phase. The key itself picks the side (defender keys are the left block, attacker keys the right); in a key-shift room the live letter changes at each `switchAt` instant, so the opening key stops counting there. The seat binding then proves the caller owns it. `count` is the tablet tap weight, clamped to the shared `CLASH_TAP_COUNT` (1.5).
 
 ```js
 socket.emit('clash_input', 'f', 1);
@@ -2868,7 +2837,7 @@ socket.emit('clash_input', 'f', 1);
 | Param | Type | Notes |
 |---|---|---|
 | `key` | string | The key bound to your side in the current clash |
-| `count` | number | Optional tap weight, default 1, clamped to 2; a pad tap is a heavier press, never a faster stream (110 ms per-side cap) |
+| `count` | number | Optional tap weight, default 1, clamped to `CLASH_TAP_COUNT` (1.5); a pad tap is a heavier press, never a faster stream (110 ms per-side cap) |
 
 **Response:** `clash_press` broadcast.
 

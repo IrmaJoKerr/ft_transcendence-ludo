@@ -15,6 +15,7 @@ import {
   chatColumns,
   isUniqueViolation,
   readEngineState,
+  seatColorsByUserId,
   seatSnapshot,
 } from './postgame-snapshot';
 import type { GameChatBlock, GameChatPayload } from './postgame-snapshot';
@@ -102,6 +103,9 @@ export class MatchPostgameService {
     if (completed) return { message: 'Game already processed', gameId };
 
     const matchData = await this.redis.hgetall(`match:${gameId}`);
+    // The hash outlives this method, so read the seat colours once and let every row's
+    // transcript projection stamp from the same map.
+    const seatColors = seatColorsByUserId(matchData);
 
     // R21: /end is a completion pass, never an early close. A room is over when the
     // engine declared a winner (`state.status === 'finished'`) or when it closed the
@@ -374,7 +378,7 @@ export class MatchPostgameService {
               participants: snapshot,
               // The seat's own transcript (M3): the room's lines cut at the ledger, so a
               // row never carries a line this player was not shown.
-              ...chatColumns(chat, blocks, p.userId),
+              ...chatColumns(chat, blocks, p.userId, seatColors),
             },
           });
 

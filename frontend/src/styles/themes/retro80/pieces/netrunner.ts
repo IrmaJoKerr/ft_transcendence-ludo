@@ -1,4 +1,4 @@
-import type { PiecePart } from '../pieceParts70';
+import type { PiecePart } from '../../../../game/pieceTypes';
 
 // GRID NETRUNNER (green): long coat with rim light, headset, one visor slit, centred antenna.
 export const NETRUNNER: PiecePart[] = [

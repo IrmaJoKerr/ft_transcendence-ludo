@@ -13,6 +13,10 @@ export type ChatCardLine = {
   text: string;
   at: number;
   ch?: string;
+    // The sender's semantic seat colour, stamped when the backend stores a profile
+    // transcript (`RED`, `GREEN`, `YELLOW`, `BLUE`). A live room line has no such
+    // stamp; the profile resolves it through the current palette.
+  senderColor?: string;
     // A line the engine wrote. `text` is empty and `code` is the locale key.
   kind?: 'system';
   code?: 'left' | 'started';

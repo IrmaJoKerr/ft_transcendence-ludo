@@ -68,7 +68,6 @@ export function LanguageSwitcher({
                 cursor: 'pointer',
                 boxShadow: isSelected ? '0 0 10px rgb(var(--accent-cyan-rgb) / 0.35)' : 'none',
                 transition: 'all 0.18s ease',
-                outline: 'none',
               }}
             >
               <span

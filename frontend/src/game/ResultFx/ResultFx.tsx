@@ -2,6 +2,7 @@ import { useEffect, useId } from 'react';
 import type { CSSProperties } from 'react';
 import { COL } from '../../theme';
 import { useApp } from '../../store';
+import { THEME_BY_ID } from '../../styles/themes';
 import type { PlayerColor } from '../types';
 import {
   SCENE_ATTACK_MS,
@@ -70,7 +71,7 @@ export function ResultFx({
 }) {
   useEffect(ensureKeyframes, []);
   const { theme } = useApp();
-  const isRetro70 = theme === 'retro70';
+  const pieces = THEME_BY_ID[theme].pieces;
   const attackerColor = COL[attacker].base;
   const defenderColor = COL[defender].base;
   // Who won, and therefore whose colour is on every mark and whose side the cell slams in
@@ -268,7 +269,7 @@ export function ResultFx({
           defenderColor={defenderColor}
           attacker={attacker}
           attackerWon={attackerWon}
-          isRetro70={isRetro70}
+          pieces={pieces}
           wallFx={wallFx}
           pivot={pivot}
         />
@@ -298,14 +299,14 @@ export function ResultFx({
           x={DEFENDER_GLYPH_X}
           y={GLYPH_Y}
           color={defender}
-          retro70={isRetro70}
+          pieces={pieces}
           pose='right'
         />
         <CastPiece
           x={ATTACKER_GLYPH_X}
           y={GLYPH_Y}
           color={attacker}
-          retro70={isRetro70}
+          pieces={pieces}
           pose='left'
         />
       </g>

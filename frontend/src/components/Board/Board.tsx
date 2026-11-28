@@ -4,15 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { COL, type ColorKey } from '../../theme';
 import { useApp } from '../../store';
 import { SAFE_TRACK_POSITIONS, TRACK_CELLS, stepToCell } from '../../game/boardGeometry';
+import { THEME_BY_ID } from '../../styles/themes';
 import { PieceFigure } from '../PieceFigure';
 import { CaptureBurst } from '../CaptureBurst';
-
-const CELL_BG = '#050515';
-const LINE = '#00f0ff';
 
 
 function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
   const { theme } = useApp();
+  const pieces = THEME_BY_ID[theme].pieces;
 
     // Both themes are drawn figures, not pixel sprites: the 1970s bobbleheads and the 1980s
   // characters, each in a 100-unit box with real strokes and no pixel snapping.
@@ -28,7 +27,7 @@ function Sphere({ ck, isLegal }: { ck: ColorKey; isLegal?: boolean }) {
           : 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.95))',
       }}
     >
-      <PieceFigure ck={ck} set={theme === 'retro70' ? 'retro70' : 'retro80'} />
+      <PieceFigure ck={ck} pieces={pieces} />
     </svg>
   );
 }
@@ -73,10 +72,11 @@ function Yard({
         gridRow: `${r + 1} / span 6`,
         gridColumn: `${c + 1} / span 6`,
         padding: '6% 8%',
-        background: 'rgb(var(--bg-panel-rgb) / 0.95)',
-        border: '1.5px solid #2121ff',
+        background: 'var(--board-yard)',
+        border: '1.5px solid var(--board-yard-border)',
         borderRadius: 8,
-        boxShadow: '0 0 14px rgba(33, 33, 255, 0.45), inset 0 0 10px rgb(var(--accent-cyan-rgb) / 0.15)',
+        boxShadow:
+          '0 0 14px rgb(var(--board-yard-border-rgb) / 0.45), inset 0 0 10px rgb(var(--board-line-rgb) / 0.15)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -345,12 +345,12 @@ export function Board({
       if (r >= 6 && r <= 8 && c >= 6 && c <= 8) continue; // center handled separately
       const key = `${r},${c}`;
       const startCol = STARTS[key];
-      const bg = startCol ? COL[startCol].base : (laneColor(r, c) ?? CELL_BG);
+      const bg = startCol ? COL[startCol].base : (laneColor(r, c) ?? 'var(--board-cell)');
       const style: CSSProperties = {
         gridRow: r + 1,
         gridColumn: c + 1,
         background: bg,
-        border: `1px solid ${LINE}`,
+        border: '1px solid var(--board-line)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -553,9 +553,9 @@ export function Board({
           gap: 1,
           padding: '2.5%',
           borderRadius: 10,
-          background: 'rgba(15, 6, 38, 0.95)',
-          border: '2px solid #2121ff',
-          boxShadow: '0 0 25px rgba(33, 33, 255, 0.6), inset 0 0 20px rgb(var(--accent-cyan-rgb) / 0.25)',
+          background: 'var(--board-frame)',
+          border: '2px solid var(--board-yard-border)',
+          boxShadow: 'var(--board-frame-shadow)',
         }}
       >
         <Yard
@@ -599,8 +599,9 @@ export function Board({
             gridRow: '7 / span 3',
             gridColumn: '7 / span 3',
             background: `conic-gradient(from 45deg, ${COL.yellow.base} 0 90deg, ${COL.blue.base} 90deg 180deg, ${COL.red.base} 180deg 270deg, ${COL.green.base} 270deg 360deg)`,
-            border: '2px solid #2121ff',
-            boxShadow: '0 0 18px rgba(33, 33, 255, 0.6), inset 0 0 12px rgba(0,0,0,.7)',
+            border: '2px solid var(--board-yard-border)',
+            boxShadow:
+              '0 0 18px rgb(var(--board-yard-border-rgb) / 0.6), inset 0 0 12px rgba(0, 0, 0, 0.7)',
           }}
         />
         {cells}

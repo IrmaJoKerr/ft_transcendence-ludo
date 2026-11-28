@@ -97,8 +97,11 @@ export class JoinManager {
     // argument is only a fallback and cannot send the socket to another game.
     const effectiveGameId = socket.data.tokenGameId || socket.data.gameId || gameId;
     const effectiveUserId = socket.data.userId || userId;
-    const effectiveUsername = displayName || socket.data.username;
     const isHotseat = socket.data.mode === 'hotseat';
+    // An account seat's username is the immutable login name, never the editable
+    // display name. Hotseat drives several local seats from one socket and has no
+    // account per seat, so there the lobby label is the seat's identity.
+    const effectiveUsername = isHotseat ? displayName || socket.data.username : socket.data.username;
     const effectiveColor = (!isHotseat && socket.data.tokenColor) || playerColor;
 
     void this.withGameLock(effectiveGameId, async () => {

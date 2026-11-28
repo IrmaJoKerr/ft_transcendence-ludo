@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import { PieceFigure } from './PieceFigure';
 import { useApp } from '../store';
+import { THEME_BY_ID } from '../styles/themes';
 import { COL } from '../theme';
 import type { PlayerColor } from '../game/types';
 import { GOAL_CARD_MS } from '../__shared__/timing.constants';
@@ -77,6 +78,7 @@ const PIECE_SCALE = 0.42; // 42 units of figure against a 48-unit band
 // `GoalConfetti`, and the whole of that celebration (32.5).
 export function GoalCard({ color, count }: { color: PlayerColor; count: number }) {
   const { theme } = useApp();
+  const pieces = THEME_BY_ID[theme].pieces;
   useEffect(ensureKeyframes, []);
   const hue = COL[color].base;
   const filled = Math.min(SLOTS.length, Math.max(1, count));
@@ -195,7 +197,7 @@ export function GoalCard({ color, count }: { color: PlayerColor; count: number }
             <g
               transform={`translate(${arrived.x} ${arrived.y}) scale(${PIECE_SCALE}) translate(-50 -95.5)`}
             >
-              <PieceFigure ck={color} set={theme === 'retro70' ? 'retro70' : 'retro80'} pose="front" />
+              <PieceFigure ck={color} pieces={pieces} pose="front" />
             </g>
           </g>
         </g>

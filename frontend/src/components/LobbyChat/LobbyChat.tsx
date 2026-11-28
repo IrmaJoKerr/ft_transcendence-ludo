@@ -301,6 +301,8 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
               zIndex: 10004,
               display: 'flex',
               flexDirection: 'column',
+              // The dialog shell is programmatically focusable (tabIndex -1); focus lands
+              // on a visible control inside it, so the shell itself draws no ring.
               outline: 'none',
             }}
           >
@@ -405,17 +407,19 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 8,
+          gap: 6,
           flexShrink: 0,
           minWidth: 0,
         }}
       >
         <span
           style={{
+            flex: '1 1 auto',
+            minWidth: 0,
             fontFamily: 'var(--font-display)',
-            fontSize: '0.64rem',
+            fontSize: 'clamp(0.56rem, 0.4rem + 1.7vw, 0.64rem)',
             fontWeight: 900,
-            letterSpacing: '1px',
+            letterSpacing: 'clamp(0.2px, 0.15vw, 1px)',
             color: open ? 'var(--accent-cyan)' : 'var(--text-muted)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -447,7 +451,6 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
             flexShrink: 0,
             cursor: 'pointer',
             borderRadius: 5,
-            outline: 'none',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.56rem',
             fontWeight: 900,
@@ -498,7 +501,6 @@ export function LobbyChat({ open, onToggle, compact = false }: LobbyChatProps) {
           minHeight: SCREEN_MIN_HEIGHT,
           boxSizing: 'border-box',
           cursor: open ? 'pointer' : 'default',
-          outline: 'none',
         }}
       >
         {/* The raster: the white sheet that opens from a line to the frame. */}

@@ -36,7 +36,7 @@ export function ThemeSwitcher() {
               aria-pressed={isActive}
               title={item.label}
               onClick={() => {
-                retroAudio.playUiBeep(item.id === 'retro70' ? 660 : 880, 0.05);
+                retroAudio.playUiBeep(item.beepHz, 0.05);
                 setTheme(item.id);
               }}
               style={{

@@ -94,7 +94,7 @@ flowchart LR
 
 | Dependency | Purpose |
 |-----------|---------|
-| `store.tsx` | `lang` / `setLang` state shared by the language selectors |
+| `store/store.tsx` | `lang` / `setLang` state shared by the language selectors |
 | `router.tsx` | `useRoute()` so `/terms` opens the Terms doc |
 | `components/MarkdownViewer.tsx` | Renders the legal markdown |
 | `styles/tw.ts` | Retrowave style constants used by `LegalPage` |

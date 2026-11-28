@@ -1,4 +1,4 @@
-import type { PiecePart } from '../pieceParts70';
+import type { PiecePart } from '../../../../game/pieceTypes';
 
 // SYNTHWAVE ARCADE BIKER (yellow): full-face helmet, iridescent visor, puffer.
 export const BIKER: PiecePart[] = [

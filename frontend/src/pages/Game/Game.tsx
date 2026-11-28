@@ -166,6 +166,18 @@ const CARD_ROOM_OVERHANG = 46;
 // constant, so switching glyphs is one edit.
 const WALL_BREAKER_GLYPH = '🧨';
 
+// The game has two fitted layouts: the 1280 px desktop three-column grid, and
+// landscape tablets from 1024 px, which use a narrower three-column variant.
+// Below 1024 the panels stack and the page keeps its natural scroll.
+const DESKTOP_LAYOUT_QUERY = '(min-width: 1280px)';
+const TABLET_LANDSCAPE_QUERY =
+  '(orientation: landscape) and (min-width: 1024px) and (max-width: 1279px)';
+// The fitted room uses one compact rhythm at every height, so the board grows
+// monotonically with the viewport instead of jumping at a height breakpoint.
+// Below the floor the whole fitted room falls back to its existing one-way zoom;
+// the floor is a layout value, not a scrollbar.
+const MIN_FIT_BOARD_PX = 480;
+
 // The plate the die turns on (38).
 const DIE_STAGE = 180;
 
@@ -281,6 +293,16 @@ export function Game() {
     localizedBotName(t, p.displayName) ||
     localizedBotName(t, p.username) ||
     (p.isBot ? t('common.bot') : 'Pilot');
+  // "Is this seat mine?" keys on the immutable account id. Only a legacy seat with no
+  // id falls back to the account username; a display name is a label, never a key.
+  const isMySeat = (
+    p: { userId?: string; username: string },
+    me: { id?: string; username?: string } | null = user,
+  ): boolean => {
+    const accountId = me?.id;
+    const loginName = me?.username;
+    return (!!accountId && p.userId === accountId) || (!p.userId && p.username === loginName);
+  };
   // Seeded name for a seat's generated avatar. A bot has no account, so it uses the
   // assistant name the lobby gave that seat, the same name the invoice seeds from.
   const seatAvatarName = (p: PlayerMeta): string =>
@@ -336,6 +358,11 @@ export function Game() {
   // card's answer (a refusal, or the confirmation) lands in the same line as a send
   // refusal.
   const [chatStatus, setChatStatus] = useState<ChatCardStatus | null>(null);
+  // A comms sender takes the seat colour the roster, token and board already use.
+  const chatNameColor = (line: ChatCardLine) => {
+    const seat = view.players.find((p) => p.userId === line.senderId);
+    return seat ? SEAT_HUES[seat.color] : undefined;
+  };
   // The pilot whose name was pressed in the transcript, and where the name was: the
   // card is placed off that rectangle, because the transcript scrolls under the
   // pointer. The card itself is `ChatNameCard`, the same one the lobby mounts (19.7).
@@ -370,9 +397,9 @@ export function Game() {
   // for the landing so the movable pieces do not light up mid-spin.
   const [rollFace, setRollFace] = useState<number | null>(null);
   // The Space listener is bound once for the page and would otherwise capture a stale
-  // `canRoll`; this ref always points at the newest `beginRoll` closure (assigned
-  // next to its definition, the same way `viewRef` is).
-  const beginRollRef = useRef<() => void>(() => {});
+  // `tapDie`; this ref always points at the newest closure (assigned next to its
+  // definition, the same way `viewRef` is).
+  const tapDieRef = useRef<() => void>(() => {});
   const [codeCopied, setCodeCopied] = useState(false);
   const [turnSwapNotice, setTurnSwapNotice] = useState<string | null>(null);
     // The swap notice's clear timer, held in a ref rather than in its effect's cleanup: that effect
@@ -519,37 +546,51 @@ export function Game() {
   const rosterOverhang = showWallBreakerColumn
     ? CARD_ROOM_OVERHANG + WALL_BREAKER_PANEL_W + WALL_BREAKER_PANEL_GAP
     : CARD_ROOM_OVERHANG;
-  // Only the three-column desktop layout (the `lg` grid) has a panel overhanging its column,
-  // so the board placement below is biased at that breakpoint and keeps the previously
-  // centred behaviour at the stacked tablet/mobile one, where the panels sit above and below.
+  // Both fitted layouts have a panel overhanging its column, so the board placement
+  // below is centred at 1280 px and in the narrower tablet-landscape variant; only the
+  // stacked below-1024 layout keeps the panels above and below the board.
   const [desktopLayout, setDesktopLayout] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_LAYOUT_QUERY).matches,
   );
+  const [tabletLayout, setTabletLayout] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(TABLET_LANDSCAPE_QUERY).matches,
+  );
+  const fittedLayout = desktopLayout || tabletLayout;
+  // One fitted rhythm: the board's floor needs the closer rows, and a height
+  // breakpoint would make the board shrink as the window grew past it.
+  const compactFit = fittedLayout;
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(min-width: 1024px)');
-    setDesktopLayout(mq.matches);
-    const sync = () => setDesktopLayout(mq.matches);
-    mq.addEventListener('change', sync);
-    return () => mq.removeEventListener('change', sync);
+    const desktop = window.matchMedia(DESKTOP_LAYOUT_QUERY);
+    const tablet = window.matchMedia(TABLET_LANDSCAPE_QUERY);
+    const sync = () => {
+      setDesktopLayout(desktop.matches);
+      setTabletLayout(tablet.matches);
+    };
+    sync();
+    desktop.addEventListener('change', sync);
+    tablet.addEventListener('change', sync);
+    return () => {
+      desktop.removeEventListener('change', sync);
+      tablet.removeEventListener('change', sync);
+    };
   }, []);
-    // The banner's corner cluster needs room on *both* sides of the title: each flank has to hold the
-  // 240px-capped cluster beside a ~395px title, which the banner (the viewport minus the 365px nav
-  // gutter) only has from ~1250px up.
+  // The banner's corner cluster belongs to the three-column 1280 px layout: below it the
+  // stacked header has the full width and the flanks have nowhere to sit.
   const [cornerBanner, setCornerBanner] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1250px)').matches,
+    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_LAYOUT_QUERY).matches,
   );
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(min-width: 1250px)');
+    const mq = window.matchMedia(DESKTOP_LAYOUT_QUERY);
     setCornerBanner(mq.matches);
     const sync = () => setCornerBanner(mq.matches);
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
-  // Desktop board placement: the board yields the roster panel's overhang and takes
-  // 20% of the space left as a right margin, so the left gutter holds the panel. The
-  // min() clamps the margin to 0 when the track is too narrow.
+  // Fitted board placement: split the slack left after the roster's overhang and the
+  // grid gap evenly on both sides, so the blank gutter before the board equals the one
+  // after it. The max() clamps the margin to 0 when the column width binds first.
   const fitRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const controlsRef = useRef<HTMLDivElement | null>(null);
@@ -562,7 +603,7 @@ export function Game() {
   // controls row and the action stack. The observer catches a wrapped name or a
   // mode change; the dependency list re-attaches it when a row mounts.
   useLayoutEffect(() => {
-    if (!desktopLayout) {
+    if (!fittedLayout) {
       setFitHeights((prev) =>
         prev.header === 0 && prev.controls === 0 && prev.actions === 0
           ? prev
@@ -595,7 +636,7 @@ export function Game() {
       observer?.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [desktopLayout, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
+  }, [fittedLayout, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
 
   // `document.fonts.ready` and a resize are fresh measurement passes, not a second
   // layout system: they only bump the key the zoom pass reads.
@@ -616,7 +657,7 @@ export function Game() {
   // height, reads the wrapper's natural overflow, then sets the factor. A one-way
   // shrink cannot oscillate, and the stacked layout is never zoomed.
   useLayoutEffect(() => {
-    if (!desktopLayout || !fitRef.current) {
+    if (!fittedLayout || !fitRef.current) {
       setFitZoom((prev) => (prev === 1 ? prev : 1));
       return;
     }
@@ -639,20 +680,24 @@ export function Game() {
       Math.max(0.8, Math.min(window.innerWidth / width, window.innerHeight / height)),
     );
     setFitZoom((prev) => (Math.abs(prev - factor) < 0.001 ? prev : factor));
-  }, [desktopLayout, fitHeights, fitPass, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
+  }, [fittedLayout, fitHeights, fitPass, view.status, view.clashMode, isGameEnded, activeMatch?.mode]);
 
-  // The desktop height cap is the viewport less the wrapper's 14 + 20 px padding,
-  // the header's 18 px margin, the controls row's 12 px margin and the action
-  // stack's 12 px top padding. The board is square, so this cap is also its width.
-  const boardCap = desktopLayout
-    ? `min(650px, calc(100dvh - ${fitHeights.header}px - ${fitHeights.controls}px - ${fitHeights.actions}px - 76px))`
+  // The fitted height cap is the viewport less the wrapper's vertical padding
+  // (8 + 8), the header's 6 px bottom margin, the controls and action stacks' 6 px
+  // top margins, and a 4 px subpixel guard. The board is square, so this cap is also
+  // its width. `max()` is the board's 480 px floor: the measured rows give up their
+  // air first, and only below 480 px does the fitted room use its existing
+  // whole-layout zoom.
+  const fitChrome = 38;
+  const boardCap = fittedLayout
+    ? `max(${MIN_FIT_BOARD_PX}px, min(650px, calc(100dvh - ${fitHeights.header}px - ${fitHeights.controls}px - ${fitHeights.actions}px - ${fitChrome}px)))`
     : 'min(650px, 66vh)';
-  const boardMaxWidth = desktopLayout
+  const boardMaxWidth = fittedLayout
     ? `min(${boardCap}, 100% - ${rosterOverhang}px)`
     : boardCap;
   const boardSlack = `100% - ${boardMaxWidth}`;
-  const boardMarginRight = desktopLayout
-    ? `max(0px, min((${boardSlack}) * 0.2, ${boardSlack} - ${rosterOverhang}px))`
+  const boardMarginRight = fittedLayout
+    ? `max(0px, calc((${boardSlack} - ${rosterOverhang}px + var(--game-gap)) / 2))`
     : undefined;
 
   useEffect(() => {
@@ -1056,9 +1101,16 @@ export function Game() {
           runStepAnimation();
         }
       } else if (type === 'lobby_update') {
-        const e = state as { players: Array<{ username: string; color: PlayerColor }> };
+        const e = state as {
+          players: Array<{
+            username: string;
+            displayName?: string;
+            userId?: string;
+            color: PlayerColor;
+          }>;
+        };
         const me = userRef.current;
-        const mine = e.players.find((p) => p.username === me?.username);
+        const mine = e.players.find((p) => isMySeat(p, me));
         if (mine && mine.color !== viewRef.current.myColor && activeMatchRef.current) {
           dispatch({ type: 'my_color_changed', color: mine.color });
           socket.emit(
@@ -1291,12 +1343,12 @@ export function Game() {
         return;
       if (viewRef.current.status !== 'active') return;
       // Prevent the page scroll and the browser's synthesized Space click on every
-      // handled press, even when `beginRoll`'s own gate refuses it.
+      // handled press, even when `tapDie`'s own gate refuses it.
       e.preventDefault();
       if (e.repeat) return;
       // Through the ref: the listener is bound once for the page, so it would hold a
-      // stale `canRoll` if it called `beginRoll` directly.
-      beginRollRef.current();
+      // stale `canRoll` if it called `tapDie` directly.
+      tapDieRef.current();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1370,9 +1422,6 @@ export function Game() {
       if (isRollingRef.current) resetRoll();
     }, diceRollMs(rollSpinMsRef.current) + DICE_BRAKE_ARM_MS);
   };
-  // Assigned every render, so the Space listener bound once for the page always calls
-  // the newest closure (the same pattern as `viewRef`).
-  beginRollRef.current = beginRoll;
 
   // Schedule the landing. `rollLandAtRef` is what the move animation reads, so a
   // braked roll does not make the piece wait for time the roll no longer has.
@@ -1414,6 +1463,9 @@ export function Game() {
     if (rollValueRef.current == null) return;
     scheduleLand(diceLandAt(start, rollSpinMsRef.current, now, now));
   };
+  // Assigned every render, so the Space listener bound once for the page always calls
+  // the newest closure (the same pattern as `viewRef`).
+  tapDieRef.current = tapDie;
 
   const movePiece = (pieceId: string) => {
     // The clash overlay owns the board while the QTE (or its result card, which
@@ -1721,14 +1773,14 @@ export function Game() {
   const activeHumanTurn = view.players.some(
     (p) => p.color === effectiveTurn && p.status === 'active' && !p.isBot,
   );
-  const seatNameMatches = view.players.some(
-    (p) => p.color === effectiveTurn && p.username === user?.username,
+  const seatIdentityMatches = view.players.some(
+    (p) => p.color === effectiveTurn && isMySeat(p),
   );
   const isMyTurn =
     !isPausedForReconnect &&
     (isHotseat
       ? activeHumanTurn
-      : effectiveTurn === view.myColor || (user != null && seatNameMatches));
+      : effectiveTurn === view.myColor || (user != null && seatIdentityMatches));
   // status === 'active' closes a game-end race; the engine also refuses a roll outside
   // its phase. The client withholds the tap during the clash and its engine-timed card.
   const canRoll =
@@ -1782,6 +1834,12 @@ export function Game() {
     (isPausedForReconnect && pausedOwnerName
       ? t('game.pausedForReconnectDetail', { name: pausedOwnerName })
       : null);
+  // The tablet has no corner band to speak in, and a notice in flow would make the
+  // measured header taller and shrink the board for its dwell. Anchor it over the
+  // turn pill instead: the pill still holds the header's height, the notice covers
+  // it, and the board's 480 px floor never moves. Desktop uses the band; the
+  // stacked layout keeps the notice in flow below the pill.
+  const marqueeOverlaysPill = fittedLayout && !cornerBanner;
     // The notice's one box, placed differently in the two layouts (20.5).
   const statusMarqueeBox =
     statusMarquee == null ? null : (
@@ -1815,7 +1873,19 @@ export function Game() {
                 width: 'max-content',
                 maxWidth: 640,
               }
-            : { margin: '0 auto', width: '100%', maxWidth: 740 }),
+            : marqueeOverlaysPill
+              ? {
+                  // Same width and height budget as the in-flow box, pinned over the
+                  // turn pill's own line so the header keeps the height it measured.
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: 5,
+                  transform: 'translateX(-50%)',
+                  width: '100%',
+                  maxWidth: 740,
+                  zIndex: 2,
+                }
+              : { margin: '0 auto', width: '100%', maxWidth: 740 }),
         }}
       >
         {statusMarquee}
@@ -1876,8 +1946,11 @@ export function Game() {
               '--game-header-h': `${fitHeights.header}px`,
               '--game-controls-h': `${fitHeights.controls}px`,
               '--game-actions-h': `${fitHeights.actions}px`,
-              ...(desktopLayout
+              ...(fittedLayout
                 ? {
+                    // The CSS half of `fitChrome`'s 38 px: 8 px above and below.
+                    paddingTop: 8,
+                    paddingBottom: 8,
                     height: `${100 / fitZoom}dvh`,
                     maxHeight: `${100 / fitZoom}dvh`,
                     zoom: fitZoom,
@@ -1904,6 +1977,9 @@ export function Game() {
               display: 'flex',
               flexDirection: 'column',
               padding: '5px 0 5px',
+              // The compact fitted rhythm closes the header-to-board gap with the
+              // wrapper padding in the same pass; both numbers are in fitChrome.
+              marginBottom: compactFit ? 6 : undefined,
               textAlign: 'center',
             }}
           >
@@ -1970,7 +2046,15 @@ export function Game() {
                     band (not this wrapper) is what drops the pill when a wrapped cluster
                     makes the row taller than its floor; `auto` stays as the fallback for a
                     branch that renders no band. */}
-                <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+                <div
+                  style={{
+                    marginTop: 'auto',
+                    paddingTop: 8,
+                    // The tablet notice sits over this line; hiding (not unmounting)
+                    // the pill keeps the header's measured height unchanged.
+                    visibility: marqueeOverlaysPill && statusMarquee ? 'hidden' : undefined,
+                  }}
+                >
                   <div
                     style={{
                       display: 'inline-flex',
@@ -2093,7 +2177,6 @@ export function Game() {
                           border: '1px solid var(--accent-cyan)',
                           color: 'var(--accent-cyan)',
                           fontFamily: 'var(--font-mono)',
-                          outline: 'none',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
@@ -2158,16 +2241,21 @@ export function Game() {
               CONTROLS & SETTINGS row is what the left column's feed now reaches, so the
               room ends on one line instead of two. */}
           <main
-            className="game-tactical-grid grid grid-cols-1 gap-3 lg:grid-cols-[250px_1fr_250px] lg:gap-2.5 xl:grid-cols-[285px_1fr_285px] 2xl:grid-cols-[310px_1fr_310px]"
-            style={{
-              alignItems: 'stretch',
-              width: '100%',
-              margin: '0 auto',
-            }}
+            className="game-tactical-grid grid grid-cols-1 gap-4 xl:grid-cols-[285px_1fr_285px] xl:gap-[var(--game-gap)] 2xl:grid-cols-[310px_1fr_310px]"
+            style={
+              {
+                alignItems: 'stretch',
+                width: '100%',
+                margin: '0 auto',
+                '--game-gap': tabletLayout
+                  ? 'clamp(16px, 1.5vw, 20px)'
+                  : 'clamp(28px, 2vw, 40px)',
+              } as CSSProperties
+            }
           >
             {/* COLUMN 1: PILOT ROSTER // TACTICAL STATUS & SYSTEM CONTROL */}
             <div
-              className="order-2 lg:order-none"
+              className="order-2 xl:order-none"
               // `minHeight: 0` lets the column be shorter than its content, which is what
               // hands the slack to the feed below rather than overrunning the grid (20.4).
               style={{ display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}
@@ -2295,12 +2383,10 @@ export function Game() {
 
                         if (view.status === 'waiting') {
                           // `ck === view.myColor` lags the server's seat assignment for a PvP joiner,
-                          // so fall back to a username match, which recognises the seat on first paint.
+                          // so fall back to the account id, which recognises the seat on first paint.
                           const isYou =
                             ck === view.myColor ||
-                            (occupied &&
-                              !!user?.username &&
-                              playerMeta?.username === user.username);
+                            (occupied && !!playerMeta && isMySeat(playerMeta));
                           const isReady = view.readyPlayers.includes(ck);
 
                           return (
@@ -2454,7 +2540,7 @@ export function Game() {
                         const isHostSeat = isHotseat && ck === activeMatch.color;
                         const isYou = isHotseat
                           ? ck === view.myColor
-                          : !playerMeta.isBot && playerMeta.username === user?.username;
+                          : !playerMeta.isBot && isMySeat(playerMeta);
                         const name =
                           (localNames[ck] ?? localizedBotName(t, playerMeta.displayName)) ||
                           localizedBotName(t, playerMeta.username) ||
@@ -2779,6 +2865,7 @@ export function Game() {
                     send={sendChatLine}
                     connected={chatConnected}
                     inert={Boolean(view.clash)}
+                    senderColor={chatNameColor}
                     status={chatStatus}
                     onStatus={setChatStatus}
                     onOpenName={(id, name, anchor) => setNameTarget({ id, name, anchor })}
@@ -2800,7 +2887,7 @@ export function Game() {
 
               {/* View Results Button below Pilot Roster */}
               {lastResult && (
-                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column' }}>
                   <button
                     className={RETRO_BTN}
                     onClick={() => {
@@ -2829,7 +2916,7 @@ export function Game() {
 
             {/* COLUMN 2: QUANTUM LUDO MATRIX / BOARD */}
             <div
-              className="order-1 lg:order-none"
+              className="order-1 xl:order-none"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -2837,10 +2924,10 @@ export function Game() {
                 width: '100%',
                 // Anchor the opt-in flash card (below) over the board, not the screen.
                 position: 'relative',
-                // Desktop: the board yields the roster panel's overhang and then biases right
+                // Fitted: the board yields the roster panel's overhang and then biases right
                 // (see boardMaxWidth / boardMarginRight); the stacked layout stays centred.
                 maxWidth: boardMaxWidth,
-                justifySelf: desktopLayout ? 'end' : 'center',
+                justifySelf: fittedLayout ? 'end' : 'center',
                 marginRight: boardMarginRight,
               }}
             >
@@ -2988,7 +3075,12 @@ export function Game() {
               <div
                 ref={controlsRef}
                 id="gameControlsRow"
-                style={{ display: 'flex', gap: 10, width: '100%', marginTop: 12 }}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  width: '100%',
+                  marginTop: compactFit ? 6 : 10,
+                }}
               >
                 <CyberButton
                   label={t('gameExtra.controlsSettings')}
@@ -2997,7 +3089,12 @@ export function Game() {
                     retroAudio.playUiBeep(600, 0.05);
                     setIsControlsModalOpen(true);
                   }}
-                  style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    ...(compactFit ? { paddingTop: 8, paddingBottom: 8 } : {}),
+                  }}
                 />
                 <CyberButton
                   label={t('gameExtra.gameRulesBtn')}
@@ -3006,23 +3103,30 @@ export function Game() {
                     retroAudio.playUiBeep(600, 0.05);
                     setIsSystemModalOpen(true);
                   }}
-                  style={{ flex: 1, justifyContent: 'center', textAlign: 'center' }}
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    ...(compactFit ? { paddingTop: 8, paddingBottom: 8 } : {}),
+                  }}
                 />
               </div>
 
               {/* In-game actions: one full-width stack, last in the board column.
                   RETURN stays the raw square button; ABORT and SKIP stay clipped
-                  CyberButtons. DOM and focus order is Return -> Abort -> Skip. */}
+                  CyberButtons. DOM and focus order is Return -> Abort -> Skip.
+                  The stack keeps the same 10 px rhythm as the controls row and the
+                  buttons inside it; no auto margin reopens the old desktop gap. */}
               <div
                 ref={actionsRef}
                 id="gameActionStack"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
+                  gap: compactFit ? 4 : 10,
                   width: '100%',
-                  marginTop: view.status === 'waiting' ? 12 : 'auto',
-                  paddingTop: view.status === 'waiting' ? 0 : 12,
+                  marginTop: compactFit ? 6 : 10,
+                  paddingTop: 0,
                 }}
               >
                 {/* RETURN TO LOBBY BUTTON (every ended game, a live online PvP, and a live PvE that
@@ -3043,7 +3147,11 @@ export function Game() {
                     }}
                     style={{
                       width: '100%',
-                      padding: isGameEnded ? '14px 18px' : '12px 14px',
+                      padding: isGameEnded
+                        ? '14px 18px'
+                        : compactFit
+                          ? '8px 14px'
+                          : '12px 14px',
                       fontSize: isGameEnded ? '0.88rem' : '0.78rem',
                       fontFamily: 'var(--font-mono)',
                       fontWeight: 'bold',
@@ -3081,7 +3189,11 @@ export function Game() {
                     shortcut="ESC"
                     variant="danger"
                     onClick={() => setIsAbortModalOpen(true)}
-                    style={{ width: '100%', justifyContent: 'center' }}
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      ...(compactFit ? { paddingTop: 8, paddingBottom: 8 } : {}),
+                    }}
                   />
                 )}
 
@@ -3106,7 +3218,11 @@ export function Game() {
                       variant="yellow"
                       disabled={!canSkipWallBreak}
                       onClick={skipWallBreak}
-                      style={{ width: '100%', justifyContent: 'center' }}
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        ...(compactFit ? { paddingTop: 8, paddingBottom: 8 } : {}),
+                      }}
                     />
                   </span>
                 )}
@@ -3115,7 +3231,7 @@ export function Game() {
 
             {/* COLUMN 3: TACTICAL LOGS */}
             <div
-              className="order-3 lg:order-none"
+              className="order-3 xl:order-none"
               style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
             >
               {view.status === 'waiting' ? (
@@ -3198,7 +3314,7 @@ export function Game() {
                           />
                           {/* The key-shift mutator sits directly under the clash
                               toggle it depends on, so the panel reads clash → mid-clash
-                              key shift → free exit → no safe zones → attack animations:
+                              key shift → free exit → no safe zones → game animations:
                               a checkbox and its 1 / 2 count. Both are disabled unless
                               clash mode is on, because the engine forces the count to 0
                               there. The count lives in local state so re-enabling

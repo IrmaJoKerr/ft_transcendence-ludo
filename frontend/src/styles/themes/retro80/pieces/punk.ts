@@ -1,4 +1,4 @@
-import type { PiecePart } from '../pieceParts70';
+import type { PiecePart } from '../../../../game/pieceTypes';
 
 // NEON OUTRUN PUNK (red): crest, shaved sides, studded jacket, hands at its sides.
 export const PUNK: PiecePart[] = [

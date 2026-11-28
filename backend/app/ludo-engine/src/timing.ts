@@ -9,10 +9,12 @@ export const CLASH_SWITCH_FIRST_MIN_MS = 2000; // earliest first switch
 export const CLASH_SWITCH_FIRST_MAX_MS = 2500; // latest first switch
 export const CLASH_SWITCH_GAP_MIN_MS = 800; // shortest gap between two switches
 export const CLASH_SWITCH_GAP_MAX_MS = 1100; // longest gap between two switches
+
 // The engine never draws the card, but its freeze and next-round timer use the longest
 // shared card, which is the breach.
 export const CLASH_RESULT_FREEZE_MS = CLASH_BREACH_RESULT_MS + CARD_HOLD_MARGIN_MS; // 4200
 export const CARD_HOLD_MIN_MS = 250; // floor for a client's card hold
+
 // Each key shift extends the press window, so the sweep covers the longest two-switch
 // window: 4500 ms of announce and countdown plus 8000 ms of presses.
 export const CLASH_KEYSHIFT_EXTRA_MS = 1500; // press-window extension per key shift
@@ -21,13 +23,13 @@ export const CLASH_SWEEP_INTERVAL_MS = 5000; // orphaned-clash sweep cadence
 export const CLASH_PRESS_CAP_MS = 110; // min ms between accepted presses per side (~9 Hz)
 // Bot press interval bases, one per profile. The fast base stays above
 // `CLASH_PRESS_CAP_MS` so routing bots through the capped path cannot silently drop presses.
-export const CLASH_BOT_FAST_MS_BASE = 122; // fast profile's press interval base
-export const CLASH_BOT_CASUAL_MS_BASE = 130; // casual profile's press interval base
+export const CLASH_BOT_FAST_MS_BASE = 128; // fast profile's press interval base
+export const CLASH_BOT_CASUAL_MS_BASE = 135; // casual profile's press interval base
 export const CLASH_BOT_JITTER_MS = 30; // random spread added to each interval
 // Bot reaction pauses are fixed per profile: fast models recognition plus muscle memory,
 // casual pays choice reaction time. They are never drawn; the gap jitter carries tempo.
-export const CLASH_BOT_FAST_REACTION_MS = 200; // recognition, then muscle memory
-export const CLASH_BOT_CASUAL_REACTION_MS = 600; // top of the choice-reaction band
+export const CLASH_BOT_FAST_REACTION_MS = 400; // recognition, then muscle memory
+export const CLASH_BOT_CASUAL_REACTION_MS = 700; // top of the choice-reaction band
 // Re-read cost after a mid-round letter switch, paid from the window extension the
 // key-shift mutator already grants.
 export const CLASH_BOT_REREAD_MS = 150;

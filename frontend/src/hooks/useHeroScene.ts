@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { createSceneState, paintHero, type HeroFrame } from '../heroBackdrops';
-import { HERO_SCENES, sceneArt } from '../heroScenes';
-import type { ThemeType } from '../store';
+import { sceneArt } from '../heroScenes';
+import { THEME_BY_ID, type ThemeType } from '../styles/themes';
 
 // Drives the home cabinet's one canvas: seeds the scene, advances the frame clocks and calls the
 // painter its theme picked, once per animation frame.
@@ -22,7 +22,7 @@ export function useHeroScene(
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const scene = HERO_SCENES[theme];
+    const scene = THEME_BY_ID[theme].heroScene;
     const state = createSceneState(scene, canvas.width);
         // The scene's own still loads in the background; the rAF loop paints it the frame it decodes, and
     // until then the painter draws what that card was before it had one. The file sits in its theme's

@@ -68,7 +68,7 @@ export function RoomsWindow({
                     background: '#190a38',
                     borderBottom: '1px solid rgb(var(--accent-cyan-rgb) / 0.3)',
                     padding: '12px 14px',
-                    gap: 12,
+                    gap: 10,
                     flexWrap: 'wrap',
                   }}
                 >
@@ -180,7 +180,7 @@ export function RoomsWindow({
                     padding: 14,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 12,
+                    gap: 10,
                     minHeight: 0,
                   }}
                 >
@@ -200,7 +200,10 @@ export function RoomsWindow({
                   >
                     {/* Header and rows share one scroll box, so the scrollbar takes
                         the same width from both and the tracks stay aligned. */}
-                    <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
+                    <div
+                      className="scroll-surface"
+                      style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}
+                    >
                       {/* Header Row */}
                       <div
                         style={{

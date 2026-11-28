@@ -158,9 +158,6 @@ type AppState = {
   resetPassword: (token: string, password: string) => Promise<string | null>  // Sets a new password
   resendVerification: (email: string) => Promise<string | null>  // Resends a signup verification link
   logout: () => Promise<void>  // Logs the user out
-  // 2FA preference
-  twoFactor: boolean  // Whether 2FA is on
-  toggleTwoFactor: () => void  // Turns 2FA on/off
   // Game setup state
   playerCount: PlayerCount  // How many players
   seats: Seat[]  // List of seats (you/bot/player/empty)
@@ -181,7 +178,7 @@ type AppState = {
   settingOn: (key: string) => boolean  // Checks if a setting is on
   toggleSetting: (key: string) => void  // Flips a setting
   // Theme
-  theme: ThemeType  // Current theme ('synthwave' | 'retro70', persisted as retro_theme)
+  theme: ThemeType  // Current theme ('retro80' | 'retro70', persisted as retro_theme)
   setTheme: (t: ThemeType) => void  // Changes the theme
   // Real-time match
   activeMatch: ActiveMatch  // The current match info (minted room or guest room)
@@ -369,7 +366,7 @@ toggleSetting(key)
 - It adds the `ngrok-skip-browser-warning` header so the ngrok interstitial page never intercepts an API (Application Programming Interface) call (other hosts ignore the header), and it builds headers with the `Headers` constructor, so headers passed by the caller are merged instead of overwritten.
 - **Errors are translated using their code.** When a response fails, `request()` reads the `code` field from the body and translates it with `translateErrorCode()` (`errors.<CODE>`). If the body has no `code`, or the code has no translation, it logs the English `message` to the console and uses a localized generic message; the server text is never rendered. The auth store's `apiError()` works the same way. See [API-list.md](../API-list.md) → Error responses.
 
-`store.tsx` also refreshes **early**, every 14 minutes: access tokens expire after 15 minutes (`JwtModule` `expiresIn: '15m'`), so refreshing one minute ahead keeps the next call from arriving with an expired token. The 401 retry path above would still recover, but the browser logs the 401 first.
+`store/store.tsx` also refreshes **early**, every 14 minutes: access tokens expire after 15 minutes (`JwtModule` `expiresIn: '15m'`), so refreshing one minute ahead keeps the next call from arriving with an expired token. The 401 retry path above would still recover, but the browser logs the 401 first.
 
 
 ---
@@ -384,4 +381,4 @@ toggleSetting(key)
 | `i18n.ts` | `i18n.changeLanguage` and `i18n.t` for default player names |
 | `api.ts` | `apiFetch` (refresh-and-retry), `fetchWithCsrf` (CSRF bootstrap + header), `refreshOnce` (called on the store's 14-minute timer, before the access token expires), and `translateErrorCode`, which turns an error code into text in the user's language |
 | `game/types.ts` | `PlayerColor` for `ActiveMatch` |
-| API (Application Programming Interface) | `/api/auth/me`, `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/2fa/verify`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/2fa` |
+| API (Application Programming Interface) | `/api/auth/me`, `/api/auth/login`, `/api/auth/register`, `/api/auth/logout`, `/api/auth/2fa/verify`, `/api/auth/2fa/resend`, `/api/auth/forgot-password`, `/api/auth/reset-password` |

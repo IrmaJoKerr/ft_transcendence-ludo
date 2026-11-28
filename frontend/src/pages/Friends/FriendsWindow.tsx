@@ -145,6 +145,7 @@ export function FriendsWindow({
           />
 
           <div
+            className="scroll-surface"
             style={{
               padding: '12px 16px',
               flex: 1,

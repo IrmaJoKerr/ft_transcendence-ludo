@@ -354,7 +354,7 @@ export const en = {
     transcriptLabel: 'COMMS LOGS:',
     transcriptNa: 'N/A',
     transcriptShow: 'SHOW COMMS LOGS ({{count}})',
-    transcriptHide: 'HIDE COMMS LOGS',
+    transcriptTitle: 'COMMS LOGS ({{count}})',
     transcriptTruncated: 'COMMS LOGS TRUNCATED',
     friendsBoxTitle: 'FRIENDS ({{count}})',
     manageBtn: 'MANAGE ↗',
@@ -385,7 +385,6 @@ export const en = {
     pickColorTitle: '// PICK YOUR SQUAD COLOUR //',
     noFreeColors: 'No available colours left in this room',
     turnOrderByColor: 'Turn order by colour',
-    cancelPick: 'Cancel',
     createFailed: 'Failed to create match',
     activeGameLockError: 'You already have an active game. Leave it before starting a new one',
     activeGameLockLabel: '// FINISH OR LEAVE YOUR ACTIVE GAME //',
@@ -636,18 +635,18 @@ export const en = {
     reconLogsTitle: '// RECON LOGS',
     noReconLogged: 'NO TELEMETRY LOGGED',
     // Room rules: the host's three toggles. `noSafeZones` is the INVERTED flag,
-    // and the label names the hardcore variant rather than the negation, so the
+    // and the label states the rule directly rather than the negation, so the
     // polarity is never shown to a player. A standard room is off/off/on.
     rulesControl: '// ROOM RULES',
     hostOnlyRules: 'Only the host can change these while the room is waiting.',
     clashMode: 'Clash Mode',
     clashModeDesc: 'Win the letter race when attacked to stay on the square',
     noSafeZones: 'No Safe Zones',
-    noSafeZonesDesc: 'Star squares no longer protect (hardcore)',
+    noSafeZonesDesc: 'There are no safe zones.',
     freeExit: 'Free Exit',
     freeExitDesc: 'Any roll leaves prison, not just a 6',
-    captureFx: 'Attack Animations',
-    captureFxDesc: 'Play an attack animation when you take a piece',
+    captureFx: 'Game Animations',
+    captureFxDesc: 'Play attack, clash and goal cinematics',
         // The key-shift mutator. "Letter", not "key": on a tablet there is no key at all and the pad shows
     // letters. The wording says switch/change/bertukar throughout and keeps "flip" for the animation,
     // so the copy survives a change of animation.
@@ -879,7 +878,7 @@ export const en = {
     noOpenRooms: 'NO OPEN PVP ARENAS FOUND. INITIALIZE AN ARENA AT LEVEL 1',
   },
     // The two squad pages (34, item 2): four squads a decade, each with the nickname its own drawing
-  // gives it (`pieceParts70/`'s four helmets, `pieceParts80/`'s four characters) and a short bio
+  // gives it (`styles/themes/retro70/pieces/`'s four helmets, `styles/themes/retro80/pieces/`'s four characters) and a short bio
   // written in the voice the arena speaks in.
   squadsPage: {
     title: 'MEET THE SQUADS',
@@ -1000,7 +999,7 @@ export const en = {
     rulesModalTitle: 'ARENA PROTOCOLS & RULES',
     rulesVersionTag: 'RULES.v42.SYS',
     nextPageBtn: 'NEXT PAGE ▶',
-    startPlayingBtn: 'START PLAYING',
+    backToFirstPageBtn: 'BACK TO FIRST PAGE',
     rulesTab0: '1. GOAL',
     rulesTab1: '2. ROLL 6',
     rulesTab2: '3. ENEMY',
@@ -1030,7 +1029,7 @@ export const en = {
     rulesPage5Line1: 'You are safe once you reach your coloured lane. Opponents cannot enter your home stretch!',
     rulesPage5Line2: 'Just get to the center! (if you can get the exact steps!)',
     rulesTab6: '7. CLASH',
-    rulesTab7: '8. HARDCORE',
+    rulesTab7: '8. NO SAFE ZONES',
     rulesTab8: '9. FREE EXIT',
     rulesTab9: '10. WALL BREAKER',
     rulesPage6Header: '// CLASH MODE',
@@ -1053,13 +1052,13 @@ export const en = {
     // switch is announced in advance of the warning itself.
     rulesPage6KeyShift:
       'The host can also turn on the Clash Multi-Spectrum Hop: the required letter switches once or twice during the race. A warning flashes before each switch and the pad re-draws its letters, so keep reading — a thumb parked on the old letter only fills the bar until the switch.',
-    rulesPage7Header: '// NO SAFE ZONES (HARDCORE)',
+    rulesPage7Header: '// NO SAFE ZONES',
     rulesPage7Title: '💀 Nowhere to hide',
     rulesPage7Body:
       'The eight star squares stop protecting, so a piece can be captured anywhere on the track — your own start square included. Only the home lane still shields you.',
-    // Hardcore's second half: stars also stop being exempt for stacks (a stack there
+    // The rule's second half: stars also stop being exempt for stacks (a stack there
     // blocks the path). The breakable-wall gate is per square: clash mode opens an
-    // ordinary square, while a star needs hardcore.
+    // ordinary square, while a star needs the flag.
     rulesPage7Body2:
       'Without safe zones the stars are no exemption for stacks either: two pieces on one square — a star included — form a wall that blocks the path. A wall on an ordinary square is already breakable under clash mode alone: land on it and fight one clash per defender. With the stars off, a wall parked on a star is breakable too.',
     rulesPage8Header: '// FREE EXIT',

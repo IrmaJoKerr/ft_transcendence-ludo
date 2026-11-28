@@ -1,7 +1,7 @@
 // The body and helmet globe every 1970s bobblehead stands on, in the shared
 // 100-unit box, as flat part lists.
 
-import type { PiecePart } from './types';
+import type { PiecePart } from '../../../../game/pieceTypes';
 
 // The one shared body: neck, stub torso with two straps, hanging arms with mitts, two boots, and
 // exactly one accent — a thin ring on the chest.

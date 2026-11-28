@@ -95,7 +95,6 @@ export function ChatCardComposer({
             background: 'rgb(var(--shade-rgb) / 0.5)',
             color: 'var(--text-main)',
             border: `1px solid ${over ? 'rgba(255, 82, 120, 0.6)' : 'var(--border-color)'}`,
-            outline: 'none',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.74rem',
             lineHeight: '20px',

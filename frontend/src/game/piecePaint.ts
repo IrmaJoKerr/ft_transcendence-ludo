@@ -1,8 +1,9 @@
-// The colour ladder both sets share: one accent per seat, the fixed creams, and
-// the gradient boxes the SVG and canvas renderers measure against.
+// The paint vocabulary both piece sets share: the fixed creams, the one skin
+// tone, the value ladder and the gradient boxes. A theme owns only which rung
+// its garment takes; the gradients and the accent rule are common.
 
-import { COL, type ColorKey } from '../../theme';
-import type { PiecePalette, PieceRole } from './types';
+import { COL, type ColorKey } from '../theme';
+import type { PiecePalette, PieceRole } from './pieceTypes';
 
 // The ink every outline is drawn in: near-black, warmed so it reads on walnut.
 const INK = '#0a0716';
@@ -22,6 +23,7 @@ const WHITE = '#ffffff';
 //  skin tone is 1.6 px of blended mud, and roles-not-colours holds — a face is a
 //  face, not a surface, so it sits beside the creams rather than on the ladder.
 const SKIN = '#c98a63';
+
 // `t` of the way from `a` to `b`, both `#rrggbb`.
 function mix(a: string, b: string, t: number): string {
   const parts = (hex: string) =>
@@ -35,17 +37,18 @@ function mix(a: string, b: string, t: number): string {
       .join('')
   );
 }
-// The value ladder: `hi`/`lit` lift the seat hue towards white, `shd`/`lo`/`deep`
-// sink it towards black, and `deepink` is a hue-tinted near-black so an outline
-// still belongs to the piece it surrounds. Percentages are the stills'.
-export function piecePalette(color: ColorKey): PiecePalette {
+
+// The value ladder: `hi`/`lit` lift the seat hue, `shd`/`lo`/`deep` sink it, `deepink`
+// is a hue-tinted near-black. `lo` is the one rung a theme moves: 52 % for the 70s,
+// 30 for the 80s, because black leather on a synthwave cell is a silhouette at 30 px.
+export function paletteLadder(color: ColorKey, lo: number): PiecePalette {
   const base = COL[color].base;
   return {
     base,
     hi: mix(base, WHITE, 0.62),
     lit: mix(base, WHITE, 0.34),
     shd: mix(base, '#000000', 0.22),
-    lo: mix(base, '#000000', 0.52),
+    lo: mix(base, '#000000', lo),
     deep: mix(base, '#000000', 0.74),
     deepink: mix(base, INK, 0.86),
     pop: POP[color],
@@ -55,14 +58,7 @@ export function piecePalette(color: ColorKey): PiecePalette {
     skin: SKIN,
   };
 }
-// The 80s garment rung: `lo` sunk 30 per cent towards black, where the 70s ladder
-// sinks it 52. See `piecePalette80` for why the second rung exists.
-const LO_80 = 0.3;
-// The 80s set's palette: the same ladder, with the garment rung lifted.
-export function piecePalette80(color: ColorKey): PiecePalette {
-  const base = COL[color].base;
-  return { ...piecePalette(color), lo: mix(base, '#000000', LO_80) };
-}
+
 // The two body gradients, as stops the renderer turns into ink: `lid` is linear (torso), `gid`
 // radial about 0.33/0.28 at radius 0.9 (helmet globe).
 export const PIECE_GRADIENT = {

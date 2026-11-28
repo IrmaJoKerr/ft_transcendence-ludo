@@ -889,7 +889,7 @@ export class ClashEngine {
             // recordClashPress would re-enter it and deadlock. The single chain
             // plus the press cap make the counting idempotent. This call also
             // bypasses CLASH_PRESS_CAP_MS (the cap lives in ClashManager), which is
-            // why the fast base is 111 and not something under it.
+            // why the fast base is 128 and not something under it.
             const count = await this.store.recordClashPress(gameId, botColor);
             // Broadcast so every client's bars advance live (the store does not
             // publish; human presses get there via ClashManager).

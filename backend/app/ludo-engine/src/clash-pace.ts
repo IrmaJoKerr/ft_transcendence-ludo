@@ -39,8 +39,8 @@ const CLASH_BOT_RAMP = [1.25, 1.15, 1.07] as const;
 // deadline) reads the meters.
 const CLASH_BOT_TAIL_GUARD_MS = 100;
 
-// Fixed reaction pause per profile, never jittered: 200 ms for fast recognition and
-// muscle memory, 600 ms for casual choice reaction. Mid-round switches add
+// Fixed reaction pause per profile, never jittered: 400 ms for fast recognition and
+// muscle memory, 700 ms for casual choice reaction. Mid-round switches add
 // `CLASH_BOT_REREAD_MS`.
 export const CLASH_BOT_REACTION_MS: Record<BotPaceKind, number> = {
   fast: CLASH_BOT_FAST_REACTION_MS,

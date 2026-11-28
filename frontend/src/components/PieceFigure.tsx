@@ -1,36 +1,23 @@
 import type { CSSProperties } from 'react';
 import type { ColorKey } from '../theme';
-import {
-  GLOBE_GRADIENT,
-  LID_VECTOR,
-  PIECE_GRADIENT,
-  PIECE_LAYERS,
-  cutAtNeck,
-  piecePalette,
-  piecePalette80,
-  poseTurn,
-  type PieceLayers,
-  type PiecePalette,
-  type PiecePart,
-  type PiecePose,
-  type PieceRole,
-  type PieceSet,
-} from '../game/pieceParts70';
-import { PIECE_FACE_80, PIECE_HEAD_80, PIECE_PARTS_80 } from '../game/pieceParts80';
+import { poseTurn } from '../game/pieceGeometry';
+import { GLOBE_GRADIENT, LID_VECTOR, PIECE_GRADIENT } from '../game/piecePaint';
+import type {
+  PieceLayers,
+  PiecePalette,
+  PiecePart,
+  PiecePose,
+  PieceRole,
+  PieceSetDefinition,
+} from '../game/pieceTypes';
 
-// Draws a seat's SVG figure from `game/pieceParts70/` (70s) or `pieceParts80/` (80s).
-// It renders bare `<g>` content, so the caller owns the frame and transform. `pose` turns
-// only the face plate; the head and body stay put.
-
-// The palette for a set: the 80s ladder lifts its garment rung, the 70s does not.
-function paletteFor(ck: ColorKey, set: PieceSet): PiecePalette {
-  return set === 'retro80' ? piecePalette80(ck) : piecePalette(ck);
-}
+// Draws a seat's SVG figure from the theme's own piece set. It renders bare `<g>`
+// content, so the caller owns the frame and transform. `pose` turns only the face
+// plate; the head and body stay put.
 
 // The two body gradients, scoped per seat because they use `objectBoundingBox` units.
 // No pose mirrors a figure now, so the authored vectors are the only ones used.
-function Gradients({ ck, set }: { ck: ColorKey; set: PieceSet }) {
-  const pal = paletteFor(ck, set);
+function Gradients({ ck, pal }: { ck: ColorKey; pal: PiecePalette }) {
   const stops = (key: 'lid' | 'gid') => {
     const spec = PIECE_GRADIENT[key];
     return [
@@ -69,8 +56,7 @@ function paint(role: PieceRole | 'none' | undefined, pal: PiecePalette, ck: Colo
   return pal[role];
 }
 
-function Part({ part, ck, set }: { part: PiecePart; ck: ColorKey; set: PieceSet }) {
-  const pal = paletteFor(ck, set);
+function Part({ part, ck, pal }: { part: PiecePart; ck: ColorKey; pal: PiecePalette }) {
   const fill = paint(part.kind === 'line' ? 'none' : part.fill, pal, ck);
   const stroke = paint(part.stroke, pal, ck);
   const common = {
@@ -123,35 +109,29 @@ function Part({ part, ck, set }: { part: PiecePart; ck: ColorKey; set: PieceSet 
   }
 }
 
-// Which decade's drawing to lay down: `pieceParts70/` owns the union, this re-exports it
-//  with the component, which is where callers used to find it.
-export type { PieceSet };
-
-// One seat's figure in the shared 100-unit box. `set` picks the part table, not the box;
-// both sets put feet on 95.5, so a theme change does not move a piece. `pose` only turns
-// the marked face run; nothing is mirrored.
+// One seat's figure in the shared 100-unit box. `pieces` is the theme's own set; both
+// sets put feet on 95.5, so a theme change does not move a piece. `pose` only turns the
+// marked face run; nothing is mirrored.
 export function PieceFigure({
   ck,
-  set = 'retro70',
+  pieces,
   pose = 'front',
   style,
 }: {
   ck: ColorKey;
-  set?: PieceSet;
+  pieces: PieceSetDefinition;
   pose?: PiecePose;
   style?: CSSProperties;
 }) {
-  const layers: PieceLayers =
-    set === 'retro80'
-      ? cutAtNeck(PIECE_PARTS_80[ck], PIECE_HEAD_80[ck], PIECE_FACE_80[ck])
-      : PIECE_LAYERS[ck];
+  const layers: PieceLayers = pieces.layers(ck);
+  const pal = pieces.palette(ck);
   const turn = poseTurn(pose);
   const draw = (parts: PiecePart[], key: string) =>
-    parts.map((part, i) => <Part key={`${key}${i}`} part={part} ck={ck} set={set} />);
+    parts.map((part, i) => <Part key={`${key}${i}`} part={part} ck={ck} pal={pal} />);
 
   return (
     <g style={style}>
-      <Gradients ck={ck} set={set} />
+      <Gradients ck={ck} pal={pal} />
       {layers.map((layer, i) =>
         layer.turn ? (
           <g key={`t${i}`} transform={turn ?? undefined}>
